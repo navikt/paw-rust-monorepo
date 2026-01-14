@@ -45,7 +45,7 @@ jobs:
         with:
           team: paw
           context: .
-          file: ./app/test-app/Dockerfile
+          file: app/test-app/Dockerfile
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
