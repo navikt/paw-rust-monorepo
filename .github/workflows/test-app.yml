@@ -44,8 +44,8 @@ jobs:
         id: docker-build-push
         with:
           team: paw
-          context: .
-          build-args: APP=test-app
+          build_args: |
+            APP=test-app
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
