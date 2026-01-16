@@ -1,6 +1,7 @@
-mod nais_http_apis;
+mod app_logic;
+mod http_apis;
 
-use crate::nais_http_apis::register_nais_http_apis;
+use crate::http_apis::register_http_apis;
 use health::simple_app_state::AppState;
 use std::sync::Arc;
 
@@ -14,7 +15,8 @@ async fn main() {
 
 async fn run_app() -> Result<(), Box<dyn AppError>> {
     let app_state = Arc::new(AppState::new());
-    let http_server_task = register_nais_http_apis(app_state.clone());
+    let app_logic = Arc::new(app_logic::AppLogic::new(Arc::from("Hello")));
+    let http_server_task = register_http_apis(app_state.clone(), app_logic.clone());
     app_state.set_has_started(true);
     match http_server_task.await {
         Ok(Ok(())) => Ok(()),
