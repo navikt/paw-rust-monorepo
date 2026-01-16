@@ -1,8 +1,7 @@
-mod app_state;
 mod nais_http_apis;
 
-use crate::app_state::AppState;
 use crate::nais_http_apis::register_nais_http_apis;
+use health::simple_app_state::AppState;
 use std::sync::Arc;
 
 #[tokio::main]

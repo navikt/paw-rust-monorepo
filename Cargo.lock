@@ -126,6 +126,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum_health"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "health",
+ "prometheus",
+ "tokio",
+]
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -783,6 +793,10 @@ checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
 dependencies = [
  "hashbrown 0.15.5",
 ]
+
+[[package]]
+name = "health"
+version = "0.1.0"
 
 [[package]]
 name = "heck"
@@ -2504,9 +2518,11 @@ name = "test-app"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "axum_health",
  "base64 0.22.1",
  "chrono",
  "futures",
+ "health",
  "log",
  "log4rs",
  "prometheus",
