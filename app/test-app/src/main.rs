@@ -8,7 +8,7 @@ use opentelemetry::{global, trace::Tracer};
 use std::sync::Arc;
 use log::{info, log};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use opentelemetry_otlp::{WithExportConfig, Protocol};
+use opentelemetry_otlp::{WithExportConfig, Protocol, WithTonicConfig};
 use tonic::metadata::*;
 use crate::logging::init_log;
 
@@ -25,6 +25,7 @@ async fn main() {
         .with_tonic()
         .with_protocol(Protocol::Grpc)
         .with_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap())
+        .with_metadata(map)
         .build().unwrap();
 
 
