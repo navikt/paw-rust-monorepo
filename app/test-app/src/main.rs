@@ -1,15 +1,20 @@
 mod app_logic;
 mod http_apis;
+mod logging;
 
 use crate::http_apis::register_http_apis;
 use health::simple_app_state::AppState;
 use opentelemetry::{global, trace::Tracer};
 use std::sync::Arc;
+use log::{info, log};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_otlp::{WithExportConfig, Protocol};
+use crate::logging::init_log;
 
 #[tokio::main]
 async fn main() {
+    init_log();
+    info!("Starter test app");
     global::set_text_map_propagator(TraceContextPropagator::new());
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
