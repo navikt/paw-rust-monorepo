@@ -2775,6 +2775,7 @@ dependencies = [
  "testcontainers-modules",
  "tokio",
  "toml",
+ "tonic",
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
@@ -3037,8 +3038,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb7613188ce9f7df5bfe185db26c5814347d110db17920415cf2fbcad85e7203"
 dependencies = [
  "async-trait",
+ "axum",
  "base64 0.22.1",
  "bytes",
+ "h2",
  "http",
  "http-body",
  "http-body-util",
@@ -3047,6 +3050,7 @@ dependencies = [
  "hyper-util",
  "percent-encoding",
  "pin-project",
+ "socket2",
  "sync_wrapper",
  "tokio",
  "tokio-stream",

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use log::{info, log};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_otlp::{WithExportConfig, Protocol};
+use tonic::metadata::*;
 use crate::logging::init_log;
 
 #[tokio::main]
@@ -16,9 +17,14 @@ async fn main() {
     init_log();
     info!("Starter test app");
     global::set_text_map_propagator(TraceContextPropagator::new());
+    let mut map = MetadataMap::with_capacity(2);
+    map.insert("service.name", std::env::var("OTEL_SERVICE_NAME").unwrap().parse().unwrap());
+    map.insert("service.namespace", std::env::var("NAIS_NAMESPACE").unwrap().parse().unwrap());
+
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_protocol(Protocol::Grpc)
+        .with_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap())
         .build().unwrap();
 
 
