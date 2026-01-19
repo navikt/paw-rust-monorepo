@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 pub mod compoud_health;
 pub mod simple_app_state;
 
@@ -11,3 +13,4 @@ pub enum CheckType {
     IsAlive,
     HasStarted,
 }
+

@@ -8,6 +8,10 @@ use axum::{
 use health::HealthCheck;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use tower_http::{
+    classify::ServerErrorsAsFailures,
+    trace::{Trace, TraceLayer},
+};
 
 pub fn register_http_apis(
     app_state: Arc<dyn HealthCheck + Send + Sync>,
@@ -27,6 +31,7 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
     axum::Router::new()
         .route("/greet", post(greet_handler))
         .route("/greet_json", post(greet_handler_json))
+        .layer(TraceLayer::new_for_http())
         .with_state(logic)
 }
 

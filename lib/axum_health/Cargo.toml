@@ -8,3 +8,6 @@ health = { path = "../../lib/health" }
 axum = "0.8.8"
 tokio = "1.49.0"
 prometheus = "0.14.0"
+tracing = "0.1.44"
+tower-http = { version = "0.6.8", features = ["trace"] }
+

@@ -3,10 +3,26 @@ mod http_apis;
 
 use crate::http_apis::register_http_apis;
 use health::simple_app_state::AppState;
+use opentelemetry::{global, trace::Tracer};
 use std::sync::Arc;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_otlp::{WithExportConfig, Protocol};
 
 #[tokio::main]
 async fn main() {
+    global::set_text_map_propagator(TraceContextPropagator::new());
+    let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_protocol(Protocol::Grpc)
+        .build().unwrap();
+
+
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(otlp_exporter)
+        .build();
+
+    global::set_tracer_provider(tracer_provider);
+
     match run_app().await {
         Ok(()) => println!("Application exited successfully."),
         Err(e) => eprintln!("Application error (code {}): {}", e.code(), e.description()),
