@@ -3,17 +3,20 @@ mod http_apis;
 mod logging;
 
 use crate::http_apis::register_http_apis;
+use crate::logging::init_log;
 use health::simple_app_state::AppState;
+use log::{info, log};
 use opentelemetry::{global, trace::Tracer, KeyValue};
+use opentelemetry_otlp::{Protocol, WithExportConfig, WithTonicConfig};
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::Resource;
 use std::sync::Arc;
 use std::time::Duration;
-use log::{info, log};
-use opentelemetry_sdk::propagation::TraceContextPropagator;
-use opentelemetry_otlp::{WithExportConfig, Protocol, WithTonicConfig};
-use opentelemetry_sdk::Resource;
 use tonic::metadata::*;
 use tracing::instrument;
-use crate::logging::init_log;
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() {
@@ -38,13 +41,18 @@ async fn main() {
         .with_batch_exporter(otlp_exporter)
         .with_resource(Resource::builder_empty().with_attributes(
             [
-                KeyValue::new("service.name", service_name),
+                KeyValue::new("service.name", service_name.clone()),
                 KeyValue::new("service.namespace", service_namespace),
             ])
             .build())
         .build();
-
     global::set_tracer_provider(tracer_provider);
+    let tracer = global::tracer(service_name);
+    tracing_subscriber::registry()
+        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(tracing_subscriber::fmt::Layer::default())
+        .init();
+
     test_trace();
     match run_app().await {
         Ok(()) => println!("Application exited successfully."),
