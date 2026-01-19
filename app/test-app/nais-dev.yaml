@@ -29,6 +29,9 @@ spec:
   prometheus:
     enabled: true
     path: /internal/metrics
+  observability:
+    tracing:
+      enabled: true
   resources:
     limits:
       memory: 8Mi
