@@ -17,10 +17,11 @@ use tracing::instrument;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::filter::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    init_log();
+    //init_log();
     info!("Starter test app");
     global::set_text_map_propagator(TraceContextPropagator::new());
     let mut map = MetadataMap::with_capacity(2);
@@ -49,6 +50,8 @@ async fn main() {
     global::set_tracer_provider(tracer_provider);
     let tracer = global::tracer(service_name);
     tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env()
+            .add_directive(tracing::Level::INFO.into()))
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .with(tracing_subscriber::fmt::Layer::default())
         .init();
