@@ -7,6 +7,8 @@ metadata:
     team: paw
 spec:
   image: {{ image }}
+  ingresses:
+    - https://intern-rust-testing-arbeidssoekerregisteret.intern.dev.nav.no
   port: 8080
   replicas:
     min: 1
