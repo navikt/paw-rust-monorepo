@@ -4,11 +4,13 @@ mod logging;
 
 use crate::http_apis::register_http_apis;
 use health::simple_app_state::AppState;
-use opentelemetry::{global, trace::Tracer};
+use opentelemetry::{global, trace::Tracer, KeyValue};
 use std::sync::Arc;
+use std::time::Duration;
 use log::{info, log};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_otlp::{WithExportConfig, Protocol, WithTonicConfig};
+use opentelemetry_sdk::Resource;
 use tonic::metadata::*;
 use tracing::instrument;
 use crate::logging::init_log;
@@ -26,12 +28,20 @@ async fn main() {
         .with_tonic()
         .with_protocol(Protocol::Grpc)
         .with_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap())
-        .with_metadata(map)
+        .with_timeout(Duration::from_secs(5))
         .build().unwrap();
 
-
+    let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap();
+    let service_namespace = std::env::var("NAIS_NAMESPACE").unwrap();
+    info!("Service Name: {}, Namespace: {}", service_name, service_namespace);
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(otlp_exporter)
+        .with_resource(Resource::builder_empty().with_attributes(
+            [
+                KeyValue::new("service.name", service_name),
+                KeyValue::new("service.namespace", service_namespace),
+            ])
+            .build())
         .build();
 
     global::set_tracer_provider(tracer_provider);
