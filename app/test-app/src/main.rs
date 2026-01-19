@@ -10,6 +10,7 @@ use log::{info, log};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_otlp::{WithExportConfig, Protocol, WithTonicConfig};
 use tonic::metadata::*;
+use tracing::instrument;
 use crate::logging::init_log;
 
 #[tokio::main]
@@ -34,11 +35,16 @@ async fn main() {
         .build();
 
     global::set_tracer_provider(tracer_provider);
-
+    test_trace();
     match run_app().await {
         Ok(()) => println!("Application exited successfully."),
         Err(e) => eprintln!("Application error (code {}): {}", e.code(), e.description()),
     }
+}
+
+#[instrument]
+fn test_trace() {
+    info!("Kjørte metode med 'instrument'");
 }
 
 async fn run_app() -> Result<(), Box<dyn AppError>> {
