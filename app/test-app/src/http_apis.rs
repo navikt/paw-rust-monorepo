@@ -86,15 +86,19 @@ struct GreetResponse {
     message: String,
 }
 
-#[instrument(skip(logic, payload, headers))]
 async fn greet_handler_json(
     State(logic): State<Arc<AppLogic>>,
     headers: HeaderMap,
     extract::Json(payload): extract::Json<GreetRequest>,
 ) -> Json<GreetResponse> {
     let parent_ctx = extract_trace_context(&headers);
-    let span = tracing::Span::current();
+    let span = tracing::info_span!(
+        "greet_handler_json",
+        otel.kind = "server",
+        otel.name = "greet_handler_json"
+    );
     let res = span.set_parent(parent_ctx.clone());
+    let _guard = span.enter();
     //log warning if res is SetParentError
     match res {
         Ok(_) => {}
