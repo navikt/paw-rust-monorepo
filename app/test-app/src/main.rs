@@ -52,15 +52,15 @@ async fn main() {
         .with_level(true)
         .with_thread_names(true)
         .with_file(true)
-        .with_line_number(true);
+        .with_line_number(true)
+        .fmt_fields(tracing_subscriber::fmt::format::JsonFields::new());
     global::set_tracer_provider(tracer_provider);
     let tracer = global::tracer(service_name.clone());
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env()
             .add_directive(tracing::Level::INFO.into()))
-        .with(fmt_layer)
+        .with(fmt_layer.with_span_events(FmtSpan::NONE))
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .with(tracing_subscriber::fmt::Layer::default())
         .init();
     info!("Starter test app");
     info!("Service Name: {}, Namespace: {}", service_name, service_namespace);
