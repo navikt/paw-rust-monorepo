@@ -12,6 +12,7 @@ use tower_http::{
     classify::ServerErrorsAsFailures,
     trace::{Trace, TraceLayer},
 };
+use tracing::{info, instrument};
 
 pub fn register_http_apis(
     app_state: Arc<dyn HealthCheck + Send + Sync>,
@@ -35,10 +36,12 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
         .with_state(logic)
 }
 
+#[instrument(skip(logic))]
 async fn greet_handler(
     State(logic): State<Arc<AppLogic>>,
     body: String,
 ) -> (StatusCode, [(&'static str, &'static str); 1], String) {
+    info!("Processing greet request, type=text/plain");
     let response_body = logic.greet(&body);
     (
         StatusCode::OK,
@@ -47,20 +50,22 @@ async fn greet_handler(
     )
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct GreetRequest {
     name: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct GreetResponse {
     message: String,
 }
 
+#[instrument(skip(logic, payload))]
 async fn greet_handler_json(
     State(logic): State<Arc<AppLogic>>,
     extract::Json(payload): extract::Json<GreetRequest>,
 ) -> Json<GreetResponse> {
+    info!("Processing JSON greet request, type=application/json");
     let response_body = logic.greet(&payload.name);
     GreetResponse {
         message: response_body,

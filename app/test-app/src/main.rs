@@ -15,18 +15,15 @@ use std::time::Duration;
 use tonic::metadata::*;
 use tracing::instrument;
 use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::{fmt::format::FmtSpan, prelude::*};
 
 #[tokio::main]
 async fn main() {
     //init_log();
-    info!("Starter test app");
-    global::set_text_map_propagator(TraceContextPropagator::new());
-    let mut map = MetadataMap::with_capacity(2);
-    map.insert("service.name", std::env::var("OTEL_SERVICE_NAME").unwrap().parse().unwrap());
-    map.insert("service.namespace", std::env::var("NAIS_NAMESPACE").unwrap().parse().unwrap());
 
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
@@ -37,24 +34,30 @@ async fn main() {
 
     let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap();
     let service_namespace = std::env::var("NAIS_NAMESPACE").unwrap();
-    info!("Service Name: {}, Namespace: {}", service_name, service_namespace);
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(otlp_exporter)
         .with_resource(Resource::builder_empty().with_attributes(
             [
                 KeyValue::new("service.name", service_name.clone()),
-                KeyValue::new("service.namespace", service_namespace),
+                KeyValue::new("service.namespace", service_namespace.clone()),
             ])
             .build())
         .build();
+    opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+    let fmt_layer = fmt::layer()
+        .with_span_events(FmtSpan::CLOSE)
+        .with_target(true);
     global::set_tracer_provider(tracer_provider);
-    let tracer = global::tracer(service_name);
+    let tracer = global::tracer(service_name.clone());
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env()
             .add_directive(tracing::Level::INFO.into()))
+        .with(fmt_layer)
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .with(tracing_subscriber::fmt::Layer::default())
         .init();
+    info!("Starter test app");
+    info!("Service Name: {}, Namespace: {}", service_name, service_namespace);
 
     test_trace();
     match run_app().await {
