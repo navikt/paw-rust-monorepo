@@ -12,6 +12,7 @@ use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::Resource;
 use std::sync::Arc;
 use std::time::Duration;
+use futures::SinkExt;
 use tonic::metadata::*;
 use tracing::instrument;
 use tracing_opentelemetry::OpenTelemetryLayer;
@@ -45,8 +46,13 @@ async fn main() {
         .build();
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
     let fmt_layer = fmt::layer()
-        .with_span_events(FmtSpan::CLOSE)
-        .with_target(true);
+        .json()
+        .with_current_span(true)
+        .with_span_list(true)
+        .with_level(true)
+        .with_thread_names(true)
+        .with_file(true)
+        .with_line_number(true);
     global::set_tracer_provider(tracer_provider);
     let tracer = global::tracer(service_name.clone());
     tracing_subscriber::registry()
