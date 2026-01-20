@@ -12,13 +12,12 @@ use tower_http::{
     classify::ServerErrorsAsFailures,
     trace::{Trace, TraceLayer},
 };
-use tracing::{info, instrument};
+use tracing::{info, warn, instrument};
 use axum::http::HeaderMap;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry::Context;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use log::warn;
 
 struct HeaderExtractor<'a>(&'a HeaderMap);
 
@@ -99,7 +98,6 @@ async fn greet_handler_json(
     );
     let res = span.set_parent(parent_ctx.clone());
     let _guard = span.enter();
-    //log warning if res is SetParentError
     match res {
         Ok(_) => {}
         Err(e) => {
