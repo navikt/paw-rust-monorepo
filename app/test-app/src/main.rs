@@ -52,7 +52,7 @@ async fn main() {
         .with_thread_names(true)
         .with_file(true)
         .with_line_number(true)
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE);
+        .with_span_events(FmtSpan::NONE);
     global::set_tracer_provider(tracer_provider);
     let tracer = global::tracer(service_name.clone());
     tracing_subscriber::registry()
