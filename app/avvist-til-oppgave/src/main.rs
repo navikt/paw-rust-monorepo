@@ -13,6 +13,7 @@ async fn main() {
     init_log();
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
+    appstate.set_has_started(true);;
     let health_routes = routes(appstate);
     let web_server_task : JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>> = tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
