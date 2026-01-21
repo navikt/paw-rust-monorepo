@@ -1,3 +1,5 @@
+mod kafka_hwm;
+
 use std::sync::Arc;
 use health::simple_app_state::AppState;
 use log::LevelFilter;
