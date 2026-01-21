@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/app/test-app/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lib/axum_health/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lib/health/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/app/avvist-til-oppgave/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/app/bortvist-til-oppgave/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
