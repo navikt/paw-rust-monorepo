@@ -94,8 +94,7 @@ async fn greet_handler_json(
     let span = tracing::info_span!(
         "greet_handler_json",
         otel.kind = "server",
-        otel.name = "greet_handler_json",
-        trace_id = %parent_ctx.span().span_context().trace_id()
+        otel.name = "greet_handler_json"
     );
     let res = span.set_parent(parent_ctx.clone());
     let _guard = span.enter();
@@ -105,9 +104,9 @@ async fn greet_handler_json(
             warn!("Failed to set parent context for span: {:?}", e);
         }
     }
-    let current_span = Span::current();
-    let trace_id = current_span.context().span().span_context().trace_id();
-    tracing::event!(Level::INFO, trace_id = trace_id.to_string(), "Processing JSON greet request, type=application/json");
+
+    info!("Processing JSON greet request, type=application/json");
+    info!(trace_id = Span::current().context().span().span_context().trace_id().to_string(), "Setter trace_id manuelt");
     let response_body = logic.greet(&payload.name);
     GreetResponse {
         message: response_body,

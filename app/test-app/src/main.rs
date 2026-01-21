@@ -12,6 +12,7 @@ use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::Resource;
 use std::sync::Arc;
 use std::time::Duration;
+use opentelemetry::trace::TracerProvider;
 use tonic::metadata::*;
 use tracing::{info, instrument};
 use tracing_opentelemetry::OpenTelemetryLayer;
@@ -44,22 +45,25 @@ async fn main() {
             .build())
         .build();
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
+
     let fmt_layer = fmt::layer()
         .json()
         .flatten_event(true)
         .with_current_span(true)
+        .with_span_list(false)
         .with_level(true)
         .with_thread_names(true)
         .with_file(true)
         .with_line_number(true)
-        .with_span_events(FmtSpan::NONE);
+        .with_span_events(FmtSpan::NONE)
+        .fmt_fields(tracing_subscriber::fmt::format::JsonFields::new());
+    let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
-    let tracer = global::tracer(service_name.clone());
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env()
             .add_directive(tracing::Level::INFO.into()))
+        .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
         .init();
     info!("Starter test app");
     info!("Service Name: {}, Namespace: {}", service_name, service_namespace);
