@@ -66,13 +66,16 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
                     .extensions()
                     .get::<MatchedPath>()
                     .map(MatchedPath::as_str);
+                let parent_ctx = extract_trace_context(request.headers());
 
-                info_span!(
+                let span = info_span!(
                         "http_request",
                         method = ?request.method(),
                         matched_path,
                         some_other_field = tracing::field::Empty,
-                    )
+                    );
+                let _res = span.set_parent(parent_ctx);
+                span
             }))
         .with_state(logic)
 }
