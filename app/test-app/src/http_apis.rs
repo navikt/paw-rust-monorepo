@@ -12,7 +12,7 @@ use tower_http::{
     classify::ServerErrorsAsFailures,
     trace::{Trace, TraceLayer},
 };
-use tracing::{info, warn, instrument};
+use tracing::{info, warn, instrument, Span, Level};
 use axum::http::HeaderMap;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::TraceContextExt;
@@ -94,7 +94,8 @@ async fn greet_handler_json(
     let span = tracing::info_span!(
         "greet_handler_json",
         otel.kind = "server",
-        otel.name = "greet_handler_json"
+        otel.name = "greet_handler_json",
+        trace_id = %parent_ctx.span().span_context().trace_id()
     );
     let res = span.set_parent(parent_ctx.clone());
     let _guard = span.enter();
@@ -104,7 +105,9 @@ async fn greet_handler_json(
             warn!("Failed to set parent context for span: {:?}", e);
         }
     }
-    info!("Processing JSON greet request, type=application/json");
+    let current_span = Span::current();
+    let trace_id = current_span.context().span().span_context().trace_id();
+    tracing::event!(Level::INFO, trace_id = trace_id.to_string(), "Processing JSON greet request, type=application/json");
     let response_body = logic.greet(&payload.name);
     GreetResponse {
         message: response_body,
