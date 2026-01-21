@@ -46,6 +46,7 @@ async fn main() {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
     let fmt_layer = fmt::layer()
         .json()
+        .flatten_event(true)
         .with_current_span(true)
         .with_level(true)
         .with_thread_names(true)
