@@ -7,13 +7,14 @@ use axum::{
 };
 use health::HealthCheck;
 use std::sync::Arc;
+use axum::extract::MatchedPath;
 use tokio::task::JoinHandle;
 use tower_http::{
     classify::ServerErrorsAsFailures,
     trace::{Trace, TraceLayer},
 };
-use tracing::{info, warn, instrument, Span, Level};
-use axum::http::HeaderMap;
+use tracing::{info, warn, instrument, Span, Level, info_span};
+use axum::http::{HeaderMap, Request};
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry::Context;
@@ -57,7 +58,22 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
     axum::Router::new()
         .route("/greet", post(greet_handler))
         .route("/greet_json", post(greet_handler_json))
-        .layer(TraceLayer::new_for_http())
+        .layer(TraceLayer::new_for_http()
+            .make_span_with(|request: &Request<_>| {
+                // Log the matched route's path (with placeholders not filled in).
+                // Use request.uri() or OriginalUri if you want the real path.
+                let matched_path = request
+                    .extensions()
+                    .get::<MatchedPath>()
+                    .map(MatchedPath::as_str);
+
+                info_span!(
+                        "http_request",
+                        method = ?request.method(),
+                        matched_path,
+                        some_other_field = tracing::field::Empty,
+                    )
+            }))
         .with_state(logic)
 }
 
