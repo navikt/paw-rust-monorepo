@@ -36,7 +36,7 @@ fn init_log() {
         .build();
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .logger(Logger::builder().build("app::rust-nais-api-test", LevelFilter::Info))
+        .logger(Logger::builder().build("app::paw-arbeidssoekerregisteret-avvist-til-oppgave", LevelFilter::Info))
         .build(Root::builder().appender("stdout").build(LevelFilter::Info))
         .unwrap();
     log4rs::init_config(config).unwrap();
