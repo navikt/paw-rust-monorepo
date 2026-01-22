@@ -42,9 +42,9 @@ jobs:
         id: docker-build-push
         with:
           team: paw
+          image_suffix: test_app
           build_args: |
             APP=test-app
-            image_suffix=test_app
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
