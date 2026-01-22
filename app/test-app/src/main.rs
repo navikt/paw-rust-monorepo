@@ -1,26 +1,23 @@
 mod app_logic;
 mod http_apis;
 mod logging;
+mod otel_layer;
 
 use crate::http_apis::register_http_apis;
-use crate::logging::init_log;
-use futures::SinkExt;
 use health::simple_app_state::AppState;
-use opentelemetry::{global, trace::Tracer, KeyValue};
-use opentelemetry_otlp::{Protocol, WithExportConfig, WithTonicConfig};
+use opentelemetry::trace::TracerProvider;
+use opentelemetry::{global, KeyValue};
+use opentelemetry_otlp::{Protocol, WithExportConfig};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::Resource;
 use std::sync::Arc;
 use std::time::Duration;
-use opentelemetry::trace::TracerProvider;
-use tonic::metadata::*;
 use tracing::{info, instrument};
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt::format::FmtSpan, prelude::*};
 
 #[tokio::main]
 async fn main() {
@@ -47,16 +44,8 @@ async fn main() {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let fmt_layer = fmt::layer()
-        .json()
-        .flatten_event(true)
-        .with_current_span(true)
-        .with_span_list(false)
-        .with_level(true)
-        .with_thread_names(true)
-        .with_file(true)
-        .with_line_number(true)
-        .with_span_events(FmtSpan::NONE)
-        .fmt_fields(tracing_subscriber::fmt::format::JsonFields::new());
+        .event_format(otel_layer::OtelJsonFormat)
+        .with_ansi(false);
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
     tracing_subscriber::registry()
