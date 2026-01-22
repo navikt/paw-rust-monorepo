@@ -6,7 +6,7 @@ ENV RUSTFLAGS='-C target-feature=+crt-static'
 
 ARG APP
 ENV BUILD_APP="cargo auditable build --target x86_64-unknown-linux-musl --release -p ${APP}"
-
+RUN echo build_cmd=${BUILD_APP}
 RUN ${BUILD_APP}
 RUN ls -l /build/target/x86_64-unknown-linux-musl/release/
 
