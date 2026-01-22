@@ -37,8 +37,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: build
-        run: cargo build
       - name: docker-build-push
         uses: nais/docker-build-push@791ebb6f74b82849c742a9bc9c97abe44c6c111f
         id: docker-build-push
