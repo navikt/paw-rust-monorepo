@@ -44,6 +44,7 @@ jobs:
           team: paw
           build_args: |
             APP=avvist-til-oppgave
+            image_suffix=avvist-til-oppgave
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 

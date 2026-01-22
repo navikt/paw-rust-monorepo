@@ -44,6 +44,7 @@ jobs:
           team: paw
           build_args: |
             APP=test-app
+            image_suffix=test_app
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
