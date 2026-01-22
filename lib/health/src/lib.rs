@@ -1,6 +1,4 @@
-use std::fmt::{Debug, Formatter};
-
-pub mod compoud_health;
+pub mod compound_health;
 pub mod simple_app_state;
 
 pub trait HealthCheck {

@@ -1,12 +1,12 @@
 use crate::CheckType;
 use crate::HealthCheck;
 
-pub struct CompoudHealth {
+pub struct CompoundHealth {
     health_checks: Vec<Box<dyn HealthCheck + Send + Sync + 'static>>,
 }
-impl CompoudHealth {
+impl CompoundHealth {
     pub fn new() -> Self {
-        CompoudHealth {
+        CompoundHealth {
             health_checks: Vec::new(),
         }
     }
@@ -16,7 +16,7 @@ impl CompoudHealth {
     }
 }
 
-impl HealthCheck for CompoudHealth {
+impl HealthCheck for CompoundHealth {
     fn name(&self) -> String {
         let names: String = self
             .health_checks
