@@ -12,6 +12,7 @@ RUN ${BUILD_APP}
 FROM cgr.dev/chainguard/static:latest
 WORKDIR /app
 ARG APP
-COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/${APP} /app/app
+COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/${APP} /app/${APP}
 EXPOSE 8080
-ENTRYPOINT ["/app/app"]
+ENV RUN_APP=${APP}
+ENTRYPOINT ["/app/${RUN_APP}"]
