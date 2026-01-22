@@ -4,8 +4,7 @@ on:
     branches:
       - main
 env:
-  IMAGE: europe-north1-docker.pkg.dev/nais-management-233d/paw/rust-test-app
-
+  APP_NAME: test-app
 jobs:
   test:
     name: Test
@@ -17,7 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: stable
-      - run: cargo test -p test-app
+      - run: cargo test -p ${{ env.APP_NAME }}
   build:
     if: ${{ github.actor != 'dependabot[bot]' }}
     name: Build
@@ -42,9 +41,9 @@ jobs:
         id: docker-build-push
         with:
           team: paw
-          image_suffix: test_app
+          image_suffix: ${{ env.APP_NAME }}
           build_args: |
-            APP=test-app
+            APP=${{ env.APP_NAME }}
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
@@ -61,5 +60,5 @@ jobs:
       - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
         env:
           CLUSTER: dev-gcp
-          RESOURCE: app/test-app/nais-dev.yaml
+          RESOURCE: app/${{ env.APP_NAME }}/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }}
