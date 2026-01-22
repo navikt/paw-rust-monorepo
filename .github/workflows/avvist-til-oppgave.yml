@@ -3,9 +3,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/avvist-til-oppgave/**'
+      - 'Cargo.lock'
+      - 'lib/**'
 env:
-  IMAGE: europe-north1-docker.pkg.dev/nais-management-233d/paw/paw-arbeidssoekerregisteret-avvist-til-oppgave
-
+  APP_NAME: avvist-til-oppgave
 jobs:
   test:
     name: Test
@@ -17,7 +20,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: stable
-      - run: cargo test -p avvist-til-oppgave
+      - run: cargo test -p ${{ env.APP_NAME }}
   build:
     if: ${{ github.actor != 'dependabot[bot]' }}
     name: Build
@@ -42,9 +45,9 @@ jobs:
         id: docker-build-push
         with:
           team: paw
-          image_suffix: avvist-til-oppgave
+          image_suffix: ${{ env.APP_NAME }}
           build_args: |
-            APP=avvist-til-oppgave
+            APP=${{ env.APP_NAME }}
 
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
@@ -62,5 +65,5 @@ jobs:
       - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
         env:
           CLUSTER: dev-gcp
-          RESOURCE: app/avvist-til-oppgave/nais-dev.yaml
+          RESOURCE: app/${{ env.APP_NAME }}/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }}

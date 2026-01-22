@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/test-app/**'
+      - 'Cargo.lock'
+      - 'lib/**'
 env:
   APP_NAME: test-app
 jobs:
