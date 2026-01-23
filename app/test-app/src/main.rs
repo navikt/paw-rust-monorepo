@@ -13,6 +13,7 @@ use opentelemetry_sdk::Resource;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, instrument};
+use log::info as log_info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::fmt;
@@ -66,7 +67,8 @@ async fn main() {
 
 #[instrument]
 fn test_trace() {
-    info!("Kjørte metode med 'instrument'");
+    info!("Kjører tracing::info fra metode merket med #[instrument]");
+    log_info!("Kjører log::info fra metode merket med #[instrument]");
 }
 
 async fn run_app() -> Result<(), Box<dyn AppError>> {
