@@ -95,7 +95,7 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
                     warn!("HTTP server error class: StatusCode {}", code);
                 }
             }
-            span.record("stacktrace", format!("{}", backtrace).as_str());
+            span.record("stack_trace", format!("{}", backtrace).as_str());
             span.set_status(Status::Error {description: "Internal Server Error".into()});
         }))
         .with_state(logic)
