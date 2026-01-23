@@ -29,7 +29,7 @@ where
         write!(&mut writer, "\"timestamp\":\"{}\"", now.to_rfc3339())?;
 
         // Add level
-        write!(&mut writer, ",\"level\":\"{}\"", meta.level())?;
+        write!(&mut writer, ",\"log_level\":\"{}\"", meta.level())?;
 
         // Add target
         write!(&mut writer, ",\"target\":\"{}\"", meta.target())?;
@@ -37,6 +37,8 @@ where
         // Add file and line
         if let Some(file) = meta.file() {
             write!(&mut writer, ",\"file\":\"{}\"", file)?;
+            let logger_name = file.replace("/", ".");
+            write!(&mut writer, ",\"logger_name\":\"{}\"", logger_name)?;
         }
         if let Some(line) = meta.line() {
             write!(&mut writer, ",\"line\":{}", line)?;
@@ -61,18 +63,18 @@ where
         }
 
         impl<W: FmtWrite> tracing::field::Visit for FieldVisitor<W> {
-            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-                if self.result.is_err() {
-                    return;
-                }
-                self.result = write!(&mut self.writer, ",\"{}\":\"{:?}\"", field.name(), value);
-            }
-
             fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
                 if self.result.is_err() {
                     return;
                 }
                 self.result = write!(&mut self.writer, ",\"{}\":\"{}\"", field.name(), value);
+            }
+
+            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+                if self.result.is_err() {
+                    return;
+                }
+                self.result = write!(&mut self.writer, ",\"{}\":\"{:?}\"", field.name(), value);
             }
         }
 
