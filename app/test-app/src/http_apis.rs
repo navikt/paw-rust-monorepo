@@ -1,3 +1,4 @@
+use std::num::NonZeroU16;
 use crate::app_logic::AppLogic;
 use axum::{
     Json,
@@ -16,8 +17,9 @@ use tower_http::{
 use tracing::{info, warn, instrument, Span, Level, info_span};
 use axum::http::{HeaderMap, Request};
 use opentelemetry::propagation::Extractor;
-use opentelemetry::trace::TraceContextExt;
+use opentelemetry::trace::{Status, TraceContextExt};
 use opentelemetry::Context;
+use tower_http::trace::OnFailure;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 struct HeaderExtractor<'a>(&'a HeaderMap);
@@ -70,13 +72,21 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
 
                 let span = info_span!(
                         "http_request",
-                        method = ?request.method(),
-                        matched_path,
+                        http.request.method = ?request.method(),
+                        http.route = matched_path,
                         some_other_field = tracing::field::Empty,
                     );
                 let _res = span.set_parent(parent_ctx);
                 span
-            }))
+            }).on_response(|response: &axum::response::Response, _latency: std::time::Duration, span: &Span| {
+                let code = response.status().as_u16();
+                if code >= 500 {
+                    span.set_status(Status::Error {description: "Internal Server Error".into()});
+                }
+                span.record("http.response.status_code", response.status().as_u16());
+        }).on_failure(|_error, _latency, span: &Span| {
+            span.set_status(Status::Error {description: "Internal Server Error".into()});
+        }))
         .with_state(logic)
 }
 
@@ -104,31 +114,54 @@ struct GreetResponse {
     message: String,
 }
 
+#[derive(serde::Serialize)]
+struct ErrorResponse {
+    code: NonZeroU16,
+    error: String
+}
+
+impl axum::response::IntoResponse for ErrorResponse {
+    fn into_response(self) -> axum::response::Response {
+        let body = serde_json::to_string(&self)
+            .unwrap_or_else(|_| "{\"error\":\"Internal Server Error\"}".to_string());
+        (
+            StatusCode::from_u16(self.code.get().into()).unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR),
+            [("Content-Type", "application/json; charset=utf-8")],
+            body,
+        )
+            .into_response()
+    }
+
+}
+
+const FIVE_HUNDRED: NonZeroU16 = NonZeroU16::new(500).expect("500 is not zero");
+const FOUR_HUNDRED: NonZeroU16 = NonZeroU16::new(400).expect("400 is not zero");
+
 async fn greet_handler_json(
     State(logic): State<Arc<AppLogic>>,
     headers: HeaderMap,
     extract::Json(payload): extract::Json<GreetRequest>,
-) -> Json<GreetResponse> {
-    let parent_ctx = extract_trace_context(&headers);
-    let span = tracing::info_span!(
-        "greet_handler_json",
-        otel.kind = "server",
-        otel.name = "greet_handler_json"
-    );
-    let res = span.set_parent(parent_ctx.clone());
-    let _guard = span.enter();
-    match res {
-        Ok(_) => {}
-        Err(e) => {
-            warn!("Failed to set parent context for span: {:?}", e);
+) -> Result<Json<GreetResponse>, ErrorResponse> {
+    info!("Processing JSON greet request, type=application/json");
+     match payload.name.as_str() {
+        "NM" => {
+            Err(ErrorResponse {
+                code: FIVE_HUNDRED,
+                error: "Noe gikk galt".to_string(),
+            })
+        },
+         "MN" => {
+            Err(ErrorResponse {
+                code: FOUR_HUNDRED,
+                error: "Ugyldig data".to_string(),
+            })
+         },
+        _ => {
+            let response_body = logic.greet(&payload.name);
+            Ok(GreetResponse {
+                message: response_body,
+            }
+                .into())
         }
     }
-
-    info!("Processing JSON greet request, type=application/json");
-    info!(trace_id = Span::current().context().span().span_context().trace_id().to_string(), "Setter trace_id manuelt");
-    let response_body = logic.greet(&payload.name);
-    GreetResponse {
-        message: response_body,
-    }
-    .into()
 }
