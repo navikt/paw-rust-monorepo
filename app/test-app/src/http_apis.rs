@@ -19,6 +19,7 @@ use axum::http::{HeaderMap, Request};
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::{Status, TraceContextExt};
 use opentelemetry::Context;
+use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::trace::OnFailure;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
@@ -84,7 +85,17 @@ fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
                     span.set_status(Status::Error {description: "Internal Server Error".into()});
                 }
                 span.record("http.response.status_code", response.status().as_u16());
-        }).on_failure(|_error, _latency, span: &Span| {
+        }).on_failure(|error: ServerErrorsFailureClass, _latency, span: &Span| {
+            let backtrace = std::backtrace::Backtrace::capture();
+            match error {
+                ServerErrorsFailureClass::Error(err) => {
+                    warn!("HTTP server error class: Error");
+                },
+                ServerErrorsFailureClass::StatusCode(code) => {
+                    warn!("HTTP server error class: StatusCode {}", code);
+                }
+            }
+            span.record("stacktrace", format!("{}", backtrace).as_str());
             span.set_status(Status::Error {description: "Internal Server Error".into()});
         }))
         .with_state(logic)
