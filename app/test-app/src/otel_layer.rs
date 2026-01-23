@@ -37,7 +37,12 @@ where
         // Add file and line
         if let Some(file) = meta.file() {
             write!(&mut writer, ",\"file\":\"{}\"", file)?;
-            let logger_name = file.replace("/", ".");
+            //Tar med logger_name slik at rust apper logger med samme format som andre språk,
+            //blir enklere å kjøre felles søk i loki.
+            let logger_name = file
+                .strip_suffix(".rs")
+                .unwrap_or(file)
+                .replace("/", ".");
             write!(&mut writer, ",\"logger_name\":\"{}\"", logger_name)?;
         }
         if let Some(line) = meta.line() {
