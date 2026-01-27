@@ -2903,6 +2903,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "paw_rust_base",
  "prometheus",
  "serde",
  "serde-env-field",

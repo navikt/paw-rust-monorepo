@@ -10,6 +10,9 @@ use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::{Protocol, WithExportConfig};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::Resource;
+use paw_rust_base::error_handling::{AppError, GenericAppError};
+use paw_rust_base::{env_var, nais_namespace, nais_otel_service_name};
+use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, instrument};
@@ -20,19 +23,20 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     //init_log();
+    let otel_endpoint = env_var::get_env("OTEL_EXPORTER_OTLP_ENDPOINT")?;
+    let service_name = nais_otel_service_name()?;
+    let service_namespace = nais_namespace()?;
 
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_protocol(Protocol::Grpc)
-        .with_endpoint(std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap())
+        .with_endpoint(otel_endpoint)
         .with_timeout(Duration::from_secs(5))
         .build()
         .unwrap();
 
-    let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap();
-    let service_namespace = std::env::var("NAIS_NAMESPACE").unwrap();
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(otlp_exporter)
         .with_resource(
@@ -58,15 +62,18 @@ async fn main() {
         .init();
     info!("Starter test app");
     info!(
-        "Service Name: {}, Namespace: {}",
-        service_name, service_namespace
+        "Service Name: {}, Namespace: {}, GIT_COMMIT: {}",
+        service_name,
+        service_namespace,
+        paw_rust_base::git_commit()
     );
 
     test_trace();
     match run_app().await {
         Ok(()) => println!("Application exited successfully."),
-        Err(e) => eprintln!("Application error (code {}): {}", e.code(), e.description()),
+        Err(e) => eprintln!("Application error: {}", e),
     }
+    Ok(())
 }
 
 #[instrument]
@@ -82,33 +89,7 @@ async fn run_app() -> Result<(), Box<dyn AppError>> {
     app_state.set_has_started(true);
     match http_server_task.await {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => Err(Box::new(GenericError {
-            description: format!("HTTP server error: {}", e),
-            code: 500,
-        })),
-        Err(e) => Err(Box::new(GenericError {
-            description: format!("Task join error: {}", e),
-            code: 500,
-        })),
-    }
-}
-
-trait AppError {
-    fn description(&self) -> &str;
-    fn code(&self) -> u16;
-}
-
-struct GenericError {
-    description: String,
-    code: u16,
-}
-
-impl AppError for GenericError {
-    fn description(&self) -> &str {
-        &self.description
-    }
-
-    fn code(&self) -> u16 {
-        self.code
+        Ok(Err(e)) => Err(Box::new(GenericAppError {})),
+        Err(e) => Err(Box::new(GenericAppError {})),
     }
 }

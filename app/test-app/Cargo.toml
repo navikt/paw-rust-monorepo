@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
+paw_rust_base = { path = "../../lib/paw_rust_base" }
 tokio = { version = "1.47.1", features = ["full"] }
 axum = "0.8.4"
 prometheus = "0.14.0"

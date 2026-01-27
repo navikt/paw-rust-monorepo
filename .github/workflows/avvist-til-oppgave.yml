@@ -48,6 +48,7 @@ jobs:
           image_suffix: ${{ env.APP_NAME }}
           build_args: |
             APP=${{ env.APP_NAME }}
+            GIT_COMMIT_HASH=${{ github.sha }}
 
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
@@ -55,7 +56,7 @@ jobs:
   deploy-dev:
     if: github.ref == 'refs/heads/main'
     name: Deploy to dev-gcp
-    needs: [test, build]
+    needs: [ test, build ]
     permissions:
       contents: read
       id-token: write
