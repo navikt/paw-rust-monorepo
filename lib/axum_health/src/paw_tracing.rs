@@ -62,7 +62,7 @@ pub fn add_otel_trace_layer<S: Clone + Send + Sync + 'static>(router: Router<S>)
                 |error: ServerErrorsFailureClass, _latency: std::time::Duration, span: &Span| {
                     let backtrace = std::backtrace::Backtrace::capture();
                     match error {
-                        ServerErrorsFailureClass::Error(err) => {
+                        ServerErrorsFailureClass::Error(_err) => {
                             warn!("HTTP server error class: Error");
                         }
                         ServerErrorsFailureClass::StatusCode(code) => {

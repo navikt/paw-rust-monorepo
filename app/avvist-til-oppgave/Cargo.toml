@@ -5,12 +5,12 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.8"
-health = { path = "../../lib/health" }
+health = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
 log = "0.4.29"
 log4rs = "1.4.0"
 tokio = { version = "1.49.0", features = ["full"] }
-rdkafka = { version = "0.38.0" , features = ["ssl-vendored", "tracing", "tokio"]}
+rdkafka = { version = "0.38.0", features = ["ssl-vendored", "tracing", "tokio"] }
 serde = "1.0.228"
 serde_json = "1.0.149"
 sqlx = {  version = "0.8.6", features = ["postgres", "runtime-tokio", "tls-rustls", "macros", "chrono"] }
