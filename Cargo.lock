@@ -840,6 +840,12 @@ dependencies = [
 [[package]]
 name = "health"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "opentelemetry",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "heck"

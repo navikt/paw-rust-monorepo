@@ -1,4 +1,5 @@
 pub mod compound_health;
+pub mod otel_layer;
 pub mod simple_app_state;
 
 pub trait HealthCheck {
@@ -11,4 +12,3 @@ pub enum CheckType {
     IsAlive,
     HasStarted,
 }
-
