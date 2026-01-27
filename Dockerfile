@@ -12,7 +12,6 @@ RUN echo build_cmd=${BUILD_APP}
 RUN ${BUILD_APP}
 RUN ls -l /build/target/x86_64-unknown-linux-musl/release/
 
-
 FROM cgr.dev/chainguard/static:latest
 WORKDIR /app
 ARG APP
