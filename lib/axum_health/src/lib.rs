@@ -1,3 +1,6 @@
+pub mod paw_tracing;
+pub use paw_tracing::extract_trace_context;
+
 use axum::{extract::State, http::StatusCode, routing::get, Router};
 use health::{
     CheckType::{HasStarted, IsAlive, IsReady},
@@ -5,7 +8,6 @@ use health::{
 };
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
-use tower_http::trace::TraceLayer;
 
 pub fn routes(health_check: Arc<dyn HealthCheck + Send + Sync>) -> Router {
     Router::new()
@@ -13,7 +15,6 @@ pub fn routes(health_check: Arc<dyn HealthCheck + Send + Sync>) -> Router {
         .route("/internal/isReady", get(is_ready))
         .route("/internal/hasStarted", get(has_started))
         .route("/internal/metrics", get(prometheus))
-        .layer(TraceLayer::new_for_http())
         .with_state(health_check)
 }
 

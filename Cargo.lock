@@ -148,10 +148,13 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "health",
+ "opentelemetry",
  "prometheus",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
