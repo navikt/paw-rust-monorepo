@@ -13,7 +13,9 @@ tokio = { version = "1.49.0", features = ["full"] }
 rdkafka = { version = "0.38.0" , features = ["ssl-vendored", "tracing", "tokio"]}
 serde = "1.0.228"
 serde_json = "1.0.149"
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "macros", "chrono"] }
+sqlx = {  version = "0.8.6", features = ["postgres", "runtime-tokio", "tls-rustls", "macros", "chrono"] }
 futures = "0.3.31"
 
-
+[dev-dependencies]
+testcontainers = "0.16"
+testcontainers-modules = { version = "0.4", features = ["postgres"] }

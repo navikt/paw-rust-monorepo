@@ -17,13 +17,15 @@ struct TopicPartition {
     partition: i32,
 }
 
-struct HwmRebalanceHandler {
+pub struct HwmRebalanceHandler {
     pub pg_pool: PgPool,
     pub app_state: Arc<AppState>,
+    pub version: i16,
 }
 
 pub async fn get_hwm(
     tx: &mut Transaction<'_, Postgres>,
+    version: i16,
     topic: &str,
     partition: i32,
 ) -> Result<Option<i64>, Box<dyn error::Error>> {
@@ -31,9 +33,10 @@ pub async fn get_hwm(
         r#"
         SELECT offset
         FROM kafka_hwms
-        WHERE topic = $1 AND partition = $2
+        WHERE topic = $1 AND partition = $2 AND version = $3
         "#,
     )
+        .bind(version)
         .bind(topic)
         .bind(partition)
         .fetch_optional(&mut **tx)
@@ -82,7 +85,7 @@ impl HwmRebalanceHandler {
         let mut tx = self.pg_pool.begin().await?;
         let mut hwms = Vec::new();
         for tp in topic_partitions {
-            let offset = get_hwm(&mut tx, &tp.topic, tp.partition).await?;
+            let offset = get_hwm(&mut tx, self.version, &tp.topic, tp.partition).await?;
             let hwm = Hwm {
                 topic: tp.topic,
                 partition: tp.partition,
