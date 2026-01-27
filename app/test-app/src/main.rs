@@ -2,8 +2,8 @@ mod app_logic;
 mod http_apis;
 
 use crate::http_apis::register_http_apis;
-use health::otel_layer;
-use health::simple_app_state::AppState;
+use health_and_monitoring::otel_layer;
+use health_and_monitoring::simple_app_state::AppState;
 use log::info as log_info;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};

@@ -8,6 +8,7 @@
       <sourceFolder url="file://$MODULE_DIR$/app/avvist-til-oppgave/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/app/bortvist-til-oppgave/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lib/health_and_monitoring/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lib/paw_rust_base/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

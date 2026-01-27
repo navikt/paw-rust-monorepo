@@ -1,9 +1,9 @@
-use std::error;
-use health::simple_app_state::AppState;
+use health_and_monitoring::simple_app_state::AppState;
 use log::error as log_error;
 use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
 use rdkafka::{ClientContext, Offset};
 use sqlx::{PgPool, Postgres, Transaction};
+use std::error;
 use std::sync::Arc;
 
 struct Hwm {
@@ -36,11 +36,11 @@ pub async fn get_hwm(
         WHERE topic = $1 AND partition = $2 AND version = $3
         "#,
     )
-        .bind(version)
-        .bind(topic)
-        .bind(partition)
-        .fetch_optional(&mut **tx)
-        .await?;
+    .bind(version)
+    .bind(topic)
+    .bind(partition)
+    .fetch_optional(&mut **tx)
+    .await?;
 
     Ok(row)
 }
@@ -50,20 +50,31 @@ impl ConsumerContext for HwmRebalanceHandler {
     fn post_rebalance(&self, base_consumer: &BaseConsumer<Self>, rebalance: &Rebalance<'_>) {
         match rebalance {
             Rebalance::Assign(partitions) => {
-                let topic_partitions = partitions.elements().iter().map(|tp| TopicPartition {
-                    topic: tp.topic().to_string(),
-                    partition: tp.partition(),
-                }).collect();
+                let topic_partitions = partitions
+                    .elements()
+                    .iter()
+                    .map(|tp| TopicPartition {
+                        topic: tp.topic().to_string(),
+                        partition: tp.partition(),
+                    })
+                    .collect();
 
                 let hwms = futures::executor::block_on(self.get_hwms(topic_partitions)).unwrap();
                 hwms.iter().for_each(|hwm| {
-                    log::info!("HWM for topic {} partition {} is {}", hwm.topic, hwm.partition, hwm.offset);
-                    base_consumer.seek(
-                        &hwm.topic,
+                    log::info!(
+                        "HWM for topic {} partition {} is {}",
+                        hwm.topic,
                         hwm.partition,
-                        hwm.seek_to_rd_kafka_offset(),
-                        std::time::Duration::from_secs(10),
-                    ).unwrap();
+                        hwm.offset
+                    );
+                    base_consumer
+                        .seek(
+                            &hwm.topic,
+                            hwm.partition,
+                            hwm.seek_to_rd_kafka_offset(),
+                            std::time::Duration::from_secs(10),
+                        )
+                        .unwrap();
                 })
             }
             Rebalance::Revoke(partitions) => {

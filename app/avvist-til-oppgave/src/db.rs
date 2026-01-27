@@ -1,8 +1,8 @@
-use std::error::Error;
-use log::info;
-use sqlx::PgPool;
-use sqlx::postgres::PgPoolOptions;
 use crate::get_env::{get_env, AppError};
+use log::info;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
+use std::error::Error;
 
 pub struct DatabaseConfig {
     pub ip: String,
@@ -66,7 +66,10 @@ pub fn get_database_config() -> Result<DatabaseConfig, AppError> {
 }
 
 fn get_db_env(var: &str) -> Result<String, AppError> {
-    let key = format!("NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_{}", var);
+    let key = format!(
+        "NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_{}",
+        var
+    );
     std::env::var(&key).map_err(|_| AppError {
         domain: "GET_ENV_VAR".to_string(),
         value: format!("Failed to get env var {}", key),
@@ -92,10 +95,9 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, AppError> {
     Ok(pool)
 }
 
-
 pub async fn init_db() -> Result<PgPool, Box<dyn Error>> {
     let db_config = get_database_config()?;
-    info!("Database config: {:?}", db_config);
+    info!("Database paw_rust_base: {:?}", db_config);
     let pg_pool = get_pg_pool(&db_config).await?;
     info!("Postgres pool opprettet");
     let _ = sqlx::migrate!("./migrations").run(&pg_pool).await?;

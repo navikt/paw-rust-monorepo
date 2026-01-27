@@ -80,7 +80,7 @@ dependencies = [
  "axum",
  "axum_health",
  "futures",
- "health",
+ "health_and_monitoring",
  "log",
  "log4rs",
  "rdkafka",
@@ -149,7 +149,7 @@ name = "axum_health"
 version = "0.1.0"
 dependencies = [
  "axum",
- "health",
+ "health_and_monitoring",
  "opentelemetry",
  "prometheus",
  "tokio",
@@ -838,7 +838,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "health"
+name = "health_and_monitoring"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -1670,6 +1670,10 @@ dependencies = [
  "structmeta",
  "syn 2.0.114",
 ]
+
+[[package]]
+name = "paw_rust_base"
+version = "0.1.0"
 
 [[package]]
 name = "pem-rfc7468"
@@ -2893,7 +2897,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
- "health",
+ "health_and_monitoring",
  "log",
  "log4rs",
  "opentelemetry",

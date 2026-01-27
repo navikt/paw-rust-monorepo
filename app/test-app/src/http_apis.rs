@@ -8,7 +8,7 @@ use axum::{
     Json,
 };
 use axum_health::paw_tracing::add_otel_trace_layer;
-use health::HealthCheck;
+use health_and_monitoring::HealthCheck;
 use std::num::NonZeroU16;
 use std::sync::Arc;
 use tokio::task::JoinHandle;

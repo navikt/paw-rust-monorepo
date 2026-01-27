@@ -1,5 +1,5 @@
 [package]
-name = "health"
+name = "health_and_monitoring"
 version = "0.1.0"
 edition = "2024"
 
