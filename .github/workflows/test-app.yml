@@ -7,6 +7,7 @@ on:
       - 'app/test-app/**'
       - 'Cargo.lock'
       - 'lib/**'
+      - 'Dockerfile'
 env:
   APP_NAME: test-app
 jobs:
