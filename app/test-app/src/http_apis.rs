@@ -1,26 +1,18 @@
 use crate::app_logic::AppLogic;
 
-use axum::extract::MatchedPath;
-use axum::http::{HeaderMap, Request};
+use axum::http::HeaderMap;
 use axum::{
     extract::{self, State},
     http::StatusCode,
     routing::post,
     Json,
 };
-use axum_health::extract_trace_context;
+use axum_health::paw_tracing::add_otel_trace_layer;
 use health::HealthCheck;
-use opentelemetry::trace::Status;
 use std::num::NonZeroU16;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use tower_http::classify::ServerErrorsFailureClass;
-use tower_http::{
-    classify::ServerErrorsAsFailures,
-    trace::{Trace, TraceLayer},
-};
-use tracing::{info, info_span, instrument, warn, Level, Span};
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use tracing::{info, instrument};
 
 pub fn register_http_apis(
     app_state: Arc<dyn HealthCheck + Send + Sync>,
@@ -37,63 +29,10 @@ pub fn register_http_apis(
 }
 
 fn api_routes(logic: Arc<AppLogic>) -> axum::Router {
-    axum::Router::new()
+    let router = axum::Router::new()
         .route("/greet", post(greet_handler))
-        .route("/greet_json", post(greet_handler_json))
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(|request: &Request<axum::body::Body>| {
-                    // Log the matched route's path (with placeholders not filled in).
-                    // Use request.uri() or OriginalUri if you want the real path.
-                    let matched_path = request
-                        .extensions()
-                        .get::<MatchedPath>()
-                        .map(MatchedPath::as_str);
-                    let parent_ctx = extract_trace_context(request.headers());
-
-                    let span = info_span!(
-                        "http_request",
-                        http.request.method = ?request.method(),
-                        http.route = matched_path,
-                        some_other_field = tracing::field::Empty,
-                    );
-                    let _res = span.set_parent(parent_ctx);
-                    span
-                })
-                .on_response(
-                    |response: &axum::response::Response,
-                     _latency: std::time::Duration,
-                     span: &Span| {
-                        let code = response.status().as_u16();
-                        if code >= 500 {
-                            span.set_status(Status::Error {
-                                description: "Internal Server Error".into(),
-                            });
-                        }
-                        span.record("http.response.status_code", response.status().as_u16());
-                    },
-                )
-                .on_failure(
-                    |error: ServerErrorsFailureClass,
-                     _latency: std::time::Duration,
-                     span: &Span| {
-                        let backtrace = std::backtrace::Backtrace::capture();
-                        match error {
-                            ServerErrorsFailureClass::Error(err) => {
-                                warn!("HTTP server error class: Error");
-                            }
-                            ServerErrorsFailureClass::StatusCode(code) => {
-                                warn!("HTTP server error class: StatusCode {}", code);
-                            }
-                        }
-                        span.record("stack_trace", format!("{}", backtrace).as_str());
-                        span.set_status(Status::Error {
-                            description: "Internal Server Error".into(),
-                        });
-                    },
-                ),
-        )
-        .with_state(logic)
+        .route("/greet_json", post(greet_handler_json));
+    add_otel_trace_layer(router).with_state(logic)
 }
 
 #[instrument(skip(logic))]
@@ -145,7 +84,7 @@ const FOUR_HUNDRED: NonZeroU16 = NonZeroU16::new(400).expect("400 is not zero");
 
 async fn greet_handler_json(
     State(logic): State<Arc<AppLogic>>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     extract::Json(payload): extract::Json<GreetRequest>,
 ) -> Result<Json<GreetResponse>, ErrorResponse> {
     info!("Processing JSON greet request, type=application/json");
