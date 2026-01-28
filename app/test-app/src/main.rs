@@ -2,7 +2,7 @@ mod app_logic;
 mod http_apis;
 
 use crate::http_apis::register_http_apis;
-use health_and_monitoring::otel_layer;
+use health_and_monitoring::otel_json_format_layer;
 use health_and_monitoring::simple_app_state::AppState;
 use log::info as log_info;
 use opentelemetry::trace::TracerProvider;
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
     let fmt_layer = fmt::layer()
-        .event_format(otel_layer::OtelJsonFormat)
+        .event_format(otel_json_format_layer::OtelJsonFormat)
         .with_ansi(false);
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
