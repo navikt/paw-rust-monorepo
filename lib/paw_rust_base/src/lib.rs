@@ -2,6 +2,7 @@ use crate::env_var::EnvVarNotFoundError;
 
 pub mod env_var;
 pub mod error_handling;
+pub mod database_error;
 
 pub fn nais_otel_service_name() -> Result<String, EnvVarNotFoundError> {
     env_var::get_env("OTEL_SERVICE_NAME")

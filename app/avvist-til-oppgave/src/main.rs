@@ -18,6 +18,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
+use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
 
 #[tokio::main]
@@ -34,34 +35,16 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             Ok(())
         });
 
-    let pg_pool = init_db().await;
-    match pg_pool {
-        Ok(_) => {
-            println!("Database initialized successfully")
-        }
-        Err(e) => {
-            println!("Dette gikk ille dålih {}", e)
-        }
-    }
+    let pg_pool = init_db().await.map_err(|err| {
+        let error: Box<dyn AppError> = Box::new(DatabaseError {
+            message: format!("Failed to initialize database: {}", err),
+        });
+        error
+    })?;
     match web_server_task.await {
         Ok(Ok(())) => log::info!("Web server exited successfully."),
         Ok(Err(e)) => log::error!("Web server error: {}", e),
         Err(e) => log::error!("Task join error: {}", e),
     }
     Ok(())
-}
-
-fn init_log() {
-    let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(JsonEncoder::new()))
-        .build();
-    let config = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .logger(Logger::builder().build(
-            "app::paw-arbeidssoekerregisteret-avvist-til-oppgave",
-            LevelFilter::Info,
-        ))
-        .build(Root::builder().appender("stdout").build(LevelFilter::Info))
-        .unwrap();
-    log4rs::init_config(config).unwrap();
 }
