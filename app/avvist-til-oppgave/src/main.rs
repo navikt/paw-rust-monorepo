@@ -26,7 +26,6 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     setup_nais_otel()?;
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
-    appstate.set_has_started(true);
     let health_routes = routes(appstate.clone());
     let web_server_task: JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>> =
         tokio::spawn(async move {
@@ -41,6 +40,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         });
         error
     })?;
+    appstate.set_has_started(true);
     match web_server_task.await {
         Ok(Ok(())) => log::info!("Web server exited successfully."),
         Ok(Err(e)) => log::error!("Web server error: {}", e),
