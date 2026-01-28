@@ -4,6 +4,7 @@ mod get_env;
 mod get_kafka_config;
 mod kafka_hwm;
 
+use std::error::Error;
 use crate::consumer::create_kafka_consumer;
 use crate::db::init_db;
 use axum_health::routes;
@@ -16,10 +17,12 @@ use log4rs::Config;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use health_and_monitoring::nais_otel_setup::setup_nais_otel;
+use paw_rust_base::error_handling::AppError;
 
 #[tokio::main]
-async fn main() {
-    init_log();
+async fn main() -> Result<(), Box<dyn AppError>> {
+    setup_nais_otel()?;
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
     appstate.set_has_started(true);
@@ -45,6 +48,7 @@ async fn main() {
         Ok(Err(e)) => log::error!("Web server error: {}", e),
         Err(e) => log::error!("Task join error: {}", e),
     }
+    Ok(())
 }
 
 fn init_log() {

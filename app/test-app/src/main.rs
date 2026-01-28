@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{info, instrument};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn AppError>> {
     setup_nais_otel()?;
     info!("Starter test app");
     test_trace();

@@ -1,20 +1,20 @@
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::time::Duration;
-use opentelemetry::{global, KeyValue};
+use crate::otel_json_format_layer;
 use opentelemetry::trace::TracerProvider;
+use opentelemetry::{KeyValue, global};
 use opentelemetry_otlp::{Protocol, SpanExporter, WithExportConfig};
-use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::Resource;
-use tracing::log::info;
-use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{fmt, EnvFilter};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use paw_rust_base::env_var::get_env;
 use paw_rust_base::error_handling::{AppError, ErrorType};
 use paw_rust_base::{nais_namespace, nais_otel_service_name};
-use crate::otel_json_format_layer;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
+use std::time::Duration;
+use tracing::log::info;
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 pub struct OtelSetupError {
     details: String,
@@ -30,7 +30,10 @@ impl Debug for OtelSetupError {
 
 impl Display for OtelSetupError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Failed to setup otel environment: {}", &self.details))
+        f.write_fmt(format_args!(
+            "Failed to setup otel environment: {}",
+            &self.details
+        ))
     }
 }
 
@@ -48,7 +51,7 @@ impl AppError for OtelSetupError {
     }
 }
 
-pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>, OtelSetupError> {
+pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>, Box<dyn AppError>> {
     let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
     if let Some(otel_endpoint) = otel_endpoint {
         let exporter = SpanExporter::builder()
@@ -57,15 +60,20 @@ pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>, OtelSetupError> {
             .with_endpoint(otel_endpoint)
             .with_timeout(Duration::from_secs(5))
             .build();
-        exporter.map_err(|err| OtelSetupError {
-            details: format!("Failed to create OTLP exporter: {}", err),
-        }).map(Some)
+        exporter
+            .map_err(|err| {
+                let error: Box<dyn AppError> = Box::new(OtelSetupError {
+                    details: format!("Failed to create OTLP exporter: {}", err),
+                });
+                error
+            })
+            .map(Some)
     } else {
         Ok(None)
     }
 }
 
-pub fn setup_nais_otel() -> Result<(), OtelSetupError> {
+pub fn setup_nais_otel() -> Result<(), Box<dyn AppError>> {
     let exporter = nais_otlp_exporter()?;
     let exporter_active = exporter.is_some();
     let service_name = nais_otel_service_name().unwrap_or("local-build".to_string());
@@ -76,7 +84,8 @@ pub fn setup_nais_otel() -> Result<(), OtelSetupError> {
     } else {
         builder
     };
-    let tracer_provider = builder.with_resource(
+    let tracer_provider = builder
+        .with_resource(
             Resource::builder_empty()
                 .with_attributes([
                     KeyValue::new("service.name", service_name.clone()),
@@ -97,6 +106,9 @@ pub fn setup_nais_otel() -> Result<(), OtelSetupError> {
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
         .init();
-    info!("Initialized NAIS OpenTelemetry with service name: {}, namespace: {}, exporter_active={}", service_name, service_namespace, exporter_active);
+    info!(
+        "Initialized NAIS OpenTelemetry with service name: {}, namespace: {}, exporter_active={}",
+        service_name, service_namespace, exporter_active
+    );
     Ok(())
 }

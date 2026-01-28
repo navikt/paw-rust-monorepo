@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+paw_rust_base = { path = "../../lib/paw_rust_base" }
 axum = "0.8.8"
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }

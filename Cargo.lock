@@ -83,6 +83,7 @@ dependencies = [
  "health_and_monitoring",
  "log",
  "log4rs",
+ "paw_rust_base",
  "rdkafka",
  "serde",
  "serde_json",
