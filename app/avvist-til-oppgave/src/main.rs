@@ -39,6 +39,10 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         });
         error
     })?;
+    let _ = sqlx::migrate!("./migrations").run(&pg_pool).await
+        .map_err(|migrate_error| DatabaseError {
+            message: format!("Database migration failed: {}", migrate_error)
+        })?;
     appstate.set_has_started(true);
     match web_server_task.await {
         Ok(Ok(())) => log::info!("Web server exited successfully."),

@@ -105,9 +105,5 @@ pub async fn init_db(database_name: &'static str) -> Result<PgPool, Box<dyn AppE
     info!("Database paw_rust_base: {:?}", db_config);
     let pg_pool = get_pg_pool(&db_config).await?;
     info!("Postgres pool opprettet");
-    let _ = sqlx::migrate!("./migrations").run(&pg_pool).await
-        .map_err(|migrate_error| DatabaseError {
-            message: format!("Database migration failed: {}", migrate_error)
-        })?;
     Ok(pg_pool)
 }
