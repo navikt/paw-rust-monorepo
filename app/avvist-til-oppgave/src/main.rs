@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
     let health_routes = routes(appstate.clone());
-    let web_server_task: JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>> =
+    let web_server_task: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
         tokio::spawn(async move {
             let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
             axum::serve(listener, health_routes).await?;
