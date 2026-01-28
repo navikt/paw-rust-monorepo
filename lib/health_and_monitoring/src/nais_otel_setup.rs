@@ -12,7 +12,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use paw_rust_base::env_var::get_env;
-use paw_rust_base::error_handling::AppError;
+use paw_rust_base::error_handling::{AppError, ErrorType};
 use paw_rust_base::{nais_namespace, nais_otel_service_name};
 use crate::otel_json_format_layer;
 
@@ -37,6 +37,14 @@ impl Display for OtelSetupError {
 impl AppError for OtelSetupError {
     fn error_name(&self) -> &'static str {
         "OtelSetupError"
+    }
+
+    fn error_message(&self) -> String {
+        format!("Failed to setup otel environment: {}", &self.details)
+    }
+
+    fn error_type(&self) -> ErrorType {
+        ErrorType::InternalError
     }
 }
 

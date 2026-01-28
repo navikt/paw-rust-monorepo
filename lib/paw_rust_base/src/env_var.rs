@@ -1,4 +1,4 @@
-use crate::error_handling::AppError;
+use crate::error_handling::{AppError, ErrorType};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -29,6 +29,14 @@ impl Display for EnvVarNotFoundError {
 impl AppError for EnvVarNotFoundError {
     fn error_name(&self) -> &'static str {
         "EnvVarNotFoundError"
+    }
+
+    fn error_message(&self) -> String {
+        format!("Environment variable '{}' not found", self.env_var_name)
+    }
+
+    fn error_type(&self) -> ErrorType {
+        ErrorType::InternalError
     }
 }
 
