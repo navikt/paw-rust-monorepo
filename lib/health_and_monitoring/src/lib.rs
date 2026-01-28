@@ -1,6 +1,7 @@
 pub mod compound_health;
 pub mod otel_json_format_layer;
 pub mod simple_app_state;
+pub mod nais_otel_setup;
 
 pub trait HealthCheck {
     fn name(&self) -> String;

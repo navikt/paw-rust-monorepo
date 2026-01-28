@@ -5,6 +5,7 @@ use tracing::{Event, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
+use paw_rust_base::git_commit;
 
 pub struct OtelJsonFormat;
 
@@ -33,6 +34,8 @@ where
 
         // Add target
         write!(&mut writer, ",\"target\":\"{}\"", meta.target())?;
+
+        write!(&mut writer, ",\"git_sha\":\"{}\"", git_commit())?;
 
         // Add file and line
         if let Some(file) = meta.file() {

@@ -843,7 +843,12 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "paw_rust_base",
+ "tonic",
  "tracing",
+ "tracing-opentelemetry",
  "tracing-subscriber",
 ]
 
