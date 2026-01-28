@@ -1,0 +1,11 @@
+[package]
+name = "paw_sqlx"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+paw_rust_base = { path = "../paw_rust_base" }
+health_and_monitoring = { path = "../health_and_monitoring" }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "tls-rustls", "macros", "chrono"] }
+log = "0.4.29"
+

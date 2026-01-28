@@ -35,7 +35,7 @@ async fn run_app() -> Result<(), Box<dyn AppError>> {
     app_state.set_has_started(true);
     match http_server_task.await {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => Err(Box::new(GenericAppError {})),
-        Err(e) => Err(Box::new(GenericAppError {})),
+        Ok(Err(_)) => Err(Box::new(GenericAppError {})),
+        Err(_) => Err(Box::new(GenericAppError {})),
     }
 }

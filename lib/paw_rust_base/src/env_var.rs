@@ -26,6 +26,12 @@ impl Display for EnvVarNotFoundError {
     }
 }
 
+impl From<EnvVarNotFoundError> for Box<dyn AppError> {
+    fn from(value: EnvVarNotFoundError) -> Self {
+        Box::new(value)
+    }
+}
+
 impl AppError for EnvVarNotFoundError {
     fn error_name(&self) -> &'static str {
         "EnvVarNotFoundError"

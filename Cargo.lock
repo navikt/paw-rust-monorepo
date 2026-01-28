@@ -84,6 +84,7 @@ dependencies = [
  "log",
  "log4rs",
  "paw_rust_base",
+ "paw_sqlx",
  "rdkafka",
  "serde",
  "serde_json",
@@ -1680,6 +1681,16 @@ dependencies = [
 [[package]]
 name = "paw_rust_base"
 version = "0.1.0"
+
+[[package]]
+name = "paw_sqlx"
+version = "0.1.0"
+dependencies = [
+ "health_and_monitoring",
+ "log",
+ "paw_rust_base",
+ "sqlx",
+]
 
 [[package]]
 name = "pem-rfc7468"

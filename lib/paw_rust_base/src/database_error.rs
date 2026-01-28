@@ -19,6 +19,11 @@ impl Display for DatabaseError {
         write!(f, "Database error: {}", self.message)
     }
 }
+impl From<DatabaseError> for Box<dyn AppError> {
+    fn from(value: DatabaseError) -> Self {
+        Box::new(value)
+    }
+}
 
 impl AppError for DatabaseError {
     fn error_name(&self) -> &'static str {

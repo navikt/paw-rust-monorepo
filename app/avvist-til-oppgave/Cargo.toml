@@ -8,6 +8,7 @@ paw_rust_base = { path = "../../lib/paw_rust_base" }
 axum = "0.8.8"
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
+paw_sqlx = { path = "../../lib/paw_sqlx" }
 log = "0.4.29"
 log4rs = "1.4.0"
 tokio = { version = "1.49.0", features = ["full"] }

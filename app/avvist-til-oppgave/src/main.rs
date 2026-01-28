@@ -1,12 +1,10 @@
 mod consumer;
-mod db;
 mod get_env;
 mod get_kafka_config;
 mod kafka_hwm;
 
 use std::error::Error;
 use crate::consumer::create_kafka_consumer;
-use crate::db::init_db;
 use axum_health::routes;
 use health_and_monitoring::simple_app_state::AppState;
 use log::LevelFilter;
@@ -20,6 +18,7 @@ use tokio::task::JoinHandle;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
+use paw_sqlx::init_db;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
@@ -34,7 +33,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             Ok(())
         });
 
-    let pg_pool = init_db().await.map_err(|err| {
+    let pg_pool = init_db("avvisttiloppgave").await.map_err(|err| {
         let error: Box<dyn AppError> = Box::new(DatabaseError {
             message: format!("Failed to initialize database: {}", err),
         });
