@@ -1,22 +1,13 @@
 mod consumer;
 mod get_env;
 mod get_kafka_config;
-mod kafka_hwm;
 
-use crate::consumer::create_kafka_consumer;
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
-use log::LevelFilter;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::config::{Appender, Logger, Root};
-use log4rs::encode::json::JsonEncoder;
-use log4rs::Config;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
-use paw_rust_base::nais_otel_service_name;
 use paw_sqlx::init_db;
-use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
