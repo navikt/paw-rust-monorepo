@@ -1,12 +1,9 @@
 use log::info;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
-use std::error::Error;
-use std::fmt::format;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::env_var::{get_env, EnvVarNotFoundError};
 use paw_rust_base::error_handling::AppError;
-use paw_rust_base::nais_otel_service_name;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::PgPool;
 
 pub struct DatabaseConfig {
     pub ip: String,
@@ -53,34 +50,42 @@ impl std::fmt::Display for DatabaseConfig {
     }
 }
 
-pub fn get_database_config(database_name: &'static str) -> Result<DatabaseConfig, Box<dyn AppError>> {
+pub fn get_database_config(
+    service_name: &'static str,
+    database_name: &'static str,
+) -> Result<DatabaseConfig, Box<dyn AppError>> {
     Ok(DatabaseConfig {
-        ip: get_db_env(database_name, "HOST")?,
-        port: get_db_env(database_name, "PORT")?.parse().map_err(|err| {
-            DatabaseError {
-                message: format!("Invalid port number: {}", err)
-            }
-        })?,
-        user: get_db_env(database_name, "USERNAME")?,
-        password: get_db_env(database_name, "PASSWORD")?,
-        db_name: get_db_env(database_name, "DATABASE")?,
+        ip: get_db_env(service_name, database_name, "HOST")?,
+        port: get_db_env(service_name, database_name, "PORT")?
+            .parse()
+            .map_err(|err| DatabaseError {
+                message: format!("Invalid port number: {}", err),
+            })?,
+        user: get_db_env(service_name, database_name, "USERNAME")?,
+        password: get_db_env(service_name, database_name, "PASSWORD")?,
+        db_name: get_db_env(service_name, database_name, "DATABASE")?,
         pg_ssl_cert_path: get_env("PGSSLCERT")?,
         pg_ssl_key_path: get_env("PGSSLKEY")?,
         pg_ssl_root_cert_path: get_env("PGSSLROOTCERT")?,
     })
 }
 
-fn get_db_env(database: &'static str, var: &'static str) -> Result<String, Box<dyn AppError>> {
-    let service_name = nais_otel_service_name()?;
+fn get_db_env(
+    service_name: &'static str,
+    database_name: &'static str,
+    var: &'static str,
+) -> Result<String, Box<dyn AppError>> {
     let key = format!(
         "NAIS_DATABASE_{}_{}_{}",
-        service_name,
-        database,
+        service_name.replace("-", "_").to_uppercase(),
+        database_name.to_uppercase(),
         var
     );
-    std::env::var(&key).map_err(|_| Box::from(EnvVarNotFoundError {
-        env_var_name: database
-    }))
+    std::env::var(&key).map_err(|_| {
+        Box::from(EnvVarNotFoundError {
+            env_var_name: database_name,
+        })
+    })
 }
 
 async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError>> {
@@ -100,8 +105,11 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError
     Ok(pool)
 }
 
-pub async fn init_db(database_name: &'static str) -> Result<PgPool, Box<dyn AppError>> {
-    let db_config = get_database_config(database_name)?;
+pub async fn init_db(
+    service_name: &'static str,
+    database_name: &'static str,
+) -> Result<PgPool, Box<dyn AppError>> {
+    let db_config = get_database_config(service_name, database_name)?;
     info!("Database paw_rust_base: {:?}", db_config);
     let pg_pool = get_pg_pool(&db_config).await?;
     info!("Postgres pool opprettet");

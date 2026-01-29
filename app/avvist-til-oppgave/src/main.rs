@@ -3,22 +3,23 @@ mod get_env;
 mod get_kafka_config;
 mod kafka_hwm;
 
-use std::error::Error;
 use crate::consumer::create_kafka_consumer;
 use axum_health::routes;
+use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Logger, Root};
 use log4rs::encode::json::JsonEncoder;
 use log4rs::Config;
-use sqlx::PgPool;
-use std::sync::Arc;
-use tokio::task::JoinHandle;
-use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
+use paw_rust_base::nais_otel_service_name;
 use paw_sqlx::init_db;
+use sqlx::PgPool;
+use std::error::Error;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
@@ -33,15 +34,19 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             Ok(())
         });
 
-    let pg_pool = init_db("avvisttiloppgave").await.map_err(|err| {
+    let service_name = "paw-arbeidssoekerregisteret-avvist-til-oppgave";
+    let database_name = "avvisttiloppgave";
+    let pg_pool = init_db(service_name, database_name).await.map_err(|err| {
         let error: Box<dyn AppError> = Box::new(DatabaseError {
             message: format!("Failed to initialize database: {}", err),
         });
         error
     })?;
-    let _ = sqlx::migrate!("./migrations").run(&pg_pool).await
+    let _ = sqlx::migrate!("./migrations")
+        .run(&pg_pool)
+        .await
         .map_err(|migrate_error| DatabaseError {
-            message: format!("Database migration failed: {}", migrate_error)
+            message: format!("Database migration failed: {}", migrate_error),
         })?;
     appstate.set_has_started(true);
     match web_server_task.await {
