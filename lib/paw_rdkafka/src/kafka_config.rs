@@ -1,8 +1,10 @@
-use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
-use std::{error::Error, time::SystemTime};
-use crate::get_env::get_env;
+use paw_rust_base::env_var::get_env;
+use rdkafka::ClientConfig;
+use rdkafka::config::RDKafkaLogLevel;
+use std::error::Error;
+use std::time::SystemTime;
 
-fn get_kafka_config(
+pub fn get_kafka_config(
     application_kafka_config: ApplicationKafkaConfig,
 ) -> Result<ClientConfig, Box<dyn Error>> {
     let brokers = get_env("KAFKA_BROKERS")?;

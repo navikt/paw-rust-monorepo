@@ -1,9 +1,9 @@
-use crate::get_kafka_config::ApplicationKafkaConfig;
 use health_and_monitoring::simple_app_state::AppState;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
+use paw_rdkafka::kafka_config::ApplicationKafkaConfig;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 
 pub fn create_kafka_consumer(

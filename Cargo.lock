@@ -121,6 +121,7 @@ dependencies = [
  "health_and_monitoring",
  "log",
  "log4rs",
+ "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
@@ -1786,6 +1787,14 @@ dependencies = [
  "regex-syntax",
  "structmeta",
  "syn 2.0.114",
+]
+
+[[package]]
+name = "paw_rdkafka"
+version = "0.1.0"
+dependencies = [
+ "paw_rust_base",
+ "rdkafka",
 ]
 
 [[package]]

@@ -1,0 +1,8 @@
+[package]
+name = "paw_rdkafka"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+paw_rust_base = { path = "../paw_rust_base" }
+rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }

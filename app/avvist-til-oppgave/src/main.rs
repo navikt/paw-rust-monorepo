@@ -1,6 +1,5 @@
 mod consumer;
 mod get_env;
-mod get_kafka_config;
 
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;

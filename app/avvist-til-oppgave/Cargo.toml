@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 paw_rust_base = { path = "../../lib/paw_rust_base" }
+paw_rdkafka = { path = "../../lib/paw_rdkafka" }
 axum = "0.8.8"
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
