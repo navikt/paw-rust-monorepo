@@ -50,40 +50,31 @@ impl std::fmt::Display for DatabaseConfig {
     }
 }
 
-pub fn get_database_config(
-    service_name: &'static str,
-    database_name: &'static str,
-) -> Result<DatabaseConfig, Box<dyn AppError>> {
+pub fn get_database_config(env_prefix: &'static str) -> Result<DatabaseConfig, Box<dyn AppError>> {
     Ok(DatabaseConfig {
-        ip: get_db_env(service_name, database_name, "HOST")?,
-        port: get_db_env(service_name, database_name, "PORT")?
+        ip: get_db_env(env_prefix, "HOST")?,
+        port: get_db_env(env_prefix, "PORT")?
             .parse()
             .map_err(|err| DatabaseError {
                 message: format!("Invalid port number: {}", err),
             })?,
-        user: get_db_env(service_name, database_name, "USERNAME")?,
-        password: get_db_env(service_name, database_name, "PASSWORD")?,
-        db_name: get_db_env(service_name, database_name, "DATABASE")?,
-        pg_ssl_cert_path: get_env("PGSSLCERT")?,
-        pg_ssl_key_path: get_env("PGSSLKEY")?,
-        pg_ssl_root_cert_path: get_env("PGSSLROOTCERT")?,
+        user: get_db_env(env_prefix, "USERNAME")?,
+        password: get_db_env(env_prefix, "PASSWORD")?,
+        db_name: get_db_env(env_prefix, "DATABASE")?,
+        pg_ssl_cert_path: get_db_env(env_prefix, "SSLCERT")?,
+        pg_ssl_key_path: get_db_env(env_prefix, "SSLKEY")?,
+        pg_ssl_root_cert_path: get_db_env(env_prefix, "SSLROOTCERT")?,
     })
 }
 
 fn get_db_env(
-    service_name: &'static str,
-    database_name: &'static str,
-    var: &'static str,
+    env_prefix: &'static str,
+    env_var: &'static str,
 ) -> Result<String, Box<dyn AppError>> {
-    let key = format!(
-        "NAIS_DATABASE_{}_{}_{}",
-        service_name.replace("-", "_").to_uppercase(),
-        database_name.to_uppercase(),
-        var
-    );
+    let key = format!("{}_{}", env_prefix, env_var);
     std::env::var(&key).map_err(|_| {
         Box::from(EnvVarNotFoundError {
-            env_var_name: database_name,
+            env_var_name: env_var,
         })
     })
 }
@@ -105,11 +96,8 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError
     Ok(pool)
 }
 
-pub async fn init_db(
-    service_name: &'static str,
-    database_name: &'static str,
-) -> Result<PgPool, Box<dyn AppError>> {
-    let db_config = get_database_config(service_name, database_name)?;
+pub async fn init_db(env_prefix: &'static str) -> Result<PgPool, Box<dyn AppError>> {
+    let db_config = get_database_config(env_prefix)?;
     info!("Database paw_rust_base: {:?}", db_config);
     let pg_pool = get_pg_pool(&db_config).await?;
     info!("Postgres pool opprettet");

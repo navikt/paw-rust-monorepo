@@ -34,14 +34,15 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             Ok(())
         });
 
-    let service_name = "paw-arbeidssoekerregisteret-avvist-til-oppgave";
-    let database_name = "avvisttiloppgave";
-    let pg_pool = init_db(service_name, database_name).await.map_err(|err| {
-        let error: Box<dyn AppError> = Box::new(DatabaseError {
-            message: format!("Failed to initialize database: {}", err),
-        });
-        error
-    })?;
+    let pg_pool =
+        init_db("NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE")
+            .await
+            .map_err(|err| {
+                let error: Box<dyn AppError> = Box::new(DatabaseError {
+                    message: format!("Failed to initialize database: {}", err),
+                });
+                error
+            })?;
     let _ = sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
