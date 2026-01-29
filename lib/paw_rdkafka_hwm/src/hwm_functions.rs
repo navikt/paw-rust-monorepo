@@ -7,11 +7,11 @@ pub async fn update_hwm(
     topic: &str,
     partition: i32,
     hwm: i64,
-) -> Result<(), Box<dyn error::Error>> {
-    sqlx::query(
+) -> Result<bool, Box<dyn error::Error>> {
+    let res = sqlx::query(
         r#"
         update hwm
-        set hwm = $1
+        set hwm = $4
         where version = $1 AND topic = $2 AND partition = $3 and hwm < $4;
         "#,
     )
@@ -21,7 +21,7 @@ pub async fn update_hwm(
         .bind(hwm)
         .execute(&mut **tx)
         .await?;
-    Ok(())
+    Ok(res.rows_affected() > 0)
 }
 
 pub async fn insert_hwm(

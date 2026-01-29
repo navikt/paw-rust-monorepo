@@ -38,5 +38,3 @@ tonic = { version = "0.14.2", features = ["transport"] }
 
 
 [dev-dependencies]
-testcontainers = "0.16"
-testcontainers-modules = { version = "0.4", features = ["postgres"] }
