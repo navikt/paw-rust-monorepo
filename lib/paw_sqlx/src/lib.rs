@@ -1,6 +1,6 @@
 use log::info;
 use paw_rust_base::database_error::DatabaseError;
-use paw_rust_base::env_var::{get_env, EnvVarNotFoundError};
+use paw_rust_base::env_var::EnvVarNotFoundError;
 use paw_rust_base::error_handling::AppError;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;

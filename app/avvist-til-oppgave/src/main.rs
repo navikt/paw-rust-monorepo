@@ -1,5 +1,4 @@
 mod consumer;
-mod get_env;
 
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
@@ -10,6 +9,7 @@ use paw_sqlx::init_db;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use paw_rdkafka::kafka_config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         .map_err(|migrate_error| DatabaseError {
             message: format!("Database migration failed: {}", migrate_error),
         })?;
+
     appstate.set_has_started(true);
     match web_server_task.await {
         Ok(Ok(())) => log::info!("Web server exited successfully."),

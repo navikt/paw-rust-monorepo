@@ -6,7 +6,6 @@ use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use log::info as log_info;
 use paw_rust_base::error_handling::{AppError, GenericAppError};
-use std::error::Error;
 use std::sync::Arc;
 use tracing::{info, instrument};
 

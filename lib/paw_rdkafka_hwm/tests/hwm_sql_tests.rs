@@ -1,6 +1,5 @@
-use sqlx::{PgPool, Postgres as SqlxPostgres};
+use sqlx::PgPool;
 use std::error::Error;
-use rdkafka::statistics::TopicPartition;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
