@@ -1,9 +1,10 @@
+use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm, update_hwm};
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::error::Error;
-use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers::runners::AsyncRunner;
+use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
-use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm, update_hwm};
 
 async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
     let postgres_container = Postgres::default()
@@ -16,7 +17,6 @@ async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn E
         host_port
     );
 
-    // Set environment variables for testing (wrapped in unsafe blocks)
     unsafe {
         std::env::set_var("DATABASE_URL", &connection_string);
         std::env::set_var("PG_HOST", "127.0.0.1");
@@ -26,17 +26,26 @@ async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn E
         std::env::set_var("PG_DATABASE_NAME", "postgres");
     }
 
-    // Create connection pool and tables manually since init_db might not work in tests
-    let pool = PgPool::connect(&connection_string).await?;
+    let pool = PgPoolOptions::new()
+        .min_connections(1)
+        .max_connections(3)
+        .connect(&connection_string)
+        .await?;
 
-    // Create tables manually - need to import the SQL constant
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .map_err(|e| -> Box<dyn Error> {
+            println!("Migrering feilet: {}", e);
+            format!("Migrering feilet: {}", e).into()
+        })?;
+
     Ok((pool, postgres_container))
 }
 
 #[tokio::test]
 async fn test_hwm() {
-    let (pg_pool, _) = setup_test_db().await.unwrap();
+    let (pg_pool, _postgres_container) = setup_test_db().await.unwrap();
     let mut tx = pg_pool.begin().await.unwrap();
     assert!(get_hwm(&mut tx, 0, "A", 0).await.unwrap().is_none());
     assert!(get_hwm(&mut tx, 1, "A", 1).await.unwrap().is_none());
