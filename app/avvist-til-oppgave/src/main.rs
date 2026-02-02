@@ -10,6 +10,7 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use paw_rdkafka::kafka_config;
+use paw_rdkafka::kafka_config::KafkaConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
@@ -39,6 +40,15 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         .map_err(|migrate_error| DatabaseError {
             message: format!("Database migration failed: {}", migrate_error),
         })?;
+
+    let kafka_config = KafkaConfig::new("avvist_til_oppgave_v1", "ssl");
+    let hendelselogg_topic = &["paw.arbeidssoker-hendelseslogg-v1"];
+    let hendelselogg_consumer = consumer::create_kafka_consumer(
+        appstate.clone(),
+        pg_pool,
+        kafka_config,
+        hendelselogg_topic,
+    );
 
     appstate.set_has_started(true);
     match web_server_task.await {

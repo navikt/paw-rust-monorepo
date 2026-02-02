@@ -4,14 +4,14 @@ use rdkafka::config::RDKafkaLogLevel;
 use std::error::Error;
 use std::time::SystemTime;
 
-pub fn get_kafka_config(
-    application_kafka_config: ApplicationKafkaConfig,
+pub fn create_kafka_client_config(
+    kafka_config: KafkaConfig,
 ) -> Result<ClientConfig, Box<dyn Error>> {
     let brokers = get_env("KAFKA_BROKERS")?;
     let kafka_private_key_path = get_env("KAFKA_PRIVATE_KEY_PATH")?;
     let kafka_certificate_path = get_env("KAFKA_CERTIFICATE_PATH")?;
     let kafka_ca_path = get_env("KAFKA_CA_PATH")?;
-    let auto_commit = if application_kafka_config.auto_commit {
+    let auto_commit = if kafka_config.auto_commit {
         "true"
     } else {
         "false"
@@ -19,20 +19,20 @@ pub fn get_kafka_config(
     let mut config = ClientConfig::new();
     config
         .set("bootstrap.servers", brokers)
-        .set("group.id", application_kafka_config.group_id)
-        .set("client.id", application_kafka_config.client_id)
+        .set("group.id", kafka_config.group_id)
+        .set("client.id", kafka_config.client_id)
         .set(
             "session.timeout.ms",
-            application_kafka_config.session_timeout_ms.to_string(),
+            kafka_config.session_timeout_ms.to_string(),
         )
         .set(
             "auto.offset.reset",
-            application_kafka_config.auto_offset_reset,
+            kafka_config.auto_offset_reset,
         )
         .set("enable.auto.commit", auto_commit)
         .set(
             "security.protocol",
-            application_kafka_config.security_protocol,
+            kafka_config.security_protocol,
         )
         .set("ssl.key.location", kafka_private_key_path)
         .set("ssl.certificate.location", kafka_certificate_path)
@@ -54,7 +54,7 @@ pub fn get_kafka_config(
 }
 
 #[derive(Debug, Clone)]
-pub struct ApplicationKafkaConfig {
+pub struct KafkaConfig {
     pub group_id: String,
     pub client_id: String,
     pub auto_commit: bool,
@@ -66,7 +66,7 @@ pub struct ApplicationKafkaConfig {
 
 const HWM_VERSION: i16 = 1;
 
-impl Default for ApplicationKafkaConfig {
+impl Default for KafkaConfig {
     fn default() -> Self {
         let client_id = format!(
             "client-{}",
@@ -84,16 +84,16 @@ impl Default for ApplicationKafkaConfig {
     }
 }
 
-impl ApplicationKafkaConfig {
+impl KafkaConfig {
     pub fn new(group_id: &str, security_protocol: &str) -> Self {
-        ApplicationKafkaConfig {
+        KafkaConfig {
             group_id: group_id.to_string(),
             security_protocol: security_protocol.to_string(),
             ..Default::default()
         }
     }
-    pub fn rdkafka_config(&self) -> Result<ClientConfig, Box<dyn Error>> {
-        get_kafka_config(self.clone())
+    pub fn rdkafka_client_config(&self) -> Result<ClientConfig, Box<dyn Error>> {
+        create_kafka_client_config(self.clone())
     }
 }
 

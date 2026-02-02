@@ -3,17 +3,17 @@ use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
-use paw_rdkafka::kafka_config::ApplicationKafkaConfig;
+use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 
 pub fn create_kafka_consumer(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
-    app_config: ApplicationKafkaConfig,
+    kafka_config: KafkaConfig,
     topics: &[&str],
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, Box<dyn Error>> {
-    let hwm_version = app_config.hwm_version;
-    let config = app_config.rdkafka_config()?;
+    let hwm_version = kafka_config.hwm_version;
+    let config = kafka_config.rdkafka_client_config()?;
     let context = HwmRebalanceHandler {
         pg_pool,
         app_state,
