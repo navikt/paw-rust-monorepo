@@ -3,14 +3,14 @@ mod consumer;
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
+use paw_rdkafka::consumer_error::ConsumerError;
+use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
 use paw_sqlx::init_db;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use paw_rdkafka::kafka_config;
-use paw_rdkafka::kafka_config::KafkaConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
@@ -28,11 +28,8 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     let pg_pool =
         init_db("NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE")
             .await
-            .map_err(|err| {
-                let error: Box<dyn AppError> = Box::new(DatabaseError {
-                    message: format!("Failed to initialize database: {}", err),
-                });
-                error
+            .map_err(|err| DatabaseError {
+                message: format!("Failed to initialize database: {}", err),
             })?;
     let _ = sqlx::migrate!("./migrations")
         .run(&pg_pool)
@@ -48,7 +45,10 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         pg_pool,
         kafka_config,
         hendelselogg_topic,
-    );
+    )
+    .map_err(|err| ConsumerError {
+        message: format!("Failed to create Kafka consumer: {}", err),
+    })?;
 
     appstate.set_has_started(true);
     match web_server_task.await {
