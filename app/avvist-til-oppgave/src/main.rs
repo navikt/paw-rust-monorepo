@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
 
     let kafka_config = KafkaConfig::new("avvist_til_oppgave_v1", "ssl");
     let hendelselogg_topic = &["paw.arbeidssoker-hendelseslogg-v1"];
-    let hendelselogg_consumer = kafka::consumer::create_kafka_consumer(
+    let hendelselogg_consumer = kafka::consumer::create(
         appstate.clone(),
         pg_pool.clone(),
         kafka_config,

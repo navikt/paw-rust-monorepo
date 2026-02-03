@@ -6,7 +6,7 @@ use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 
-pub fn create_kafka_consumer(
+pub fn create(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
     kafka_config: KafkaConfig,

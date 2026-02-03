@@ -1,9 +1,8 @@
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, Utc};
-use rdkafka::{
-    message::{BorrowedMessage, Headers},
-    Message,
-};
+use rdkafka::Message;
+use rdkafka::message::BorrowedMessage;
+use rdkafka::message::Headers;
 use serde_json::{Map, Value};
 use std::error::Error;
 
@@ -12,7 +11,7 @@ pub struct KafkaMessage {
     pub topic: String,
     pub partition: i32,
     pub offset: i64,
-    pub headers: Option<serde_json::Value>,
+    pub headers: Option<Value>,
     pub key: Vec<u8>,
     pub payload: Vec<u8>,
     pub timestamp: DateTime<Utc>,
