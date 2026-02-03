@@ -1,4 +1,4 @@
-mod consumer;
+mod kafka;
 
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             .map_err(|err| DatabaseError {
                 message: format!("Failed to initialize database: {}", err),
             })?;
-    let _ = sqlx::migrate!("./migrations")
+    sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
         .map_err(|migrate_error| DatabaseError {
@@ -40,15 +40,22 @@ async fn main() -> Result<(), Box<dyn AppError>> {
 
     let kafka_config = KafkaConfig::new("avvist_til_oppgave_v1", "ssl");
     let hendelselogg_topic = &["paw.arbeidssoker-hendelseslogg-v1"];
-    let hendelselogg_consumer = consumer::create_kafka_consumer(
+    let hendelselogg_consumer = kafka::consumer::create_kafka_consumer(
         appstate.clone(),
-        pg_pool,
+        pg_pool.clone(),
         kafka_config,
         hendelselogg_topic,
     )
     .map_err(|err| ConsumerError {
         message: format!("Failed to create Kafka consumer: {}", err),
     })?;
+
+    /*
+    kafka::hendelse_processor::process_hendelse(
+        hendelselogg_consumer,
+        pg_pool.clone(),
+        appstate.clone()
+    );*/
 
     appstate.set_has_started(true);
     match web_server_task.await {

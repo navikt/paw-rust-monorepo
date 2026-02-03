@@ -13,6 +13,8 @@ paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 log = "0.4.29"
 log4rs = "1.4.0"
+base64 = "0.22.1"
+chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1.49.0", features = ["full"] }
 rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }
 serde = "1.0.228"

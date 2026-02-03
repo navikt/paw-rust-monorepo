@@ -7,9 +7,7 @@ use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
 async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
-    let postgres_container = Postgres::default()
-        .with_tag("18-alpine")
-        .start().await?;
+    let postgres_container = Postgres::default().with_tag("18-alpine").start().await?;
 
     let host_port = postgres_container.get_host_port_ipv4(5432).await?;
     let connection_string = format!(
