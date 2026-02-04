@@ -1,3 +1,4 @@
+pub mod hendelse_processor;
 mod kafka;
 
 use axum_health::routes;
@@ -50,12 +51,11 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         message: format!("Failed to create Kafka consumer: {}", err),
     })?;
 
-    /*
-    kafka::hendelse_processor::start_processing_loop(
+    let _ = hendelse_processor::start_processing_loop(
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone()
-    );*/
+    );
 
     appstate.set_has_started(true);
     match web_server_task.await {

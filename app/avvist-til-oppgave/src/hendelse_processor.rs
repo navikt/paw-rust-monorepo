@@ -1,11 +1,12 @@
 use crate::kafka::hendelse::Hendelse;
 use health_and_monitoring::simple_app_state::AppState;
+use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
 use rdkafka::message::Message;
 use rdkafka::message::OwnedMessage;
 use serde_json::Value;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::sync::Arc;
 
@@ -19,13 +20,40 @@ pub async fn start_processing_loop(
 ) -> Result<(), Box<dyn Error>> {
     loop {
         let kafka_message = hendelselogg_consumer.recv().await?.detach();
-        process_hendelse(&kafka_message, pg_pool.clone()).await?;
+        let tx = pg_pool.begin().await?;
+        process_hendelse(&kafka_message, tx).await?;
     }
 }
 
-async fn process_hendelse(
+const HWM_VERSION: i16 = 1;
+
+pub async fn process_hendelse(
     kafka_message: &OwnedMessage,
-    pg_pool: PgPool,
+    mut tx: Transaction<'_, Postgres>,
+) -> Result<(), Box<dyn Error>> {
+    match update_hwm(
+        &mut tx,
+        HWM_VERSION,
+        kafka_message.topic(),
+        kafka_message.partition(),
+        kafka_message.offset(),
+    )
+    .await?
+    {
+        true => {
+            hugga_bugga(kafka_message, &tx).await?;
+            tx.commit().await?;
+        }
+        false => {
+            tx.rollback().await?;
+        }
+    }
+    Ok(())
+}
+
+async fn hugga_bugga(
+    kafka_message: &OwnedMessage,
+    tx: &Transaction<'_, Postgres>,
 ) -> Result<(), Box<dyn Error>> {
     let payload_bytes = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
@@ -36,14 +64,15 @@ async fn process_hendelse(
         true => {
             let hendelse: Hendelse = serde_json::from_value(json)?;
             let arbeidssoker_id = hendelse.id;
-            let oppgave_id = hent_opg_id_for(arbeidssoker_id, pg_pool).await;
-            log::info!("Prosesserer avvist hendelse for arbeidssøker");
+            let oppgave_id = hent_opg_id_for(arbeidssoker_id, &tx).await;
+            tracing::info!("Prosesserer avvist hendelse for arbeidssøker");
         }
         false => { /* Gå videre */ }
     }
     Ok(())
 }
 
-async fn hent_opg_id_for(arbeidssoeker_id: i64, pg_pool: PgPool) {
+async fn hent_opg_id_for(arbeidssoeker_id: i64, mut tx: &Transaction<'_, Postgres>) -> i64 {
     //hent oppgave id fra db hvis det finnes
+    0
 }
