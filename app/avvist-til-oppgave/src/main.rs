@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     })?;
 
     /*
-    kafka::hendelse_processor::process_hendelse(
+    kafka::hendelse_processor::start_processing_loop(
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone()
