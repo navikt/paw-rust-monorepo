@@ -1310,6 +1310,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "kafka-topic-backup"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "futures",
+ "log",
+ "log4rs",
+ "prometheus",
+ "rdkafka 0.38.0",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "sqlx",
+ "temp-env",
+ "testcontainers",
+ "testcontainers-modules",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1786,29 +1809,6 @@ dependencies = [
  "regex-syntax",
  "structmeta",
  "syn 2.0.114",
-]
-
-[[package]]
-name = "paw-kafka-topic-backup"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "chrono",
- "futures",
- "log",
- "log4rs",
- "prometheus",
- "rdkafka 0.38.0",
- "serde",
- "serde-env-field",
- "serde_json",
- "sqlx",
- "temp-env",
- "testcontainers",
- "testcontainers-modules",
- "tokio",
- "toml",
 ]
 
 [[package]]

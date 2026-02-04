@@ -3,16 +3,14 @@ use sqlx::PgPool;
 use std::error::Error;
 use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
-
-// Import modules from the main crate
-use paw_kafka_topic_backup::database::hwm_statements::{get_hwm, insert_hwm};
-use paw_kafka_topic_backup::{KafkaMessage, prosesser_melding};
+use kafka_topic_backup::database::hwm_statements::{get_hwm, insert_hwm};
+use kafka_topic_backup::{prosesser_melding, KafkaMessage};
 
 /// Setup a test database container
 async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
-    let postgres_container = Postgres::default().start().await;
+    let postgres_container = Postgres::default().start().await?;
 
-    let host_port = postgres_container.get_host_port_ipv4(5432).await;
+    let host_port = postgres_container.get_host_port_ipv4(5432).await?;
     let connection_string = format!(
         "postgresql://postgres:postgres@127.0.0.1:{}/postgres",
         host_port

@@ -1,7 +1,11 @@
 [package]
-name = "paw-kafka-topic-backup"
+name = "kafka-topic-backup"
 version = "0.1.0"
 edition = "2024"
+
+[lib]
+name = "kafka_topic_backup"
+path = "src/lib.rs"
 
 [dependencies]
 tokio = { version = "1.47.1", features = ["full"] }
