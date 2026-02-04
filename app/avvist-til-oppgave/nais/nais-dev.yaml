@@ -46,6 +46,8 @@ spec:
     requests:
       memory: 8Mi
       cpu: 1m
+  kafka:
+    pool: nav-dev
   gcp:
     sqlInstances:
       - type: POSTGRES_18
