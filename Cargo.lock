@@ -117,8 +117,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "axum_health",
- "base64 0.22.1",
- "chrono",
  "health_and_monitoring",
  "log",
  "paw_rdkafka",
