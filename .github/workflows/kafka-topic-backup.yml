@@ -1,11 +1,15 @@
-name: Kafka Topic Backup - build and deploy
+name: Rust kafka-topic-backup - build and deploy
 on:
   push:
     branches:
-      - NONE
+      - main
+    paths:
+      - 'app/kafka-topic-backup/**'
+      - 'Cargo.lock'
+      - 'lib/**'
+      - 'Dockerfile'
 env:
-  IMAGE: europe-north1-docker.pkg.dev/nais-management-233d/paw/paw-kafka-topic-backup
-
+  APP_NAME: kafka-topic-backup
 jobs:
   test:
     name: Test
@@ -17,7 +21,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: stable
-      - run: cargo test
+      - run: cargo test -p ${{ env.APP_NAME }}
   build:
     if: ${{ github.actor != 'dependabot[bot]' }}
     name: Build
@@ -36,21 +40,23 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: build
-        run: cargo build
+          key: ${{ runner.os }}-${{ github.workflow_ref }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: docker-build-push
         uses: nais/docker-build-push@791ebb6f74b82849c742a9bc9c97abe44c6c111f
         id: docker-build-push
         with:
           team: paw
+          image_suffix: ${{ env.APP_NAME }}
+          build_args: |
+            APP=${{ env.APP_NAME }}
+            GIT_COMMIT_HASH=${{ github.sha }}
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
   deploy-dev:
     if: github.ref == 'refs/heads/main'
     name: Deploy to dev-gcp
-    needs: [test, build]
+    needs: [ test, build ]
     permissions:
       contents: read
       id-token: write
@@ -60,9 +66,9 @@ jobs:
       - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
         env:
           CLUSTER: dev-gcp
-          RESOURCE: nais/nais-dev.yaml
+          RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }},kafka=nav-dev
-
+  
   deploy-prod:
     if: github.ref == 'refs/heads/main'
     name: Deploy to prod-gcp
@@ -76,5 +82,5 @@ jobs:
       - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
         env:
           CLUSTER: prod-gcp
-          RESOURCE: nais/nais-prod.yaml
+          RESOURCE: app/${{ env.APP_NAME }}/nais/nais-prod.yaml
           VAR: image=${{ needs.build.outputs.image }},kafka=nav-prod

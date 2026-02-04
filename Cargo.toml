@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "app/avvist-til-oppgave",
     "app/test-app",
+    "app/kafka-topic-backup",
     "lib/axum_health",
     "lib/health_and_monitoring",
     "lib/paw_rust_base",
