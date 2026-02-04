@@ -25,7 +25,7 @@ pub struct Metadata {
 #[derive(Debug, Deserialize)]
 pub struct UtfoertAv {
     #[serde(rename = "type")]
-    pub r#type: String,
+    pub bruker_type: String,
     pub id: String,
 }
 
@@ -36,8 +36,7 @@ mod tests {
 
     #[test]
     fn hendelse_deserialization() {
-        let json_str = avvist_hendelse_json();
-        let hendelse: Hendelse = serde_json::from_str(json_str).unwrap();
+        let hendelse: Hendelse = serde_json::from_str(AVVIST_HENDELSE_JSON).unwrap();
 
         let expected_uuid = Uuid::parse_str("723d5d09-83c7-4f83-97fd-35f7c9c5c798").unwrap();
         assert_eq!(hendelse.hendelse_id, expected_uuid);
@@ -51,12 +50,12 @@ mod tests {
         assert_eq!(hendelse.metadata.kilde, "Testkilde");
         assert_eq!(hendelse.metadata.aarsak, "Er under 18 år");
 
-        assert_eq!(hendelse.metadata.utfoert_av.r#type, "SYSTEM");
+        assert_eq!(hendelse.metadata.utfoert_av.bruker_type, "SYSTEM");
         assert_eq!(hendelse.metadata.utfoert_av.id, "Testsystem");
     }
 
     // language=JSON
-    fn avvist_hendelse_json() -> &'static str {
+    const AVVIST_HENDELSE_JSON: &'static str =
         r#"
         {
           "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
@@ -76,6 +75,6 @@ mod tests {
             "ER_UNDER_18_AAR"
           ]
         }
-    "#
-    }
+    "#;
+
 }
