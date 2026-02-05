@@ -19,6 +19,7 @@ use crate::logging::init_log;
 use crate::nais_http_apis::register_nais_http_apis;
 use log::error;
 use log::info;
+use paw_rust_base::panic_logger::register_panic_logger;
 use rdkafka::consumer::StreamConsumer;
 use sqlx::PgPool;
 use std::error::Error;
@@ -27,23 +28,7 @@ use tokio::signal::unix::{SignalKind, signal};
 
 #[tokio::main]
 async fn main() {
-    // Set up panic handler to log panics before they crash the process
-    std::panic::set_hook(Box::new(|panic_info| {
-        eprintln!("PANIC occurred: {}", panic_info);
-        if let Some(location) = panic_info.location() {
-            eprintln!(
-                "PANIC location: {}:{}:{}",
-                location.file(),
-                location.line(),
-                location.column()
-            );
-        }
-        if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
-            eprintln!("PANIC message: {}", s);
-        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
-            eprintln!("PANIC message: {}", s);
-        }
-    }));
+    register_panic_logger();
 
     info!("Starter applikasjon");
     let _ = match run_app().await {

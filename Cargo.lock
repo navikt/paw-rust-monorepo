@@ -1322,6 +1322,7 @@ dependencies = [
  "futures",
  "log",
  "log4rs",
+ "paw_rust_base",
  "prometheus",
  "rdkafka",
  "serde",

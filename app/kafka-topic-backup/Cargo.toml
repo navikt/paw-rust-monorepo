@@ -8,6 +8,7 @@ name = "kafka_topic_backup"
 path = "src/lib.rs"
 
 [dependencies]
+paw_rust_base = { path = "../../lib/paw_rust_base" }
 tokio = { workspace = true }
 axum = { workspace = true }
 prometheus = { workspace = true }
