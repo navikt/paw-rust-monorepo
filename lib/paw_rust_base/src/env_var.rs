@@ -47,6 +47,5 @@ impl AppError for EnvVarNotFoundError {
 }
 
 pub fn get_env(var: &'static str) -> Result<String, EnvVarNotFoundError> {
-    let key = var;
-    std::env::var(key).map_err(|_| EnvVarNotFoundError { env_var_name: var })
+    std::env::var(var).map_err(|_| EnvVarNotFoundError { env_var_name: var })
 }
