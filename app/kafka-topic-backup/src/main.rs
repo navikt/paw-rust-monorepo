@@ -77,7 +77,7 @@ async fn run_app() -> Result<(), Box<dyn std::error::Error>> {
         result = http_server_task => {
             match result {
                 Ok(Ok(())) => info!("HTTP server stoppet."),
-                Ok(Err(e)) => return Err(e),
+                Ok(Err(e)) => return Err(e as Box<dyn std::error::Error>),
                 Err(join_error) => return Err(Box::new(join_error)),
             }
         }
