@@ -8,15 +8,15 @@ paw_sqlx = { path = "../paw_sqlx" }
 health_and_monitoring = { path = "../health_and_monitoring" }
 paw_rust_base = { path = "../paw_rust_base" }
 
-log = "0.4.29"
-rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }
-sqlx = "0.8.6"
-futures = "0.3.31"
+log = { workspace = true }
+rdkafka = { workspace = true }
+sqlx = { workspace = true }
+futures = { workspace = true }
 
 [dev-dependencies]
-testcontainers = "0.26"
-testcontainers-modules = { version = "0.14", features = ["postgres"] }
-tokio = { version = "1.49.0", features = ["full", "macros"] }
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "macros"] }
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
 
 

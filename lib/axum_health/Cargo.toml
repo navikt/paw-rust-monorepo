@@ -5,12 +5,12 @@ edition = "2024"
 
 [dependencies]
 health_and_monitoring = { path = "../health_and_monitoring" }
-axum = "0.8.8"
-tokio = "1.49.0"
-prometheus = "0.14.0"
-tracing = "0.1.44"
-tower-http = { version = "0.6.8", features = ["trace"] }
-opentelemetry = "0.31.0"
-tracing-opentelemetry = "0.32.1"
-tower = "0.5.3"
+axum = { workspace = true }
+tokio = { workspace = true }
+prometheus = { workspace = true }
+tracing = { workspace = true }
+tower-http = { workspace = true }
+opentelemetry = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+tower = { workspace = true }
 
