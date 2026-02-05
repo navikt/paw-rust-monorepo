@@ -12,6 +12,9 @@ members = [
     "lib/paw_rdkafka",
 ]
 
+[workspace.package]
+edition = "2024"
+
 [workspace.dependencies]
 axum = "0.8.8"
 base64 = "0.22.1"
