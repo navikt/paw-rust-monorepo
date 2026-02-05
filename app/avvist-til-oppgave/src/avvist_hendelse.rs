@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
-pub struct Hendelse {
+#[derive(Debug, Deserialize, PartialEq, Clone)]
+pub struct AvvistHendelse {
     #[serde(rename = "hendelseId")]
     pub hendelse_id: Uuid,
     pub id: i64,
@@ -13,7 +13,7 @@ pub struct Hendelse {
     pub opplysninger: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct Metadata {
     pub tidspunkt: f64,
     #[serde(rename = "utfoertAv")]
@@ -22,7 +22,7 @@ pub struct Metadata {
     pub aarsak: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct UtfoertAv {
     #[serde(rename = "type")]
     pub bruker_type: String,
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn hendelse_deserialization() {
-        let hendelse: Hendelse = serde_json::from_str(AVVIST_HENDELSE_JSON).unwrap();
+        let hendelse: AvvistHendelse = serde_json::from_str(AVVIST_HENDELSE_JSON).unwrap();
 
         let expected_uuid = Uuid::parse_str("723d5d09-83c7-4f83-97fd-35f7c9c5c798").unwrap();
         assert_eq!(hendelse.hendelse_id, expected_uuid);

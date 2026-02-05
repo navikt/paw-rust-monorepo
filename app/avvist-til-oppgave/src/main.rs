@@ -1,5 +1,8 @@
-pub mod hendelse_processor;
+mod avvist_melding_status;
+mod db;
+mod hendelse_processor;
 mod kafka;
+pub mod avvist_hendelse;
 
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
@@ -54,7 +57,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     let _ = hendelse_processor::start_processing_loop(
         hendelselogg_consumer,
         pg_pool.clone(),
-        appstate.clone()
+        appstate.clone(),
     );
 
     appstate.set_has_started(true);

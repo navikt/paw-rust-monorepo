@@ -1,4 +1,4 @@
-use crate::kafka::hendelse::Hendelse;
+use crate::avvist_hendelse::AvvistHendelse;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
@@ -41,7 +41,7 @@ pub async fn process_hendelse(
     .await?
     {
         true => {
-            hugga_bugga(kafka_message, &tx).await?;
+            hugga_bugga(kafka_message, &mut tx).await?;
             tx.commit().await?;
         }
         false => {
@@ -53,7 +53,7 @@ pub async fn process_hendelse(
 
 async fn hugga_bugga(
     kafka_message: &OwnedMessage,
-    tx: &Transaction<'_, Postgres>,
+    tx: &mut Transaction<'_, Postgres>,
 ) -> Result<(), Box<dyn Error>> {
     let payload_bytes = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
@@ -62,17 +62,12 @@ async fn hugga_bugga(
 
     match hendelse_type == AVVIST_HENDELSE_TYPE && aarsak == AARSAK_UNDER_18 {
         true => {
-            let hendelse: Hendelse = serde_json::from_value(json)?;
-            let arbeidssoker_id = hendelse.id;
-            let oppgave_id = hent_opg_id_for(arbeidssoker_id, &tx).await;
+            let hendelse: AvvistHendelse = serde_json::from_value(json)?;
+            //insert_ubehandlet_avvist_melding(&hendelse.into(), tx).await?;
+            log::info!("Prosesserer avvist hendelse for arbeidssøker");
             tracing::info!("Prosesserer avvist hendelse for arbeidssøker");
         }
         false => { /* Gå videre */ }
     }
     Ok(())
-}
-
-async fn hent_opg_id_for(arbeidssoeker_id: i64, mut tx: &Transaction<'_, Postgres>) -> i64 {
-    //hent oppgave id fra db hvis det finnes
-    0
 }

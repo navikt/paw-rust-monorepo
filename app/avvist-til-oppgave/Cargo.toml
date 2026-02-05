@@ -12,12 +12,15 @@ axum_health = { path = "../../lib/axum_health" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 log = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
 tokio = { workspace = true }
 rdkafka = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
+chrono = "0.4.43"
 
 [dev-dependencies]
+testcontainers = "0.26"
+testcontainers-modules = { version = "0.14", features = ["postgres"] }
