@@ -1320,6 +1320,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
+ "health_and_monitoring",
  "log",
  "log4rs",
  "paw_rust_base",

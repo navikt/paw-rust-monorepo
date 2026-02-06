@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 paw_rust_base = { path = "../../lib/paw_rust_base" }
+health_and_monitoring = { path = "../../lib/health_and_monitoring"}
 tokio = { workspace = true }
 axum = { workspace = true }
 prometheus = { workspace = true }

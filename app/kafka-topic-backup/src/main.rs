@@ -4,7 +4,6 @@ mod config_utils;
 mod database;
 mod errors;
 mod kafka;
-mod logging;
 mod metrics;
 mod nais_http_apis;
 
@@ -15,8 +14,8 @@ use crate::kafka::hwm::HwmRebalanceHandler;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
-use crate::logging::init_log;
 use crate::nais_http_apis::register_nais_http_apis;
+use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use log::error;
 use log::info;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -29,7 +28,7 @@ use tokio::signal::unix::{SignalKind, signal};
 #[tokio::main]
 async fn main() {
     register_panic_logger();
-
+    setup_nais_otel().unwrap();
     info!("Starter applikasjon");
     let _ = match run_app().await {
         Ok(_) => {
@@ -52,7 +51,6 @@ async fn main() {
 }
 
 async fn run_app() -> Result<(), Box<dyn std::error::Error>> {
-    init_log();
     let config = config::Config::from_default_file()?;
     info!("Konfigurasjon lastet: {:?}", config);
     // Initialize Prometheus metrics
