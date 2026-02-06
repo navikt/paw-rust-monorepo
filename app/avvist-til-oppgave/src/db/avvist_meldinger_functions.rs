@@ -41,6 +41,7 @@ pub async fn insert_ubehandlet_avvist_melding(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use sqlx::PgPool;
     use sqlx::postgres::PgPoolOptions;
     use std::error::Error;
@@ -50,16 +51,15 @@ mod tests {
     use uuid::Uuid;
 
     #[tokio::test]
-    #[ignore]
     async fn test_insert_ubehandlet_avvist_melding() {
         let (pg_pool, _container) = setup_test_db().await.unwrap();
-        let første_januar_2023: f64 = 1672531200.0;
+        let now = Utc::now();
         let avvist_melding = AvvistMeldingRow {
             melding_id: Uuid::new_v4(),
             aarsak: "Er under 18 år".to_string(),
             identitetsnummer: "12345678901".to_string(),
             arbeidssoeker_id: 1,
-            tidspunkt: første_januar_2023,
+            tidspunkt: now,
         };
 
         let mut tx = pg_pool.begin().await.unwrap();

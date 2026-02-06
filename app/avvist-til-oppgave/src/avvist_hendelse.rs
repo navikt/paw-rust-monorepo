@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use chrono::{DateTime, TimeZone, Utc};
+use serde::{Deserialize, Deserializer};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -15,11 +16,22 @@ pub struct AvvistHendelse {
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct Metadata {
-    pub tidspunkt: f64,
+    #[serde(deserialize_with = "f64_to_datetime")]
+    pub tidspunkt: DateTime<Utc>,
     #[serde(rename = "utfoertAv")]
     pub utfoert_av: UtfoertAv,
     pub kilde: String,
     pub aarsak: String,
+}
+
+fn f64_to_datetime<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let timestamp = f64::deserialize(deserializer)?;
+    let sec = timestamp as i64;
+    let nsec = ((timestamp - sec as f64) * 1_000_000_000f64) as u32;
+    Ok(Utc.timestamp_opt(sec, nsec).unwrap())
 }
 
 #[derive(Debug, Deserialize, PartialEq, Clone)]
@@ -46,17 +58,19 @@ mod tests {
         assert_eq!(hendelse.hendelse_type, "intern.v1.avvist");
         assert_eq!(hendelse.opplysninger, vec!["ER_UNDER_18_AAR"]);
 
-        assert_eq!(hendelse.metadata.tidspunkt, 1630404930.000000000);
+
         assert_eq!(hendelse.metadata.kilde, "Testkilde");
         assert_eq!(hendelse.metadata.aarsak, "Er under 18 år");
 
         assert_eq!(hendelse.metadata.utfoert_av.bruker_type, "SYSTEM");
         assert_eq!(hendelse.metadata.utfoert_av.id, "Testsystem");
+
+        let expected_tidspunkt = Utc.timestamp_opt(1630404930, 0).unwrap();
+        assert_eq!(hendelse.metadata.tidspunkt, expected_tidspunkt);
     }
 
     // language=JSON
-    const AVVIST_HENDELSE_JSON: &'static str =
-        r#"
+    const AVVIST_HENDELSE_JSON: &'static str = r#"
         {
           "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
           "id": 1,
@@ -76,5 +90,4 @@ mod tests {
           ]
         }
     "#;
-
 }

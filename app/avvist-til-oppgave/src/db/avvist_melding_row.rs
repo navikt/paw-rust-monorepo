@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use crate::avvist_hendelse::AvvistHendelse;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -9,7 +10,7 @@ pub struct AvvistMeldingRow {
     pub aarsak: String,
     pub identitetsnummer: String,
     pub arbeidssoeker_id: i64,
-    pub tidspunkt: f64,
+    pub tidspunkt: DateTime<Utc>,
 }
 
 impl From<AvvistHendelse> for AvvistMeldingRow {
@@ -36,14 +37,14 @@ mod tests {
         let id = 12345;
         let aarsak = "Test årsak".to_string();
         let identitetsnummer = "12345678901".to_string();
-        let første_januar_2023: f64 = 1672531200.0;
+        let now= Utc::now();
 
         let avvist_hendelse = AvvistHendelse {
             hendelse_id,
             id,
             identitetsnummer: identitetsnummer.clone(),
             metadata: Metadata {
-                tidspunkt: første_januar_2023,
+                tidspunkt: now,
                 utfoert_av: UtfoertAv {
                     bruker_type: "System".to_string(),
                     id: "123".to_string(),
