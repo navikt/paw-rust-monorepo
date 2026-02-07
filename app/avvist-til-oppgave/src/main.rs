@@ -1,8 +1,8 @@
-mod avvist_melding_status;
+pub mod avvist_hendelse;
 mod db;
+mod domain;
 mod hendelse_processor;
 mod kafka;
-pub mod avvist_hendelse;
 
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
@@ -11,6 +11,7 @@ use paw_rdkafka::consumer_error::ConsumerError;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
+use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::init_db;
 use std::error::Error;
 use std::sync::Arc;
@@ -18,6 +19,7 @@ use tokio::task::JoinHandle;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn AppError>> {
+    register_panic_logger();
     setup_nais_otel()?;
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
