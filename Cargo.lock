@@ -124,6 +124,7 @@ dependencies = [
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
+ "paw_test",
  "rdkafka",
  "serde",
  "serde_json",
@@ -1831,12 +1832,9 @@ dependencies = [
  "futures",
  "health_and_monitoring",
  "log",
- "paw_rust_base",
- "paw_sqlx",
+ "paw_test",
  "rdkafka",
  "sqlx",
- "testcontainers",
- "testcontainers-modules",
  "tokio",
 ]
 
@@ -1852,6 +1850,15 @@ dependencies = [
  "log",
  "paw_rust_base",
  "sqlx",
+]
+
+[[package]]
+name = "paw_test"
+version = "0.1.0"
+dependencies = [
+ "sqlx",
+ "testcontainers",
+ "testcontainers-modules",
 ]
 
 [[package]]
