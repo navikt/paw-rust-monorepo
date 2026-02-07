@@ -70,7 +70,7 @@ mod tests {
     }
 
     // language=JSON
-    const AVVIST_HENDELSE_JSON: &'static str = r#"
+    const AVVIST_HENDELSE_JSON: &str = r#"
         {
           "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
           "id": 1,
