@@ -22,5 +22,4 @@ tracing = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
-testcontainers = { workspace = true }
-testcontainers-modules = { workspace = true }
+paw_test = { path = "../../lib/paw_test" }

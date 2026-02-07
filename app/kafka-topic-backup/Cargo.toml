@@ -13,7 +13,6 @@ health_and_monitoring = { path = "../../lib/health_and_monitoring"}
 tokio = { workspace = true }
 axum = { workspace = true }
 prometheus = { workspace = true }
-log4rs = { workspace = true }
 log = { workspace = true }
 sqlx = { workspace = true }
 rdkafka = { workspace = true }
@@ -24,10 +23,8 @@ futures = { workspace = true }
 serde-env-field = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
-temp-env = { workspace = true }
 
 [dev-dependencies]
-testcontainers = { workspace = true }
-testcontainers-modules = { workspace = true }
+paw_test = { path = "../../lib/paw_test" }
 
 

@@ -1,41 +1,12 @@
-use sqlx::PgPool;
-use std::error::Error;
-use testcontainers::{ContainerAsync, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
 use kafka_topic_backup::database::hwm_statements::{get_hwm, insert_hwm, update_hwm};
-
-async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
-    let postgres_container = Postgres::default().start().await?;
-
-    let host_port = postgres_container.get_host_port_ipv4(5432).await?;
-    let connection_string = format!(
-        "postgresql://postgres:postgres@127.0.0.1:{}/postgres",
-        host_port
-    );
-
-    // Set environment variables for testing (wrapped in unsafe blocks)
-    unsafe {
-        std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PG_HOST", "127.0.0.1");
-        std::env::set_var("PG_PORT", host_port.to_string());
-        std::env::set_var("PG_USERNAME", "postgres");
-        std::env::set_var("PG_PASSWORD", "postgres");
-        std::env::set_var("PG_DATABASE_NAME", "postgres");
-    }
-
-    // Create connection pool and tables manually since init_db might not work in tests
-    let pool = PgPool::connect(&connection_string).await?;
-
-    // Create tables manually - need to import the SQL constant
-    sqlx::migrate!("./migrations").run(&pool).await?;
-    Ok((pool, postgres_container))
-}
+use paw_test::setup_test_db::setup_test_db;
 
 #[tokio::test]
 async fn test_insert_hwm_data() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Start a transaction
     let mut tx = pool.begin().await.expect("Failed to start transaction");
@@ -71,6 +42,7 @@ async fn test_get_nonexistent_hwm() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Query non-existent data using hwm_statements function
     let mut tx = pool.begin().await.expect("Failed to start transaction");
@@ -87,6 +59,7 @@ async fn test_update_hwm_data() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let topic = "update-test-topic".to_string();
     let partition = 2i32;
@@ -131,6 +104,7 @@ async fn test_update_hwm_no_change_when_lower() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let topic = "no-update-test-topic".to_string();
     let partition = 3i32;
@@ -175,6 +149,7 @@ async fn test_multiple_topics_and_partitions() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Insert data for multiple topics and partitions using hwm_statements functions
     let test_data = vec![
@@ -215,6 +190,7 @@ async fn test_transaction_rollback() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let topic = "rollback-test-topic".to_string();
     let partition = 0i32;

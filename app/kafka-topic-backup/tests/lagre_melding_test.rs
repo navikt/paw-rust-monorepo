@@ -1,38 +1,7 @@
 use chrono::DateTime;
-use sqlx::PgPool;
-use std::error::Error;
-use testcontainers::{ContainerAsync, runners::AsyncRunner};
-use testcontainers_modules::postgres::Postgres;
 use kafka_topic_backup::database::hwm_statements::{get_hwm, insert_hwm};
-use kafka_topic_backup::{prosesser_melding, KafkaMessage};
-
-/// Setup a test database container
-async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
-    let postgres_container = Postgres::default().start().await?;
-
-    let host_port = postgres_container.get_host_port_ipv4(5432).await?;
-    let connection_string = format!(
-        "postgresql://postgres:postgres@127.0.0.1:{}/postgres",
-        host_port
-    );
-
-    // Set environment variables for testing
-    unsafe {
-        std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PG_HOST", "127.0.0.1");
-        std::env::set_var("PG_PORT", host_port.to_string());
-        std::env::set_var("PG_USERNAME", "postgres");
-        std::env::set_var("PG_PASSWORD", "postgres");
-        std::env::set_var("PG_DATABASE_NAME", "postgres");
-    }
-
-    let pool = PgPool::connect(&connection_string).await?;
-
-    // Create necessary tables
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    Ok((pool, postgres_container))
-}
+use kafka_topic_backup::{KafkaMessage, prosesser_melding};
+use paw_test::setup_test_db::setup_test_db;
 
 // Helper function to create a mock KafkaMessage for testing
 fn create_test_kafka_message(topic: &str, partition: i32, offset: i64) -> KafkaMessage {
@@ -54,6 +23,7 @@ async fn test_lagre_melding_i_db_new_message() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Insert initial HWM record with a lower offset so our test message will be processed
     let mut tx = pool.begin().await.expect("Failed to start transaction");
@@ -97,6 +67,7 @@ async fn test_lagre_melding_i_db_duplicate_message() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     // Insert initial HWM record with the SAME offset as our test message
     let mut tx = pool.begin().await.expect("Failed to start transaction");
@@ -137,6 +108,7 @@ async fn test_lagre_melding_i_db_lower_offset_message() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let higher_hwm = 150i64;
 

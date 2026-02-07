@@ -4,9 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-paw_sqlx = { path = "../paw_sqlx" }
 health_and_monitoring = { path = "../health_and_monitoring" }
-paw_rust_base = { path = "../paw_rust_base" }
 
 log = { workspace = true }
 rdkafka = { workspace = true }
@@ -14,8 +12,7 @@ sqlx = { workspace = true }
 futures = { workspace = true }
 
 [dev-dependencies]
-testcontainers = { workspace = true }
-testcontainers-modules = { workspace = true }
+paw_test = { path = "../paw_test" }
 tokio = { workspace = true }
 sqlx = { workspace = true }
 

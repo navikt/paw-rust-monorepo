@@ -1,4 +1,5 @@
-
+use crate::hwm::{DEFAULT_HWM, Hwm, TopicPartition};
+use crate::hwm_functions::{get_hwm, insert_hwm};
 use futures::executor::block_on;
 use health_and_monitoring::simple_app_state::AppState;
 use log::error as log_error;
@@ -7,8 +8,6 @@ use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error;
 use std::sync::Arc;
-use crate::hwm::{Hwm, TopicPartition, DEFAULT_HWM};
-use crate::hwm_functions::{get_hwm, insert_hwm};
 
 pub struct HwmRebalanceHandler {
     pub pg_pool: PgPool,
@@ -39,7 +38,6 @@ impl HwmRebalanceHandler {
 impl ClientContext for HwmRebalanceHandler {}
 
 impl ConsumerContext for HwmRebalanceHandler {
-
     fn post_rebalance(&self, base_consumer: &BaseConsumer<Self>, rebalance: &Rebalance<'_>) {
         match rebalance {
             Rebalance::Assign(partitions) => {
@@ -68,7 +66,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                             hwm.partition,
                             hwm.offset,
                         ))
-                            .unwrap()
+                        .unwrap()
                     } else {
                         log::info!(
                             "HWM for topic {} partition {} is {}",
