@@ -19,7 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
-chrono = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 paw_test = { path = "../../lib/paw_test" }
