@@ -1,7 +1,8 @@
-use crate::avvist_hendelse::AvvistHendelse;
 use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med, insert_oppgave_status_logg};
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::db::oppgave_status_logg_row::InsertOppgaveStatusLoggRow;
+use crate::domain::avvist_hendelse::AvvistHendelse;
+use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
@@ -67,24 +68,31 @@ async fn lag_oppgave_for_avvist_hendelse(
         let avvist_hendelse: AvvistHendelse = serde_json::from_value(json)?;
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
-        if oppgave.is_none() { //TODO, riktig kriterie? Flere oppgaver? Spesifikk status på oppgave?
+        if skal_opprette_oppgave(&oppgave) {
             let oppgave_row = to_oppgave_row(
                 avvist_hendelse,
                 OppgaveType::AvvistUnder18,
-                OppgaveStatus::Ubehandlet
+                OppgaveStatus::Ubehandlet,
             );
             insert_oppgave_med(&oppgave_row, tx).await?;
         } else {
             let status_logg_row = InsertOppgaveStatusLoggRow {
                 oppgave_id: oppgave.unwrap().id,
-                status: "Changeme".to_string(), //TODO
-                melding: "Avvist melding fra arbeidssoeker under 18 mottatt".to_string(),
+                status: "Changeme".to_string(), //TODO enumifisering?
+                melding: "Avvist melding fra arbeidssoeker under 18 mottatt".to_string(), //TODO: Standard melding?
                 tidspunkt: Utc::now(),
             };
             insert_oppgave_status_logg(&status_logg_row, tx).await?;
         }
     }
     Ok(())
+}
+
+fn skal_opprette_oppgave(oppgave: &Option<Oppgave>) -> bool {
+    match oppgave {
+        None => true,
+        Some(oppgave) => oppgave.status == OppgaveStatus::Ferdigbehandlet,
+    }
 }
 
 const AVVIST_HENDELSE_TYPE: &str = "intern.v1.avvist";
@@ -136,17 +144,34 @@ mod tests {
             Some(OwnedHeaders::new()),
         );
 
+        let andre_avvist_message = OwnedMessage::new(
+            Some(AVVIST_HENDELSE_JSON.as_bytes().to_vec()),
+            None,
+            "hendelselogg".to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            2,
+            Some(OwnedHeaders::new()),
+        );
+
+
         let tx = pg_pool.begin().await?;
         process_hendelse(&irrelevant_message, tx).await?;
 
         let tx = pg_pool.begin().await?;
         process_hendelse(&avvist_message, tx).await?;
 
+        //Duplikat melding skal kun føre til en entry i status logg
+        let tx = pg_pool.begin().await?;
+        process_hendelse(&andre_avvist_message, tx).await?;
+
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
         let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
 
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
+        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        assert_eq!(oppgave.status_logg.len(), 2);
         assert_eq!(
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]

@@ -1,4 +1,3 @@
-pub mod avvist_hendelse;
 mod db;
 mod domain;
 mod hendelse_processor;
