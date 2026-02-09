@@ -1,4 +1,4 @@
-use crate::avvist_hendelse::AvvistHendelse;
+use crate::domain::avvist_hendelse::AvvistHendelse;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
@@ -47,7 +47,7 @@ pub fn to_oppgave_row(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::avvist_hendelse::{Metadata, UtfoertAv};
+    use crate::domain::avvist_hendelse::{Metadata, UtfoertAv};
     use uuid::Uuid;
 
     #[test]
