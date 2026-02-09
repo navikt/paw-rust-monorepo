@@ -1,8 +1,79 @@
 use crate::db::oppgave_row::OppgaveRow;
 use crate::db::oppgave_status_logg_row::OppgaveStatusLoggRow;
+use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
-use sqlx::{Postgres, Transaction};
+use crate::domain::oppgave_type::OppgaveType;
+use crate::domain::status_logg_entry::StatusLoggEntry;
+use sqlx::{Postgres, Row, Transaction};
 use std::error::Error;
+
+pub async fn hent_oppgave(
+    arbeidssoeker_id: i64,
+    tx: &mut Transaction<'_, Postgres>,
+) -> Result<Option<Oppgave>, sqlx::Error> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            id,
+            type AS type_,
+            melding_id,
+            opplysninger,
+            arbeidssoeker_id,
+            identitetsnummer,
+            tidspunkt AT TIME ZONE 'UTC' as tidspunkt
+        FROM oppgaver
+        WHERE arbeidssoeker_id = $1
+        "#,
+    )
+    .bind(arbeidssoeker_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+
+    let row = match row {
+        Some(row) => row,
+        None => return Ok(None),
+    };
+
+    let oppgave_id: i64 = row.try_get("id")?;
+    let status_logg = sqlx::query_as::<_, OppgaveStatusLoggRow>(
+        r#"
+        SELECT
+            oppgave_id,
+            status,
+            melding,
+            tidspunkt AT TIME ZONE 'UTC' as tidspunkt
+        FROM oppgave_status_logg
+        WHERE oppgave_id = $1
+        ORDER BY tidspunkt DESC
+        "#,
+    )
+    .bind(oppgave_id)
+    .fetch_all(&mut **tx)
+    .await?
+    .into_iter()
+    .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
+    .collect();
+
+    let oppgave_row = OppgaveRow {
+        type_: row.try_get("type_")?,
+        melding_id: row.try_get("melding_id")?,
+        opplysninger: row.try_get("opplysninger")?,
+        arbeidssoeker_id: row.try_get("arbeidssoeker_id")?,
+        identitetsnummer: row.try_get("identitetsnummer")?,
+        tidspunkt: row.try_get("tidspunkt")?,
+    };
+
+    let oppgave = Oppgave::new(
+        OppgaveType::from_str(oppgave_row.type_).unwrap(),
+        oppgave_row.opplysninger,
+        oppgave_row.arbeidssoeker_id,
+        oppgave_row.identitetsnummer,
+        oppgave_row.tidspunkt,
+        status_logg,
+    );
+
+    Ok(Some(oppgave))
+}
 
 pub async fn insert_oppgave_med(
     oppgave_status: OppgaveStatus,
@@ -81,21 +152,70 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
+        let arbeidssoeker_id = 12345;
+
         let oppgave_row = OppgaveRow {
             type_: OppgaveType::AvvistUnder18.to_string(),
             melding_id: Uuid::new_v4(),
             opplysninger: vec![
                 "ER_UNDER_18_AAR".to_string(),
-                "BOSATT_ETTER_FREG_LOVEN".to_string()
+                "BOSATT_ETTER_FREG_LOVEN".to_string(),
             ],
-            arbeidssoeker_id: 12345,
+            arbeidssoeker_id,
             identitetsnummer: "12345678901".to_string(),
             tidspunkt: Utc::now(),
         };
 
-        let oppgave_id = insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, &mut tx).await?;
+        {
+            let oppgave_id =
+                insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, &mut tx).await?;
+            tx.commit().await?;
+            assert_eq!(oppgave_id, 1);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hent_oppgave() -> Result<(), Box<dyn Error>> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+
+        // Sett inn en oppgave
+        let mut tx = pg_pool.begin().await?;
+        let arbeidssoeker_id = 12345;
+        let oppgave_row = OppgaveRow {
+            type_: OppgaveType::AvvistUnder18.to_string(),
+            melding_id: Uuid::new_v4(),
+            opplysninger: vec![
+                "ER_UNDER_18_AAR".to_string(),
+                "BOSATT_ETTER_FREG_LOVEN".to_string(),
+            ],
+            arbeidssoeker_id,
+            identitetsnummer: "12345678901".to_string(),
+            tidspunkt: Utc::now(),
+        };
+
+        insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, &mut tx).await?;
         tx.commit().await?;
-        assert_eq!(oppgave_id, 1);
+
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?;
+        tx.commit().await?;
+
+        let oppgave = oppgave.unwrap();
+        assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
+        assert_eq!(oppgave.arbeidssoeker_id, 12345);
+        assert_eq!(oppgave.identitetsnummer, "12345678901");
+        assert_eq!(
+            oppgave.opplysninger,
+            vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
+        );
+        assert_eq!(oppgave.status_logg.len(), 1);
+        assert_eq!(oppgave.gjeldende_status(), Some(OppgaveStatus::Ubehandlet));
+
+        let mut tx = pg_pool.begin().await?;
+        assert_eq!(hent_oppgave(99999, &mut tx).await?, None);
 
         Ok(())
     }
