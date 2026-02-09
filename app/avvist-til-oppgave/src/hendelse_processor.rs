@@ -1,5 +1,5 @@
 use crate::avvist_hendelse::AvvistHendelse;
-use crate::db::oppgave_functions::insert_oppgave_med;
+use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med};
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
@@ -53,7 +53,7 @@ async fn lag_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<(), Box<dyn Error>> {
-    let payload_bytes = kafka_message.payload().unwrap_or(&[]).to_vec();
+    let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
     let hendelse_type = json["hendelseType"].as_str().unwrap_or_default();
     let opplysninger: Vec<&str> = match json["opplysninger"].as_array() {
@@ -61,11 +61,13 @@ async fn lag_oppgave_for_avvist_hendelse(
         None => Vec::new(),
     };
 
-    if er_avvist_hendelse(hendelse_type, &opplysninger) {
-        let hendelse: AvvistHendelse = serde_json::from_value(json)?;
-        let oppgave_row = to_oppgave_row(hendelse, OppgaveType::AvvistUnder18);
-        insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, tx).await?;
-
+    if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
+        let avvist_hendelse: AvvistHendelse = serde_json::from_value(json)?;
+        let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
+        if oppgave.is_none() { //TODO, riktig kriterie? Flere oppgaver? Spesifikk status på oppgave?
+            let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18);
+            insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, tx).await?;
+        }
         log::info!("Prosesserer avvist hendelse for arbeidssøker");
         tracing::info!("Prosesserer avvist hendelse for arbeidssølker");
     }
@@ -76,7 +78,7 @@ const AVVIST_HENDELSE_TYPE: &str = "intern.v1.avvist";
 const OPPLYSNING_UNDER_18: &str = "ER_UNDER_18_AAR";
 const BOSATT_ETTER_FREG_LOVEN: &str = "BOSATT_ETTER_FREG_LOVEN";
 
-fn er_avvist_hendelse(hendelse_type: &str, opplysninger: &[&str]) -> bool {
+fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
     hendelse_type == AVVIST_HENDELSE_TYPE
         && [BOSATT_ETTER_FREG_LOVEN, OPPLYSNING_UNDER_18]
             .iter()
@@ -143,7 +145,7 @@ mod tests {
         )
         .fetch_one(&pg_pool)
         .await?;
-        assert_eq!(oppgave_row.type_, "AvvistUnder18");
+        assert_eq!(oppgave_row.type_, OppgaveType::AvvistUnder18.to_string());
         assert_eq!(
             oppgave_row.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
