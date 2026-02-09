@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct OppgaveRow {
+    pub id: i64,
     pub type_: String,
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
@@ -14,8 +15,18 @@ pub struct OppgaveRow {
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
 }
-pub fn to_oppgave_row(hendelse: AvvistHendelse, oppgave_type: OppgaveType) -> OppgaveRow {
-    OppgaveRow {
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct InsertOppgaveRow {
+    pub type_: String,
+    pub melding_id: Uuid,
+    pub opplysninger: Vec<String>,
+    pub arbeidssoeker_id: i64,
+    pub identitetsnummer: String,
+    pub tidspunkt: DateTime<Utc>,
+}
+pub fn to_oppgave_row(hendelse: AvvistHendelse, oppgave_type: OppgaveType) -> InsertOppgaveRow {
+    InsertOppgaveRow {
         type_: oppgave_type.to_string(),
         melding_id: hendelse.hendelse_id,
         opplysninger: hendelse.opplysninger,

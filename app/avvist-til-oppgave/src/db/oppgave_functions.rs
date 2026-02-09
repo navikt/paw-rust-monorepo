@@ -1,17 +1,17 @@
-use crate::db::oppgave_row::OppgaveRow;
+use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::db::oppgave_status_logg_row::OppgaveStatusLoggRow;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use crate::domain::status_logg_entry::StatusLoggEntry;
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::{Postgres, Transaction};
 use std::error::Error;
 
 pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>, sqlx::Error> {
-    let row = sqlx::query(
+    let row = sqlx::query_as::<_, OppgaveRow>(
         r#"
         SELECT
             id,
@@ -29,12 +29,11 @@ pub async fn hent_oppgave(
     .fetch_optional(&mut **tx)
     .await?;
 
-    let row = match row {
-        Some(row) => row,
+    let oppgave_row = match row {
         None => return Ok(None),
+        Some(row) => row,
     };
 
-    let oppgave_id: i64 = row.try_get("id")?;
     let status_logg = sqlx::query_as::<_, OppgaveStatusLoggRow>(
         r#"
         SELECT
@@ -47,21 +46,12 @@ pub async fn hent_oppgave(
         ORDER BY tidspunkt DESC
         "#,
     )
-    .bind(oppgave_id)
+    .bind(oppgave_row.id)
     .fetch_all(&mut **tx)
     .await?
     .into_iter()
     .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
     .collect();
-
-    let oppgave_row = OppgaveRow {
-        type_: row.try_get("type_")?,
-        melding_id: row.try_get("melding_id")?,
-        opplysninger: row.try_get("opplysninger")?,
-        arbeidssoeker_id: row.try_get("arbeidssoeker_id")?,
-        identitetsnummer: row.try_get("identitetsnummer")?,
-        tidspunkt: row.try_get("tidspunkt")?,
-    };
 
     let oppgave = Oppgave::new(
         OppgaveType::from_str(oppgave_row.type_).unwrap(),
@@ -77,7 +67,7 @@ pub async fn hent_oppgave(
 
 pub async fn insert_oppgave_med(
     oppgave_status: OppgaveStatus,
-    oppgave_row: &OppgaveRow,
+    oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<i64, Box<dyn Error>> {
     let oppgave_id = insert_oppgave(oppgave_row, transaction).await?;
@@ -95,7 +85,7 @@ pub async fn insert_oppgave_med(
 }
 
 async fn insert_oppgave(
-    oppgave_row: &OppgaveRow,
+    oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<i64, Box<dyn Error>> {
     let oppgave_id = sqlx::query_scalar(
@@ -154,7 +144,7 @@ mod tests {
 
         let arbeidssoeker_id = 12345;
 
-        let oppgave_row = OppgaveRow {
+        let oppgave_row = InsertOppgaveRow {
             type_: OppgaveType::AvvistUnder18.to_string(),
             melding_id: Uuid::new_v4(),
             opplysninger: vec![
@@ -184,7 +174,7 @@ mod tests {
         // Sett inn en oppgave
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
-        let oppgave_row = OppgaveRow {
+        let oppgave_row = InsertOppgaveRow {
             type_: OppgaveType::AvvistUnder18.to_string(),
             melding_id: Uuid::new_v4(),
             opplysninger: vec![
