@@ -11,7 +11,34 @@ pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>, sqlx::Error> {
-    let row = sqlx::query_as::<_, OppgaveRow>(
+
+    let oppgave_row = hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await?;
+    let oppgave_row = match oppgave_row {
+        None => return Ok(None),
+        Some(row) => row,
+    };
+
+    let status_logg: Vec<StatusLoggEntry> = hent_status_logg(oppgave_row.id, tx).await?;
+
+    let oppgave = Oppgave::new(
+        oppgave_row.id,
+        OppgaveType::from_str(oppgave_row.type_).unwrap(),
+        OppgaveStatus::from_str(oppgave_row.status).unwrap(),
+        oppgave_row.opplysninger,
+        oppgave_row.arbeidssoeker_id,
+        oppgave_row.identitetsnummer,
+        oppgave_row.tidspunkt,
+        status_logg,
+    );
+
+    Ok(Some(oppgave))
+}
+
+async fn hent_oppgave_for_arbeidssoeker(
+    arbeidssoeker_id: i64,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<Option<OppgaveRow>, sqlx::Error> {
+    sqlx::query_as::<_, OppgaveRow>(
         r#"
         SELECT
             id,
@@ -27,14 +54,14 @@ pub async fn hent_oppgave(
         "#,
     )
     .bind(arbeidssoeker_id)
-    .fetch_optional(&mut **tx)
-    .await?;
+    .fetch_optional(&mut **transaction)
+    .await
+}
 
-    let oppgave_row = match row {
-        None => return Ok(None),
-        Some(row) => row,
-    };
-
+async fn hent_status_logg(
+    oppgave_id: i64,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<Vec<StatusLoggEntry>, sqlx::Error> {
     let status_logg = sqlx::query_as::<_, OppgaveStatusLoggRow>(
         r#"
         SELECT
@@ -48,25 +75,13 @@ pub async fn hent_oppgave(
         ORDER BY tidspunkt DESC
         "#,
     )
-    .bind(oppgave_row.id)
-    .fetch_all(&mut **tx)
+    .bind(oppgave_id)
+    .fetch_all(&mut **transaction)
     .await?
     .into_iter()
     .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
     .collect();
-
-    let oppgave = Oppgave::new(
-        oppgave_row.id,
-        OppgaveType::from_str(oppgave_row.type_).unwrap(),
-        OppgaveStatus::from_str(oppgave_row.status).unwrap(),
-        oppgave_row.opplysninger,
-        oppgave_row.arbeidssoeker_id,
-        oppgave_row.identitetsnummer,
-        oppgave_row.tidspunkt,
-        status_logg,
-    );
-
-    Ok(Some(oppgave))
+    Ok(status_logg)
 }
 
 pub async fn insert_oppgave_med(
