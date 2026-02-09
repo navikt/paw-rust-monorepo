@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {
+    pub id: i64,
     pub type_: OppgaveType,
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
@@ -16,6 +17,7 @@ pub struct Oppgave {
 
 impl Oppgave {
     pub fn new(
+        id: i64,
         type_: OppgaveType,
         status: OppgaveStatus,
         opplysninger: Vec<String>,
@@ -25,6 +27,7 @@ impl Oppgave {
         status_logg: Vec<StatusLoggEntry>,
     ) -> Self {
         Self {
+            id,
             type_,
             status,
             opplysninger,

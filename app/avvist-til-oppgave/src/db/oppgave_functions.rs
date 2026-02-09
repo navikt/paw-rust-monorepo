@@ -52,14 +52,13 @@ pub async fn hent_oppgave(
     .fetch_all(&mut **tx)
     .await?
     .into_iter()
-    .map(
-        |row| 
-            StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt)
-    )
+    .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
     .collect();
 
     let oppgave = Oppgave::new(
+        oppgave_row.id,
         OppgaveType::from_str(oppgave_row.type_).unwrap(),
+        OppgaveStatus::from_str(oppgave_row.status).unwrap(),
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
@@ -71,7 +70,6 @@ pub async fn hent_oppgave(
 }
 
 pub async fn insert_oppgave_med(
-    oppgave_status: OppgaveStatus,
     oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<i64, Box<dyn Error>> {
@@ -79,7 +77,7 @@ pub async fn insert_oppgave_med(
 
     let status_logg_row = InsertOppgaveStatusLoggRow {
         oppgave_id,
-        status: oppgave_status.to_string(),
+        status: oppgave_row.status.to_string(),
         melding: "Ubehandlet oppgave opprettet".to_string(),
         tidspunkt: oppgave_row.tidspunkt.clone(),
     };
@@ -95,12 +93,13 @@ async fn insert_oppgave(
 ) -> Result<i64, Box<dyn Error>> {
     let oppgave_id = sqlx::query_scalar(
         r#"
-        INSERT INTO oppgaver (type, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO oppgaver (type, status, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         "#,
     )
         .bind(&oppgave_row.type_)
+        .bind(&oppgave_row.status)
         .bind(&oppgave_row.melding_id)
         .bind(&oppgave_row.opplysninger)
         .bind(oppgave_row.arbeidssoeker_id)
@@ -163,8 +162,7 @@ mod tests {
         };
 
         {
-            let oppgave_id =
-                insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, &mut tx).await?;
+            let oppgave_id = insert_oppgave_med(&oppgave_row, &mut tx).await?;
             tx.commit().await?;
             assert_eq!(oppgave_id, 1);
         }
@@ -193,7 +191,7 @@ mod tests {
             tidspunkt: Utc::now(),
         };
 
-        insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, &mut tx).await?;
+        insert_oppgave_med(&oppgave_row, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

@@ -2,7 +2,6 @@ use crate::avvist_hendelse::AvvistHendelse;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -80,7 +79,7 @@ mod tests {
         };
 
         let oppgave_row = to_oppgave_row(
-            avvist_hendelse.clone(), 
+            avvist_hendelse.clone(),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet
         );

@@ -1,8 +1,10 @@
 use crate::avvist_hendelse::AvvistHendelse;
-use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med};
+use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med, insert_oppgave_status_logg};
 use crate::db::oppgave_row::to_oppgave_row;
+use crate::db::oppgave_status_logg_row::InsertOppgaveStatusLoggRow;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use chrono::Utc;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
@@ -64,14 +66,23 @@ async fn lag_oppgave_for_avvist_hendelse(
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
         let avvist_hendelse: AvvistHendelse = serde_json::from_value(json)?;
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
+
         if oppgave.is_none() { //TODO, riktig kriterie? Flere oppgaver? Spesifikk status på oppgave?
-            let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18);
-            insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, tx).await?;
-        } else { 
-            oppdater_status_logg(oppgave.unwrap().id, avvist_hendelse, tx).await?;
+            let oppgave_row = to_oppgave_row(
+                avvist_hendelse,
+                OppgaveType::AvvistUnder18,
+                OppgaveStatus::Ubehandlet
+            );
+            insert_oppgave_med(&oppgave_row, tx).await?;
+        } else {
+            let status_logg_row = InsertOppgaveStatusLoggRow {
+                oppgave_id: oppgave.unwrap().id,
+                status: "Changeme".to_string(), //TODO
+                melding: "Avvist melding fra arbeidssoeker under 18 mottatt".to_string(),
+                tidspunkt: Utc::now(),
+            };
+            insert_oppgave_status_logg(&status_logg_row, tx).await?;
         }
-        log::info!("Prosesserer avvist hendelse for arbeidssøker");
-        tracing::info!("Prosesserer avvist hendelse for arbeidssølker");
     }
     Ok(())
 }
@@ -90,7 +101,6 @@ fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::oppgave_row::OppgaveRow;
     use chrono::Utc;
     use paw_rdkafka_hwm::hwm_functions::insert_hwm;
     use paw_test::setup_test_db::setup_test_db;
@@ -132,28 +142,17 @@ mod tests {
         let tx = pg_pool.begin().await?;
         process_hendelse(&avvist_message, tx).await?;
 
-        let oppgave_row: OppgaveRow = sqlx::query_as(
-            r#"
-                    SELECT
-                        id,
-                        type as type_,
-                        melding_id,
-                        opplysninger,
-                        arbeidssoeker_id,
-                        identitetsnummer,
-                        tidspunkt AT TIME ZONE 'UTC' as tidspunkt
-                    FROM oppgaver
-                    "#,
-        )
-        .fetch_one(&pg_pool)
-        .await?;
-        assert_eq!(oppgave_row.type_, OppgaveType::AvvistUnder18.to_string());
+        let mut tx = pg_pool.begin().await?;
+        let arbeidssoeker_id = 12345;
+        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+
+        assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
         assert_eq!(
-            oppgave_row.opplysninger,
+            oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
-        assert_eq!(oppgave_row.arbeidssoeker_id, 12345);
-        assert_eq!(oppgave_row.identitetsnummer, "12345678901");
+        assert_eq!(oppgave.arbeidssoeker_id, arbeidssoeker_id);
+        assert_eq!(oppgave.identitetsnummer, "12345678901");
 
         Ok(())
     }
