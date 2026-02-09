@@ -1,21 +1,29 @@
+use std::fmt;
+use std::str::FromStr;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum OppgaveStatus {
     Ubehandlet,
     Ferdigbehandlet,
 }
 
-impl OppgaveStatus {
-    pub fn to_string(&self) -> String {
-        match self {
-            OppgaveStatus::Ubehandlet => "Ubehandlet".to_string(),
-            OppgaveStatus::Ferdigbehandlet => "Ferdigbehandlet".to_string(),
+impl FromStr for OppgaveStatus {
+    type Err = ();
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        match string {
+            "Ubehandlet" => Ok(OppgaveStatus::Ubehandlet),
+            "Ferdigbehandlet" => Ok(OppgaveStatus::Ferdigbehandlet),
+            _ => Err(()),
         }
     }
-    pub fn from_str(status: String) -> Option<Self> {
-        match status.as_str() {
-            "Ubehandlet" => Some(OppgaveStatus::Ubehandlet),
-            "Ferdigbehandlet" => Some(OppgaveStatus::Ferdigbehandlet),
-            _ => None,
+}
+
+impl fmt::Display for OppgaveStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            OppgaveStatus::Ubehandlet => write!(f, "Ubehandlet"),
+            OppgaveStatus::Ferdigbehandlet => write!(f, "Ferdigbehandlet"),
         }
     }
 }

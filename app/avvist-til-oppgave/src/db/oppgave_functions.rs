@@ -1,8 +1,6 @@
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::db::oppgave_status_logg_row::{InsertOppgaveStatusLoggRow, OppgaveStatusLoggRow};
 use crate::domain::oppgave::Oppgave;
-use crate::domain::oppgave_status::OppgaveStatus;
-use crate::domain::oppgave_type::OppgaveType;
 use crate::domain::status_logg_entry::StatusLoggEntry;
 use sqlx::{Postgres, Transaction};
 use std::error::Error;
@@ -11,7 +9,6 @@ pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>, sqlx::Error> {
-
     let oppgave_row = hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await?;
     let oppgave_row = match oppgave_row {
         None => return Ok(None),
@@ -22,8 +19,8 @@ pub async fn hent_oppgave(
 
     let oppgave = Oppgave::new(
         oppgave_row.id,
-        OppgaveType::from_str(oppgave_row.type_).unwrap(),
-        OppgaveStatus::from_str(oppgave_row.status).unwrap(),
+        oppgave_row.type_.parse().unwrap(),
+        oppgave_row.status.parse().unwrap(),
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
@@ -79,7 +76,7 @@ async fn hent_status_logg(
     .fetch_all(&mut **transaction)
     .await?
     .into_iter()
-    .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
+    .map(|row| StatusLoggEntry::new(row.status, row.tidspunkt))
     .collect();
     Ok(status_logg)
 }
@@ -154,6 +151,7 @@ mod tests {
     use paw_test::setup_test_db::setup_test_db;
     use std::error::Error;
     use uuid::Uuid;
+    use crate::domain::oppgave_status::OppgaveStatus;
 
     #[tokio::test]
     async fn insert_oppgave_med_status_ubehandlet() -> Result<(), Box<dyn Error>> {
@@ -162,19 +160,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = 12345;
-
-        let oppgave_row = InsertOppgaveRow {
-            type_: OppgaveType::AvvistUnder18.to_string(),
-            status: OppgaveStatus::Ubehandlet.to_string(),
-            melding_id: Uuid::new_v4(),
-            opplysninger: vec![
-                "ER_UNDER_18_AAR".to_string(),
-                "BOSATT_ETTER_FREG_LOVEN".to_string(),
-            ],
-            arbeidssoeker_id,
-            identitetsnummer: "12345678901".to_string(),
-            tidspunkt: Utc::now(),
-        };
+        let oppgave_row = test_oppgave_row(arbeidssoeker_id);
 
         {
             let oppgave_id = insert_oppgave_med(&oppgave_row, &mut tx).await?;
@@ -193,18 +179,7 @@ mod tests {
         // Sett inn en oppgave
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
-        let oppgave_row = InsertOppgaveRow {
-            type_: OppgaveType::AvvistUnder18.to_string(),
-            status: OppgaveStatus::Ubehandlet.to_string(),
-            melding_id: Uuid::new_v4(),
-            opplysninger: vec![
-                "ER_UNDER_18_AAR".to_string(),
-                "BOSATT_ETTER_FREG_LOVEN".to_string(),
-            ],
-            arbeidssoeker_id,
-            identitetsnummer: "12345678901".to_string(),
-            tidspunkt: Utc::now(),
-        };
+        let oppgave_row = test_oppgave_row(arbeidssoeker_id);
 
         insert_oppgave_med(&oppgave_row, &mut tx).await?;
         tx.commit().await?;
@@ -215,6 +190,7 @@ mod tests {
 
         let oppgave = oppgave.unwrap();
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
+        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.arbeidssoeker_id, 12345);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
         assert_eq!(
@@ -228,5 +204,20 @@ mod tests {
         assert_eq!(hent_oppgave(99999, &mut tx).await?, None);
 
         Ok(())
+    }
+
+    fn test_oppgave_row(arbeidssoeker_id: i64) -> InsertOppgaveRow {
+        InsertOppgaveRow {
+            type_: OppgaveType::AvvistUnder18.to_string(),
+            status: OppgaveStatus::Ubehandlet.to_string(),
+            melding_id: Uuid::new_v4(),
+            opplysninger: vec![
+                "ER_UNDER_18_AAR".to_string(),
+                "BOSATT_ETTER_FREG_LOVEN".to_string(),
+            ],
+            arbeidssoeker_id,
+            identitetsnummer: "12345678901".to_string(),
+            tidspunkt: Utc::now(),
+        }
     }
 }
