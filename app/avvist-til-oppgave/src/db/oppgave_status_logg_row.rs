@@ -1,9 +1,17 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug)]
+pub struct InsertOppgaveStatusLoggRow {
+    pub oppgave_id: i64,
+    pub status: String,
+    pub melding: String,
+    pub tidspunkt: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow)]
 pub struct OppgaveStatusLoggRow {
+    pub id: i64,
     pub oppgave_id: i64,
     pub status: String,
     pub melding: String,

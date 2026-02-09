@@ -67,6 +67,8 @@ async fn lag_oppgave_for_avvist_hendelse(
         if oppgave.is_none() { //TODO, riktig kriterie? Flere oppgaver? Spesifikk status på oppgave?
             let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18);
             insert_oppgave_med(OppgaveStatus::Ubehandlet, &oppgave_row, tx).await?;
+        } else { 
+            oppdater_status_logg(oppgave.unwrap().id, avvist_hendelse, tx).await?;
         }
         log::info!("Prosesserer avvist hendelse for arbeidssøker");
         tracing::info!("Prosesserer avvist hendelse for arbeidssølker");

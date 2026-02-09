@@ -1,14 +1,16 @@
 use crate::avvist_hendelse::AvvistHendelse;
+use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, FromRow)]
 pub struct OppgaveRow {
     pub id: i64,
     pub type_: String,
+    pub status: String,
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
@@ -16,18 +18,25 @@ pub struct OppgaveRow {
     pub tidspunkt: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug)]
 pub struct InsertOppgaveRow {
     pub type_: String,
+    pub status: String,
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
 }
-pub fn to_oppgave_row(hendelse: AvvistHendelse, oppgave_type: OppgaveType) -> InsertOppgaveRow {
+
+pub fn to_oppgave_row(
+    hendelse: AvvistHendelse,
+    oppgave_type: OppgaveType,
+    oppgave_status: OppgaveStatus,
+) -> InsertOppgaveRow {
     InsertOppgaveRow {
         type_: oppgave_type.to_string(),
+        status: oppgave_status.to_string(),
         melding_id: hendelse.hendelse_id,
         opplysninger: hendelse.opplysninger,
         arbeidssoeker_id: hendelse.id,
@@ -70,7 +79,11 @@ mod tests {
             ],
         };
 
-        let oppgave_row = to_oppgave_row(avvist_hendelse.clone(), OppgaveType::AvvistUnder18);
+        let oppgave_row = to_oppgave_row(
+            avvist_hendelse.clone(), 
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ubehandlet
+        );
 
         assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
         assert_eq!(oppgave_row.opplysninger, avvist_hendelse.opplysninger);

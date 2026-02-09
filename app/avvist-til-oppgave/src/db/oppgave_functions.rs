@@ -1,5 +1,5 @@
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
-use crate::db::oppgave_status_logg_row::OppgaveStatusLoggRow;
+use crate::db::oppgave_status_logg_row::{InsertOppgaveStatusLoggRow, OppgaveStatusLoggRow};
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
@@ -16,6 +16,7 @@ pub async fn hent_oppgave(
         SELECT
             id,
             type AS type_,
+            status,
             melding_id,
             opplysninger,
             arbeidssoeker_id,
@@ -37,6 +38,7 @@ pub async fn hent_oppgave(
     let status_logg = sqlx::query_as::<_, OppgaveStatusLoggRow>(
         r#"
         SELECT
+            id,
             oppgave_id,
             status,
             melding,
@@ -50,7 +52,10 @@ pub async fn hent_oppgave(
     .fetch_all(&mut **tx)
     .await?
     .into_iter()
-    .map(|row| StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt))
+    .map(
+        |row| 
+            StatusLoggEntry::new(OppgaveStatus::from_str(row.status).unwrap(), row.tidspunkt)
+    )
     .collect();
 
     let oppgave = Oppgave::new(
@@ -72,7 +77,7 @@ pub async fn insert_oppgave_med(
 ) -> Result<i64, Box<dyn Error>> {
     let oppgave_id = insert_oppgave(oppgave_row, transaction).await?;
 
-    let status_logg_row = OppgaveStatusLoggRow {
+    let status_logg_row = InsertOppgaveStatusLoggRow {
         oppgave_id,
         status: oppgave_status.to_string(),
         melding: "Ubehandlet oppgave opprettet".to_string(),
@@ -108,7 +113,7 @@ async fn insert_oppgave(
 }
 
 pub async fn insert_oppgave_status_logg(
-    status_logg_row: &OppgaveStatusLoggRow,
+    status_logg_row: &InsertOppgaveStatusLoggRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<u64, Box<dyn Error>> {
     let result = sqlx::query(
@@ -146,6 +151,7 @@ mod tests {
 
         let oppgave_row = InsertOppgaveRow {
             type_: OppgaveType::AvvistUnder18.to_string(),
+            status: OppgaveStatus::Ubehandlet.to_string(),
             melding_id: Uuid::new_v4(),
             opplysninger: vec![
                 "ER_UNDER_18_AAR".to_string(),
@@ -176,6 +182,7 @@ mod tests {
         let arbeidssoeker_id = 12345;
         let oppgave_row = InsertOppgaveRow {
             type_: OppgaveType::AvvistUnder18.to_string(),
+            status: OppgaveStatus::Ubehandlet.to_string(),
             melding_id: Uuid::new_v4(),
             opplysninger: vec![
                 "ER_UNDER_18_AAR".to_string(),
@@ -202,7 +209,7 @@ mod tests {
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
         assert_eq!(oppgave.status_logg.len(), 1);
-        assert_eq!(oppgave.gjeldende_status(), Some(OppgaveStatus::Ubehandlet));
+        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
         assert_eq!(hent_oppgave(99999, &mut tx).await?, None);
