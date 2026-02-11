@@ -1,5 +1,5 @@
 use crate::db::oppgave_functions::{
-    hent_oppgave, insert_oppgave_hendelse_logg, insert_oppgave_med,
+    hent_oppgave, insert_oppgave_hendelse_logg, insert_oppgave,
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
@@ -18,6 +18,7 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::sync::Arc;
+use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 
 pub async fn start_processing_loop(
     hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
@@ -76,12 +77,12 @@ async fn lag_oppgave_for_avvist_hendelse(
                 OppgaveType::AvvistUnder18,
                 OppgaveStatus::Ubehandlet,
             );
-            insert_oppgave_med(&oppgave_row, tx).await?;
+            insert_oppgave(&oppgave_row, tx).await?;
         } else {
             let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
-                status: "Changeme".to_string(), //TODO enumifisering?
-                melding: "Avvist melding fra arbeidssoeker under 18 mottatt".to_string(), //TODO: Standard melding?
+                status: HendelseLoggStatus::AvvistHendelseMottatt.to_string(),
+                melding: HendelseLoggStatus::AvvistHendelseMottatt.standard_melding(), //TODO: Egen type?
                 tidspunkt: Utc::now(),
             };
             insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;

@@ -1,4 +1,4 @@
-use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
+use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_status::{OppgaveStatus, OppgaveStatusParseError};
 use crate::domain::oppgave_type::{OppgaveType, OppgaveTypeParseError};
 use chrono::{DateTime, Utc};
@@ -45,6 +45,7 @@ impl Oppgave {
 pub enum OppgaveError {
     StatusParseError(OppgaveStatusParseError),
     TypeParseError(OppgaveTypeParseError),
+    HendelseLoggEntryError(HendelseLoggEntryError),
 }
 
 impl fmt::Display for OppgaveError {
@@ -52,6 +53,7 @@ impl fmt::Display for OppgaveError {
         match self {
             OppgaveError::StatusParseError(e) => write!(f, "{}", e),
             OppgaveError::TypeParseError(e) => write!(f, "{}", e),
+            OppgaveError::HendelseLoggEntryError(e) => write!(f, "{}", e),
         }
     }
 }
@@ -67,6 +69,12 @@ impl From<OppgaveStatusParseError> for OppgaveError {
 impl From<OppgaveTypeParseError> for OppgaveError {
     fn from(err: OppgaveTypeParseError) -> Self {
         OppgaveError::TypeParseError(err)
+    }
+}
+
+impl From<HendelseLoggEntryError> for OppgaveError {
+    fn from(err: HendelseLoggEntryError) -> Self {
+        OppgaveError::HendelseLoggEntryError(err)
     }
 }
 
@@ -122,7 +130,7 @@ mod tests {
                     format!("Ukjent oppgavestatus: {}", ugyldig_status)
                 )
             }
-            _ => panic!("Forventet TypeParseError"),
+            _ => panic!("Forventet StatusParseError"),
         }
     }
 }
