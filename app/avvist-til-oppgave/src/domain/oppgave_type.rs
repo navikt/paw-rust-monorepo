@@ -9,11 +9,11 @@ pub enum OppgaveType {
 impl FromStr for OppgaveType {
     type Err = OppgaveTypeParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
+        match str {
             "AvvistUnder18" => Ok(OppgaveType::AvvistUnder18),
             _ => Err(OppgaveTypeParseError {
-                message: format!("Ukjent oppgavetype: {}", s),
+                message: format!("Ukjent oppgavetype: {}", str),
             }),
         }
     }
@@ -50,12 +50,11 @@ mod tests {
             OppgaveType::from_str("AvvistUnder18"),
             Ok(OppgaveType::AvvistUnder18)
         );
-        assert!(OppgaveType::from_str("UkjentType").is_err());
+        let ukjent_type = "UkjentType";
+        assert!(OppgaveType::from_str(ukjent_type).is_err());
         assert_eq!(
-            OppgaveType::from_str("UkjentType")
-                .unwrap_err()
-                .to_string(),
-            "Ukjent oppgavetype: UkjentType"
+            OppgaveType::from_str(ukjent_type).unwrap_err().to_string(),
+            format!("Ukjent oppgavetype: {}", ukjent_type)
         );
     }
 }

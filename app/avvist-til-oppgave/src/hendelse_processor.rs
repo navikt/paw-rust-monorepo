@@ -1,6 +1,8 @@
-use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med, insert_oppgave_hendelse_logg};
-use crate::db::oppgave_row::to_oppgave_row;
+use crate::db::oppgave_functions::{
+    hent_oppgave, insert_oppgave_hendelse_logg, insert_oppgave_med,
+};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
+use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::avvist_hendelse::AvvistHendelse;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
@@ -97,11 +99,10 @@ fn skal_opprette_oppgave(oppgave: &Option<Oppgave>) -> bool {
 
 const AVVIST_HENDELSE_TYPE: &str = "intern.v1.avvist";
 const OPPLYSNING_UNDER_18: &str = "ER_UNDER_18_AAR";
-const BOSATT_ETTER_FREG_LOVEN: &str = "BOSATT_ETTER_FREG_LOVEN";
 
 fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
     hendelse_type == AVVIST_HENDELSE_TYPE
-        && [BOSATT_ETTER_FREG_LOVEN, OPPLYSNING_UNDER_18]
+        && [OPPLYSNING_UNDER_18]
             .iter()
             .all(|opp| opplysninger.contains(opp))
 }
@@ -153,7 +154,6 @@ mod tests {
             2,
             Some(OwnedHeaders::new()),
         );
-
 
         let tx = pg_pool.begin().await?;
         process_hendelse(&irrelevant_message, tx).await?;

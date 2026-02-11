@@ -8,7 +8,7 @@ use std::error::Error;
 pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
-) -> Result<Option<Oppgave>, sqlx::Error> {
+) -> Result<Option<Oppgave>, Box<dyn Error>> {
     let oppgave_row = match hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await? {
         None => return Ok(None),
         Some(row) => row,
@@ -18,14 +18,14 @@ pub async fn hent_oppgave(
 
     let oppgave = Oppgave::new(
         oppgave_row.id,
-        oppgave_row.type_.parse().unwrap(),
-        oppgave_row.status.parse().unwrap(),
+        oppgave_row.type_,
+        oppgave_row.status,
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
         oppgave_row.tidspunkt,
         hendelse_logg,
-    );
+    )?;
 
     Ok(Some(oppgave))
 }

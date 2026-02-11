@@ -10,12 +10,12 @@ pub enum OppgaveStatus {
 impl FromStr for OppgaveStatus {
     type Err = OppgaveStatusParseError;
 
-    fn from_str(string: &str) -> Result<Self, Self::Err> {
-        match string {
+    fn from_str(str: &str) -> Result<Self, Self::Err> {
+        match str {
             "Ubehandlet" => Ok(OppgaveStatus::Ubehandlet),
             "Ferdigbehandlet" => Ok(OppgaveStatus::Ferdigbehandlet),
             _ => Err(OppgaveStatusParseError {
-                message: format!("Ukjent oppgavestatus: {}", string),
+                message: format!("Ukjent oppgavestatus: {}", str),
             }),
         }
     }
@@ -58,12 +58,11 @@ mod tests {
             Ok(OppgaveStatus::Ferdigbehandlet)
         );
 
-        assert!(OppgaveStatus::from_str("UkjentStatus").is_err());
+        let ukjent_status = "UkjentStatus";
+        assert!(OppgaveStatus::from_str(ukjent_status).is_err());
         assert_eq!(
-            OppgaveStatus::from_str("UkjentStatus")
-                .unwrap_err()
-                .to_string(),
-            "Ukjent oppgavestatus: UkjentStatus"
+            OppgaveStatus::from_str(ukjent_status).unwrap_err().to_string(),
+            format!("Ukjent oppgavestatus: {}", ukjent_status)
         );
     }
 }
