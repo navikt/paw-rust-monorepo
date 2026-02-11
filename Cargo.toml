@@ -9,7 +9,8 @@ members = [
     "lib/paw_rust_base",
     "lib/paw_sqlx",
     "lib/paw_rdkafka_hwm",
-    "lib/paw_rdkafka",
+    "lib/paw_rdkafka", 
+    "lib/texas_client",
     "lib/paw_test",
 ]
 
@@ -42,6 +43,7 @@ tracing = "0.1.44"
 tracing-opentelemetry = "0.32.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+reqwest = { version = "0.13.1", features = ["json"] }
 
 testcontainers = "0.26"
 testcontainers-modules = { version = "0.14", features = ["postgres"] }
