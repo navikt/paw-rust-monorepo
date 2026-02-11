@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 
 #[derive(Debug)]
-pub struct InsertOppgaveStatusLoggRow {
+pub struct InsertOppgaveHendelseLoggRow {
     pub oppgave_id: i64,
     pub status: String,
     pub melding: String,
@@ -10,7 +10,7 @@ pub struct InsertOppgaveStatusLoggRow {
 }
 
 #[derive(Debug, FromRow)]
-pub struct OppgaveStatusLoggRow {
+pub struct OppgaveHendelseLoggRow {
     pub id: i64,
     pub oppgave_id: i64,
     pub status: String,

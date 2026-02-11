@@ -10,7 +10,7 @@ CREATE TABLE oppgaver
     tidspunkt        TIMESTAMP   NOT NULL
 );
 
-CREATE TABLE oppgave_status_logg
+CREATE TABLE oppgave_hendelse_logg
 (
     id         BIGSERIAL PRIMARY KEY,
     oppgave_id BIGINT REFERENCES oppgaver (id) ON DELETE CASCADE,

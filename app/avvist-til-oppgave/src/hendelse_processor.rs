@@ -1,6 +1,6 @@
-use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med, insert_oppgave_status_logg};
+use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave_med, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_row::to_oppgave_row;
-use crate::db::oppgave_status_logg_row::InsertOppgaveStatusLoggRow;
+use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::avvist_hendelse::AvvistHendelse;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
@@ -76,13 +76,13 @@ async fn lag_oppgave_for_avvist_hendelse(
             );
             insert_oppgave_med(&oppgave_row, tx).await?;
         } else {
-            let status_logg_row = InsertOppgaveStatusLoggRow {
+            let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
                 status: "Changeme".to_string(), //TODO enumifisering?
                 melding: "Avvist melding fra arbeidssoeker under 18 mottatt".to_string(), //TODO: Standard melding?
                 tidspunkt: Utc::now(),
             };
-            insert_oppgave_status_logg(&status_logg_row, tx).await?;
+            insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;
         }
     }
     Ok(())
@@ -171,7 +171,7 @@ mod tests {
 
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
-        assert_eq!(oppgave.status_logg.len(), 2);
+        assert_eq!(oppgave.hendelse_logg.len(), 2);
         assert_eq!(
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]

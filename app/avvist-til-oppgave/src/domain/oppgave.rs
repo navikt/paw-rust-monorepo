@@ -1,6 +1,6 @@
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use crate::domain::status_logg_entry::StatusLoggEntry;
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, PartialEq)]
@@ -12,7 +12,7 @@ pub struct Oppgave {
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
-    pub status_logg: Vec<StatusLoggEntry>,
+    pub hendelse_logg: Vec<HendelseLoggEntry>,
 }
 
 impl Oppgave {
@@ -24,7 +24,7 @@ impl Oppgave {
         arbeidssoeker_id: i64,
         identitetsnummer: String,
         tidspunkt: DateTime<Utc>,
-        status_logg: Vec<StatusLoggEntry>,
+        hendelse_logg: Vec<HendelseLoggEntry>,
     ) -> Self {
         Self {
             id,
@@ -34,7 +34,7 @@ impl Oppgave {
             arbeidssoeker_id,
             identitetsnummer,
             tidspunkt,
-            status_logg,
+            hendelse_logg,
         }
     }
 }

@@ -1,7 +1,7 @@
+use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
-use crate::db::oppgave_status_logg_row::{InsertOppgaveStatusLoggRow, OppgaveStatusLoggRow};
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
-use crate::domain::status_logg_entry::StatusLoggEntry;
 use sqlx::{Postgres, Transaction};
 use std::error::Error;
 
@@ -9,13 +9,12 @@ pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>, sqlx::Error> {
-    let oppgave_row = hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await?;
-    let oppgave_row = match oppgave_row {
+    let oppgave_row = match hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await? {
         None => return Ok(None),
         Some(row) => row,
     };
 
-    let status_logg: Vec<StatusLoggEntry> = hent_status_logg(oppgave_row.id, tx).await?;
+    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
 
     let oppgave = Oppgave::new(
         oppgave_row.id,
@@ -25,7 +24,7 @@ pub async fn hent_oppgave(
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
         oppgave_row.tidspunkt,
-        status_logg,
+        hendelse_logg,
     );
 
     Ok(Some(oppgave))
@@ -55,11 +54,11 @@ async fn hent_oppgave_for_arbeidssoeker(
     .await
 }
 
-async fn hent_status_logg(
+async fn hent_hendelse_logg(
     oppgave_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<Vec<StatusLoggEntry>, sqlx::Error> {
-    let status_logg = sqlx::query_as::<_, OppgaveStatusLoggRow>(
+) -> Result<Vec<HendelseLoggEntry>, sqlx::Error> {
+    let hendelse_logg = sqlx::query_as::<_, OppgaveHendelseLoggRow>(
         r#"
         SELECT
             id,
@@ -67,7 +66,7 @@ async fn hent_status_logg(
             status,
             melding,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
-        FROM oppgave_status_logg
+        FROM oppgave_hendelse_logg
         WHERE oppgave_id = $1
         ORDER BY tidspunkt DESC
         "#,
@@ -76,9 +75,9 @@ async fn hent_status_logg(
     .fetch_all(&mut **transaction)
     .await?
     .into_iter()
-    .map(|row| StatusLoggEntry::new(row.status, row.tidspunkt))
+    .map(|row| HendelseLoggEntry::new(row.status, row.tidspunkt))
     .collect();
-    Ok(status_logg)
+    Ok(hendelse_logg)
 }
 
 pub async fn insert_oppgave_med(
@@ -87,14 +86,14 @@ pub async fn insert_oppgave_med(
 ) -> Result<i64, Box<dyn Error>> {
     let oppgave_id = insert_oppgave(oppgave_row, transaction).await?;
 
-    let status_logg_row = InsertOppgaveStatusLoggRow {
+    let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
         oppgave_id,
         status: oppgave_row.status.to_string(),
         melding: "Ubehandlet oppgave opprettet".to_string(),
         tidspunkt: oppgave_row.tidspunkt.clone(),
     };
 
-    insert_oppgave_status_logg(&status_logg_row, transaction).await?;
+    insert_oppgave_hendelse_logg(&hendelse_logg_row, transaction).await?;
 
     Ok(oppgave_id)
 }
@@ -123,20 +122,20 @@ async fn insert_oppgave(
     Ok(oppgave_id)
 }
 
-pub async fn insert_oppgave_status_logg(
-    status_logg_row: &InsertOppgaveStatusLoggRow,
+pub async fn insert_oppgave_hendelse_logg(
+    hendelse_logg_row: &InsertOppgaveHendelseLoggRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<u64, Box<dyn Error>> {
     let result = sqlx::query(
         r#"
-        INSERT INTO oppgave_status_logg (oppgave_id, status, melding, tidspunkt)
+        INSERT INTO oppgave_hendelse_logg (oppgave_id, status, melding, tidspunkt)
         VALUES ($1, $2, $3, $4)
         "#,
     )
-    .bind(status_logg_row.oppgave_id)
-    .bind(&status_logg_row.status)
-    .bind(&status_logg_row.melding)
-    .bind(status_logg_row.tidspunkt)
+    .bind(hendelse_logg_row.oppgave_id)
+    .bind(&hendelse_logg_row.status)
+    .bind(&hendelse_logg_row.melding)
+    .bind(hendelse_logg_row.tidspunkt)
     .execute(&mut **transaction)
     .await?;
 
@@ -162,11 +161,9 @@ mod tests {
         let arbeidssoeker_id = 12345;
         let oppgave_row = test_oppgave_row(arbeidssoeker_id);
 
-        {
-            let oppgave_id = insert_oppgave_med(&oppgave_row, &mut tx).await?;
-            tx.commit().await?;
-            assert_eq!(oppgave_id, 1);
-        }
+        let oppgave_id = insert_oppgave_med(&oppgave_row, &mut tx).await?;
+        tx.commit().await?;
+        assert_eq!(oppgave_id, 1);
 
         Ok(())
     }
@@ -197,7 +194,7 @@ mod tests {
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
-        assert_eq!(oppgave.status_logg.len(), 1);
+        assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
