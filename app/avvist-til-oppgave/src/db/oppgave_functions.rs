@@ -146,12 +146,12 @@ pub async fn insert_oppgave_status_logg(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
     use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
     use std::error::Error;
     use uuid::Uuid;
-    use crate::domain::oppgave_status::OppgaveStatus;
 
     #[tokio::test]
     async fn insert_oppgave_med_status_ubehandlet() -> Result<(), Box<dyn Error>> {

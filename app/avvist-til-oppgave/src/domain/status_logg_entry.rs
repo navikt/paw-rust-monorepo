@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusLoggEntry {
-    pub status: String,
+    pub status: String, //TODO maskinlesbar enum?
     pub tidspunkt: DateTime<Utc>,
 }
 
