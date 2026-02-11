@@ -4,6 +4,7 @@ members = [
     "app/avvist-til-oppgave",
     "app/test-app",
     "app/kafka-topic-backup",
+    "app/utgang",
     "lib/axum_health",
     "lib/health_and_monitoring",
     "lib/paw_rust_base",
@@ -11,7 +12,7 @@ members = [
     "lib/paw_rdkafka_hwm",
     "lib/paw_rdkafka", 
     "lib/texas_client",
-    "lib/paw_test",
+    "lib/paw_test"    
 ]
 
 [workspace.package]

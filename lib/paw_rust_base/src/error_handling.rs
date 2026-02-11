@@ -9,20 +9,22 @@ pub enum ErrorType {
     AuthorizationError,
 }
 
-pub trait AppError: Error + Debug + Display + 'static {
+pub trait AppError: Error + Debug + Display {
     fn error_name(&self) -> &'static str;
     fn error_message(&self) -> String;
     fn error_type(&self) -> ErrorType;
 }
 
-pub struct GenericAppError {}
+pub struct GenericAppError {
+    pub message: String,
+}
 
 impl AppError for GenericAppError {
     fn error_name(&self) -> &'static str {
         "GenericAppError"
     }
     fn error_message(&self) -> String {
-        "A generic application error occurred".to_string()
+        self.message.clone()
     }
     fn error_type(&self) -> ErrorType {
         ErrorType::InternalError
@@ -42,3 +44,9 @@ impl Display for GenericAppError {
 }
 
 impl Error for GenericAppError {}
+
+impl From<GenericAppError> for Box<dyn AppError> {
+    fn from(error: GenericAppError) -> Self {
+        Box::new(error)
+    }
+}

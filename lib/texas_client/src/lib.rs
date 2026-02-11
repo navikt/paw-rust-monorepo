@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 mod request;
 pub mod texas_error;
-mod token_client;
+pub mod token_client;
 
 trait M2MTokenClient {
     async fn get_token(&self, target: String) -> Result<TokenResponse, Box<dyn AppError>>;

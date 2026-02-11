@@ -1,0 +1,19 @@
+[package]
+name = "utgang"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+texas_client = { path = "../../lib/texas_client" }
+paw_sqlx = { path = "../../lib/paw_sqlx" }
+paw_rust_base = { path = "../../lib/paw_rust_base" }
+paw_rdkafka = { path = "../../lib/paw_rdkafka" }
+paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
+axum_health = { path = "../../lib/axum_health" }
+health_and_monitoring = { path = "../../lib/health_and_monitoring" }
+
+axum = { workspace = true }
+rdkafka = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+
