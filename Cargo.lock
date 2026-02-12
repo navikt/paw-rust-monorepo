@@ -4015,6 +4015,7 @@ dependencies = [
  "reqwest 0.13.2",
  "texas_client",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

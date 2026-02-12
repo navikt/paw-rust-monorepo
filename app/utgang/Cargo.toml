@@ -16,4 +16,5 @@ axum = { workspace = true }
 rdkafka = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
+tracing = { workspace = true }
 

@@ -24,15 +24,16 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             axum::serve(listener, health_routes).await?;
             Ok(())
         });
-    await_shutdown_signal()
+    let signal = get_shutdown_signal()
         .await
         .map_err(|err| GenericAppError {
             message: format!("Feil ved lytting etter shutdown signal: {}", err),
         })?;
+    tracing::info!("Avslutter etter at {} ble registrert", signal);
     Ok(())
 }
 
-async fn await_shutdown_signal() -> Result<String, Box<dyn Error>> {
+async fn get_shutdown_signal() -> Result<String, Box<dyn Error>> {
     let mut term_signal = signal(SignalKind::terminate())?;
     let mut interrupt_signal = signal(SignalKind::interrupt())?;
     tokio::select! {
