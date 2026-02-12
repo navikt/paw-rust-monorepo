@@ -1,13 +1,14 @@
+mod config;
 mod db;
 mod domain;
 mod hendelse_processor;
 mod kafka;
 
+use crate::config::{read_database_config, read_kafka_config};
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::consumer_error::ConsumerError;
-use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -30,12 +31,10 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             Ok(())
         });
 
-    let pg_pool =
-        init_db("NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE")
-            .await
-            .map_err(|err| DatabaseError {
-                message: format!("Failed to initialize database: {}", err),
-            })?;
+    let db_config = read_database_config()?;
+    let pg_pool = init_db(db_config).await.map_err(|err| DatabaseError {
+        message: format!("Failed to initialize database: {}", err),
+    })?;
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
@@ -43,7 +42,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
             message: format!("Database migration failed: {}", migrate_error),
         })?;
 
-    let kafka_config = KafkaConfig::new("avvist_til_oppgave_v1", "ssl");
+    let kafka_config = read_kafka_config()?;
     let hendelselogg_topic = &["paw.arbeidssoker-hendelseslogg-v1"];
     let hendelselogg_consumer = kafka::consumer::create(
         appstate.clone(),

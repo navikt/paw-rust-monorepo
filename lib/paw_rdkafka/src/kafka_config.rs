@@ -1,42 +1,46 @@
-use paw_rust_base::env_var::get_env;
-use rdkafka::ClientConfig;
 use rdkafka::config::RDKafkaLogLevel;
+use rdkafka::ClientConfig;
+use serde::Deserialize;
+use serde_env_field::{env_field_wrap, EnvField};
 use std::error::Error;
 use std::time::SystemTime;
 
 pub fn create_kafka_client_config(
     kafka_config: KafkaConfig,
 ) -> Result<ClientConfig, Box<dyn Error>> {
-    let brokers = get_env("KAFKA_BROKERS")?;
-    let kafka_private_key_path = get_env("KAFKA_PRIVATE_KEY_PATH")?;
-    let kafka_certificate_path = get_env("KAFKA_CERTIFICATE_PATH")?;
-    let kafka_ca_path = get_env("KAFKA_CA_PATH")?;
-    let auto_commit = if kafka_config.auto_commit {
-        "true"
-    } else {
-        "false"
-    };
+    let hwm_version = kafka_config.hwm_version.into_inner();
+    let client_nonce = unix_timestamp_millis().expect("Failed to get unix timestamp millis");
+    let group_id_prefix = kafka_config.group_id_prefix.into_inner();
+    let group_id = format!("{}-v{}", group_id_prefix, hwm_version);
+    let client_id = format!("{}-client-{}", group_id_prefix, client_nonce);
+    let auto_commit = kafka_config
+        .auto_commit
+        .unwrap_or_else(|| EnvField::from(false))
+        .into_inner()
+        .to_string();
+    let session_timeout_ms = kafka_config
+        .session_timeout_ms
+        .unwrap_or_else(|| EnvField::from(6000))
+        .into_inner()
+        .to_string();
+    let auto_offset_reset = kafka_config
+        .auto_offset_reset
+        .unwrap_or_else(|| EnvField::from("earliest".to_string()))
+        .into_inner();
+    let security_protocol = kafka_config
+        .security_protocol
+        .unwrap_or_else(|| EnvField::from("PLAINTEXT".to_string()))
+        .into_inner();
+
     let mut config = ClientConfig::new();
     config
-        .set("bootstrap.servers", brokers)
-        .set("group.id", kafka_config.group_id)
-        .set("client.id", kafka_config.client_id)
-        .set(
-            "session.timeout.ms",
-            kafka_config.session_timeout_ms.to_string(),
-        )
-        .set(
-            "auto.offset.reset",
-            kafka_config.auto_offset_reset,
-        )
+        .set("bootstrap.servers", kafka_config.brokers.into_inner())
+        .set("group.id", group_id)
+        .set("client.id", client_id)
+        .set("session.timeout.ms", session_timeout_ms)
+        .set("auto.offset.reset", auto_offset_reset)
         .set("enable.auto.commit", auto_commit)
-        .set(
-            "security.protocol",
-            kafka_config.security_protocol,
-        )
-        .set("ssl.key.location", kafka_private_key_path)
-        .set("ssl.certificate.location", kafka_certificate_path)
-        .set("ssl.ca.location", kafka_ca_path)
+        .set("security.protocol", security_protocol.clone())
         // Memory-constrained settings using only valid rdkafka properties
         // Note: fetch.max.bytes must be >= message.max.bytes (default 1MB)
         .set("message.max.bytes", "65536") // 64KB max message size
@@ -50,17 +54,38 @@ pub fn create_kafka_client_config(
         .set("fetch.wait.max.ms", "100") // Don't wait long for data
         .set("receive.message.max.bytes", "200000") // 200KB max response (must be > fetch.max.bytes + 512)
         .set_log_level(RDKafkaLogLevel::Info);
+
+    if security_protocol.clone().to_lowercase() == "ssl" {
+        let private_key_path = kafka_config
+            .private_key_path
+            .ok_or_else(|| "Missing private key path".to_string())?;
+        let certificate_path = kafka_config
+            .certificate_path
+            .ok_or_else(|| "Missing certificate path".to_string())?;
+        let ca_path = kafka_config
+            .ca_path
+            .ok_or_else(|| "Missing ca path".to_string())?;
+        config
+            .set("ssl.key.location", private_key_path.into_inner())
+            .set("ssl.certificate.location", certificate_path.into_inner())
+            .set("ssl.ca.location", ca_path.into_inner());
+    }
+
     Ok(config)
 }
 
-#[derive(Debug, Clone)]
+#[env_field_wrap]
+#[derive(Debug, Clone, Deserialize)]
 pub struct KafkaConfig {
-    pub group_id: String,
-    pub client_id: String,
-    pub auto_commit: bool,
-    pub security_protocol: String,
-    pub auto_offset_reset: String,
-    pub session_timeout_ms: i64,
+    pub brokers: String,
+    pub group_id_prefix: String,
+    pub auto_commit: Option<bool>,
+    pub security_protocol: Option<String>,
+    pub private_key_path: Option<String>,
+    pub certificate_path: Option<String>,
+    pub ca_path: Option<String>,
+    pub auto_offset_reset: Option<String>,
+    pub session_timeout_ms: Option<i64>,
     pub hwm_version: i16,
 }
 
@@ -68,27 +93,26 @@ const HWM_VERSION: i16 = 1;
 
 impl Default for KafkaConfig {
     fn default() -> Self {
-        let client_id = format!(
-            "client-{}",
-            unix_timestamp_millis().expect("Failed to get unix timestamp millis")
-        );
         Self {
-            group_id: "default-group".to_string(),
-            client_id: client_id,
-            auto_commit: false,
-            security_protocol: "ssl".to_string(),
-            auto_offset_reset: "earliest".to_string(),
-            session_timeout_ms: 6000,
-            hwm_version: HWM_VERSION,
+            brokers: EnvField::from("localhost:9092".to_string()),
+            group_id_prefix: EnvField::from("default-group-id-prefix".to_string()),
+            auto_commit: Some(EnvField::from(false)),
+            security_protocol: Some(EnvField::from("PLAINTEXT".to_string())),
+            private_key_path: None,
+            certificate_path: None,
+            ca_path: None,
+            auto_offset_reset: Some(EnvField::from("earliest".to_string())),
+            session_timeout_ms: Some(EnvField::from(6000)),
+            hwm_version: EnvField::from(HWM_VERSION),
         }
     }
 }
 
 impl KafkaConfig {
-    pub fn new(group_id: &str, security_protocol: &str) -> Self {
+    pub fn new(group_id_prefix: &str, security_protocol: &str) -> Self {
         KafkaConfig {
-            group_id: group_id.to_string(),
-            security_protocol: security_protocol.to_string(),
+            group_id_prefix: EnvField::from(group_id_prefix.to_string()),
+            security_protocol: Some(EnvField::from(security_protocol.to_string())),
             ..Default::default()
         }
     }

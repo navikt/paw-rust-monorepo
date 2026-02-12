@@ -120,6 +120,7 @@ dependencies = [
  "chrono",
  "health_and_monitoring",
  "log",
+ "paw_app_config",
  "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
@@ -127,6 +128,7 @@ dependencies = [
  "paw_test",
  "rdkafka",
  "serde",
+ "serde-env-field",
  "serde_json",
  "sqlx",
  "tokio",
@@ -1942,11 +1944,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "paw_rdkafka"
+name = "paw_app_config"
 version = "0.1.0"
 dependencies = [
  "paw_rust_base",
+ "serde",
+ "serde-env-field",
+ "toml",
+]
+
+[[package]]
+name = "paw_rdkafka"
+version = "0.1.0"
+dependencies = [
+ "paw_app_config",
+ "paw_rust_base",
  "rdkafka",
+ "serde",
+ "serde-env-field",
 ]
 
 [[package]]
@@ -1973,6 +1988,8 @@ dependencies = [
  "health_and_monitoring",
  "log",
  "paw_rust_base",
+ "serde",
+ "serde-env-field",
  "sqlx",
 ]
 

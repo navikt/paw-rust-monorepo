@@ -34,7 +34,11 @@ async fn run_app() -> Result<(), Box<dyn AppError>> {
     app_state.set_has_started(true);
     match http_server_task.await {
         Ok(Ok(())) => Ok(()),
-        Ok(Err(_)) => Err(Box::new(GenericAppError {})),
-        Err(_) => Err(Box::new(GenericAppError {})),
+        Ok(Err(_)) => Err(Box::new(GenericAppError {
+            message: "HTTP server failed to start".to_string(),
+        })),
+        Err(_) => Err(Box::new(GenericAppError {
+            message: "HTTP server failed to start".to_string(),
+        })),
     }
 }

@@ -1,14 +1,17 @@
 use log::info;
 use paw_rust_base::database_error::DatabaseError;
-use paw_rust_base::env_var::EnvVarNotFoundError;
 use paw_rust_base::error_handling::AppError;
+use serde::Deserialize;
+use serde_env_field::env_field_wrap;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
+#[env_field_wrap]
+#[derive(Deserialize)]
 pub struct DatabaseConfig {
-    pub ip: String,
+    pub host: String,
     pub port: u16,
-    pub user: String,
+    pub username: String,
     pub password: String,
     pub db_name: String,
     pub pg_ssl_cert_path: String,
@@ -20,7 +23,7 @@ impl DatabaseConfig {
     pub fn full_url(&self) -> String {
         format!(
             "postgresql://{}:{}@{}:{}/{}",
-            self.user, self.password, self.ip, self.port, self.db_name
+            self.username, self.password, self.host, self.port, self.db_name
         )
     }
 }
@@ -28,9 +31,9 @@ impl DatabaseConfig {
 impl std::fmt::Debug for DatabaseConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DatabaseConfig")
-            .field("ip", &self.ip)
+            .field("host", &self.host)
             .field("port", &self.port)
-            .field("username", &self.user)
+            .field("username", &self.username)
             .field("password", &"********")
             .field("db_name", &self.db_name)
             .field("pg_ssl_cert_path", &self.pg_ssl_cert_path)
@@ -45,38 +48,9 @@ impl std::fmt::Display for DatabaseConfig {
         write!(
             f,
             "Database connection to {}:{}/{}",
-            self.ip, self.port, self.db_name
+            self.host, self.port, self.db_name
         )
     }
-}
-
-pub fn get_database_config(env_prefix: &'static str) -> Result<DatabaseConfig, Box<dyn AppError>> {
-    Ok(DatabaseConfig {
-        ip: get_db_env(env_prefix, "HOST")?,
-        port: get_db_env(env_prefix, "PORT")?
-            .parse()
-            .map_err(|err| DatabaseError {
-                message: format!("Invalid port number: {}", err),
-            })?,
-        user: get_db_env(env_prefix, "USERNAME")?,
-        password: get_db_env(env_prefix, "PASSWORD")?,
-        db_name: get_db_env(env_prefix, "DATABASE")?,
-        pg_ssl_cert_path: get_db_env(env_prefix, "SSLCERT")?,
-        pg_ssl_key_path: get_db_env(env_prefix, "SSLKEY")?,
-        pg_ssl_root_cert_path: get_db_env(env_prefix, "SSLROOTCERT")?,
-    })
-}
-
-fn get_db_env(
-    env_prefix: &'static str,
-    env_var: &'static str,
-) -> Result<String, Box<dyn AppError>> {
-    let key = format!("{}_{}", env_prefix, env_var);
-    std::env::var(&key).map_err(|_| {
-        Box::from(EnvVarNotFoundError {
-            env_var_name: env_var,
-        })
-    })
 }
 
 async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError>> {
@@ -96,10 +70,9 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError
     Ok(pool)
 }
 
-pub async fn init_db(env_prefix: &'static str) -> Result<PgPool, Box<dyn AppError>> {
-    let db_config = get_database_config(env_prefix)?;
-    info!("Database paw_rust_base: {:?}", db_config);
-    let pg_pool = get_pg_pool(&db_config).await?;
+pub async fn init_db(config: DatabaseConfig) -> Result<PgPool, Box<dyn AppError>> {
+    info!("Database config: {:?}", config);
+    let pg_pool = get_pg_pool(&config).await?;
     info!("Postgres pool opprettet");
     Ok(pg_pool)
 }

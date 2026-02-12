@@ -13,6 +13,10 @@ pub fn nais_namespace() -> Result<String, EnvVarNotFoundError> {
     env_var::get_env("NAIS_NAMESPACE")
 }
 
+pub fn nais_cluster_name() -> Result<String, EnvVarNotFoundError> {
+    env_var::get_env("NAIS_CLUSTER_NAME")
+}
+
 pub fn git_commit() -> &'static str {
     option_env!("GIT_COMMIT_HASH").unwrap_or("dev-build")
 }

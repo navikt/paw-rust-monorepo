@@ -1,18 +1,19 @@
 [workspace]
 resolver = "3"
 members = [
-    "app/avvist-til-oppgave",
-    "app/test-app",
-    "app/kafka-topic-backup",
-    "app/utgang",
+    "lib/paw_app_config",
     "lib/axum_health",
     "lib/health_and_monitoring",
     "lib/paw_rust_base",
     "lib/paw_sqlx",
     "lib/paw_rdkafka_hwm",
-    "lib/paw_rdkafka", 
+    "lib/paw_rdkafka",
     "lib/texas_client",
-    "lib/paw_test"    
+    "lib/paw_test",
+    "app/test-app",
+    "app/kafka-topic-backup",
+    "app/avvist-til-oppgave",
+    "app/utgang",
 ]
 
 [workspace.package]

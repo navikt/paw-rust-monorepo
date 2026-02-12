@@ -12,7 +12,7 @@ pub fn create(
     kafka_config: KafkaConfig,
     topics: &[&str],
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, Box<dyn Error>> {
-    let hwm_version = kafka_config.hwm_version;
+    let hwm_version = kafka_config.hwm_version.into_inner();
     let config = kafka_config.rdkafka_client_config()?;
     let context = HwmRebalanceHandler {
         pg_pool,

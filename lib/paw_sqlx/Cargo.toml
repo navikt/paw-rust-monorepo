@@ -8,4 +8,6 @@ paw_rust_base = { path = "../paw_rust_base" }
 health_and_monitoring = { path = "../health_and_monitoring" }
 sqlx = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde-env-field = { workspace = true }
 

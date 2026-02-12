@@ -1,0 +1,8 @@
+host = "localhost"
+port = 5432
+username = "avvist_til_oppgave"
+password = "Paw1234"
+db_name = "avvist_til_oppgave"
+pg_ssl_cert_path = ""
+pg_ssl_key_path = ""
+pg_ssl_root_cert_path = ""

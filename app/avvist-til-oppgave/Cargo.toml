@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 paw_rust_base = { path = "../../lib/paw_rust_base" }
+paw_app_config = { path = "../../lib/paw_app_config" }
 paw_rdkafka = { path = "../../lib/paw_rdkafka" }
 axum = { workspace = true }
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
@@ -17,6 +18,7 @@ tokio = { workspace = true }
 rdkafka = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde-env-field = { workspace = true }
 sqlx = { workspace = true }
 chrono = { workspace = true}
 
