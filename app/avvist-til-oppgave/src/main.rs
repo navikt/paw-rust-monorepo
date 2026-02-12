@@ -12,8 +12,8 @@ use paw_rdkafka::consumer_error::ConsumerError;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::postgres::init_db;
-use sqlx::{FromRow, PgPool};
+use paw_sqlx::postgres::{clear_db, init_db};
+use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -38,8 +38,8 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         message: format!("Failed to initialize database: {}", err),
     })?;
 
-    // TODO: Dette sletter tabeller før migrering. Slett før prodsetting!!!!!
-    clear_database(&pg_pool).await?;
+    // TODO: Dette sletter alle tabeller før migrering. Fjern før prodsetting!!!!!
+    //clear_db(&pg_pool).await?;
 
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         })?;
 
     let kafka_config = read_kafka_config()?;
-    let topics = app_config.topics();
+    let topics = app_config.topics_as_str();
     let hendelselogg_consumer =
         kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics).map_err(
             |err| ConsumerError {
@@ -70,35 +70,4 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         Err(e) => log::error!("Task join error: {}", e),
     }
     Ok(())
-}
-
-async fn clear_database(pool: &PgPool) -> Result<(), Box<dyn AppError>> {
-    let rows = sqlx::query_as::<_, TableNameRow>(
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| DatabaseError {
-        message: format!("Failed to get table list, connection not ok: {}", e),
-    })?;
-    let tables = rows
-        .iter()
-        .map(|row| row.tablename.as_str())
-        .collect::<Vec<&str>>();
-    log::info!("Sletter tabellene: {}", tables.join(", "));
-    let sql = format!("DROP TABLE IF EXISTS {} CASCADE", tables.join(", "));
-    let _ = sqlx::query(sql.as_str())
-        .bind(tables.join(", ").as_str())
-        .execute(pool)
-        .await
-        .map_err(|e| DatabaseError {
-            message: format!("Failed to clear database, connection not ok: {}", e),
-        })?;
-    log::info!("Slettet alle tabeller i databasen");
-    Ok(())
-}
-
-#[derive(Debug, FromRow)]
-struct TableNameRow {
-    pub tablename: String,
 }

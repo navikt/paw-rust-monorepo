@@ -13,7 +13,7 @@ pub struct ApplicationConfig {
 }
 
 impl ApplicationConfig {
-    pub fn topics(&self) -> Vec<&str> {
+    pub fn topics_as_str(&self) -> Vec<&str> {
         self.topics
             .iter()
             .map(|s| s.as_str())
