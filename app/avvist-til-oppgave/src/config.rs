@@ -2,14 +2,23 @@ use paw_app_config::config::read_toml_config;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::error_handling::AppError;
 use paw_rust_base::nais_cluster_name;
-use paw_sqlx::DatabaseConfig;
+use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 
 #[env_field_wrap]
 #[derive(Debug, Deserialize)]
 pub struct ApplicationConfig {
-    pub hendelselogg_topic: String,
+    pub topics: Vec<String>,
+}
+
+impl ApplicationConfig {
+    pub fn topics(&self) -> Vec<&str> {
+        self.topics
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<&str>>()
+    }
 }
 
 pub fn read_application_config() -> Result<ApplicationConfig, Box<dyn AppError>> {

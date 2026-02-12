@@ -1,1 +1,3 @@
-hendelselogg_topic = "paw.arbeidssoker-hendelseslogg-v1"
+topics = [
+    "paw.arbeidssoker-hendelseslogg-v1"
+]

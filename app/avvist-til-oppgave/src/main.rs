@@ -4,7 +4,7 @@ mod domain;
 mod hendelse_processor;
 mod kafka;
 
-use crate::config::{read_database_config, read_kafka_config};
+use crate::config::{read_application_config, read_database_config, read_kafka_config};
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
@@ -12,7 +12,7 @@ use paw_rdkafka::consumer_error::ConsumerError;
 use paw_rust_base::database_error::DatabaseError;
 use paw_rust_base::error_handling::AppError;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::init_db;
+use paw_sqlx::postgres::init_db;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn AppError>> {
     setup_nais_otel()?;
     log::info!("Application started");
     let appstate = Arc::new(AppState::new());
+    let app_config = read_application_config()?;
     let health_routes = routes(appstate.clone());
     let web_server_task: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
         tokio::spawn(async move {
@@ -43,16 +44,13 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         })?;
 
     let kafka_config = read_kafka_config()?;
-    let hendelselogg_topic = &["paw.arbeidssoker-hendelseslogg-v1"];
-    let hendelselogg_consumer = kafka::consumer::create(
-        appstate.clone(),
-        pg_pool.clone(),
-        kafka_config,
-        hendelselogg_topic,
-    )
-    .map_err(|err| ConsumerError {
-        message: format!("Failed to create Kafka consumer: {}", err),
-    })?;
+    let topics = app_config.topics();
+    let hendelselogg_consumer =
+        kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics).map_err(
+            |err| ConsumerError {
+                message: format!("Failed to create Kafka consumer: {}", err),
+            },
+        )?;
 
     let _ = hendelse_processor::start_processing_loop(
         hendelselogg_consumer,
