@@ -4,6 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
 paw_rust_base = { path ="../paw_rust_base" }
 reqwest = { workspace = true }
 serde = { workspace = true }

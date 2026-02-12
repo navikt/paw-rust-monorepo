@@ -3,6 +3,7 @@ use graphql_client::{GraphQLQuery, Response};
 use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
+use texas_client::{M2MTokenClient, token_client};
 
 type Date = String;
 type DateTime = String;
@@ -13,23 +14,34 @@ type DateTime = String;
 )]
 pub struct HentPersonBolk;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PDLClient {
-    inner: Arc<PDLClientRef>
+    inner: Arc<PDLClientRef>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct PDLClientRef {
+    target_scope: String,
     url: String,
     http_client: reqwest::Client,
+    token_client: Arc<dyn M2MTokenClient>,
 }
 
 impl PDLClient {
-    pub fn new(url: String, http_client: reqwest::Client) -> PDLClient {
-        let inner = Arc::new(PDLClientRef { url, http_client });
+    pub fn new(
+        target_scope: String,
+        url: String,
+        http_client: reqwest::Client,
+        token_client: Arc<dyn M2MTokenClient>,
+    ) -> PDLClient {
+        let inner = Arc::new(PDLClientRef {
+            target_scope,
+            url,
+            http_client,
+            token_client,
+        });
         PDLClient { inner }
     }
-
 }
 
 impl PDLClient {
@@ -42,7 +54,23 @@ impl PDLClient {
             historisk: Some(true),
         };
         let request_body = HentPersonBolk::build_query(variables);
-        let res = self.inner.http_client.post(self.inner.url.clone()).json(&request_body).send().await?;
+        let token = match self
+            .inner
+            .token_client
+            .get_token(self.inner.target_scope.clone())
+            .await
+        {
+            Ok(token) => token,
+            Err(e) => return Err(e),
+        };
+        let res = self
+            .inner
+            .http_client
+            .post(self.inner.url.clone())
+            .json(&request_body)
+            .bearer_auth(token.access_token)
+            .send()
+            .await?;
         let personer: hent_person_bolk::ResponseData = res.json().await?;
         Ok(personer.hent_person_bolk)
     }

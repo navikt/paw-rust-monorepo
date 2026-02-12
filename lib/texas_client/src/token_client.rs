@@ -1,5 +1,6 @@
 use std::{error::Error, fmt::Display, sync::Arc};
 
+use async_trait::async_trait;
 use paw_rust_base::{
     env_var::{EnvVarNotFoundError, get_env},
     error_handling::AppError,
@@ -46,6 +47,7 @@ impl ReqwestTokenClient {
     }
 }
 
+#[async_trait]
 impl M2MTokenClient for ReqwestTokenClient {
     async fn get_token(&self, target: String) -> Result<TokenResponse, Box<dyn AppError>> {
         let request = M2MTokenRequest::new(target.clone());
