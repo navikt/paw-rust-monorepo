@@ -119,6 +119,7 @@ dependencies = [
  "axum_health",
  "chrono",
  "health_and_monitoring",
+ "interne_hendelser",
  "log",
  "paw_app_config",
  "paw_rdkafka",

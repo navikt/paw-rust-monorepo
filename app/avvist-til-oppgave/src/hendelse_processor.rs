@@ -1,9 +1,10 @@
 use crate::db::oppgave_functions::{
-    hent_oppgave, insert_oppgave_hendelse_logg, insert_oppgave,
+    hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::avvist_hendelse::AvvistHendelse;
+use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
@@ -18,7 +19,6 @@ use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::sync::Arc;
-use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 
 pub async fn start_processing_loop(
     hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
@@ -69,6 +69,9 @@ async fn lag_oppgave_for_avvist_hendelse(
 
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
         let avvist_hendelse: AvvistHendelse = serde_json::from_value(json)?;
+        if avvist_hendelse.metadata.utfoert_av.bruker_type == "VEILEDER" {
+            return Ok(());
+        }
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
@@ -98,11 +101,10 @@ fn skal_opprette_oppgave(oppgave: &Option<Oppgave>) -> bool {
     }
 }
 
-const AVVIST_HENDELSE_TYPE: &str = "intern.v1.avvist";
 const OPPLYSNING_UNDER_18: &str = "ER_UNDER_18_AAR";
 
 fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
-    hendelse_type == AVVIST_HENDELSE_TYPE
+    hendelse_type == interne_hendelser::AVVIST_HENDELSE_TYPE
         && [OPPLYSNING_UNDER_18]
             .iter()
             .all(|opp| opplysninger.contains(opp))
@@ -136,8 +138,8 @@ mod tests {
             Some(OwnedHeaders::new()),
         );
 
-        let avvist_message = OwnedMessage::new(
-            Some(AVVIST_HENDELSE_JSON.as_bytes().to_vec()),
+        let avvist_fra_veileder_message = OwnedMessage::new(
+            Some(AVVIST_HENDELSE_FRA_VEILEDER_JSON.as_bytes().to_vec()),
             None,
             "hendelselogg".to_string(),
             Timestamp::CreateTime(Utc::now().timestamp_micros()),
@@ -146,7 +148,7 @@ mod tests {
             Some(OwnedHeaders::new()),
         );
 
-        let andre_avvist_message = OwnedMessage::new(
+        let avvist_message = OwnedMessage::new(
             Some(AVVIST_HENDELSE_JSON.as_bytes().to_vec()),
             None,
             "hendelselogg".to_string(),
@@ -156,8 +158,22 @@ mod tests {
             Some(OwnedHeaders::new()),
         );
 
+        let andre_avvist_message = OwnedMessage::new(
+            Some(AVVIST_HENDELSE_JSON.as_bytes().to_vec()),
+            None,
+            "hendelselogg".to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            3,
+            Some(OwnedHeaders::new()),
+        );
+
         let tx = pg_pool.begin().await?;
         process_hendelse(&irrelevant_message, tx).await?;
+
+        // Skal ikke prosessere avvist hendelse fra veileder
+        let tx = pg_pool.begin().await?;
+        process_hendelse(&avvist_fra_veileder_message, tx).await?;
 
         let tx = pg_pool.begin().await?;
         process_hendelse(&avvist_message, tx).await?;
@@ -199,6 +215,28 @@ mod tests {
             "tidspunkt": 1630404930.000000000,
             "utfoertAv": {
               "type": "SYSTEM",
+              "id": "Testsystem"
+            },
+            "kilde": "Testkilde",
+            "aarsak": "Er under 18 år"
+          },
+          "hendelseType": "intern.v1.avvist",
+          "opplysninger": [
+            "ER_UNDER_18_AAR",
+            "BOSATT_ETTER_FREG_LOVEN"
+          ]
+        }
+    "#;
+    //language=JSON
+    const AVVIST_HENDELSE_FRA_VEILEDER_JSON: &str = r#"
+        {
+          "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
+          "id": 12345,
+          "identitetsnummer": "12345678901",
+          "metadata": {
+            "tidspunkt": 1630404930.000000000,
+            "utfoertAv": {
+              "type": "VEILEDER",
               "id": "Testsystem"
             },
             "kilde": "Testkilde",

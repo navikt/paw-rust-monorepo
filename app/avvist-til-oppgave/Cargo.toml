@@ -4,6 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+interne_hendelser = { path = "../../domain/interne_hendelser" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 paw_rdkafka = { path = "../../lib/paw_rdkafka" }
