@@ -53,4 +53,4 @@ spec:
       - type: POSTGRES_18
         tier: db-f1-micro
         databases:
-          - name: avvisttiloppgave-v2
+          - name: avvisttiloppgave
