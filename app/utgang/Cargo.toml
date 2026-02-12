@@ -17,4 +17,5 @@ rdkafka = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 tracing = { workspace = true }
+graphql_client = { workspace = true }
 

@@ -1,3 +1,5 @@
+mod pdl_query;
+
 use std::{error::Error, sync::Arc};
 
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
