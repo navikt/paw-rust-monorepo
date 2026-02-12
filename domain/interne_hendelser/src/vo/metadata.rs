@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{Bruker, TidspunktFraKilde};
+use super::{unix_timestamp, Bruker, TidspunktFraKilde};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
+    #[serde(with = "unix_timestamp")]
     pub tidspunkt: DateTime<Utc>,
     pub utfoert_av: Bruker,
     pub kilde: String,

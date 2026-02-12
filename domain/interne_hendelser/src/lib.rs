@@ -62,7 +62,7 @@ mod tests {
             "id": 42,
             "identitetsnummer": "12345678901",
             "metadata": {
-                "tidspunkt": "2026-02-12T10:30:00Z",
+                "tidspunkt": 1770897349.3057878,
                 "utfoertAv": {
                     "type": "SYSTEM",
                     "id": "test-system"
@@ -83,6 +83,66 @@ mod tests {
                 assert_eq!(startet.metadata.kilde, "test-kilde");
                 assert_eq!(startet.metadata.aarsak, "test-aarsak");
                 assert!(startet.opplysninger.is_empty());
+            }
+            _ => panic!("Expected Startet variant"),
+        }
+    }
+
+    #[test]
+    fn test_timestamp_roundtrip() {
+        let json = r#"{
+            "hendelseType": "intern.v1.startet",
+            "hendelseId": "123e4567-e89b-12d3-a456-426614174000",
+            "id": 42,
+            "identitetsnummer": "12345678901",
+            "metadata": {
+                "tidspunkt": 1770897349.999999,
+                "utfoertAv": {
+                    "type": "SYSTEM",
+                    "id": "test-system"
+                },
+                "kilde": "test-kilde",
+                "aarsak": "test-aarsak"
+            },
+            "opplysninger": []
+        }"#;
+
+        let hendelse: InterneHendelser = serde_json::from_str(json).expect("Failed to deserialize");
+
+        let serialized = serde_json::to_string(&hendelse).expect("Failed to serialize");
+        let deserialized: InterneHendelser =
+            serde_json::from_str(&serialized).expect("Failed to deserialize again");
+
+        assert_eq!(hendelse, deserialized);
+    }
+
+    #[test]
+    fn test_deserialize_timestamp_as_milliseconds() {
+        let json = r#"{
+            "hendelseType": "intern.v1.startet",
+            "hendelseId": "123e4567-e89b-12d3-a456-426614174000",
+            "id": 42,
+            "identitetsnummer": "12345678901",
+            "metadata": {
+                "tidspunkt": 1770897349999,
+                "utfoertAv": {
+                    "type": "SYSTEM",
+                    "id": "test-system"
+                },
+                "kilde": "test-kilde",
+                "aarsak": "test-aarsak"
+            },
+            "opplysninger": []
+        }"#;
+
+        let hendelse: InterneHendelser =
+            serde_json::from_str(json).expect("Failed to deserialize milliseconds timestamp");
+
+        match hendelse {
+            InterneHendelser::Startet(startet) => {
+                assert_eq!(startet.id, 42);
+                assert_eq!(startet.metadata.tidspunkt.timestamp(), 1770897349);
+                assert_eq!(startet.metadata.tidspunkt.timestamp_millis(), 1770897349999);
             }
             _ => panic!("Expected Startet variant"),
         }

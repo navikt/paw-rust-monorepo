@@ -12,6 +12,7 @@ pub mod metadata;
 pub mod opplysning;
 pub mod opplysninger_om_arbeidssoeker;
 pub mod tidspunkt_fra_kilde;
+pub mod unix_timestamp;
 pub mod utdanning;
 
 pub use annet::Annet;
