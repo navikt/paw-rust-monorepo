@@ -1460,6 +1460,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "interne_hendelser"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
