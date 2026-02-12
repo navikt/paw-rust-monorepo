@@ -42,7 +42,7 @@ impl PDLClient {
             historisk: Some(true),
         };
         let request_body = HentPersonBolk::build_query(variables);
-        let res = self.inner.http_client.post("/graphql").json(&request_body).send().await?;
+        let res = self.inner.http_client.post(self.inner.url.clone()).json(&request_body).send().await?;
         let personer: hent_person_bolk::ResponseData = res.json().await?;
         Ok(personer.hent_person_bolk)
     }
