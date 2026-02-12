@@ -95,7 +95,7 @@ pub async fn insert_oppgave(
     let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
         oppgave_id,
         status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-        melding: HendelseLoggStatus::OppgaveOpprettet.standard_melding(),
+        melding: "Oppretter oppgave for avvist hendelse".to_string(),
         tidspunkt: oppgave_row.tidspunkt.clone(),
     };
 

@@ -7,15 +7,6 @@ pub enum HendelseLoggStatus {
     AvvistHendelseMottatt,
 }
 
-impl HendelseLoggStatus {
-    pub(crate) fn standard_melding(&self) -> String {
-        match self {
-            HendelseLoggStatus::OppgaveOpprettet => "Opprettet oppgave".to_string(),
-            HendelseLoggStatus::AvvistHendelseMottatt => "Avvist hendelse mottatt".to_string(),
-        }
-    }
-}
-
 impl std::fmt::Display for HendelseLoggStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {

@@ -82,7 +82,7 @@ async fn lag_oppgave_for_avvist_hendelse(
             let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
                 status: HendelseLoggStatus::AvvistHendelseMottatt.to_string(),
-                melding: HendelseLoggStatus::AvvistHendelseMottatt.standard_melding(), //TODO: Egen type?
+                melding: "Oppgave allerede opprettet for avvist hendelse for denne arbeidssoekeren".to_string(),
                 tidspunkt: Utc::now(),
             };
             insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;
