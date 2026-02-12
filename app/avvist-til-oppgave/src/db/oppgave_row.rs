@@ -1,7 +1,7 @@
-use crate::domain::avvist_hendelse::AvvistHendelse;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
+use interne_hendelser::Avvist;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -29,63 +29,73 @@ pub struct InsertOppgaveRow {
 }
 
 pub fn to_oppgave_row(
-    hendelse: AvvistHendelse,
+    avvist: Avvist,
     oppgave_type: OppgaveType,
     oppgave_status: OppgaveStatus,
 ) -> InsertOppgaveRow {
+    let opplysninger: Vec<String> = avvist
+        .opplysninger
+        .iter()
+        .map(|opplysning| {
+            format!("{:?}", opplysning)
+        })
+        .collect();
+
     InsertOppgaveRow {
         type_: oppgave_type.to_string(),
         status: oppgave_status.to_string(),
-        melding_id: hendelse.hendelse_id,
-        opplysninger: hendelse.opplysninger,
-        arbeidssoeker_id: hendelse.id,
-        identitetsnummer: hendelse.identitetsnummer,
-        tidspunkt: hendelse.metadata.tidspunkt,
+        melding_id: avvist.hendelse_id,
+        opplysninger,
+        arbeidssoeker_id: avvist.id,
+        identitetsnummer: avvist.identitetsnummer,
+        tidspunkt: avvist.metadata.tidspunkt,
     }
 }
-
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use super::*;
-    use crate::domain::avvist_hendelse::{Metadata, UtfoertAv};
     use uuid::Uuid;
+    use interne_hendelser::vo::{Bruker, BrukerType, Metadata, Opplysning};
 
     #[test]
     fn test_avvist_hendelse_to_oppgave_row() {
         let hendelse_id = Uuid::new_v4();
         let id = 12345;
-        let aarsak = "Test årsak".to_string();
         let identitetsnummer = "12345678901".to_string();
         let now = Utc::now();
 
-        let avvist_hendelse = AvvistHendelse {
+        let mut opplysninger = HashSet::new();
+        opplysninger.insert(Opplysning::ErUnder18Aar);
+        opplysninger.insert(Opplysning::BosattEtterFregLoven);
+
+        let avvist_hendelse = Avvist {
             hendelse_id,
             id,
             identitetsnummer: identitetsnummer.clone(),
             metadata: Metadata {
                 tidspunkt: now,
-                utfoert_av: UtfoertAv {
-                    bruker_type: "System".to_string(),
+                utfoert_av: Bruker {
+                    bruker_type: BrukerType::System,
                     id: "123".to_string(),
+                    sikkerhetsnivaa: None,
                 },
                 kilde: "Testkilde".to_string(),
-                aarsak: aarsak.clone(),
+                aarsak: "Test årsak".to_string(),
+                tidspunkt_fra_kilde: None,
             },
-            hendelse_type: "TestType".to_string(),
-            opplysninger: vec![
-                "ER_UNDER_18_AAR".to_string(),
-                "BOSATT_ETTER_FREG_LOVEN".to_string(),
-            ],
+            opplysninger: opplysninger.clone(),
+            handling: None,
         };
 
         let oppgave_row = to_oppgave_row(
             avvist_hendelse.clone(),
             OppgaveType::AvvistUnder18,
-            OppgaveStatus::Ubehandlet
+            OppgaveStatus::Ubehandlet,
         );
 
         assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.opplysninger, avvist_hendelse.opplysninger);
+        assert_eq!(oppgave_row.opplysninger, vec!["ErUnder18Aar", "BosattEtterFregLoven"]);
         assert_eq!(
             oppgave_row.identitetsnummer,
             avvist_hendelse.identitetsnummer

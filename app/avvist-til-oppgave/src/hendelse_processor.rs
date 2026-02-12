@@ -3,13 +3,15 @@ use crate::db::oppgave_functions::{
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
-use crate::domain::avvist_hendelse::AvvistHendelse;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use health_and_monitoring::simple_app_state::AppState;
+use interne_hendelser;
+use interne_hendelser::vo::BrukerType;
+use interne_hendelser::Avvist;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
@@ -68,8 +70,8 @@ async fn lag_oppgave_for_avvist_hendelse(
     };
 
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
-        let avvist_hendelse: AvvistHendelse = serde_json::from_value(json)?;
-        if avvist_hendelse.metadata.utfoert_av.bruker_type == "VEILEDER" {
+        let avvist_hendelse: Avvist = serde_json::from_value(json)?;
+        if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
             return Ok(());
         }
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
@@ -191,7 +193,7 @@ mod tests {
         assert_eq!(oppgave.hendelse_logg.len(), 2);
         assert_eq!(
             oppgave.opplysninger,
-            vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
+            vec!["ErUnder18Aar", "BosattEtterFregLoven"]
         );
         assert_eq!(oppgave.arbeidssoeker_id, arbeidssoeker_id);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
