@@ -1,9 +1,8 @@
+use thiserror::Error;
+use chrono::{DateTime, Utc};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_status::{OppgaveStatus, OppgaveStatusParseError};
 use crate::domain::oppgave_type::{OppgaveType, OppgaveTypeParseError};
-use chrono::{DateTime, Utc};
-use std::error::Error;
-use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {
@@ -41,45 +40,20 @@ impl Oppgave {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum OppgaveError {
-    StatusParseError(OppgaveStatusParseError),
-    TypeParseError(OppgaveTypeParseError),
-    HendelseLoggEntryError(HendelseLoggEntryError),
-}
-
-impl fmt::Display for OppgaveError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            OppgaveError::StatusParseError(e) => write!(f, "{}", e),
-            OppgaveError::TypeParseError(e) => write!(f, "{}", e),
-            OppgaveError::HendelseLoggEntryError(e) => write!(f, "{}", e),
-        }
-    }
-}
-
-impl Error for OppgaveError {}
-
-impl From<OppgaveStatusParseError> for OppgaveError {
-    fn from(err: OppgaveStatusParseError) -> Self {
-        OppgaveError::StatusParseError(err)
-    }
-}
-
-impl From<OppgaveTypeParseError> for OppgaveError {
-    fn from(err: OppgaveTypeParseError) -> Self {
-        OppgaveError::TypeParseError(err)
-    }
-}
-
-impl From<HendelseLoggEntryError> for OppgaveError {
-    fn from(err: HendelseLoggEntryError) -> Self {
-        OppgaveError::HendelseLoggEntryError(err)
-    }
+    #[error(transparent)]
+    StatusParseError(#[from] OppgaveStatusParseError),
+    #[error(transparent)]
+    TypeParseError(#[from] OppgaveTypeParseError),
+    #[error(transparent)]
+    HendelseLoggEntryError(#[from] HendelseLoggEntryError),
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::oppgave_status::OppgaveStatus;
+    use crate::domain::oppgave_type::OppgaveType;
     use super::*;
 
     #[test]

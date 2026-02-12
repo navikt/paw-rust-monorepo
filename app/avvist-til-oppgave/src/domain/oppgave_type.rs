@@ -1,4 +1,4 @@
-use std::fmt;
+use thiserror::Error;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
@@ -12,33 +12,24 @@ impl FromStr for OppgaveType {
     fn from_str(str: &str) -> Result<Self, Self::Err> {
         match str {
             "AvvistUnder18" => Ok(OppgaveType::AvvistUnder18),
-            _ => Err(OppgaveTypeParseError {
-                message: format!("Ukjent oppgavetype: {}", str),
-            }),
+            _ => Err(OppgaveTypeParseError::UkjentType(str.to_string())),
         }
     }
 }
 
-impl fmt::Display for OppgaveType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for OppgaveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             OppgaveType::AvvistUnder18 => write!(f, "AvvistUnder18"),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct OppgaveTypeParseError {
-    message: String,
+#[derive(Error, Debug, PartialEq)]
+pub enum OppgaveTypeParseError {
+    #[error("Ukjent oppgavetype: {0}")]
+    UkjentType(String),
 }
-
-impl fmt::Display for OppgaveTypeParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for OppgaveTypeParseError {}
 
 #[cfg(test)]
 mod tests {

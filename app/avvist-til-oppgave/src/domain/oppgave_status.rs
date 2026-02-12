@@ -1,4 +1,4 @@
-use std::fmt;
+use thiserror::Error;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,15 +14,13 @@ impl FromStr for OppgaveStatus {
         match str {
             "Ubehandlet" => Ok(OppgaveStatus::Ubehandlet),
             "Ferdigbehandlet" => Ok(OppgaveStatus::Ferdigbehandlet),
-            _ => Err(OppgaveStatusParseError {
-                message: format!("Ukjent oppgavestatus: {}", str),
-            }),
+            _ => Err(OppgaveStatusParseError::UkjentStatus(str.to_string())),
         }
     }
 }
 
-impl fmt::Display for OppgaveStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for OppgaveStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             OppgaveStatus::Ubehandlet => write!(f, "Ubehandlet"),
             OppgaveStatus::Ferdigbehandlet => write!(f, "Ferdigbehandlet"),
@@ -30,17 +28,10 @@ impl fmt::Display for OppgaveStatus {
     }
 }
 
-impl std::error::Error for OppgaveStatusParseError {}
-
-#[derive(Debug, PartialEq)]
-pub struct OppgaveStatusParseError {
-    message: String,
-}
-
-impl fmt::Display for OppgaveStatusParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
+#[derive(Error, Debug, PartialEq)]
+pub enum OppgaveStatusParseError {
+    #[error("Ukjent oppgavestatus: {0}")]
+    UkjentStatus(String),
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
-use std::fmt;
 use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HendelseLoggStatus {
@@ -16,8 +16,8 @@ impl HendelseLoggStatus {
     }
 }
 
-impl fmt::Display for HendelseLoggStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for HendelseLoggStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             HendelseLoggStatus::OppgaveOpprettet => write!(f, "OppgaveOpprettet"),
             HendelseLoggStatus::AvvistHendelseMottatt => write!(f, "AvvistHendelseMottatt"),
@@ -32,22 +32,13 @@ impl FromStr for HendelseLoggStatus {
         match s {
             "OppgaveOpprettet" => Ok(HendelseLoggStatus::OppgaveOpprettet),
             "AvvistHendelseMottatt" => Ok(HendelseLoggStatus::AvvistHendelseMottatt),
-            _ => Err(HendelseLoggStatusParseError {
-                message: format!("Ugyldig HendelseLoggStatus: {}", s),
-            }),
+            _ => Err(HendelseLoggStatusParseError::UgyldigStatus(s.to_string())),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct HendelseLoggStatusParseError {
-    pub(crate) message: String,
+#[derive(Error, Debug, PartialEq)]
+pub enum HendelseLoggStatusParseError {
+    #[error("Ugyldig HendelseLoggStatus: {0}")]
+    UgyldigStatus(String),
 }
-
-impl fmt::Display for HendelseLoggStatusParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for HendelseLoggStatusParseError {}

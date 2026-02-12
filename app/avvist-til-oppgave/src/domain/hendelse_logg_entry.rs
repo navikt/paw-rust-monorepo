@@ -1,6 +1,6 @@
 use crate::domain::hendelse_logg_status::{HendelseLoggStatus, HendelseLoggStatusParseError};
 use chrono::{DateTime, Utc};
-use std::fmt;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HendelseLoggEntry {
@@ -17,25 +17,10 @@ impl HendelseLoggEntry {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct HendelseLoggEntryError {
-    message: String,
-}
-
-impl fmt::Display for HendelseLoggEntryError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
-impl std::error::Error for HendelseLoggEntryError {}
-
-impl From<HendelseLoggStatusParseError> for HendelseLoggEntryError {
-    fn from(err: HendelseLoggStatusParseError) -> Self {
-        HendelseLoggEntryError {
-            message: err.message,
-        }
-    }
+#[derive(Error, Debug, PartialEq)]
+pub enum HendelseLoggEntryError {
+    #[error(transparent)]
+    ParseError(#[from] HendelseLoggStatusParseError),
 }
 
 #[test]
