@@ -50,6 +50,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                     })
                     .collect();
                 let mut tx = block_on(self.pg_pool.begin()).unwrap();
+
                 let hwms = block_on(self.get_hwms(&mut tx, topic_partitions)).unwrap();
                 hwms.iter().for_each(|hwm| {
                     if hwm.offset == DEFAULT_HWM {
@@ -66,7 +67,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                             hwm.partition,
                             hwm.offset,
                         ))
-                        .unwrap()
+                            .unwrap()
                     } else {
                         log::info!(
                             "HWM for topic {} partition {} is {}",
@@ -102,7 +103,12 @@ impl ConsumerContext for HwmRebalanceHandler {
                             panic!("Failed to seek to offset {:?}: {}", seek_to_offset, e);
                         },
                     }
-                })
+                });
+
+                if let Err(e) = block_on(tx.commit()) {
+                    log::error!("Failed to commit HWM transaction: {}", e);
+                    panic!("Failed to commit HWM transaction: {}", e);
+                }
             }
             Rebalance::Revoke(partitions) => {
                 log::info!("Partitions revoked: {:?}", partitions);
