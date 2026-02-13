@@ -76,7 +76,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                         );
                     }
                     let seek_to_offset = hwm.seek_to_rd_kafka_offset();
-                    log::info!("Seeking to offset {}", seek_to_offset.to_raw().unwrap());
+                    log::info!("Seeking to offset {:?}", seek_to_offset);
                     base_consumer
                         .seek(
                             &hwm.topic,
