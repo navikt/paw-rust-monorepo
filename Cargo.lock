@@ -115,6 +115,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 name = "avvist-til-oppgave"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "axum_health",
  "chrono",
@@ -1081,11 +1082,13 @@ dependencies = [
 name = "health_and_monitoring"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "paw_rust_base",
+ "thiserror 2.0.18",
  "tonic",
  "tracing",
  "tracing-opentelemetry",
@@ -2103,9 +2106,9 @@ dependencies = [
 name = "paw_app_config"
 version = "0.1.0"
 dependencies = [
- "paw_rust_base",
+ "anyhow",
  "serde",
- "serde-env-field",
+ "thiserror 2.0.18",
  "toml",
 ]
 
@@ -2113,40 +2116,47 @@ dependencies = [
 name = "paw_rdkafka"
 version = "0.1.0"
 dependencies = [
- "paw_app_config",
+ "anyhow",
  "paw_rust_base",
  "rdkafka",
  "serde",
  "serde-env-field",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "paw_rdkafka_hwm"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures",
  "health_and_monitoring",
  "log",
  "paw_test",
  "rdkafka",
  "sqlx",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
 [[package]]
 name = "paw_rust_base"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "paw_sqlx"
 version = "0.1.0"
 dependencies = [
- "health_and_monitoring",
+ "anyhow",
  "log",
- "paw_rust_base",
  "serde",
  "serde-env-field",
  "sqlx",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3563,6 +3573,7 @@ dependencies = [
 name = "test-app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "axum_health",
  "base64 0.22.1",
@@ -3581,6 +3592,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "temp-env",
+ "thiserror 2.0.18",
  "tokio",
  "toml",
  "tonic",
@@ -3633,10 +3645,12 @@ dependencies = [
 name = "texas_client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "paw_rust_base",
  "reqwest 0.13.2",
  "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -4201,6 +4215,7 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 name = "utgang"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "axum_health",
  "graphql_client",
@@ -4212,6 +4227,7 @@ dependencies = [
  "rdkafka",
  "reqwest 0.13.2",
  "texas_client",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]

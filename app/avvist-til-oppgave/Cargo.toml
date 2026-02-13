@@ -23,6 +23,7 @@ serde-env-field = { workspace = true }
 sqlx = { workspace = true }
 chrono = { workspace = true}
 thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 paw_test = { path = "../../lib/paw_test" }

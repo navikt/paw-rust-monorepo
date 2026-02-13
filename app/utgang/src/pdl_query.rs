@@ -1,9 +1,8 @@
 use crate::pdl_query::hent_person_bolk::HentPersonBolkHentPersonBolk;
-use graphql_client::{GraphQLQuery, Response};
-use std::error::Error;
-use std::fmt::Debug;
+use anyhow::Result;
+use graphql_client::GraphQLQuery;
 use std::sync::Arc;
-use texas_client::{M2MTokenClient, token_client};
+use texas_client::M2MTokenClient;
 
 type Date = String;
 type DateTime = String;
@@ -48,7 +47,7 @@ impl PDLClient {
     async fn perform_hent_person_bolk(
         &self,
         identitetsnummer: Vec<String>,
-    ) -> Result<Vec<HentPersonBolkHentPersonBolk>, Box<dyn Error>> {
+    ) -> Result<Vec<HentPersonBolkHentPersonBolk>> {
         let variables = hent_person_bolk::Variables {
             identer: identitetsnummer,
             historisk: Some(true),

@@ -5,21 +5,20 @@ mod hendelse_processor;
 mod kafka;
 
 use crate::config::{read_application_config, read_database_config, read_kafka_config};
+use anyhow::Result;
 use axum_health::routes;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_rdkafka::consumer_error::ConsumerError;
-use paw_rust_base::database_error::DatabaseError;
-use paw_rust_base::error_handling::AppError;
+use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::postgres::{clear_db, init_db};
-use sqlx::PgPool;
+use paw_sqlx::error::DatabaseError;
+use paw_sqlx::postgres::init_db;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn AppError>> {
+async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
     log::info!("Application started");
@@ -34,28 +33,18 @@ async fn main() -> Result<(), Box<dyn AppError>> {
         });
 
     let db_config = read_database_config()?;
-    let pg_pool = init_db(db_config).await.map_err(|err| DatabaseError {
-        message: format!("Failed to initialize database: {}", err),
-    })?;
-
-    // TODO: Dette sletter alle tabeller før migrering. Fjern før prodsetting!!!!!
-    //clear_db(&pg_pool).await?;
+    let pg_pool = init_db(db_config).await?;
 
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
-        .map_err(|migrate_error| DatabaseError {
-            message: format!("Database migration failed: {}", migrate_error),
-        })?;
+        .map_err(|e| DatabaseError::MigrateSchema(e))?;
 
     let kafka_config = read_kafka_config()?;
     let topics = app_config.topics_as_str();
     let hendelselogg_consumer =
-        kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics).map_err(
-            |err| ConsumerError {
-                message: format!("Failed to create Kafka consumer: {}", err),
-            },
-        )?;
+        kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics)
+            .map_err(|_| KafkaError::CreateConsumer)?;
 
     let _ = hendelse_processor::start_processing_loop(
         hendelselogg_consumer,

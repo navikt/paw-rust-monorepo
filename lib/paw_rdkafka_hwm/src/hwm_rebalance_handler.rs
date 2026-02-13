@@ -1,12 +1,12 @@
-use crate::hwm::{DEFAULT_HWM, Hwm, TopicPartition};
+use crate::hwm::{Hwm, TopicPartition, DEFAULT_HWM};
 use crate::hwm_functions::{get_hwm, insert_hwm};
+use anyhow::Result;
 use futures::executor::block_on;
 use health_and_monitoring::simple_app_state::AppState;
 use log::error as log_error;
-use rdkafka::ClientContext;
 use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
+use rdkafka::ClientContext;
 use sqlx::{PgPool, Postgres, Transaction};
-use std::error;
 use std::sync::Arc;
 
 pub struct HwmRebalanceHandler {
@@ -20,7 +20,7 @@ impl HwmRebalanceHandler {
         &self,
         tx: &mut Transaction<'_, Postgres>,
         topic_partitions: Vec<TopicPartition>,
-    ) -> Result<Vec<Hwm>, Box<dyn error::Error>> {
+    ) -> Result<Vec<Hwm>> {
         let mut hwms = Vec::new();
         for tp in topic_partitions {
             let offset = get_hwm(&mut *tx, self.version, &tp.topic, tp.partition).await?;

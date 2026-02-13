@@ -10,6 +10,8 @@ log = { workspace = true }
 rdkafka = { workspace = true }
 sqlx = { workspace = true }
 futures = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 paw_test = { path = "../paw_test" }

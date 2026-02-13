@@ -5,7 +5,8 @@ edition.workspace = true
 
 [dependencies]
 paw_rust_base = { path = "../paw_rust_base" }
-paw_app_config = { path = "../paw_app_config" }
 rdkafka = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde-env-field = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

@@ -8,3 +8,5 @@ async-trait = { workspace = true }
 paw_rust_base = { path ="../paw_rust_base" }
 reqwest = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

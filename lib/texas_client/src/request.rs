@@ -1,9 +1,10 @@
-use paw_rust_base::env_var::{EnvVarNotFoundError, get_env};
+use anyhow::Result;
+use paw_rust_base::env::get_env;
 
 const ENTRA_ID: &str = "entra_id";
 const NAIS_TOKEN_ENDPOINT_ENV: &str = "NAIS_TOKEN_ENDPOINT";
 
-pub fn get_nais_token_endpoint() -> Result<String, EnvVarNotFoundError> {
+pub fn get_nais_token_endpoint() -> Result<String> {
     get_env(NAIS_TOKEN_ENDPOINT_ENV)
 }
 
@@ -17,7 +18,7 @@ impl M2MTokenRequest {
     pub fn new(target: String) -> Self {
         Self {
             identity_provider: ENTRA_ID,
-            target: target,
+            target,
         }
     }
 }

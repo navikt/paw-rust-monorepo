@@ -1,46 +1,39 @@
 use crate::config::DatabaseConfig;
-use log::info;
-use paw_rust_base::database_error::DatabaseError;
-use paw_rust_base::error_handling::AppError;
+use crate::error::DatabaseError;
+use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{FromRow, PgPool};
 
-async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, Box<dyn AppError>> {
+async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
     let database_url = config.full_url();
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect_lazy(&database_url)
-        .map_err(|_| DatabaseError {
-            message: "Failed to create Postgres connection pool".to_string(),
-        })?;
+        .map_err(|e| DatabaseError::InitializePool(e))?;
     let _ = sqlx::query("SELECT 1")
         .execute(&pool)
         .await
-        .map_err(|e| DatabaseError {
-            message: format!("Failed to run 'SELECT 1', connection not ok: {}", e),
-        })?;
+        .map_err(|e| DatabaseError::VerifyConnection(e))?;
     Ok(pool)
 }
 
-pub async fn init_db(config: DatabaseConfig) -> Result<PgPool, Box<dyn AppError>> {
-    info!("Database config: {:?}", config);
+pub async fn init_db(config: DatabaseConfig) -> Result<PgPool> {
+    log::info!("Database config: {:?}", config);
     let pg_pool = get_pg_pool(&config).await?;
-    info!("Postgres pool opprettet");
+    log::info!("Postgres pool opprettet");
     Ok(pg_pool)
 }
 
 /*
  * OBS! Denne funkejonen sletter alle tabeller i databasen
  */
-pub async fn clear_db(pool: &PgPool) -> Result<(), Box<dyn AppError>> {
+pub async fn clear_db(pool: &PgPool) -> Result<()> {
     let rows = sqlx::query_as::<_, TableNameRow>(
         "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| DatabaseError {
-        message: format!("Failed to get table list, connection not ok: {}", e),
-    })?;
+    .map_err(|e| DatabaseError::ExecuteQuery(e))?;
     let tables = rows
         .iter()
         .map(|row| row.tablename.as_str())
@@ -51,9 +44,7 @@ pub async fn clear_db(pool: &PgPool) -> Result<(), Box<dyn AppError>> {
         .bind(tables.join(", ").as_str())
         .execute(pool)
         .await
-        .map_err(|e| DatabaseError {
-            message: format!("Failed to clear database, connection not ok: {}", e),
-        })?;
+        .map_err(|e| DatabaseError::ExecuteQuery(e))?;
     log::info!("Slettet alle tabeller i databasen");
     Ok(())
 }

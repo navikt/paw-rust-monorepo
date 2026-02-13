@@ -1,13 +1,12 @@
+use crate::error::KafkaError;
+use anyhow::Result;
 use rdkafka::config::RDKafkaLogLevel;
 use rdkafka::ClientConfig;
 use serde::Deserialize;
 use serde_env_field::{env_field_wrap, EnvField};
-use std::error::Error;
 use std::time::SystemTime;
 
-pub fn create_kafka_client_config(
-    kafka_config: KafkaConfig,
-) -> Result<ClientConfig, Box<dyn Error>> {
+pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientConfig> {
     let hwm_version = kafka_config.hwm_version.into_inner();
     let client_nonce = unix_timestamp_millis().expect("Failed to get unix timestamp millis");
     let group_id_prefix = kafka_config.group_id_prefix.into_inner();
@@ -58,13 +57,16 @@ pub fn create_kafka_client_config(
     if security_protocol.clone().to_lowercase() == "ssl" {
         let private_key_path = kafka_config
             .private_key_path
-            .ok_or_else(|| "Missing private key path".to_string())?;
+            .ok_or_else(|| "Missing private key path".to_string())
+            .map_err(|msg| KafkaError::Config(msg))?;
         let certificate_path = kafka_config
             .certificate_path
-            .ok_or_else(|| "Missing certificate path".to_string())?;
+            .ok_or_else(|| "Missing certificate path".to_string())
+            .map_err(|msg| KafkaError::Config(msg))?;
         let ca_path = kafka_config
             .ca_path
-            .ok_or_else(|| "Missing ca path".to_string())?;
+            .ok_or_else(|| "Missing ca path".to_string())
+            .map_err(|msg| KafkaError::Config(msg))?;
         config
             .set("ssl.key.location", private_key_path.into_inner())
             .set("ssl.certificate.location", certificate_path.into_inner())
@@ -116,12 +118,12 @@ impl KafkaConfig {
             ..Default::default()
         }
     }
-    pub fn rdkafka_client_config(&self) -> Result<ClientConfig, Box<dyn Error>> {
+    pub fn rdkafka_client_config(&self) -> Result<ClientConfig> {
         create_kafka_client_config(self.clone())
     }
 }
 
-fn unix_timestamp_millis() -> Result<u128, Box<dyn Error>> {
+fn unix_timestamp_millis() -> Result<u128> {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| e.into())

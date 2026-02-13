@@ -1,14 +1,14 @@
+use anyhow::Result;
 use async_trait::async_trait;
-use paw_rust_base::error_handling::AppError;
 use serde::{Deserialize, Serialize};
 
 mod request;
-pub mod texas_error;
+pub mod error;
 pub mod token_client;
 
 #[async_trait]
 pub trait M2MTokenClient {
-    async fn get_token(&self, target: String) -> Result<TokenResponse, Box<dyn AppError>>;
+    async fn get_token(&self, target: String) -> Result<TokenResponse>;
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -47,8 +47,9 @@ tracing-opentelemetry = "0.32.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 reqwest = { version = "0.13.1", features = ["json"] }
-thiserror = { version = "2" }
-graphql_client = { version = "0.16.0", features = ["reqwest"]}
+thiserror = "2.0"
+anyhow = "1.0"
+graphql_client = { version = "0.16.0", features = ["reqwest"] }
 
 testcontainers = "0.26"
 testcontainers-modules = { version = "0.14", features = ["postgres"] }
