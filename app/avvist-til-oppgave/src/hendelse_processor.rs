@@ -5,11 +5,12 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use anyhow::Result;
 use chrono::Utc;
 use health_and_monitoring::simple_app_state::AppState;
 use interne_hendelser;
-use interne_hendelser::Avvist;
 use interne_hendelser::vo::BrukerType;
+use interne_hendelser::Avvist;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
@@ -17,14 +18,13 @@ use rdkafka::message::Message;
 use rdkafka::message::OwnedMessage;
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
-use std::error::Error;
 use std::sync::Arc;
 
 pub async fn start_processing_loop(
     hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
     pg_pool: PgPool,
     _app_state: Arc<AppState>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     log::info!("Starting processing loop");
     loop {
         let kafka_message = hendelselogg_consumer.recv().await?.detach();
@@ -38,7 +38,7 @@ const HWM_VERSION: i16 = 1;
 pub async fn process_hendelse(
     kafka_message: &OwnedMessage,
     mut tx: Transaction<'_, Postgres>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     if update_hwm(
         &mut tx,
         HWM_VERSION,
@@ -59,7 +59,7 @@ pub async fn process_hendelse(
 async fn lag_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
     tx: &mut Transaction<'_, Postgres>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
     let hendelse_type = json["hendelseType"].as_str().unwrap_or_default();
@@ -117,12 +117,12 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use paw_rdkafka_hwm::hwm_functions::insert_hwm;
+    use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
-    use paw_rust_base::convenience_functions::contains_all;
 
     #[tokio::test]
-    async fn test_process_hendelse() -> Result<(), Box<dyn Error>> {
+    async fn test_process_hendelse() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;

@@ -1,11 +1,11 @@
-use sqlx::PgPool;
+use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
-use std::error::Error;
+use sqlx::PgPool;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
 
-pub async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>), Box<dyn Error>> {
+pub async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>)> {
     let postgres_container = Postgres::default().with_tag("18-alpine").start().await?;
 
     let host_port = postgres_container.get_host_port_ipv4(5432).await?;

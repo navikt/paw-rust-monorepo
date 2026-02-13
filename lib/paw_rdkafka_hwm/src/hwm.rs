@@ -2,6 +2,7 @@ use rdkafka::Offset;
 
 pub const DEFAULT_HWM: i64 = -1;
 
+#[derive(Debug, Clone)]
 pub struct Hwm {
     pub topic: String,
     pub partition: i32,

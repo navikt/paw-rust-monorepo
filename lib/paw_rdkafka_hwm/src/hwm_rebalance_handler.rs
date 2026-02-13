@@ -1,11 +1,11 @@
-use crate::hwm::{Hwm, TopicPartition, DEFAULT_HWM};
+use crate::hwm::{DEFAULT_HWM, Hwm, TopicPartition};
 use crate::hwm_functions::{get_hwm, insert_hwm};
 use anyhow::Result;
 use futures::executor::block_on;
 use health_and_monitoring::simple_app_state::AppState;
 use log::error as log_error;
-use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
 use rdkafka::ClientContext;
+use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
 
@@ -54,12 +54,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                 let hwms = block_on(self.get_hwms(&mut tx, topic_partitions)).unwrap();
                 hwms.iter().for_each(|hwm| {
                     if hwm.offset == DEFAULT_HWM {
-                        log::info!(
-                            "Inserting initial HWM for topic {} partition {} as {}",
-                            hwm.topic,
-                            hwm.partition,
-                            hwm.offset
-                        );
+                        log::info!("Inserting initial HWM {:?}", hwm);
                         block_on(insert_hwm(
                             &mut tx,
                             self.version,
@@ -69,12 +64,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                         ))
                             .unwrap()
                     } else {
-                        log::info!(
-                            "HWM for topic {} partition {} is {}",
-                            hwm.topic,
-                            hwm.partition,
-                            hwm.offset
-                        );
+                        log::info!("Using existing HWM {:?}", hwm);
                     }
                     let seek_to_offset = hwm.seek_to_rd_kafka_offset();
                     log::info!("Seeking to offset {:?}", seek_to_offset);

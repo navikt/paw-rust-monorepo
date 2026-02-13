@@ -3,13 +3,13 @@ use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
+use anyhow::Result;
 use sqlx::{Postgres, Transaction};
-use std::error::Error;
 
 pub async fn hent_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
-) -> Result<Option<Oppgave>, Box<dyn Error>> {
+) -> Result<Option<Oppgave>> {
     let oppgave_row = match hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await? {
         None => return Ok(None),
         Some(row) => row,
@@ -34,8 +34,8 @@ pub async fn hent_oppgave(
 async fn hent_oppgave_for_arbeidssoeker(
     arbeidssoeker_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<Option<OppgaveRow>, sqlx::Error> {
-    sqlx::query_as::<_, OppgaveRow>(
+) -> Result<Option<OppgaveRow>> {
+    let rows = sqlx::query_as::<_, OppgaveRow>(
         r#"
         SELECT
             id,
@@ -52,13 +52,14 @@ async fn hent_oppgave_for_arbeidssoeker(
     )
     .bind(arbeidssoeker_id)
     .fetch_optional(&mut **transaction)
-    .await
+    .await?;
+    Ok(rows)
 }
 
 async fn hent_hendelse_logg(
     oppgave_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<Vec<HendelseLoggEntry>, Box<dyn Error>> {
+) -> Result<Vec<HendelseLoggEntry>> {
     let rows = sqlx::query_as::<_, OppgaveHendelseLoggRow>(
         r#"
         SELECT
@@ -89,7 +90,7 @@ async fn hent_hendelse_logg(
 pub async fn insert_oppgave(
     oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<i64, Box<dyn Error>> {
+) -> Result<i64> {
     let oppgave_id = _insert_oppgave(oppgave_row, transaction).await?;
 
     let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
@@ -107,7 +108,7 @@ pub async fn insert_oppgave(
 async fn _insert_oppgave(
     oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<i64, Box<dyn Error>> {
+) -> Result<i64> {
     let oppgave_id = sqlx::query_scalar(
         r#"
         INSERT INTO oppgaver (type, status, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
@@ -131,7 +132,7 @@ async fn _insert_oppgave(
 pub async fn insert_oppgave_hendelse_logg(
     hendelse_logg_row: &InsertOppgaveHendelseLoggRow,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<u64, Box<dyn Error>> {
+) -> Result<u64> {
     let result = sqlx::query(
         r#"
         INSERT INTO oppgave_hendelse_logg (oppgave_id, status, melding, tidspunkt)
@@ -155,11 +156,10 @@ mod tests {
     use crate::domain::oppgave_type::OppgaveType;
     use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
-    use std::error::Error;
     use uuid::Uuid;
 
     #[tokio::test]
-    async fn insert_oppgave_med_status_ubehandlet() -> Result<(), Box<dyn Error>> {
+    async fn insert_oppgave_med_status_ubehandlet() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
@@ -175,7 +175,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_hent_oppgave() -> Result<(), Box<dyn Error>> {
+    async fn test_hent_oppgave() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 

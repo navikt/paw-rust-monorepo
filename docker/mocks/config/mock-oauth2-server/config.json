@@ -1,0 +1,24 @@
+{
+    "interactiveLogin": true,
+    "httpServer": "NettyWrapper",
+    "tokenCallbacks": [
+        {
+            "issuerId": "azure",
+            "tokenExpiry": 3600,
+            "requestMappings": [
+                {
+                    "requestParam": "client_id",
+                    "match": "paw-kafka-key-generator",
+                    "claims": {
+                        "sub": "admin@paw-kafka-key-generator",
+                        "aud": [
+                            "paw-kafka-key-generator"
+                        ],
+                        "pid": "01017012345",
+                        "acr": "idporten-loa-high"
+                    }
+                }
+            ]
+        }
+    ]
+}
