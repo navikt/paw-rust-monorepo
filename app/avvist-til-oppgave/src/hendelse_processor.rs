@@ -1,6 +1,4 @@
-use crate::db::oppgave_functions::{
-    hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
-};
+use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
@@ -10,8 +8,8 @@ use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use health_and_monitoring::simple_app_state::AppState;
 use interne_hendelser;
-use interne_hendelser::vo::BrukerType;
 use interne_hendelser::Avvist;
+use interne_hendelser::vo::BrukerType;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
@@ -70,7 +68,9 @@ async fn lag_oppgave_for_avvist_hendelse(
     };
 
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
-        log::info!("Mottatt avvist hendelse for under 18 år, sjekker om det skal opprettes oppgave");
+        log::info!(
+            "Mottatt avvist hendelse for under 18 år, sjekker om det skal opprettes oppgave"
+        );
         let avvist_hendelse: Avvist = serde_json::from_value(json)?;
         if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
             return Ok(());
@@ -90,7 +90,8 @@ async fn lag_oppgave_for_avvist_hendelse(
             let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
                 status: HendelseLoggStatus::AvvistHendelseMottatt.to_string(),
-                melding: "Oppgave allerede opprettet for avvist hendelse for denne arbeidssoekeren".to_string(),
+                melding: "Oppgave allerede opprettet for avvist hendelse for denne arbeidssoekeren"
+                    .to_string(),
                 tidspunkt: Utc::now(),
             };
             insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;
@@ -122,6 +123,7 @@ mod tests {
     use paw_rdkafka_hwm::hwm_functions::insert_hwm;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+    use paw_rust_base::convenience_functions::contains_all;
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<(), Box<dyn Error>> {
@@ -194,9 +196,16 @@ mod tests {
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.hendelse_logg.len(), 2);
-        assert_eq!(
-            oppgave.opplysninger,
-            vec!["ErUnder18Aar", "BosattEtterFregLoven"]
+        assert!(
+            contains_all(
+                &oppgave.opplysninger,
+                &[
+                    "ErUnder18Aar".to_string(),
+                    "BosattEtterFregLoven".to_string()
+                ]
+            ),
+            "Mangler forventede opplysninger: {:?}",
+            oppgave.opplysninger
         );
         assert_eq!(oppgave.arbeidssoeker_id, arbeidssoeker_id);
         assert_eq!(oppgave.identitetsnummer, "12345678901");

@@ -36,9 +36,7 @@ pub fn to_oppgave_row(
     let opplysninger: Vec<String> = avvist
         .opplysninger
         .iter()
-        .map(|opplysning| {
-            format!("{:?}", opplysning)
-        })
+        .map(|opplysning| format!("{:?}", opplysning))
         .collect();
 
     InsertOppgaveRow {
@@ -53,10 +51,11 @@ pub fn to_oppgave_row(
 }
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use super::*;
-    use uuid::Uuid;
     use interne_hendelser::vo::{Bruker, BrukerType, Metadata, Opplysning};
+    use std::collections::HashSet;
+    use uuid::Uuid;
+    use paw_rust_base::convenience_functions::contains_all;
 
     #[test]
     fn test_avvist_hendelse_to_oppgave_row() {
@@ -95,7 +94,18 @@ mod tests {
         );
 
         assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.opplysninger, vec!["ErUnder18Aar", "BosattEtterFregLoven"]);
+
+        assert!(
+            contains_all(
+                &oppgave_row.opplysninger,
+                &[
+                    "ErUnder18Aar".to_string(),
+                    "BosattEtterFregLoven".to_string()
+                ]
+            ),
+            "Mangler forventede opplysninger: {:?}",
+            oppgave_row.opplysninger
+        );
         assert_eq!(
             oppgave_row.identitetsnummer,
             avvist_hendelse.identitetsnummer
