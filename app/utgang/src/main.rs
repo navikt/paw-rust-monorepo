@@ -1,4 +1,6 @@
 mod pdl_query;
+mod hent_person_bolk;
+mod kafka;
 
 use anyhow::Result;
 use std::sync::Arc;

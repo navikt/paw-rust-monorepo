@@ -1,17 +1,9 @@
-use crate::pdl_query::hent_person_bolk::HentPersonBolkHentPersonBolk;
-use anyhow::Result;
-use graphql_client::GraphQLQuery;
 use std::sync::Arc;
-use texas_client::M2MTokenClient;
-
-type Date = String;
-type DateTime = String;
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/pdl/pdl-schema.graphql",
-    query_path = "graphql/pdl/hentPersonBolk.graphql"
-)]
-pub struct HentPersonBolk;
+use graphql_client::GraphQLQuery;
+use texas_client::{M2MTokenClient};
+use crate::hent_person_bolk::{hent_person_bolk, HentPersonBolk};
+use crate::hent_person_bolk::hent_person_bolk::HentPersonBolkHentPersonBolk;
+use anyhow::Result;
 
 #[derive(Clone)]
 pub struct PDLClient {
@@ -70,7 +62,30 @@ impl PDLClient {
             .bearer_auth(token.access_token)
             .send()
             .await?;
+        match res.status() {
+            reqwest::StatusCode::OK => (),
+            reqwest::StatusCode::UNAUTHORIZED => return Err(PDLQueryError::NotAuthorized.into()),
+            reqwest::StatusCode::FORBIDDEN => return Err(PDLQueryError::AuthenticationFailed.into()),
+            _ => {
+                let status = res.status();
+                let text = res.text().await.unwrap_or_default();
+                return Err(PDLQueryError::UnknownError(format!(
+                    "PDL query failed with status {}: {}",
+                    status, text
+                )).into());
+            }
+        }
         let personer: hent_person_bolk::ResponseData = res.json().await?;
         Ok(personer.hent_person_bolk)
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PDLQueryError {
+    #[error("Not authorized to access this PDL data")]
+    NotAuthorized,
+    #[error("Authentication failed")]
+    AuthenticationFailed,
+    #[error("Unknown error occurred")]
+    UnknownError(String),
 }
