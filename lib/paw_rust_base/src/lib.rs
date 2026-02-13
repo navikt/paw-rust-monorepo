@@ -4,6 +4,7 @@ pub mod database_error;
 pub mod env_var;
 pub mod error_handling;
 pub mod panic_logger;
+pub mod convenience_functions;
 
 pub fn nais_otel_service_name() -> Result<String, EnvVarNotFoundError> {
     env_var::get_env("OTEL_SERVICE_NAME")
