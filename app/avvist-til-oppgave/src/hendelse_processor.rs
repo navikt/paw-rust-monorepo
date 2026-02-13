@@ -70,6 +70,7 @@ async fn lag_oppgave_for_avvist_hendelse(
     };
 
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
+        log::info!("Mottatt avvist hendelse for under 18 år, sjekker om det skal opprettes oppgave");
         let avvist_hendelse: Avvist = serde_json::from_value(json)?;
         if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
             return Ok(());
@@ -77,6 +78,7 @@ async fn lag_oppgave_for_avvist_hendelse(
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
+            log::info!("Skal opprette oppgave for arbeidssoeker");
             let oppgave_row = to_oppgave_row(
                 avvist_hendelse,
                 OppgaveType::AvvistUnder18,
@@ -84,6 +86,7 @@ async fn lag_oppgave_for_avvist_hendelse(
             );
             insert_oppgave(&oppgave_row, tx).await?;
         } else {
+            log::info!("Har opprettet oppgave for arbeidssoeker, logger brukers nye forsøk");
             let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
                 status: HendelseLoggStatus::AvvistHendelseMottatt.to_string(),
