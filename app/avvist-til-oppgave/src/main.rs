@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone(),
-    );
+    ).await;
 
     appstate.set_has_started(true);
     match web_server_task.await {

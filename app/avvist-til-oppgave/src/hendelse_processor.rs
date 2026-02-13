@@ -25,6 +25,7 @@ pub async fn start_processing_loop(
     pg_pool: PgPool,
     _app_state: Arc<AppState>,
 ) -> Result<(), Box<dyn Error>> {
+    log::info!("Starting processing loop");
     loop {
         let kafka_message = hendelselogg_consumer.recv().await?.detach();
         let tx = pg_pool.begin().await?;
@@ -47,6 +48,7 @@ pub async fn process_hendelse(
     )
     .await?
     {
+        log::info!("Forsøk å lage oppgave for avvist hendelse");
         lag_oppgave_for_avvist_hendelse(kafka_message, &mut tx).await?;
         tx.commit().await?;
     } else {
