@@ -77,14 +77,31 @@ impl ConsumerContext for HwmRebalanceHandler {
                     }
                     let seek_to_offset = hwm.seek_to_rd_kafka_offset();
                     log::info!("Seeking to offset {:?}", seek_to_offset);
-                    base_consumer
+                    let rebalance_result = base_consumer
                         .seek(
                             &hwm.topic,
                             hwm.partition,
                             seek_to_offset,
                             std::time::Duration::from_secs(10),
-                        )
-                        .unwrap();
+                        );
+                    match rebalance_result {
+                        Ok(_) => log::info!(
+                            "Successfully seeked to offset {:?} for topic {} partition {}",
+                            seek_to_offset,
+                            hwm.topic,
+                            hwm.partition
+                        ),
+                        Err(e) => {
+                            log_error!(
+                                "Failed to seek to offset {:?} for topic {} partition {}: {}",
+                                seek_to_offset,
+                                hwm.topic,
+                                hwm.partition,
+                                e
+                            );
+                            panic!("Failed to seek to offset {:?}: {}", seek_to_offset, e);
+                        },
+                    }
                 })
             }
             Rebalance::Revoke(partitions) => {
