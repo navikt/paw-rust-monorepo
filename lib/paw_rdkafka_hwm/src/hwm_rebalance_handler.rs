@@ -75,11 +75,13 @@ impl ConsumerContext for HwmRebalanceHandler {
                             hwm.offset
                         );
                     }
+                    let seek_to_offset = hwm.seek_to_rd_kafka_offset();
+                    log::info!("Seeking to offset {}", seek_to_offset.to_raw().unwrap());
                     base_consumer
                         .seek(
                             &hwm.topic,
                             hwm.partition,
-                            hwm.seek_to_rd_kafka_offset(),
+                            seek_to_offset,
                             std::time::Duration::from_secs(10),
                         )
                         .unwrap();
