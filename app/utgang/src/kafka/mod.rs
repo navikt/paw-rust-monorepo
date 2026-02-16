@@ -1,3 +1,3 @@
 pub mod headers;
-pub mod kafka_connection;
-pub mod message_processor;
+pub mod kafka_consumer;
+pub mod hwm_message_processor;

@@ -13,7 +13,7 @@ CREATE TABLE aktive_perioder
 CREATE TABLE GJELDENE_TILSTAND
 (
     id                  BIGSERIAL PRIMARY KEY,
-    aktive_periode_id   BIGINT REFERENCES aktive_perioder (id) UNIQUE,
+    aktive_periode_id   BIGINT REFERENCES aktive_perioder (id) UNIQUE ON DELETE CASCADE,
     tidspunkt           TIMESTAMP,
     tilstand            VARCHAR[] NOT NULL,
     ok                  BOOLEAN NOT NULL

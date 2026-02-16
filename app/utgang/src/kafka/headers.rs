@@ -1,38 +1,56 @@
-use base64::{Engine as _, engine::general_purpose};
+use opentelemetry::propagation::Extractor;
+use opentelemetry::global;
 use rdkafka::{
+    message::Headers,
     Message,
-    message::{BorrowedMessage, Headers},
 };
-use serde_json::{Map, Value};
-use std::error::Error;
+use std::collections::HashMap;
 
-/// Converts Kafka message headers to JSON format
-///
-/// Returns None if the message has no headers, otherwise returns a JSON object
-/// where keys are header names and values are either strings (for UTF-8 data)
-/// or base64-encoded strings (for binary data)
-pub fn extract_headers_as_json(msg: &BorrowedMessage<'_>) -> Result<Option<Value>, Box<dyn Error>> {
-    match msg.headers() {
-        Some(headers) => {
-            let mut header_map = Map::new();
+use rdkafka::message::OwnedMessage;
 
-            for header in headers.iter() {
-                let key = header.key;
-                let value = match header.value {
-                    Some(val) => {
-                        // Try to decode as UTF-8, fallback to base64 for binary data
-                        match std::str::from_utf8(val) {
-                            Ok(s) => Value::String(s.to_string()),
-                            Err(_) => Value::String(general_purpose::STANDARD.encode(val)),
-                        }
-                    }
-                    None => Value::Null,
+#[derive(Debug, Clone)]
+pub enum HeaderValue {
+    String(String),
+    Binary(Vec<u8>),
+}
+
+pub fn extract_headers_as_map(msg: &OwnedMessage) -> HashMap<&str, HeaderValue> {
+    msg.headers()
+        .into_iter()
+        .flat_map(|headers| headers.iter())
+        .filter_map(|header| {
+            header.value.map(|val| {
+                let header_value = if let Ok(s) = std::str::from_utf8(val) {
+                    HeaderValue::String(s.to_string())
+                } else {
+                    HeaderValue::Binary(val.to_vec())
                 };
-                header_map.insert(key.to_string(), value);
-            }
+                (header.key, header_value)
+            })
+        })
+        .collect()
+}
 
-            Ok(Some(serde_json::to_value(header_map)?))
+pub fn extract_remote_otel_context(headers: &HashMap<&str, HeaderValue>) -> Option<opentelemetry::Context> {
+    struct HeaderExtractor<'a>(&'a HashMap<&'a str, HeaderValue>);
+
+    impl<'a> Extractor for HeaderExtractor<'a> {
+        fn get(&self, key: &str) -> Option<&str> {
+            self.0.get(key).and_then(|v| match v {
+                HeaderValue::String(s) => Some(s.as_str()),
+                HeaderValue::Binary(_) => None,
+            })
         }
-        None => Ok(None),
+
+        fn keys(&self) -> Vec<&str> {
+            self.0.keys().copied().collect()
+        }
     }
+
+    let extractor = HeaderExtractor(headers);
+    let context = global::get_text_map_propagator(|propagator| {
+        propagator.extract(&extractor)
+    });
+
+    Some(context)
 }

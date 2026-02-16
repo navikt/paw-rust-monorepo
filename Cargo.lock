@@ -4224,10 +4224,12 @@ dependencies = [
  "chrono",
  "graphql_client",
  "health_and_monitoring",
+ "opentelemetry",
  "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
+ "prometheus",
  "rdkafka",
  "reqwest 0.13.2",
  "serde",
@@ -4237,6 +4239,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]

@@ -6,4 +6,3 @@ CREATE TABLE hwm
     hwm       BIGINT       NOT NULL,
     PRIMARY KEY (version, topic, partition)
 );
--- Add migration script here
