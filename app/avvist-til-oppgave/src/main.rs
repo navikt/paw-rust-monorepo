@@ -3,6 +3,7 @@ mod db;
 mod domain;
 mod hendelse_processor;
 mod kafka;
+mod client;
 
 use crate::config::{read_application_config, read_database_config, read_kafka_config};
 use anyhow::Result;
