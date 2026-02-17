@@ -4,8 +4,7 @@ use texas_client::{M2MTokenClient};
 use crate::hent_person_bolk::{hent_person_bolk, HentPersonBolk};
 use crate::hent_person_bolk::hent_person_bolk::HentPersonBolkHentPersonBolk;
 use anyhow::Result;
-
-const BEHANDLINGSNUMMER: &str = "B452";
+use crate::pdl::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
 
 #[derive(Clone)]
 pub struct PDLClient {
@@ -22,6 +21,15 @@ struct PDLClientRef {
 }
 
 impl PDLClient {
+
+    pub fn from_config(
+        config: PDLClientConfig,
+        http_client: reqwest::Client,
+        token_client: Arc<dyn M2MTokenClient>,
+    ) -> PDLClient {
+        Self::new(config.target_scope, config.url, http_client, token_client)
+    }
+    
     pub fn new(
         target_scope: String,
         url: String,

@@ -4459,6 +4459,7 @@ dependencies = [
  "texas_client",
  "thiserror 2.0.18",
  "tokio",
+ "toml",
  "tracing",
  "tracing-opentelemetry",
  "uuid",

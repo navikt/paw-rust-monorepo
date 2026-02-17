@@ -11,4 +11,9 @@ pub enum ServerError {
     ThreadSpawn,
     #[error("Environment variable '{0}' not found")]
     EnvVarNotFound(String),
+    #[error("Process '{process}' terminated unexpectedly: {message}")]
+    InternalProcessTerminated {
+        process: String,
+        message: String
+    }
 }
