@@ -12,6 +12,7 @@ pub struct Oppgave {
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
+    pub ekstern_oppgave_id: Option<i64>,
     pub tidspunkt: DateTime<Utc>,
     pub hendelse_logg: Vec<HendelseLoggEntry>,
 }
@@ -24,6 +25,7 @@ impl Oppgave {
         opplysninger: Vec<String>,
         arbeidssoeker_id: i64,
         identitetsnummer: String,
+        ekstern_oppgave_id: Option<i64>,
         tidspunkt: DateTime<Utc>,
         hendelse_logg: Vec<HendelseLoggEntry>,
     ) -> Result<Self, OppgaveError> {
@@ -34,6 +36,7 @@ impl Oppgave {
             opplysninger,
             arbeidssoeker_id,
             identitetsnummer,
+            ekstern_oppgave_id,
             tidspunkt,
             hendelse_logg,
         })
@@ -66,6 +69,7 @@ mod tests {
             vec![],
             12345,
             "12345678901".to_string(),
+            None,
             Utc::now(),
             vec![],
         );
@@ -92,6 +96,7 @@ mod tests {
             vec![],
             12345,
             "12345678901".to_string(),
+            Some(12341),
             Utc::now(),
             vec![],
         );

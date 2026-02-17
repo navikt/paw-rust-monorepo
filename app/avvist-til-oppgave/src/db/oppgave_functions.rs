@@ -24,6 +24,7 @@ pub async fn hent_oppgave(
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
+        oppgave_row.ekstern_oppgave_id,
         oppgave_row.tidspunkt,
         hendelse_logg,
     )?;
@@ -45,6 +46,7 @@ async fn hent_oppgave_for_arbeidssoeker(
             opplysninger,
             arbeidssoeker_id,
             identitetsnummer,
+            ekstern_oppgave_id,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
         FROM oppgaver
         WHERE arbeidssoeker_id = $1

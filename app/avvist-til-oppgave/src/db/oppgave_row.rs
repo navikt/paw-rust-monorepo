@@ -14,6 +14,7 @@ pub struct OppgaveRow {
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
+    pub ekstern_oppgave_id: Option<i64>,
     pub tidspunkt: DateTime<Utc>,
 }
 

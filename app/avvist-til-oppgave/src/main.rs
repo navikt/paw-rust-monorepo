@@ -14,7 +14,7 @@ use paw_rdkafka::error::KafkaError;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::error::DatabaseError;
-use paw_sqlx::postgres::init_db;
+use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
@@ -40,6 +40,8 @@ async fn main() -> Result<()> {
         .await
         .map_err(|e| DatabaseError::MigrateSchema(e))?;
 
+    clear_db(&pg_pool).await?;
+    
     let kafka_config = read_kafka_config()?;
     let topics = app_config.topics_as_str();
     let hendelselogg_consumer =
