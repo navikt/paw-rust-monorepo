@@ -69,4 +69,4 @@ jobs:
         env:
           CLUSTER: dev-gcp
           RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
-          VAR: image=${{ needs.build.outputs.image }},kafka=nav-prod
+          VAR: image=${{ needs.build.outputs.image }},kafka=nav-dev
