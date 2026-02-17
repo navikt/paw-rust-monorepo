@@ -103,6 +103,7 @@ mod tests {
     use mockito::Server;
     use serde_json::json;
     use std::sync::Arc;
+    use chrono::Utc;
     use texas_client::TokenResponse;
 
     struct MockTokenClient;
@@ -146,12 +147,11 @@ mod tests {
         let client = OppgaveApiClient::new(server.url(), token_client);
 
         let request = OpprettOppgaveRequest {
-            personident: Some("12345678901".to_string()),
-            tildelt_enhetsnr: "4863".to_string(),
-            oppgavetype: "JFR".to_string(),
-            tema: "KON".to_string(),
+            personident: Some("12345678910".to_string()),
+            aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
+            oppgavetype: "KONT_BRUK".to_string(),
             prioritet: PrioritetV1::Norm,
-            aktiv_dato: "2026-02-16".to_string(),
+            tema: "GEN".to_string(),
             ..Default::default()
         };
 

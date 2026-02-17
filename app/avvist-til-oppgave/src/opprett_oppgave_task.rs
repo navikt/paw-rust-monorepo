@@ -5,6 +5,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 use tokio::time::{interval, Duration};
+use crate::client::opprett_oppgave_request::to_oppgave_request;
 
 pub async fn start_processing_loop(
     db_pool: PgPool,
@@ -34,6 +35,8 @@ async fn prosesser_ubehandlede_oppgaver(
             return Ok(());
         }
     };
+
+    let opprett_oppgave_request = to_oppgave_request(&oppgave);
 
     Ok(())
 }
