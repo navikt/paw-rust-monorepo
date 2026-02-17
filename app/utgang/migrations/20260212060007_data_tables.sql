@@ -3,20 +3,20 @@ CREATE TABLE aktive_perioder
     id                  BIGSERIAL PRIMARY KEY,
     periode_id          UUID NOT NULL UNIQUE,
     identitetsnummer    VARCHAR NOT NULL,
-    startet             TIMESTAMP NOT NULL,
-    bruker_type         VARCHAR(50) NOT NULL,
-    bruker_id           VARCHAR(50) NOT NULL
-    tilstand            VARCHAR[] NOT NULL,
-    sist_ok             TIMESTAMP
+    startet_tidspunkt   TIMESTAMP NOT NULL,    
+    startet_brukertype  VARCHAR(50) NOT NULL,
+    stoppet_tidspunkt   TIMESTAMP DEFAULT NULL,
+    stoppet_brukertype  VARCHAR(50) DEFAULT NULL
 );
 
-CREATE TABLE GJELDENE_TILSTAND
+CREATE TABLE TILSTAND
 (
     id                  BIGSERIAL PRIMARY KEY,
-    aktive_periode_id   BIGINT REFERENCES aktive_perioder (id) UNIQUE ON DELETE CASCADE,
+    periode_id          UUID NOT NULL,
+    kilde               VARCHAR NOT NULL,
+    arbeidssoeker_id    BIGINT NOT NULL,
     tidspunkt           TIMESTAMP,
-    tilstand            VARCHAR[] NOT NULL,
-    ok                  BOOLEAN NOT NULL
+    tilstand            VARCHAR[] NOT NULL
 )
 
 
