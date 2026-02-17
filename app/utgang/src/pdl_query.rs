@@ -5,6 +5,8 @@ use crate::hent_person_bolk::{hent_person_bolk, HentPersonBolk};
 use crate::hent_person_bolk::hent_person_bolk::HentPersonBolkHentPersonBolk;
 use anyhow::Result;
 
+const BEHANDLINGSNUMMER: &str = "B452";
+
 #[derive(Clone)]
 pub struct PDLClient {
     inner: Arc<PDLClientRef>,
@@ -16,6 +18,7 @@ struct PDLClientRef {
     url: String,
     http_client: reqwest::Client,
     token_client: Arc<dyn M2MTokenClient>,
+    behandlingsnummer: String,
 }
 
 impl PDLClient {
@@ -30,6 +33,7 @@ impl PDLClient {
             url,
             http_client,
             token_client,
+            behandlingsnummer: BEHANDLINGSNUMMER.to_string(),
         });
         PDLClient { inner }
     }
@@ -60,6 +64,7 @@ impl PDLClient {
             .post(self.inner.url.clone())
             .json(&request_body)
             .bearer_auth(token.access_token)
+            .header("Behandlingsnummer", self.inner.behandlingsnummer.clone())
             .send()
             .await?;
         match res.status() {
