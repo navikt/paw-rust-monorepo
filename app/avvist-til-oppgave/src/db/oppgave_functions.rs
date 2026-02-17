@@ -3,6 +3,7 @@ use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
+use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
 use sqlx::{Postgres, Transaction};
 
@@ -151,6 +152,44 @@ pub async fn insert_oppgave_hendelse_logg(
     Ok(result.rows_affected())
 }
 
+pub async fn oppdater_oppgave_status(
+    oppgave_id: i64,
+    status: OppgaveStatus,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE oppgaver
+        SET status = $1
+        WHERE id = $2
+        "#,
+    )
+    .bind(status.to_string())
+    .bind(oppgave_id)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub async fn oppdater_oppgave_med_ekstern_id(
+    oppgave_id: i64,
+    ekstern_oppgave_id: i64,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE oppgaver
+        SET ekstern_oppgave_id = $1
+        WHERE id = $2
+        "#,
+    )
+    .bind(ekstern_oppgave_id)
+    .bind(oppgave_id)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,6 +198,37 @@ mod tests {
     use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
     use uuid::Uuid;
+
+    #[tokio::test]
+    async fn oppdater_oppgave_status_og_ekstern_id() -> Result<()> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+        let mut tx = pg_pool.begin().await?;
+
+        let arbeidssoeker_id = 12345;
+        let oppgave_row = test_oppgave_row(arbeidssoeker_id);
+        let oppgave_id = insert_oppgave(&oppgave_row, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        let oppdatert =
+            oppdater_oppgave_status(oppgave_id, OppgaveStatus::Ferdigbehandlet, &mut tx).await?;
+        tx.commit().await?;
+        assert!(oppdatert);
+
+        let mut tx = pg_pool.begin().await?;
+        let ekstern_oppgave_id = 1337;
+        let oppdatert = oppdater_oppgave_med_ekstern_id(oppgave_id, ekstern_oppgave_id, &mut tx).await?;
+        tx.commit().await?;
+        assert!(oppdatert);
+
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        assert_eq!(oppgave.status, OppgaveStatus::Ferdigbehandlet);
+        assert_eq!(oppgave.ekstern_oppgave_id.unwrap(), ekstern_oppgave_id);
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn insert_oppgave_med_status_ubehandlet() -> Result<()> {
