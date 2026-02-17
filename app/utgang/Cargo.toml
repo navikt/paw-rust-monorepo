@@ -31,3 +31,7 @@ prometheus = { workspace = true }
 schema_registry_converter = { workspace = true }
 apache-avro = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+temp-env = { workspace = true }
+
