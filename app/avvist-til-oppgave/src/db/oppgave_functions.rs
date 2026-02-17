@@ -225,7 +225,6 @@ pub async fn hent_og_oppdater_eldste_ubehandlede_oppgave(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
     use crate::domain::oppgave_type::OppgaveType;
     use chrono::Utc;
@@ -337,7 +336,7 @@ mod tests {
 
         let oppgave = oppgave.unwrap();
         assert_eq!(oppgave.type_, AvvistUnder18);
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.arbeidssoeker_id, 12345);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
         assert_eq!(
@@ -345,7 +344,7 @@ mod tests {
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
         assert_eq!(oppgave.hendelse_logg.len(), 1);
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        assert_eq!(oppgave.status, Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
         assert_eq!(hent_oppgave(99999, &mut tx).await?, None);
