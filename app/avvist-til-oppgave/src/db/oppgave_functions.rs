@@ -171,22 +171,32 @@ pub async fn oppdater_oppgave_med_ekstern_id(
     Ok(result.rows_affected() == 1)
 }
 
-pub async fn hent_og_oppdater_eldste_ubehandlede_oppgave(
+pub async fn oppdater_oppgave_status(
+    oppgave_id: i64,
+    status: OppgaveStatus,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<Option<Oppgave>> {
-    let row = sqlx::query_as::<_, OppgaveRow>(
+) -> Result<bool> {
+    let result = sqlx::query(
         r#"
         UPDATE oppgaver
         SET status = $1
-        WHERE id IN (
-            SELECT id
-            FROM oppgaver
-            WHERE status = $2
-            AND ekstern_oppgave_id IS NULL
-            ORDER BY tidspunkt ASC
-            LIMIT 1
-        )
-        RETURNING
+        WHERE id = $2
+        "#,
+    )
+    .bind(status.to_string())
+    .bind(oppgave_id)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub async fn hent_de_eldste_ubehandlede_oppgavene(
+    antall_oppgaver: i64,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<Vec<Oppgave>> {
+    let oppgave_rows = sqlx::query_as::<_, OppgaveRow>(
+        r#"
+        SELECT
             id,
             type AS type_,
             status,
@@ -196,30 +206,36 @@ pub async fn hent_og_oppdater_eldste_ubehandlede_oppgave(
             identitetsnummer,
             ekstern_oppgave_id,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
+        FROM oppgaver
+        WHERE status = $1
+            AND ekstern_oppgave_id IS NULL
+        ORDER BY tidspunkt ASC
+        LIMIT $2
         "#,
     )
-    .bind(OppgaveStatus::Ferdigbehandlet.to_string())
     .bind(OppgaveStatus::Ubehandlet.to_string())
-    .fetch_optional(&mut **transaction)
+    .bind(antall_oppgaver)
+    .fetch_all(&mut **transaction)
     .await?;
 
-    let oppgave_row = match row {
-        Some(oppgave_row) => oppgave_row,
-        None => return Ok(None),
-    };
-    let oppgave_hendelse_logg = hent_hendelse_logg(oppgave_row.id, transaction).await?;
+    let mut oppgaver = Vec::with_capacity(oppgave_rows.len());
+    for oppgave_row in oppgave_rows {
+        let hendelse_logg = hent_hendelse_logg(oppgave_row.id, transaction).await?;
+        let oppgave = Oppgave::new(
+            oppgave_row.id,
+            oppgave_row.type_,
+            oppgave_row.status,
+            oppgave_row.opplysninger,
+            oppgave_row.arbeidssoeker_id,
+            oppgave_row.identitetsnummer,
+            oppgave_row.ekstern_oppgave_id,
+            oppgave_row.tidspunkt,
+            hendelse_logg,
+        )?;
+        oppgaver.push(oppgave);
+    }
 
-    Ok(Some(Oppgave::new(
-        oppgave_row.id,
-        oppgave_row.type_,
-        oppgave_row.status,
-        oppgave_row.opplysninger,
-        oppgave_row.arbeidssoeker_id,
-        oppgave_row.identitetsnummer,
-        oppgave_row.ekstern_oppgave_id,
-        oppgave_row.tidspunkt,
-        oppgave_hendelse_logg,
-    )?))
+    Ok(oppgaver)
 }
 
 #[cfg(test)]
@@ -227,42 +243,59 @@ mod tests {
     use super::*;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
     use crate::domain::oppgave_type::OppgaveType;
+    use OppgaveType::AvvistUnder18;
     use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
     use uuid::Uuid;
-    use OppgaveType::AvvistUnder18;
 
     #[tokio::test]
-    async fn test_hent_og_oppdater_eldste_ubehandlede_oppgave() -> Result<()> {
+    async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let eldste_oppgave = InsertOppgaveRow {
-            arbeidssoeker_id: 1,
+        let eldste_oppgave_row = InsertOppgaveRow {
+            status: Ubehandlet.to_string(),
             tidspunkt: Utc::now() - chrono::Duration::days(2),
             ..Default::default()
         };
-        let nyeste_oppgave = InsertOppgaveRow {
-            arbeidssoeker_id: 2,
+        let nest_eldste_oppgave_row = InsertOppgaveRow {
+            status: Ubehandlet.to_string(),
+            tidspunkt: Utc::now() - chrono::Duration::days(1),
+            ..Default::default()
+        };
+        let irrelevant_oppgave_row = InsertOppgaveRow {
+            status: Ferdigbehandlet.to_string(),
+            tidspunkt: Utc::now() - chrono::Duration::days(1337),
+            ..Default::default()
+        };
+        let yngste_oppgave_row = InsertOppgaveRow {
+            status: Ubehandlet.to_string(),
             tidspunkt: Utc::now(),
             ..Default::default()
         };
 
-        insert_oppgave(&eldste_oppgave, &mut tx).await?;
-        insert_oppgave(&nyeste_oppgave, &mut tx).await?;
+        insert_oppgave(&eldste_oppgave_row, &mut tx).await?;
+        insert_oppgave(&nest_eldste_oppgave_row, &mut tx).await?;
+        insert_oppgave(&irrelevant_oppgave_row, &mut tx).await?;
+        insert_oppgave(&yngste_oppgave_row, &mut tx).await?;
+
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let eldste_oppgave = hent_og_oppdater_eldste_ubehandlede_oppgave(&mut tx)
-            .await?
-            .unwrap();
-        tx.commit().await?;
-        assert_eq!(eldste_oppgave.arbeidssoeker_id, eldste_oppgave.arbeidssoeker_id);
-        assert_eq!(eldste_oppgave.status, Ferdigbehandlet);
-        assert_eq!(eldste_oppgave.ekstern_oppgave_id, None);
-        assert_eq!(eldste_oppgave.hendelse_logg.len(), 1);
+        let antall_oppgaver = 2;
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, &mut tx).await?;
 
+        assert_eq!(oppgaver.len(), antall_oppgaver as usize);
+        let eldste_oppgave = &oppgaver[0];
+        let nest_eldste_oppgave = &oppgaver[1];
+        assert!(eldste_oppgave.tidspunkt < nest_eldste_oppgave.tidspunkt);
+
+        assert_eq!(eldste_oppgave.status, Ubehandlet);
+        assert_eq!(nest_eldste_oppgave.status, Ubehandlet);
+
+        assert!(eldste_oppgave.tidspunkt < yngste_oppgave_row.tidspunkt);
+        assert!(nest_eldste_oppgave.tidspunkt < yngste_oppgave_row.tidspunkt);
         Ok(())
     }
 
@@ -291,6 +324,34 @@ mod tests {
         let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.ekstern_oppgave_id.unwrap(), ekstern_oppgave_id);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_oppdater_status() -> Result<()> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+        let mut tx = pg_pool.begin().await?;
+
+        let arbeidssoeker_id = 12345;
+        let oppgave_row = InsertOppgaveRow {
+            arbeidssoeker_id,
+            status: Ubehandlet.to_string(),
+            ..Default::default()
+        };
+        let oppgave_id = insert_oppgave(&oppgave_row, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        let ny_status = Ferdigbehandlet;
+        let oppdatert = oppdater_oppgave_status(oppgave_id, ny_status, &mut tx).await?;
+        tx.commit().await?;
+        assert!(oppdatert);
+
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        assert_eq!(oppgave.status, Ferdigbehandlet);
 
         Ok(())
     }
