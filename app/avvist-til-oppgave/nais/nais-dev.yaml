@@ -8,9 +8,6 @@ metadata:
 spec:
   image: {{ image }}
   port: 8080
-  replicas:
-    min: 1
-    max: 1
   env:
     - name: RUST_BACKTRACE
       value: "1"
@@ -22,6 +19,15 @@ spec:
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_SSLCERT)"
     - name: PGSSLKEY
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_SSLKEY)"
+  replicas:
+    min: 1
+    max: 1
+  resources:
+    limits:
+      memory: 8Mi
+    requests:
+      memory: 8Mi
+      cpu: 1m
   liveness:
     path: /internal/isAlive
     initialDelay: 10
@@ -40,12 +46,9 @@ spec:
   observability:
     tracing:
       enabled: true
-  resources:
-    limits:
-      memory: 8Mi
-    requests:
-      memory: 8Mi
-      cpu: 1m
+  azure:
+    application:
+      enabled: true
   kafka:
     pool: nav-dev
   gcp:
