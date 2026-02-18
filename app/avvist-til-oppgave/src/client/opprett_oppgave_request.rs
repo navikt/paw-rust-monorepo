@@ -37,13 +37,20 @@ pub struct OpprettOppgaveRequest {
     pub uuid: Option<String>,
 }
 
-pub fn to_oppgave_request(oppgave: &Oppgave) -> OpprettOppgaveRequest {
+const OPPGAVE_BESKRIVELSE: &str = r#"Personen har forsøkt å registrere seg som arbeidssøker, men er sperret fra å gjøre dette da personen er under 18 år.
+For mindreårige arbeidssøkere trengs det samtykke fra begge foresatte for å kunne registrere seg.
+Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøker, øvrige tiltak og tjenester".
+
+Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
+
+pub fn create_oppgave_request(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
-        personident: Some(oppgave.identitetsnummer.clone()),
+        personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         oppgavetype: "KONT_BRUK".to_string(),
         prioritet: PrioritetV1::Norm,
         tema: "GEN".to_string(),
+        beskrivelse: Some(OPPGAVE_BESKRIVELSE.to_string()),
         ..Default::default()
     }
 }
@@ -72,7 +79,7 @@ impl Default for OpprettOppgaveRequest {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum PrioritetV1 {
     #[serde(rename = "HOY")]
     Hoy,
@@ -85,41 +92,18 @@ pub enum PrioritetV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::oppgave_status::OppgaveStatus;
-    use crate::domain::oppgave_type::OppgaveType;
-    use chrono::Utc;
 
     #[test]
     fn test_to_oppgave_request() {
-        let identitetsnummer = "12345678901";
-        let oppgave = Oppgave {
-            identitetsnummer: identitetsnummer.to_string(),
-            ..Default::default()
-        };
+        let identitetsnummer = "12345678901".to_string();
 
-        let request = to_oppgave_request(&oppgave);
+        let request = create_oppgave_request(identitetsnummer.clone());
 
-        assert_eq!(request.personident, Some(identitetsnummer.to_string()));
+        assert_eq!(request.personident, Some(identitetsnummer));
         assert_eq!(request.oppgavetype, "KONT_BRUK");
         assert_eq!(request.tema, "GEN");
-        assert!(matches!(request.prioritet, PrioritetV1::Norm));
+        assert_eq!(request.prioritet, PrioritetV1::Norm);
         assert!(request.orgnr.is_none());
         assert!(request.tildelt_enhetsnr.is_none());
-    }
-
-    impl Default for Oppgave {
-        fn default() -> Self {
-            Self {
-                id: 1,
-                type_: OppgaveType::AvvistUnder18,
-                status: OppgaveStatus::Ubehandlet,
-                opplysninger: vec![],
-                arbeidssoeker_id: 123,
-                identitetsnummer: "12345678910".to_string(),
-                ekstern_oppgave_id: None,
-                tidspunkt: Utc::now(),
-                hendelse_logg: vec![],
-            }
-        }
     }
 }
