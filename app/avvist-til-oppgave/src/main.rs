@@ -38,12 +38,12 @@ async fn main() -> Result<()> {
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
 
+    clear_db(&pg_pool).await?;
+
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
         .map_err(|e| DatabaseError::MigrateSchema(e))?;
-
-    clear_db(&pg_pool).await?;
 
     let kafka_config = read_kafka_config()?;
     let topics = app_config.topics_as_str();
