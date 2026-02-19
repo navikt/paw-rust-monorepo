@@ -26,7 +26,10 @@ impl OppgaveApiClient {
         }
     }
 
-    pub async fn opprett_oppgave(&self, request: &OpprettOppgaveRequest) -> Result<OppgaveDto> {
+    pub async fn opprett_oppgave(
+        &self,
+        request: &OpprettOppgaveRequest,
+    ) -> Result<OppgaveDto, OppgaveApiError> {
         let url = format!("{}/api/v1/oppgaver", self.base_url);
         let token = self.hent_token().await?;
         let response = self
@@ -43,8 +46,7 @@ impl OppgaveApiClient {
             status => Err(OppgaveApiError::ApiError {
                 status,
                 message: response.text().await.unwrap_or_default(),
-            }
-            .into()),
+            }),
         }
     }
 
@@ -100,10 +102,10 @@ mod tests {
     use crate::client::opprett_oppgave_request::PrioritetV1;
     use anyhow::Result;
     use async_trait::async_trait;
+    use chrono::Utc;
     use mockito::Server;
     use serde_json::json;
     use std::sync::Arc;
-    use chrono::Utc;
     use texas_client::TokenResponse;
 
     struct MockTokenClient;
