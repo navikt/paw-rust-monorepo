@@ -6,7 +6,7 @@ metadata:
   labels:
     team: paw
 spec:
-  image: { { image } }
+  image: {{ image }}
   env:
     - name: PGSSLMODE
       value: "VerifyFull"
@@ -30,7 +30,7 @@ spec:
     application:
       enabled: true
   kafka:
-    pool: { { kafka } }
+    pool: {{ kafka }}
     streams: true
   replicas:
     min: 1
