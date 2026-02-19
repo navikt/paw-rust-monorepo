@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum HendelseLoggStatus {
     OppgaveOpprettet,
     AvvistHendelseMottatt,
+    EksternOppgaveOpprettelseFeilet,
 }
 
 impl std::fmt::Display for HendelseLoggStatus {
@@ -12,6 +13,7 @@ impl std::fmt::Display for HendelseLoggStatus {
         match self {
             HendelseLoggStatus::OppgaveOpprettet => write!(f, "OppgaveOpprettet"),
             HendelseLoggStatus::AvvistHendelseMottatt => write!(f, "AvvistHendelseMottatt"),
+            HendelseLoggStatus::EksternOppgaveOpprettelseFeilet => write!(f, "EksternOppgaveOpprettelseFeilet"),
         }
     }
 }
@@ -23,6 +25,7 @@ impl FromStr for HendelseLoggStatus {
         match s {
             "OppgaveOpprettet" => Ok(HendelseLoggStatus::OppgaveOpprettet),
             "AvvistHendelseMottatt" => Ok(HendelseLoggStatus::AvvistHendelseMottatt),
+            "EksternOppgaveOpprettelseFeilet" => Ok(HendelseLoggStatus::EksternOppgaveOpprettelseFeilet),
             _ => Err(HendelseLoggStatusParseError::UgyldigStatus(s.to_string())),
         }
     }

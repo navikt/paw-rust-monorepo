@@ -27,6 +27,8 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 reqwest = { workspace = true }
 async-trait = "0.1.89"
+rand = "0.10"
+tracing = { workspace = true }
 
 [dev-dependencies]
 mockito = { workspace = true }

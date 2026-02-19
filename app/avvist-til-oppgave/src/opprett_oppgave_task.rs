@@ -1,18 +1,25 @@
-use crate::client::oppgave_client::OppgaveApiClient;
-use crate::db::oppgave_functions::hent_og_oppdater_eldste_ubehandlede_oppgave;
+use crate::client::oppgave_client::{OppgaveApiClient, OppgaveApiError};
+use crate::client::opprett_oppgave_request::create_oppgave_request;
+use crate::db::oppgave_functions::{
+    hent_de_eldste_ubehandlede_oppgavene, insert_oppgave_hendelse_logg,
+    oppdater_oppgave_med_ekstern_id, oppdater_oppgave_status,
+};
+use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
+use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use anyhow::Result;
+use chrono::Utc;
+use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
-
 use tokio::time::{interval, Duration};
-use crate::client::opprett_oppgave_request::to_oppgave_request;
+use HendelseLoggStatus::EksternOppgaveOpprettelseFeilet;
 
 pub async fn start_processing_loop(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
 ) -> Result<(), anyhow::Error> {
     let mut interval = interval(Duration::from_secs(1));
-
     loop {
         interval.tick().await;
         /*
@@ -23,45 +30,135 @@ pub async fn start_processing_loop(
     }
 }
 
+const ANTALL_OPPGAVER: i64 = 10;
+
 async fn prosesser_ubehandlede_oppgaver(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
 ) -> Result<(), anyhow::Error> {
     let mut tx = db_pool.begin().await?;
-    let oppgave = match hent_og_oppdater_eldste_ubehandlede_oppgave(&mut tx).await? {
-        Some(oppgave) => oppgave,
-        None => {
-            log::info!("Ingen ubehandlede oppgaver funnet");
-            return Ok(());
+    let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(ANTALL_OPPGAVER, &mut tx).await?;
+    oppgaver.shuffle(&mut rand::rng());
+    tx.commit().await?;
+
+    for oppgave in oppgaver {
+        let mut tx = db_pool.begin().await?;
+        let oppdatert_status =
+            oppdater_oppgave_status(oppgave.id, Ferdigbehandlet, &mut tx).await?;
+
+        if oppdatert_status {
+            let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
+            let oppgave_dto = match oppgave_api_client
+                .opprett_oppgave(&opprett_oppgave_request)
+                .await
+            {
+                Ok(oppgave_dto) => oppgave_dto,
+                Err(oppgave_api_error) => {
+                    let tilbakerullet_status =
+                        oppdater_oppgave_status(oppgave.id, Ubehandlet, &mut tx).await?;
+                    if tilbakerullet_status {
+                        match oppgave_api_error {
+                            OppgaveApiError::ApiError { status, message } => {
+                                let status_logg_row = InsertOppgaveHendelseLoggRow {
+                                    oppgave_id: oppgave.id,
+                                    status: EksternOppgaveOpprettelseFeilet.to_string(),
+                                    melding: format!(
+                                        "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
+                                        status, message
+                                    ),
+                                    tidspunkt: Utc::now(),
+                                };
+                                insert_oppgave_hendelse_logg(&status_logg_row, &mut tx).await?;
+                            }
+                            _ => return Err(oppgave_api_error.into()),
+                        }
+
+                        tx.commit().await?;
+                    } else {
+                        tracing::warn!("Feil ved opprydding etter feil ved opprettelse av oppgave");
+                        tx.rollback().await?;
+                    }
+                    continue;
+                }
+            };
+
+            if oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await? {
+                tx.commit().await?;
+            }
         }
-    };
-
-    let opprett_oppgave_request = to_oppgave_request(&oppgave);
-
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
-    use mockito::Server;
     use super::*;
+    use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave};
+    use crate::db::oppgave_row::InsertOppgaveRow;
+    use async_trait::async_trait;
+    use mockito::{Server, ServerGuard};
     use paw_test::setup_test_db::setup_test_db;
+    use serde_json::json;
+    use std::sync::Arc;
     use texas_client::{M2MTokenClient, TokenResponse};
 
     #[tokio::test]
-    async fn e2e_test_prosesser_ubehandlede_oppgaver() -> Result<()> {
-        let mut server = Server::new_async().await;
-        let token_client = Arc::new(MockTokenClient);
-        let oppgave_api_client = Arc::new(OppgaveApiClient::new(server.url(), token_client));
+    async fn test_prosesser_ubehandlede_oppgaver_happy_path() -> Result<()> {
+        let ekstern_oppgave_id = 12345;
+        let mock_server = start_oppgave_api_mock_server(ekstern_oppgave_id).await?;
+        let oppgave_api_client = Arc::new(OppgaveApiClient::new(
+            mock_server.url(),
+            Arc::new(MockTokenClient),
+        ));
+
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        // Ingen ubehandlede oppgaver
-        {
-            let result = prosesser_ubehandlede_oppgaver(pg_pool, oppgave_api_client).await?;
-        }
+        let mut tx = pg_pool.begin().await?;
+        let ubehandlet_oppgave_row = InsertOppgaveRow {
+            arbeidssoeker_id: 12345,
+            status: Ubehandlet.to_string(),
+            ..Default::default()
+        };
+        insert_oppgave(&ubehandlet_oppgave_row, &mut tx).await?;
+        tx.commit().await?;
+
+        let result = prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client).await;
+        assert!(result.is_ok());
+
+        let mut tx = pg_pool.begin().await?;
+        let oppdatert_oppgave = hent_oppgave(ubehandlet_oppgave_row.arbeidssoeker_id, &mut tx)
+            .await?
+            .unwrap();
+
+        assert_eq!(oppdatert_oppgave.ekstern_oppgave_id, Some(ekstern_oppgave_id));
+        assert_eq!(oppdatert_oppgave.status, Ferdigbehandlet);
+
         Ok(())
+    }
+
+    async fn start_oppgave_api_mock_server(ekstern_oppgave_id: i64) -> Result<ServerGuard> {
+        let mut server = Server::new_async().await;
+        server
+            .mock("POST", "/api/v1/oppgaver")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "id": ekstern_oppgave_id,
+                    "tildelt_enhetsnr": "4863",
+                    "oppgavetype": "JFR",
+                    "tema": "KON",
+                    "prioritet": "NORM",
+                    "status": "OPPRETTET",
+                    "aktiv_dato": "2026-02-16",
+                    "versjon": 1,
+                })
+                .to_string(),
+            )
+            .create_async()
+            .await;
+        Ok(server)
     }
 
     struct MockTokenClient;
