@@ -54,10 +54,10 @@ async fn prosesser_ubehandlede_oppgaver(
             let oppgave_dto = match opprett_oppgave_result {
                 Ok(oppgave_dto) => oppgave_dto,
                 Err(error) => {
-                    if rull_tilbake_til_ubehandlet_og_logg_feil(&oppgave, error, &mut tx).await? {
+                    if set_ubehandlet_og_logg_feil(&oppgave, error, &mut tx).await? {
                         tx.commit().await?;
                     } else {
-                        log::warn!("Klarte ikke å rulle tilbake oppgave med id {} til ubehandlet",oppgave.id);
+                        log::warn!("Feilet update av oppgave med id {} til ubehandlet",oppgave.id);
                         tx.rollback().await?;
                     }
                     continue;
@@ -72,33 +72,38 @@ async fn prosesser_ubehandlede_oppgaver(
     Ok(())
 }
 
-async fn rull_tilbake_til_ubehandlet_og_logg_feil(
+async fn set_ubehandlet_og_logg_feil(
     oppgave: &Oppgave,
     error: OppgaveApiError,
-    mut tx: &mut Transaction<'_, Postgres>,
+    tx: &mut Transaction<'_, Postgres>,
 ) -> Result<bool> {
-    let tilbakerullet_status = oppdater_oppgave_status(oppgave.id, Ubehandlet, &mut tx).await;
-    if tilbakerullet_status.is_ok() {
-        match error {
-            OppgaveApiError::ApiError { status, message } => {
-                let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
-                    status: EksternOppgaveOpprettelseFeilet.to_string(),
-                    melding: format!(
-                        "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
-                        status, message
-                    ),
-                    tidspunkt: Utc::now(),
-                };
-                insert_oppgave_hendelse_logg(&hendelse_logg_row, &mut tx).await?;
-            }
-            _ => return Err(error.into()),
-        }
-        Ok(true)
-    } else {
-        //TODO: Counter tilknyttet en alert eller noe
-        Ok(false)
+    if !oppdater_oppgave_status(oppgave.id, Ubehandlet, tx).await? {
+        return Ok(false);
     }
+
+    let error_melding = match error {
+        OppgaveApiError::ApiError { status, message } => {
+            format!(
+                "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
+                status, message
+            )
+        }
+        OppgaveApiError::ReqwestError(e) => {
+            format!("HTTP-feil ved kall til Oppgave API: {}", e)
+        }
+        OppgaveApiError::TokenError(e) => {
+            format!("Token-feil ved kall til Oppgave API: {}", e)
+        }
+    };
+
+    let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
+        oppgave_id: oppgave.id,
+        status: EksternOppgaveOpprettelseFeilet.to_string(),
+        melding: error_melding,
+        tidspunkt: Utc::now(),
+    };
+    let rows_affected = insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
+    Ok(rows_affected == 1)
 }
 
 #[cfg(test)]
@@ -112,6 +117,58 @@ mod tests {
     use serde_json::json;
     use std::sync::Arc;
     use texas_client::{M2MTokenClient, TokenResponse};
+
+    #[tokio::test]
+    async fn test_prosesser_ubehandlede_oppgaver_api_feil() -> Result<()> {
+        let mut server = Server::new_async().await;
+        server
+            .mock("POST", "/api/v1/oppgaver")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "message": "Ugyldig identitetsnummer",
+                    "errorCode": "VALIDATION_ERROR"
+                })
+                .to_string(),
+            )
+            .create_async()
+            .await;
+
+        let oppgave_api_client = Arc::new(OppgaveApiClient::new(
+            server.url(),
+            Arc::new(MockTokenClient),
+        ));
+
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+        let mut tx = pg_pool.begin().await?;
+        let ubehandlet_oppgave_row = InsertOppgaveRow {
+            arbeidssoeker_id: 12345,
+            status: Ubehandlet.to_string(),
+            ..Default::default()
+        };
+        insert_oppgave(&ubehandlet_oppgave_row, &mut tx).await?;
+        tx.commit().await?;
+
+        let result =
+            prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client, BATCH_SIZE).await;
+        assert!(result.is_ok());
+
+        let mut tx = pg_pool.begin().await?;
+        let oppdatert_oppgave = hent_oppgave(ubehandlet_oppgave_row.arbeidssoeker_id, &mut tx)
+            .await?
+            .unwrap();
+
+        assert_eq!(oppdatert_oppgave.status, Ubehandlet);
+        assert!(
+            oppdatert_oppgave
+                .hendelse_logg
+                .iter()
+                .any(|logg| logg.status == EksternOppgaveOpprettelseFeilet)
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_prosesser_ubehandlede_oppgaver_happy_path() -> Result<()> {
@@ -134,7 +191,8 @@ mod tests {
         insert_oppgave(&ubehandlet_oppgave_row, &mut tx).await?;
         tx.commit().await?;
 
-        let result = prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client, BATCH_SIZE).await;
+        let result =
+            prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client, BATCH_SIZE).await;
         assert!(result.is_ok());
 
         let mut tx = pg_pool.begin().await?;
