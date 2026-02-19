@@ -12,6 +12,7 @@ use crate::pdl::pdl_query::PDLClient;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::read_config_file;
 use paw_rdkafka::kafka_config::KafkaConfig;
+use paw_rust_base::env;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
@@ -39,6 +40,13 @@ async fn main() -> Result<()> {
         axum::serve(listener, health_routes).await?;
         Ok(())
     });
+    let ssl =
+        env::get_env("NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_UTGANG_PDL_UTGANGBETA1_SSLKEY")
+            .map_err(|e| ServerError::InternalProcessTerminated {
+                process: "EnvironmentVariable".to_string(),
+                message: e.to_string(),
+            })?;
+    println!("Using SSL of length: {}", ssl.len());
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
     let pg_pool = init_db(db_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
