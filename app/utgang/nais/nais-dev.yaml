@@ -6,8 +6,16 @@ metadata:
   labels:
     team: paw
 spec:
-  image: {{ image }}
+  image: { { image } }
   env:
+    - name: PGSSLMODE
+    - value: "VerifyFull"
+    - name: PGSSLROOTCERT
+    - value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_UTGANG_PDL_UTGANGBETA1_SSLROOTCERT)"
+    - name: PGSSLCERT
+    - value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_UTGANG_PDL_UTGANGBETA1_SSLCERT)"
+    - name: PGSSLKEY
+    - value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_UTGANG_PDL_UTGANGBETA1_SSLKEY)"
     - name: KAFKA_KEYS_SCOPE
       value: api://dev-gcp.paw.paw-kafka-key-generator/.default
     - name: PDL_SCOPE
@@ -22,7 +30,7 @@ spec:
     application:
       enabled: true
   kafka:
-    pool: {{ kafka }}
+    pool: { { kafka } }
     streams: true
   replicas:
     min: 1
