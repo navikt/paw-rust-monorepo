@@ -12,6 +12,7 @@ paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 axum_health = { path = "../../lib/axum_health" }
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 interne_hendelser = { path = "../../domain/interne_hendelser" }
+paw_app_config = { path = "../../lib/paw_app_config" }
 
 axum = { workspace = true }
 rdkafka = { workspace = true }

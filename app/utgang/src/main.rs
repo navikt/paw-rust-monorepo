@@ -6,11 +6,16 @@ mod vo;
 use anyhow::Result;
 use std::sync::Arc;
 
+use crate::kafka::kafka_consumer::create_kafka_consumer;
 use crate::pdl::pdl_config::PDLClientConfig;
 use crate::pdl::pdl_query::PDLClient;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
+use paw_app_config::read_config_file;
+use paw_rust_base::env::nais_cluster_name;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
+use paw_sqlx::config::DatabaseConfig;
+use paw_sqlx::postgres::init_db;
 use tokio::{
     signal::{unix::signal, unix::SignalKind},
     task::JoinHandle,
@@ -34,6 +39,8 @@ async fn main() -> Result<()> {
         axum::serve(listener, health_routes).await?;
         Ok(())
     });
+    let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
+
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {
