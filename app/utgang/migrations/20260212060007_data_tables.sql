@@ -1,22 +1,25 @@
-CREATE TABLE aktive_perioder
-(
-    id                  BIGSERIAL PRIMARY KEY,
-    periode_id          UUID NOT NULL UNIQUE,
-    identitetsnummer    VARCHAR NOT NULL,
-    startet_tidspunkt   TIMESTAMP NOT NULL,    
-    startet_brukertype  VARCHAR(50) NOT NULL,
-    stoppet_tidspunkt   TIMESTAMP DEFAULT NULL,
-    stoppet_brukertype  VARCHAR(50) DEFAULT NULL
+create table periode (
+    id UUID                     primary key,
+    periode_aktiv               boolean not null,
+    periode_startet_timestamp   TIMESTAMPZ(3) not null,
+    periode_startet_brukertype  VARCHAR not null,
+    periode_stoppet_timestamp   TIMESTAMPZ(3) default null,
+    periode_stoppet_brukertype  VARCHAR default null,
+    sist_oppdatert_timestamp     TIMESTAMPZ(3) not null,
+    sist_oppdaterte_status     VARCHAR not null,
 );
 
-CREATE TABLE TILSTAND
-(
-    id                  BIGSERIAL PRIMARY KEY,
-    periode_id          UUID NOT NULL,
-    kilde               VARCHAR NOT NULL,
-    arbeidssoeker_id    BIGINT NOT NULL,
-    tidspunkt           TIMESTAMP,
-    tilstand            VARCHAR[] NOT NULL
-)
+create table periode_metdata (
+    periode_id          UUID primary key,
+    identitetsnummer    VARCHAR not null,
+    arbeidssoeker_id    BIGINT not null,
+    kafka_key           BIGINT not null,
+);
 
-
+create table options (
+    id              BIGSERIAL PRIMARY KEY,
+    periode_id      UUID NOT NULL REFERENCES periode_metdata(id) ON DELETE CASCADE,
+    kilde           VARCHAR NOT NULL,
+    tidspunkt       TIMESTAMPZ(3) NOT NULL,
+    opplysninger    VARCHAR[] NOT NULL
+);

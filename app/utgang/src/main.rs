@@ -1,7 +1,7 @@
 mod db_ops;
-mod hent_person_bolk;
 mod kafka;
 mod pdl;
+mod vo;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -12,7 +12,7 @@ use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use tokio::{
-    signal::{unix::SignalKind, unix::signal},
+    signal::{unix::signal, unix::SignalKind},
     task::JoinHandle,
 };
 
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
                     Err(ServerError::InternalProcessTerminated {
                         process: "Webserver".to_string(),
                         message: e.to_string(),
-                    }.into())
+                    })
                 },
                 Err(e) => {
                     tracing::error!("Feil i spawned task for webserver: {}", e);

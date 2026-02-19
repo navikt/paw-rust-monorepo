@@ -11,6 +11,7 @@ paw_rdkafka = { path = "../../lib/paw_rdkafka" }
 paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 axum_health = { path = "../../lib/axum_health" }
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
+interne_hendelser = { path = "../../domain/interne_hendelser" }
 
 axum = { workspace = true }
 rdkafka = { workspace = true }
@@ -32,6 +33,7 @@ schema_registry_converter = { workspace = true }
 apache-avro = { workspace = true }
 uuid = { workspace = true }
 toml = { workspace = true }
+strum = { workspace = true }
 
 [dev-dependencies]
 temp-env = { workspace = true }

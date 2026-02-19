@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -101,19 +103,19 @@ pub struct PeriodeDeserializer {
 
 impl PeriodeDeserializer {
     pub fn new(schema_reg_settings: SrSettings) -> Self {
-        let decoder = schema_registry_converter::async_impl::avro::AvroDecoder::new(schema_reg_settings);
+        let decoder =
+            schema_registry_converter::async_impl::avro::AvroDecoder::new(schema_reg_settings);
         Self { decoder }
     }
 
     pub async fn deserialize(&self, payload: &[u8]) -> Result<Periode, PeriodeDeserializerError> {
         // Decode using schema registry
-        let decoded = self
-            .decoder
-            .decode(Some(payload))
-            .await
-            .map_err(|e| PeriodeDeserializerError::AvroDeserializationFailed(
-                format!("Failed to decode Avro message with schema registry: {}", e)
-            ))?;
+        let decoded = self.decoder.decode(Some(payload)).await.map_err(|e| {
+            PeriodeDeserializerError::AvroDeserializationFailed(format!(
+                "Failed to decode Avro message with schema registry: {}",
+                e
+            ))
+        })?;
 
         // Convert Avro value to Periode struct using apache_avro's built-in serde support
         let periode: Periode = apache_avro::from_value(&decoded.value)?;
@@ -160,3 +162,29 @@ mod tests {
     }
 }
 
+impl Display for BrukerType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BrukerType::Sluttbruker => write!(f, "SLUTTBRUKER"),
+            BrukerType::Veileder => write!(f, "VEILEDER"),
+            BrukerType::System => write!(f, "SYSTEM"),
+            BrukerType::Udefinert => write!(f, "UDEFINITERT"),
+            BrukerType::UkjentVerdi => write!(f, "UKJENT_VERDI"),
+        }
+    }
+}
+
+impl FromStr for BrukerType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "SLUTTBRUKER" => Ok(BrukerType::Sluttbruker),
+            "VEILEDER" => Ok(BrukerType::Veileder),
+            "SYSTEM" => Ok(BrukerType::System),
+            "UDEFINITERT" => Ok(BrukerType::Udefinert),
+            "UKJENT_VERDI" => Ok(BrukerType::UkjentVerdi),
+            _ => Err(format!("Uventet brukertype {}", s)),
+        }
+    }
+}
