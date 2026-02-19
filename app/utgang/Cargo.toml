@@ -38,4 +38,5 @@ strum = { workspace = true }
 
 [dev-dependencies]
 temp-env = { workspace = true }
+paw_test = { path = "../../lib/paw_test" }
 

@@ -4534,6 +4534,7 @@ dependencies = [
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
+ "paw_test",
  "prometheus",
  "rdkafka",
  "reqwest 0.13.2",
