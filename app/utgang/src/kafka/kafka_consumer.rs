@@ -1,10 +1,10 @@
 use std::{error::Error, sync::Arc};
 
-use rdkafka::consumer::{Consumer, StreamConsumer};
-use sqlx::PgPool;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
+use rdkafka::consumer::{Consumer, StreamConsumer};
+use sqlx::PgPool;
 
 pub fn create_kafka_consumer(
     app_state: Arc<AppState>,
@@ -16,7 +16,7 @@ pub fn create_kafka_consumer(
     let context = HwmRebalanceHandler {
         version: *kafka_config.hwm_version,
         pg_pool,
-        app_state
+        app_state,
     };
     let consumer: StreamConsumer<HwmRebalanceHandler> = config.create_with_context(context)?;
     consumer.subscribe(topics)?;

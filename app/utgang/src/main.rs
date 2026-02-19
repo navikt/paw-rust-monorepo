@@ -6,10 +6,12 @@ mod vo;
 use anyhow::Result;
 use std::sync::Arc;
 
+use crate::kafka::kafka_consumer::create_kafka_consumer;
 use crate::pdl::pdl_config::PDLClientConfig;
 use crate::pdl::pdl_query::PDLClient;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::read_config_file;
+use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
@@ -40,6 +42,20 @@ async fn main() -> Result<()> {
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
     let pg_pool = init_db(db_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
+    let kafka_config = toml::from_str::<KafkaConfig>(read_config_file!("kafka_config.toml"))?;
+    let consumer = create_kafka_consumer(
+        app_state.clone(),
+        pg_pool.clone(),
+        kafka_config,
+        &[
+            "paw.arbeidssokerperioder-v1",
+            "paw.arbeidssoker-hendelseslogg-v1",
+        ],
+    )
+    .map_err(|e| ServerError::InternalProcessTerminated {
+        process: "KafkaConsumer".to_string(),
+        message: e.to_string(),
+    })?;
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {

@@ -1,0 +1,3 @@
+hwm_version = 1
+brokers = "localhost:9092"
+group_id_prefix = "paw-arbeidssoekerregisteret-avvist-til-oppgave-hendelselogg"
