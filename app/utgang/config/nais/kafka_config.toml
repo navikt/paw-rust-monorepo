@@ -1,6 +1,6 @@
 hwm_version = 1
 brokers = "${KAFKA_BROKERS}"
-group_id_prefix = "paw-arbeidssoekerregisteret-avvist-til-oppgave-hendelselogg"
+group_id_prefix = "utgang-v1"
 security_protocol = "SSL"
 private_key_path = "${KAFKA_PRIVATE_KEY_PATH}"
 certificate_path = "${KAFKA_CERTIFICATE_PATH}"

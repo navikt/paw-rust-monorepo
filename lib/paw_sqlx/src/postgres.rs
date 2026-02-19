@@ -9,11 +9,11 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect_lazy(&database_url)
-        .map_err(|e| DatabaseError::InitializePool(e))?;
+        .map_err(DatabaseError::InitializePool)?;
     let _ = sqlx::query("SELECT 1")
         .execute(&pool)
         .await
-        .map_err(|e| DatabaseError::VerifyConnection(e))?;
+        .map_err(DatabaseError::VerifyConnection)?;
     Ok(pool)
 }
 
@@ -33,7 +33,7 @@ pub async fn clear_db(pool: &PgPool) -> Result<()> {
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| DatabaseError::ExecuteQuery(e))?;
+    .map_err(DatabaseError::ExecuteQuery)?;
     let tables = rows
         .iter()
         .map(|row| row.tablename.as_str())
@@ -44,7 +44,7 @@ pub async fn clear_db(pool: &PgPool) -> Result<()> {
         .bind(tables.join(", ").as_str())
         .execute(pool)
         .await
-        .map_err(|e| DatabaseError::ExecuteQuery(e))?;
+        .map_err(DatabaseError::ExecuteQuery)?;
     log::info!("Slettet alle tabeller i databasen");
     Ok(())
 }
