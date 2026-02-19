@@ -4,6 +4,7 @@ use std::str::FromStr;
 #[derive(Debug, Clone, PartialEq)]
 pub enum OppgaveStatus {
     Ubehandlet,
+    Opprettet,
     Ferdigbehandlet,
 }
 
@@ -13,6 +14,7 @@ impl FromStr for OppgaveStatus {
     fn from_str(str: &str) -> Result<Self, Self::Err> {
         match str {
             "Ubehandlet" => Ok(OppgaveStatus::Ubehandlet),
+            "Opprettet" => Ok(OppgaveStatus::Opprettet),
             "Ferdigbehandlet" => Ok(OppgaveStatus::Ferdigbehandlet),
             _ => Err(OppgaveStatusParseError::UkjentStatus(str.to_string())),
         }
@@ -24,6 +26,7 @@ impl std::fmt::Display for OppgaveStatus {
         match self {
             OppgaveStatus::Ubehandlet => write!(f, "Ubehandlet"),
             OppgaveStatus::Ferdigbehandlet => write!(f, "Ferdigbehandlet"),
+            OppgaveStatus::Opprettet => write!(f, "Opprettet"),
         }
     }
 }
@@ -43,6 +46,10 @@ mod tests {
         assert_eq!(
             OppgaveStatus::from_str("Ubehandlet"),
             Ok(OppgaveStatus::Ubehandlet)
+        );
+        assert_eq!(
+            OppgaveStatus::from_str("Opprettet"),
+            Ok(OppgaveStatus::Opprettet)
         );
         assert_eq!(
             OppgaveStatus::from_str("Ferdigbehandlet"),
