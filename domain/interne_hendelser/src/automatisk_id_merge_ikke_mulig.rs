@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, TimestampSecondsWithFrac};
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -35,13 +36,15 @@ pub struct Alias {
     pub record_key: i64,
     pub partition: i32,
 }
-
+#[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeriodeRad {
     pub periode_id: Uuid,
     pub identitetsnummer: String,
+    #[serde_as(as = "TimestampSecondsWithFrac<f64>")]
     pub fra: DateTime<Utc>,
+    #[serde_as(as = "Option<TimestampSecondsWithFrac<f64>>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub til: Option<DateTime<Utc>>,
 }
