@@ -13,6 +13,7 @@ use client::oppgave_client::OppgaveApiClient;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_app_config::config::read_toml_config;
+use paw_app_config::read_config_file;
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -57,7 +58,7 @@ async fn main() -> Result<()> {
     );
 
     let reqwest_client = reqwest::Client::new();
-    let token_client_config = read_toml_config("token_client_config.toml")?;
+    let token_client_config = read_toml_config(read_config_file!("token_client_config.toml"))?;
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_api_client = Arc::new(OppgaveApiClient::new("todo".to_string(), token_client));
     let opprett_oppgave_task =

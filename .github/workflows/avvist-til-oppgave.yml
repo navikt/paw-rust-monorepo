@@ -50,6 +50,7 @@ jobs:
           build_args: |
             APP=${{ env.APP_NAME }}
             GIT_COMMIT_HASH=${{ github.sha }}
+            FEATURES=nais
 
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
