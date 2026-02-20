@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use std::collections::HashSet;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use uuid::Uuid;
 
 use crate::vo::Metadata;
 
@@ -31,7 +31,7 @@ impl AutomatiskIdMergeIkkeMulig {
 #[serde(rename_all = "camelCase")]
 pub struct Alias {
     pub identitetsnummer: String,
-    pub arbeidssoeker_id: i64,
+    pub arbeidsoeker_id: i64,
     pub record_key: i64,
     pub partition: i32,
 }
