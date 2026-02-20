@@ -64,7 +64,7 @@ pub async fn skrive_startet_hendelse(
 ) -> Result<(), sqlx::Error> {
     let _ = sqlx::query(
         r#"
-                insert into periode_metadata (
+                insert into periode_metdata (
                     periode_id,
                     identitetsnummer,
                     arbeidssoeker_id,
