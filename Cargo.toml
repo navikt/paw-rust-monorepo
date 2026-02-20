@@ -54,7 +54,6 @@ mockito = { version = "1.7" }
 schema_registry_converter = { version = "4", features = ["avro"] }
 apache-avro = "0.21"
 strum = { version = "0.27", features = ["derive"] }
-cfg-if = "1"
 
 testcontainers = "0.26"
 testcontainers-modules = { version = "0.14", features = ["postgres"] }
