@@ -3,6 +3,9 @@ name = "utgang"
 version = "0.1.0"
 edition.workspace = true
 
+[features]
+nais = ["paw_app_config/nais"]
+
 [dependencies]
 texas_client = { path = "../../lib/texas_client" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

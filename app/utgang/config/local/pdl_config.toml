@@ -1,0 +1,2 @@
+target_scope = "pdl-test"
+url = "localhost:8080"
