@@ -27,7 +27,7 @@ impl HwmRebalanceHandler {
             let hwm = Hwm {
                 topic: tp.topic,
                 partition: tp.partition,
-                offset: offset.unwrap_or(DEFAULT_HWM),
+                offset,
             };
             hwms.push(hwm)
         }
@@ -54,14 +54,14 @@ impl ConsumerContext for HwmRebalanceHandler {
                 let hwms = block_on(self.get_hwms(&mut tx, topic_partitions)).unwrap();
                 tracing::info!("Rebalance assign - got HWMs: {:?}", hwms);
                 hwms.iter().for_each(|hwm| {
-                    if hwm.offset == DEFAULT_HWM {
+                    if hwm.offset.is_none() {
                         log::info!("Inserting initial HWM {:?}", hwm);
                         block_on(insert_hwm(
                             &mut tx,
                             self.version,
                             &hwm.topic,
                             hwm.partition,
-                            hwm.offset,
+                            DEFAULT_HWM,
                         )).unwrap_or_else(|e| {
                             panic!(
                                 "Failed to insert initial HWM: version={}, topic={}, partition={}, error={}",
