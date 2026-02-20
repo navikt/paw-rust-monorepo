@@ -9,6 +9,7 @@ pub enum JobbsituasjonBeskrivelse {
     HarBlittSagtOpp,
     ErPermittert,
     AldriHattJobb,
+    #[serde(rename = "IKKE_VAERT_I_JOBB_SISTE_2_AAR")]
     IkkeVaertIJobbSiste2Aar,
     AkkuratFullfortUtdanning,
     VilBytteJobb,
