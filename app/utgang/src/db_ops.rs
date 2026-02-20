@@ -80,7 +80,7 @@ pub async fn skrive_startet_hendelse(
     .await?;
     let _ = sqlx::query(
         r#"
-                insert into options (
+                insert into opplysninger (
                     periode_id,
                     kilde,
                     tidspunkt,
