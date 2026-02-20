@@ -1,11 +1,11 @@
-use crate::hwm::{DEFAULT_HWM, Hwm, TopicPartition};
+use crate::hwm::{Hwm, TopicPartition, DEFAULT_HWM};
 use crate::hwm_functions::{get_hwm, insert_hwm};
 use anyhow::Result;
 use futures::executor::block_on;
 use health_and_monitoring::simple_app_state::AppState;
 use log::error as log_error;
-use rdkafka::ClientContext;
 use rdkafka::consumer::{BaseConsumer, Consumer, ConsumerContext, Rebalance};
+use rdkafka::ClientContext;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
 
@@ -52,6 +52,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                 let mut tx = block_on(self.pg_pool.begin()).unwrap();
 
                 let hwms = block_on(self.get_hwms(&mut tx, topic_partitions)).unwrap();
+                tracing::info!("Rebalance assign - got HWMs: {:?}", hwms);
                 hwms.iter().for_each(|hwm| {
                     if hwm.offset == DEFAULT_HWM {
                         log::info!("Inserting initial HWM {:?}", hwm);
@@ -61,20 +62,23 @@ impl ConsumerContext for HwmRebalanceHandler {
                             &hwm.topic,
                             hwm.partition,
                             hwm.offset,
-                        ))
-                            .unwrap()
+                        )).unwrap_or_else(|e| {
+                            panic!(
+                                "Failed to insert initial HWM: version={}, topic={}, partition={}, error={}",
+                                self.version, hwm.topic, hwm.partition, e
+                            )
+                        });
                     } else {
                         log::info!("Using existing HWM {:?}", hwm);
                     }
                     let seek_to_offset = hwm.seek_to_rd_kafka_offset();
                     log::info!("Seeking to offset {:?}", seek_to_offset);
-                    let rebalance_result = base_consumer
-                        .seek(
-                            &hwm.topic,
-                            hwm.partition,
-                            seek_to_offset,
-                            std::time::Duration::from_secs(10),
-                        );
+                    let rebalance_result = base_consumer.seek(
+                        &hwm.topic,
+                        hwm.partition,
+                        seek_to_offset,
+                        std::time::Duration::from_secs(10),
+                    );
                     match rebalance_result {
                         Ok(_) => log::info!(
                             "Successfully seeked to offset {:?} for topic {} partition {}",
@@ -91,7 +95,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                                 e
                             );
                             panic!("Failed to seek to offset {:?}: {}", seek_to_offset, e);
-                        },
+                        }
                     }
                 });
 
