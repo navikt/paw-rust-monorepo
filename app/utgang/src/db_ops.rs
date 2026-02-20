@@ -69,7 +69,7 @@ pub async fn skrive_startet_hendelse(
                     identitetsnummer,
                     arbeidssoeker_id,
                     kafka_key
-            )
+            ) values ($1, $2, $3, $4)
         "#,
     )
     .bind(startet.hendelse_id)
