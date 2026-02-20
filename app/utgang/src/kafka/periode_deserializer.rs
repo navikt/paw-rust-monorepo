@@ -3,6 +3,7 @@ use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use std::sync::Arc;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -98,14 +99,16 @@ impl Periode {
 
 /// Deserializer for Periode messages from Kafka using Schema Registry
 pub struct PeriodeDeserializer {
-    decoder: schema_registry_converter::async_impl::avro::AvroDecoder<'static>,
+    decoder: Arc<schema_registry_converter::async_impl::avro::AvroDecoder<'static>>,
 }
 
 impl PeriodeDeserializer {
     pub fn new(schema_reg_settings: SrSettings) -> Self {
         let decoder =
             schema_registry_converter::async_impl::avro::AvroDecoder::new(schema_reg_settings);
-        Self { decoder }
+        Self {
+            decoder: Arc::new(decoder),
+        }
     }
 
     pub async fn deserialize(&self, payload: &[u8]) -> Result<Periode, PeriodeDeserializerError> {
