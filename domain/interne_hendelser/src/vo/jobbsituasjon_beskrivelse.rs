@@ -14,7 +14,7 @@ pub enum JobbsituasjonBeskrivelse {
     VilBytteJobb,
     UsikkerJobbsituasjon,
     MidlertidigJobb,
-    DeltidsjobVilMer,
+    DeltidsjobbVilMer,
     NyJobb,
     Konkurs,
     Annet,
