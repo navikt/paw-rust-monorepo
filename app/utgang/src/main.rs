@@ -17,6 +17,7 @@ use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
 use paw_sqlx::postgres::init_db;
+use texas_client::token_client::create_token_client;
 use tokio::{
     signal::{unix::signal, unix::SignalKind},
     task::JoinHandle,
@@ -27,9 +28,11 @@ async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
     let reqwest_client = reqwest::Client::new();
-    let token_client = Arc::new(texas_client::token_client::create_token_client(
+    let token_client_config = toml::from_str(read_config_file!("token_client_config.toml"))?;
+    let token_client = Arc::new(create_token_client(
+        token_client_config,
         reqwest_client.clone(),
-    )?);
+    ));
     let pdl_client_config = PDLClientConfig::from_default_file()?;
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);

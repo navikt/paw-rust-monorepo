@@ -2330,7 +2330,6 @@ name = "paw_app_config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "paw_rust_base",
  "serde",
  "thiserror 2.0.18",
  "toml",

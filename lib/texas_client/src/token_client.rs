@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 
 use crate::{
-    error::TexasClientError, request::{get_nais_token_endpoint, M2MTokenRequest},
-    M2MTokenClient,
+    error::TexasClientError, request::{get_nais_token_endpoint, M2MTokenRequest}, M2MTokenClient,
+    TokenClientConfig,
     TokenResponse,
 };
 
@@ -20,8 +20,11 @@ pub struct ReqwestTokenClientRef {
     client: reqwest::Client,
 }
 
-pub fn create_token_client(client: Client) -> Result<ReqwestTokenClient> {
-    ReqwestTokenClient::new(client)
+pub fn create_token_client(
+    token_endpoint: TokenClientConfig,
+    client: Client,
+) -> ReqwestTokenClient {
+    ReqwestTokenClient::new_with_endpoint(token_endpoint.token_endpoint, client)
 }
 
 impl ReqwestTokenClient {
