@@ -1,8 +1,8 @@
 use crate::kafka::headers::{extract_headers_as_map, extract_remote_otel_context};
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
-use prometheus::{register_counter_vec, CounterVec};
-use rdkafka::message::OwnedMessage;
+use prometheus::{CounterVec, register_counter_vec};
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::future::Future;
@@ -23,7 +23,7 @@ pub async fn hwm_process_message(
     hwm_version: i16,
     pg_pool: PgPool,
     msg: &OwnedMessage,
-    processor: &(dyn MessageProcessor + Send + Sync),
+    processor: &(impl MessageProcessor + Send + Sync),
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let span_name = format!("{} process", msg.topic());
     let span = tracing::info_span!(
