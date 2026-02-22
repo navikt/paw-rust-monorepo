@@ -4,6 +4,13 @@ use crate::HealthCheck;
 pub struct CompoundHealth {
     health_checks: Vec<Box<dyn HealthCheck + Send + Sync + 'static>>,
 }
+
+impl Default for CompoundHealth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CompoundHealth {
     pub fn new() -> Self {
         CompoundHealth {

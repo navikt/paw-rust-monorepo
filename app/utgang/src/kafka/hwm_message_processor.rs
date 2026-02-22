@@ -35,8 +35,8 @@ pub async fn hwm_process_message(
         messaging.kafka.message.offset = msg.offset()
     );
     let mut tx = pg_pool.begin().await?;
-    let topic = &msg.topic();
-    let headers = extract_headers_as_map(&msg);
+    let topic = msg.topic();
+    let headers = extract_headers_as_map(msg);
     let remote_trace_context = extract_remote_otel_context(&headers);
     if let Some(remote_ctx) = remote_trace_context {
         match span.set_parent(remote_ctx) {

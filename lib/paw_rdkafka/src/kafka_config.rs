@@ -1,9 +1,9 @@
 use crate::error::KafkaError;
 use anyhow::Result;
-use rdkafka::config::RDKafkaLogLevel;
 use rdkafka::ClientConfig;
+use rdkafka::config::RDKafkaLogLevel;
 use serde::Deserialize;
-use serde_env_field::{env_field_wrap, EnvField};
+use serde_env_field::{EnvField, env_field_wrap};
 use std::time::SystemTime;
 
 pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientConfig> {
@@ -58,15 +58,15 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         let private_key_path = kafka_config
             .private_key_path
             .ok_or_else(|| "Missing private key path".to_string())
-            .map_err(|msg| KafkaError::Config(msg))?;
+            .map_err(KafkaError::Config)?;
         let certificate_path = kafka_config
             .certificate_path
             .ok_or_else(|| "Missing certificate path".to_string())
-            .map_err(|msg| KafkaError::Config(msg))?;
+            .map_err(KafkaError::Config)?;
         let ca_path = kafka_config
             .ca_path
             .ok_or_else(|| "Missing ca path".to_string())
-            .map_err(|msg| KafkaError::Config(msg))?;
+            .map_err(KafkaError::Config)?;
         config
             .set("ssl.key.location", private_key_path.into_inner())
             .set("ssl.certificate.location", certificate_path.into_inner())

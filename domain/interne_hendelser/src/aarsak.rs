@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Aarsak {
     IkkeFunnet,
     Savnet,
@@ -16,11 +16,6 @@ pub enum Aarsak {
     TekniskFeilUnderKalkuleringAvAarsak,
     IngenAarsakFunnet,
     #[serde(other)]
+    #[default]
     Udefinert,
-}
-
-impl Default for Aarsak {
-    fn default() -> Self {
-        Aarsak::Udefinert
-    }
 }

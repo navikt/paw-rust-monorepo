@@ -14,7 +14,6 @@ use anyhow::Result;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::read_config_file;
 use paw_rdkafka::kafka_config::KafkaConfig;
-use paw_rust_base::env;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;

@@ -8,6 +8,12 @@ pub struct AppState {
     has_started: AtomicBool,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         AppState {
