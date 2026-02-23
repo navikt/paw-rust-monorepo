@@ -1,15 +1,20 @@
+use std::str::FromStr;
+
 use crate::config::DatabaseConfig;
 use crate::error::DatabaseError;
 use anyhow::Result;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::ConnectOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{FromRow, PgPool};
 
 async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
     let database_url = config.full_url();
+    let connect_options = PgConnectOptions::from_str(&database_url)
+        .map_err(DatabaseError::InitializePool)?
+        .log_statements(log::LevelFilter::Debug);
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect_lazy(&database_url)
-        .map_err(DatabaseError::InitializePool)?;
+        .connect_lazy_with(connect_options);
     let _ = sqlx::query("SELECT 1")
         .execute(&pool)
         .await
