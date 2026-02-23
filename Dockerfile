@@ -16,7 +16,6 @@ RUN ls -l /build/target/x86_64-unknown-linux-musl/release/
 FROM cgr.dev/chainguard/static:latest
 WORKDIR /app
 ARG APP
-ENV RUST_LOG=trace
 COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/${APP} /app/app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]
