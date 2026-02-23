@@ -6,6 +6,11 @@ edition.workspace = true
 [features]
 nais = ["paw_app_config/nais"]
 
+[lib]
+name = "utgang"
+path = "src/lib.rs"
+
+
 [dependencies]
 texas_client = { path = "../../lib/texas_client" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

@@ -1,10 +1,9 @@
 use crate::kafka::periode_deserializer::{BrukerType, Periode};
 use crate::vo::kilde::InfoKilde;
-use crate::vo::status;
+use crate::vo::status::Status;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::Opplysning;
 use sqlx::{Postgres, Transaction};
-use status::Status;
 
 pub async fn opprett_aktiv_periode(
     tx: &mut Transaction<'_, Postgres>,
@@ -19,8 +18,7 @@ pub async fn opprett_aktiv_periode(
           periode_startet_brukertype,
           sist_oppdatert_timestamp,
           sist_oppdatert_status
-      ) VALUES ($1, $2, $3, $4, $5, $6) 
-          ON CONFLICT (id) DO NOTHING
+      ) VALUES ($1, $2, $3, $4, $5, $6)
         "#,
     )
     .bind(periode.id)
@@ -65,7 +63,7 @@ pub async fn skrive_startet_hendelse(
 ) -> Result<(), sqlx::Error> {
     let _ = sqlx::query(
         r#"
-                insert into periode_metdata (
+                insert into periode_metadata (
                     periode_id,
                     identitetsnummer,
                     arbeidssoeker_id,
