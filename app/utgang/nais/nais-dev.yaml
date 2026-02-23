@@ -30,7 +30,7 @@ spec:
     application:
       enabled: true
   kafka:
-    pool: { { kafka } }
+    pool: {{ kafka }}
     streams: true
   replicas:
     min: 0
