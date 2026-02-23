@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use thiserror::Error;
+use crate::domain::oppgave_status::OppgaveStatus;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HendelseLoggStatus {
@@ -15,7 +16,7 @@ impl std::fmt::Display for HendelseLoggStatus {
             HendelseLoggStatus::OppgaveOpprettet => write!(f, "OppgaveOpprettet"),
             HendelseLoggStatus::AvvistHendelseMottatt => write!(f, "AvvistHendelseMottatt"),
             HendelseLoggStatus::EksternOppgaveOpprettelseFeilet => write!(f, "EksternOppgaveOpprettelseFeilet"),
-            HendelseLoggStatus::EksternOppgaveOpprettet => write!(f, "EksternOppgaveOpprettelseFeilet"),
+            HendelseLoggStatus::EksternOppgaveOpprettet => write!(f, "EksternOppgaveOpprettet"),
         }
     }
 }
@@ -39,3 +40,37 @@ pub enum HendelseLoggStatusParseError {
     #[error("Ugyldig HendelseLoggStatus: {0}")]
     UgyldigStatus(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_str_valid_status() {
+        assert_eq!(
+            HendelseLoggStatus::from_str("OppgaveOpprettet"),
+            Ok(HendelseLoggStatus::OppgaveOpprettet)
+        );
+        assert_eq!(
+            HendelseLoggStatus::from_str("AvvistHendelseMottatt"),
+            Ok(HendelseLoggStatus::AvvistHendelseMottatt)
+        );
+        assert_eq!(
+            HendelseLoggStatus::from_str("EksternOppgaveOpprettelseFeilet"),
+            Ok(HendelseLoggStatus::EksternOppgaveOpprettelseFeilet)
+        );
+
+        assert_eq!(
+            HendelseLoggStatus::from_str("EksternOppgaveOpprettet"),
+            Ok(HendelseLoggStatus::EksternOppgaveOpprettet)
+        );
+
+        let ukjent_status = "UkjentStatus";
+        assert!(HendelseLoggStatus::from_str(ukjent_status).is_err());
+        assert_eq!(
+            HendelseLoggStatus::from_str(ukjent_status).unwrap_err().to_string(),
+            format!("Ugyldig HendelseLoggStatus: {}", ukjent_status)
+        );
+    }
+}
+
