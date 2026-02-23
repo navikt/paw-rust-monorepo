@@ -171,9 +171,10 @@ pub async fn oppdater_oppgave_med_ekstern_id(
     Ok(result.rows_affected() == 1)
 }
 
-pub async fn oppdater_oppgave_status(
+pub async fn bytt_oppgave_status(
     oppgave_id: i64,
-    status: OppgaveStatus,
+    expected_status: OppgaveStatus,
+    new_status: OppgaveStatus,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<bool> {
     let result = sqlx::query(
@@ -181,10 +182,12 @@ pub async fn oppdater_oppgave_status(
         UPDATE oppgaver
         SET status = $1
         WHERE id = $2
+          AND status = $3
         "#,
     )
-    .bind(status.to_string())
+    .bind(new_status.to_string())
     .bind(oppgave_id)
+    .bind(expected_status.to_string())
     .execute(&mut **transaction)
     .await?;
     Ok(result.rows_affected() == 1)
@@ -329,7 +332,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_oppdater_status() -> Result<()> {
+    async fn test_bytt_oppgave_status() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
@@ -345,7 +348,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let ny_status = Ferdigbehandlet;
-        let oppdatert = oppdater_oppgave_status(oppgave_id, ny_status, &mut tx).await?;
+        let oppdatert = bytt_oppgave_status(oppgave_id, Ubehandlet, ny_status, &mut tx).await?;
         tx.commit().await?;
         assert!(oppdatert);
 
