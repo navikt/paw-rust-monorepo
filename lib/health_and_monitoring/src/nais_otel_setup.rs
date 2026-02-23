@@ -59,7 +59,11 @@ pub fn setup_nais_otel() -> Result<()> {
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
     tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into()))
+        .with(
+            EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+                .add_directive("sqlx::query=info".parse().unwrap()),
+        )
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
         .init();
