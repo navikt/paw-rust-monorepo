@@ -21,6 +21,13 @@ impl ApplicationConfig {
     }
 }
 
+#[env_field_wrap]
+#[derive(Debug, Clone, Deserialize)]
+pub struct OppgaveClientConfig {
+    pub base_url: String,
+    pub scope: String,
+}
+
 pub fn read_application_config() -> Result<ApplicationConfig> {
     let file_content = read_application_config_file();
     read_toml_config::<ApplicationConfig>(file_content)
@@ -34,6 +41,11 @@ pub fn read_database_config() -> Result<DatabaseConfig> {
 pub fn read_kafka_config() -> Result<KafkaConfig> {
     let file_content = read_kafka_config_file();
     read_toml_config::<KafkaConfig>(file_content)
+}
+
+pub fn read_oppgave_client_config() -> Result<OppgaveClientConfig> {
+    let file_content = read_oppgave_client_config_file();
+    read_toml_config::<OppgaveClientConfig>(file_content)
 }
 
 fn read_application_config_file() -> &'static str {
@@ -57,6 +69,13 @@ fn read_kafka_config_file() -> &'static str {
     }
 }
 
+fn read_oppgave_client_config_file() -> &'static str {
+    match env::nais_cluster_name() {
+        Ok(_) => include_str!("../config/nais/oppgave_client_config.toml"),
+        Err(_) => include_str!("../config/local/oppgave_client_config.toml"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,6 +95,12 @@ mod tests {
     #[test]
     fn test_read_kafka_config() {
         let config = read_kafka_config().unwrap();
+        println!("{:?}", config);
+    }
+
+    #[test]
+    fn test_read_oppgave_client_config() {
+        let config = read_oppgave_client_config().unwrap();
         println!("{:?}", config);
     }
 }

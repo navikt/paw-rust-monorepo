@@ -1,5 +1,6 @@
 use crate::client::oppgave_dto::OppgaveDto;
 use crate::client::opprett_oppgave_request::OpprettOppgaveRequest;
+use crate::config::OppgaveClientConfig;
 use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
@@ -9,21 +10,24 @@ use texas_client::M2MTokenClient;
 #[derive(Clone)]
 pub struct OppgaveApiClient {
     client: Client,
-    base_url: String,
+    config: OppgaveClientConfig,
     token_client: Arc<dyn M2MTokenClient + Send + Sync>,
 }
 
 pub const OPPGAVER_PATH: &str = "/api/v1/oppgaver";
 
 impl OppgaveApiClient {
-    pub fn new(base_url: String, token_client: Arc<dyn M2MTokenClient + Send + Sync>) -> Self {
+    pub fn new(
+        config: OppgaveClientConfig,
+        token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+    ) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
             .expect("Kunne ikke opprette HTTP-klient");
         Self {
             client,
-            base_url,
+            config,
             token_client,
         }
     }
@@ -32,7 +36,7 @@ impl OppgaveApiClient {
         &self,
         request: &OpprettOppgaveRequest,
     ) -> Result<OppgaveDto, OppgaveApiError> {
-        let url = format!("{}{}", self.base_url, OPPGAVER_PATH);
+        let url = format!("{}{}", self.config.base_url, OPPGAVER_PATH);
         let token = self.hent_token().await?;
         let response = self
             .client
@@ -53,8 +57,7 @@ impl OppgaveApiClient {
     }
 
     async fn hent_token(&self) -> Result<String> {
-        let target = format!("{}/token", self.base_url);
-        let token_response = self.token_client.get_token(target).await?;
+        let token_response = self.token_client.get_token(self.config.scope.to_string()).await?;
         Ok(token_response.access_token)
     }
 }
@@ -122,7 +125,8 @@ mod tests {
             .await;
 
         let token_client = Arc::new(MockTokenClient);
-        let client = OppgaveApiClient::new(server.url(), token_client);
+        let config = OppgaveClientConfig::test_config(server.url());
+        let client = OppgaveApiClient::new(config, token_client);
 
         let request = OpprettOppgaveRequest {
             personident: Some("12345678910".to_string()),
@@ -138,5 +142,14 @@ mod tests {
         assert_eq!(oppgave.tildelt_enhetsnr, "4863");
 
         oppgave_mock_api.assert_async().await;
+    }
+
+    impl OppgaveClientConfig {
+        pub fn test_config(base_url: String) -> Self {
+            Self {
+                base_url: base_url.into(),
+                scope: "test-scope".to_string().into(),
+            }
+        }
     }
 }

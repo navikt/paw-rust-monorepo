@@ -6,7 +6,7 @@ mod hendelse_processor;
 mod kafka;
 mod opprett_oppgave_task;
 
-use crate::config::{read_application_config, read_database_config, read_kafka_config};
+use crate::config::{read_application_config, read_database_config, read_kafka_config, read_oppgave_client_config};
 use anyhow::Result;
 use axum_health::routes;
 use client::oppgave_client::OppgaveApiClient;
@@ -60,7 +60,11 @@ async fn main() -> Result<()> {
     let reqwest_client = reqwest::Client::new();
     let token_client_config = read_toml_config(read_config_file!("token_client_config.toml"))?;
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
-    let oppgave_api_client = Arc::new(OppgaveApiClient::new("todo".to_string(), token_client));
+    let oppgave_client_config = read_oppgave_client_config()?;
+    let oppgave_api_client = Arc::new(OppgaveApiClient::new(
+        oppgave_client_config,
+        token_client,
+    ));
     let opprett_oppgave_task =
         opprett_oppgave_task::start_processing_loop(pg_pool.clone(), oppgave_api_client);
 

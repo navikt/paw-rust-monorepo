@@ -1,0 +1,2 @@
+base_url = "${OPPGAVE_API_URL}"
+scope = "${OPPGAVE_API_SCOPE}"

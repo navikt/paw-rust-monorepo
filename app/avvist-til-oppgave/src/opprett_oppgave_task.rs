@@ -128,6 +128,7 @@ async fn prosesser_oppgave(
 mod tests {
     use super::*;
     use crate::client::oppgave_client::OPPGAVER_PATH;
+    use crate::config::OppgaveClientConfig;
     use crate::db::oppgave_functions::{
         hent_de_eldste_ubehandlede_oppgavene, hent_oppgave, insert_oppgave,
     };
@@ -183,7 +184,7 @@ mod tests {
             .await;
 
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            server.url(),
+            OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
         ));
 
@@ -276,7 +277,7 @@ mod tests {
     async fn prosesser_tom_batch() -> Result<()> {
         let server = Server::new_async().await;
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            server.url(),
+            OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
         ));
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -303,7 +304,7 @@ mod tests {
             .await;
 
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            server.url(),
+            OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
         ));
 
