@@ -17,7 +17,7 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
-use paw_sqlx::postgres::init_db;
+use paw_sqlx::postgres::{clear_db, init_db};
 use rdkafka::Message;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
@@ -51,6 +51,7 @@ async fn main() -> Result<()> {
     });
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
     let pg_pool = init_db(db_config).await?;
+    clear_db(&pg_pool).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let kafka_config = toml::from_str::<KafkaConfig>(read_config_file!("kafka_config.toml"))?;
     let hwm_version = *kafka_config.hwm_version;
