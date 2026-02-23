@@ -19,7 +19,8 @@ pub async fn opprett_aktiv_periode(
           periode_startet_brukertype,
           sist_oppdatert_timestamp,
           sist_oppdatert_status
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ) VALUES ($1, $2, $3, $4, $5, $6) 
+          ON CONFLICT (id) DO NOTHING
         "#,
     )
     .bind(periode.id)

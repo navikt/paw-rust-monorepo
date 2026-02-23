@@ -1,4 +1,4 @@
-use crate::db_ops::skrive_startet_hendelse;
+use crate::db_ops::{avslutt_periode, opprett_aktiv_periode, skrive_startet_hendelse};
 use crate::kafka::hwm_message_processor::{MessageProcessor, ProcessorError};
 use crate::kafka::periode_processor::PeriodeProcessor;
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
@@ -36,6 +36,17 @@ impl MessageProcessor for UtgangMessageProcessor {
         Box::pin(
             async move {
                 let topic = msg.topic();
+                let key = msg
+                    .key()
+                    .and_then(|bytes| {
+                        if bytes.len() == 8 {
+                            Some(i64::from_be_bytes(bytes.try_into().unwrap()))
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or_else(|| ProcessorError::from("Message key is missing or invalid"))?;
+
                 match topic {
                     t if t == HENDELSELOGG_TOPIC => {
                         // Get the payload as bytes
@@ -55,18 +66,6 @@ impl MessageProcessor for UtgangMessageProcessor {
                             })?;
                         match hendelse {
                             InterneHendelser::Startet(startet) => {
-                                let key = msg
-                                    .key()
-                                    .and_then(|bytes| {
-                                        if bytes.len() == 8 {
-                                            Some(i64::from_be_bytes(bytes.try_into().unwrap()))
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .ok_or_else(|| {
-                                        ProcessorError::from("Message key is missing or invalid")
-                                    })?;
                                 tracing::info!(
                                     "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
                                     startet.hendelse_id,
@@ -80,18 +79,22 @@ impl MessageProcessor for UtgangMessageProcessor {
                         }
                     }
                     t if t == ARBEIDSSOKERPERIODER_TOPIC => {
-                        let key = msg
-                            .key()
-                            .and_then(|bytes| {
-                                if bytes.len() == 8 {
-                                    Some(i64::from_be_bytes(bytes.try_into().unwrap()))
-                                } else {
-                                    None
-                                }
-                            })
-                            .ok_or_else(|| {
-                                ProcessorError::from("Message key is missing or invalid")
-                            })?;
+                        let periode = self.periode_processor.deserialize_message(msg).await?;
+                        match periode.avsluttet {
+                            None => {
+                                tracing::info!("Mottok aktiv periode");
+                                opprett_aktiv_periode(tx, &periode).await?;
+                            }
+                            Some(avsluttet) => {
+                                avslutt_periode(
+                                    tx,
+                                    &periode.id,
+                                    &avsluttet.tidspunkt,
+                                    &avsluttet.utfoert_av.bruker_type,
+                                )
+                                .await?;
+                            }
+                        }
                     }
                     _ => {
                         warn!("Received message for unknown topic: {}", topic);
