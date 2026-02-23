@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use crate::client::opprett_oppgave_request::PrioritetV1;
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OppgaveDto {
     pub id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -55,8 +56,10 @@ pub struct OppgaveDto {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrukerDto {
     pub ident: String,
+    #[serde(rename = "type")]
     pub type_: BrukertypeDto,
 }
 

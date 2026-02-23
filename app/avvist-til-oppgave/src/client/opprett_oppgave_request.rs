@@ -3,6 +3,7 @@ use serde;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OpprettOppgaveRequest {
     pub aktiv_dato: String,
     pub prioritet: PrioritetV1,

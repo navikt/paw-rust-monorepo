@@ -52,32 +52,6 @@ impl OppgaveApiClient {
         }
     }
 
-    pub async fn hent_oppgave(&self, oppgave_id: i64) -> Result<OppgaveDto> {
-        let url = format!("{}{}/{}", self.base_url, OPPGAVER_PATH, oppgave_id);
-        let token = self.hent_token().await?;
-        let response = self
-            .client
-            .get(&url)
-            .header("X-Correlation-ID", uuid::Uuid::new_v4().to_string())
-            .header("Authorization", format!("Bearer {}", token))
-            .send()
-            .await?;
-
-        match response.status() {
-            reqwest::StatusCode::OK => Ok(response.json().await?),
-            reqwest::StatusCode::NOT_FOUND => Err(OppgaveApiError::ApiError {
-                status: reqwest::StatusCode::NOT_FOUND,
-                message: "Oppgave ikke funnet".to_string(),
-            }
-            .into()),
-            status => Err(OppgaveApiError::ApiError {
-                status,
-                message: response.text().await.unwrap_or_default(),
-            }
-            .into()),
-        }
-    }
-
     async fn hent_token(&self) -> Result<String> {
         let target = format!("{}/token", self.base_url);
         let token_response = self.token_client.get_token(target).await?;
@@ -134,12 +108,12 @@ mod tests {
             .with_body(
                 json!({
                     "id": oppgave_id,
-                    "tildelt_enhetsnr": "4863",
+                    "tildeltEnhetsnr": "4863",
                     "oppgavetype": "JFR",
                     "tema": "KON",
                     "prioritet": "NORM",
                     "status": "OPPRETTET",
-                    "aktiv_dato": "2026-02-16",
+                    "aktivDato": "2026-02-16",
                     "versjon": 1,
                 })
                 .to_string(),
@@ -162,43 +136,6 @@ mod tests {
         let oppgave = client.opprett_oppgave(&request).await.unwrap();
         assert_eq!(oppgave.id, oppgave_id);
         assert_eq!(oppgave.tildelt_enhetsnr, "4863");
-
-        oppgave_mock_api.assert_async().await;
-    }
-
-    #[tokio::test]
-    async fn test_hent_oppgave_vellykket() {
-        let mut server = Server::new_async().await;
-
-        let oppgave_id = 12345;
-        let oppgave_mock_api = server
-            .mock("GET", format!("{}/{}", OPPGAVER_PATH, oppgave_id).as_str())
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(
-                json!({
-                    "id": oppgave_id,
-                    "tildelt_enhetsnr": "4863",
-                    "oppgavetype": "JFR",
-                    "tema": "KON",
-                    "prioritet": "NORM",
-                    "status": "OPPRETTET",
-                    "aktiv_dato": "2026-02-16",
-                    "versjon": 1,
-                })
-                .to_string(),
-            )
-            .create_async()
-            .await;
-
-        let token_client = Arc::new(MockTokenClient);
-        let client = OppgaveApiClient::new(server.url(), token_client);
-
-        let oppgave = client.hent_oppgave(oppgave_id).await.unwrap();
-
-        assert_eq!(oppgave.id, oppgave_id);
-        assert_eq!(oppgave.tildelt_enhetsnr, "4863");
-        assert!(matches!(oppgave.prioritet, PrioritetV1::Norm));
 
         oppgave_mock_api.assert_async().await;
     }
