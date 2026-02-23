@@ -9,6 +9,7 @@ use opentelemetry_sdk::propagation::TraceContextPropagator;
 use paw_rust_base::env::{get_env, nais_namespace, nais_otel_service_name};
 use std::time::Duration;
 use tracing::log::info;
+use tracing_log::LogTracer;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -31,6 +32,7 @@ pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>> {
 }
 
 pub fn setup_nais_otel() -> Result<()> {
+    LogTracer::init().map_err(|e| anyhow::anyhow!("Failed to initialize LogTracer: {}", e))?;
     let exporter = nais_otlp_exporter()?;
     let exporter_active = exporter.is_some();
     let service_name = nais_otel_service_name().unwrap_or("local-build".to_string());
