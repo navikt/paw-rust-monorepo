@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use serde::{Deserialize, Serialize};
+use serde_with::{TimestampMilliSeconds, serde_as};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -50,18 +51,22 @@ pub enum AvviksType {
 }
 
 /// Information about time deviation from source
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TidspunktFraKilde {
+    #[serde_as(as = "TimestampMilliSeconds<i64>")]
     pub tidspunkt: DateTime<Utc>,
     pub avviks_type: AvviksType,
 }
 
 /// Metadata about a change in the job seeker registry
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     /// Timestamp of the change
+    #[serde_as(as = "TimestampMilliSeconds<i64>")]
     pub tidspunkt: DateTime<Utc>,
     /// Who performed the change
     pub utfoert_av: Bruker,
