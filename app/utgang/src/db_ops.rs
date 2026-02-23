@@ -12,7 +12,7 @@ pub async fn opprett_aktiv_periode(
 ) -> Result<(), sqlx::Error> {
     let _ = sqlx::query(
         r#"
-        INSERT INTO perioder (
+        INSERT INTO periode (
           id,
           periode_aktiv,
           periode_startet_timestamp,
@@ -42,7 +42,7 @@ pub async fn avslutt_periode(
 ) -> Result<bool, sqlx::Error> {
     let res = sqlx::query(
         r#"
-        UPDATE perioder
+        UPDATE periode
         SET periode_aktiv = $1,
             periode_avsluttet_timestamp = $2,
             periode_avsluttet_brukertype = $3
