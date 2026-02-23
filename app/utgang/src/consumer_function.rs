@@ -11,6 +11,7 @@ use sqlx::{Postgres, Transaction};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use tracing::Instrument;
 use tracing::warn;
 
 pub struct UtgangMessageProcessor {
@@ -32,68 +33,73 @@ impl MessageProcessor for UtgangMessageProcessor {
         tx: &'a mut Transaction<'_, Postgres>,
         msg: &'a OwnedMessage,
     ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>> {
-        Box::pin(async move {
-            let topic = msg.topic();
-            match topic {
-                t if t == HENDELSELOGG_TOPIC => {
-                    // Get the payload as bytes
-                    let payload = msg
-                        .payload()
-                        .ok_or_else(|| ProcessorError::from("Message has no payload"))?;
+        Box::pin(
+            async move {
+                let topic = msg.topic();
+                match topic {
+                    t if t == HENDELSELOGG_TOPIC => {
+                        // Get the payload as bytes
+                        let payload = msg
+                            .payload()
+                            .ok_or_else(|| ProcessorError::from("Message has no payload"))?;
 
-                    // Convert bytes to UTF-8 string
-                    let payload_str = std::str::from_utf8(payload).map_err(|e| {
-                        ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e))
-                    })?;
-
-                    // Deserialize JSON string to InterneHendelser
-                    let hendelse: InterneHendelser =
-                        serde_json::from_str(payload_str).map_err(|e| {
-                            ProcessorError::from(format!("Failed to deserialize event: {}", e))
+                        // Convert bytes to UTF-8 string
+                        let payload_str = std::str::from_utf8(payload).map_err(|e| {
+                            ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e))
                         })?;
-                    match hendelse {
-                        InterneHendelser::Startet(startet) => {
-                            let key = msg
-                                .key()
-                                .and_then(|bytes| {
-                                    if bytes.len() == 8 {
-                                        Some(i64::from_be_bytes(bytes.try_into().unwrap()))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .ok_or_else(|| {
-                                    ProcessorError::from("Message key is missing or invalid")
-                                })?;
-                            tracing::info!(
-                                "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
-                                startet.hendelse_id,
-                                key
-                            );
-                            skrive_startet_hendelse(tx, &startet, key).await?;
-                        }
-                        _ => {
-                            tracing::info!("Mottok en annen hendelse som ikke skal lagres");
+
+                        // Deserialize JSON string to InterneHendelser
+                        let hendelse: InterneHendelser = serde_json::from_str(payload_str)
+                            .map_err(|e| {
+                                ProcessorError::from(format!("Failed to deserialize event: {}", e))
+                            })?;
+                        match hendelse {
+                            InterneHendelser::Startet(startet) => {
+                                let key = msg
+                                    .key()
+                                    .and_then(|bytes| {
+                                        if bytes.len() == 8 {
+                                            Some(i64::from_be_bytes(bytes.try_into().unwrap()))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .ok_or_else(|| {
+                                        ProcessorError::from("Message key is missing or invalid")
+                                    })?;
+                                tracing::info!(
+                                    "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
+                                    startet.hendelse_id,
+                                    key
+                                );
+                                skrive_startet_hendelse(tx, &startet, key).await?;
+                            }
+                            _ => {
+                                tracing::info!("Mottok en annen hendelse som ikke skal lagres");
+                            }
                         }
                     }
+                    t if t == ARBEIDSSOKERPERIODER_TOPIC => {
+                        let key = msg
+                            .key()
+                            .and_then(|bytes| {
+                                if bytes.len() == 8 {
+                                    Some(i64::from_be_bytes(bytes.try_into().unwrap()))
+                                } else {
+                                    None
+                                }
+                            })
+                            .ok_or_else(|| {
+                                ProcessorError::from("Message key is missing or invalid")
+                            })?;
+                    }
+                    _ => {
+                        warn!("Received message for unknown topic: {}", topic);
+                    }
                 }
-                t if t == ARBEIDSSOKERPERIODER_TOPIC => {
-                    let key = msg
-                        .key()
-                        .and_then(|bytes| {
-                            if bytes.len() == 8 {
-                                Some(i64::from_be_bytes(bytes.try_into().unwrap()))
-                            } else {
-                                None
-                            }
-                        })
-                        .ok_or_else(|| ProcessorError::from("Message key is missing or invalid"))?;
-                }
-                _ => {
-                    warn!("Received message for unknown topic: {}", topic);
-                }
+                Ok(())
             }
-            Ok(())
-        })
+            .instrument(tracing::Span::current()),
+        )
     }
 }
