@@ -1,8 +1,8 @@
 use crate::kafka::periode_deserializer::{BrukerType, Periode};
 use crate::vo::kilde::InfoKilde;
 use crate::vo::status;
-use interne_hendelser::vo::Opplysning;
 use interne_hendelser::Startet;
+use interne_hendelser::vo::Opplysning;
 use sqlx::{Postgres, Transaction};
 use status::Status;
 
@@ -100,6 +100,7 @@ pub async fn skrive_startet_hendelse(
     )
     .execute(&mut **tx)
     .await?;
+    tracing::info!("Startet hendelse lagret i databsen");
     Ok(())
 }
 
