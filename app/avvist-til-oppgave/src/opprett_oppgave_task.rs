@@ -11,7 +11,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus::{Opprettet, Ubehandlet};
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -22,12 +22,13 @@ const BATCH_SIZE: i64 = 10;
 pub async fn start_processing_loop(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
+    opprett_oppgaver_fra_tidspunkt: NaiveDateTime,
 ) -> Result<(), anyhow::Error> {
     let mut interval = interval(Duration::from_secs(1));
     loop {
         interval.tick().await;
         /*
-        if let Err(e) = prosesser_ubehandlede_oppgaver(db_pool.clone(), oppgave_api_client.clone(), BATCH_SIZE).await {
+        if let Err(e) = prosesser_ubehandlede_oppgaver(db_pool.clone(), oppgave_api_client.clone(), BATCH_SIZE, opprett_oppgaver_fra_tidspunkt).await {
             log::error!("Feil i prosesseringsloop: {}", e);
         }
         */
@@ -35,12 +36,13 @@ pub async fn start_processing_loop(
 }
 
 async fn prosesser_ubehandlede_oppgaver(
-    db_pool: PgPool,
-    oppgave_api_client: Arc<OppgaveApiClient>,
+    fra_tidspunkt: NaiveDateTime,
     batch_size: i64,
+    oppgave_api_client: Arc<OppgaveApiClient>,
+    db_pool: PgPool,
 ) -> Result<()> {
     let mut tx = db_pool.begin().await?;
-    let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(batch_size, &mut tx).await?;
+    let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(batch_size, fra_tidspunkt, &mut tx).await?;
     oppgaver.shuffle(&mut rand::rng());
     tx.commit().await?;
 
@@ -135,6 +137,7 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use async_trait::async_trait;
+    use chrono::NaiveDateTime;
     use mockito::{Matcher, Server};
     use paw_test::setup_test_db::setup_test_db;
     use serde_json::json;
@@ -232,7 +235,9 @@ mod tests {
 
         tx.commit().await?;
 
-        let result = prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client, 3).await;
+        let fra_dato = NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")?;
+        let result =
+            prosesser_ubehandlede_oppgaver(fra_dato, 3, oppgave_api_client, pg_pool.clone()).await;
         assert!(result.is_ok(), "Funksjonen skulle returnere Ok(())");
 
         let mut tx = pg_pool.begin().await?;
@@ -282,7 +287,10 @@ mod tests {
         ));
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
-        let result = prosesser_ubehandlede_oppgaver(pg_pool.clone(), oppgave_api_client, 10).await;
+        let fra_dato =
+            NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let result =
+            prosesser_ubehandlede_oppgaver(fra_dato, 10, oppgave_api_client, pg_pool.clone()).await;
         assert!(result.is_ok());
         Ok(())
     }
@@ -326,8 +334,12 @@ mod tests {
         tx.commit().await?;
 
         let mut hent_eldste_oppgaver_tx = pg_pool.begin().await?;
-        let mut oppgaver =
-            hent_de_eldste_ubehandlede_oppgavene(1, &mut hent_eldste_oppgaver_tx).await?;
+        let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(
+            1,
+            NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
+            &mut hent_eldste_oppgaver_tx,
+        )
+        .await?;
         hent_eldste_oppgaver_tx.commit().await?;
         let oppgave = oppgaver.remove(0);
 

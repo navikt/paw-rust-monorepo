@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, NaiveDateTime};
 use paw_app_config::config::read_toml_config;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::env;
@@ -10,6 +11,7 @@ use serde_env_field::env_field_wrap;
 #[derive(Debug, Deserialize)]
 pub struct ApplicationConfig {
     pub topics: Vec<String>,
+    pub opprett_oppgaver_fra_tidspunkt: String,
 }
 
 impl ApplicationConfig {
@@ -18,6 +20,11 @@ impl ApplicationConfig {
             .iter()
             .map(|s| s.as_str())
             .collect::<Vec<&str>>()
+    }
+
+    pub fn opprett_oppgaver_fra_tidspunkt(&self) -> Result<NaiveDateTime> {
+        let dt = DateTime::parse_from_rfc3339(&self.opprett_oppgaver_fra_tidspunkt.to_string())?;
+        Ok(dt.naive_utc())
     }
 }
 

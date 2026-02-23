@@ -5,6 +5,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
+use chrono::NaiveDateTime;
 use sqlx::{Postgres, Transaction};
 
 pub async fn hent_oppgave(
@@ -195,6 +196,7 @@ pub async fn bytt_oppgave_status(
 
 pub async fn hent_de_eldste_ubehandlede_oppgavene(
     antall_oppgaver: i64,
+    fra_tidspunkt: NaiveDateTime,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<Oppgave>> {
     let oppgave_rows = sqlx::query_as::<_, OppgaveRow>(
@@ -212,12 +214,14 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
         FROM oppgaver
         WHERE status = $1
             AND ekstern_oppgave_id IS NULL
+            AND tidspunkt >= $3
         ORDER BY tidspunkt ASC
         LIMIT $2
         "#,
     )
     .bind(OppgaveStatus::Ubehandlet.to_string())
     .bind(antall_oppgaver)
+    .bind(fra_tidspunkt)
     .fetch_all(&mut **transaction)
     .await?;
 
@@ -287,7 +291,8 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let antall_oppgaver = 2;
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, &mut tx).await?;
+        let fra_tidspunkt = NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")?;
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
 
         assert_eq!(oppgaver.len(), antall_oppgaver as usize);
         let eldste_oppgave = &oppgaver[0];
@@ -299,6 +304,43 @@ mod tests {
 
         assert!(eldste_oppgave.tidspunkt < yngste_oppgave_row.tidspunkt);
         assert!(nest_eldste_oppgave.tidspunkt < yngste_oppgave_row.tidspunkt);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fra_tidspunkt_filtrerer_bort_gamle_oppgaver() -> Result<()> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+        let mut tx = pg_pool.begin().await?;
+
+        let now = Utc::now();
+        let gammel_oppgave = InsertOppgaveRow {
+            status: Ubehandlet.to_string(),
+            tidspunkt: now - chrono::Duration::seconds(2),
+            ..Default::default()
+        };
+        let ny_oppgave = InsertOppgaveRow {
+            status: Ubehandlet.to_string(),
+            tidspunkt: now,
+            ..Default::default()
+        };
+
+        insert_oppgave(&gammel_oppgave, &mut tx).await?;
+        insert_oppgave(&ny_oppgave, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        let fra_tidspunkt = (now - chrono::Duration::seconds(1)).naive_utc();
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
+        assert_eq!(oppgaver.len(), 1, "Skal bare finne ny_oppgave");
+        tx.commit().await?;
+
+        // fra_tidspunkt 1 sekund i fremtiden — ingen oppgaver
+        let mut tx = pg_pool.begin().await?;
+        let fra_tidspunkt = (now + chrono::Duration::seconds(1)).naive_utc();
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
+        assert_eq!(oppgaver.len(), 0, "Skal ikke finne noen oppgaver med fra_tidspunkt i fremtiden");
+
         Ok(())
     }
 

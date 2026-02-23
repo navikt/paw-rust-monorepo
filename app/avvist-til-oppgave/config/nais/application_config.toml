@@ -1,3 +1,4 @@
 topics = [
     "paw.arbeidssoker-hendelseslogg-v1"
 ]
+opprett_oppgaver_fra_tidspunkt = "${OPPRETT_OPPGAVER_FRA_TIDSPUNKT}"

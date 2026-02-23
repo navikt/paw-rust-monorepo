@@ -23,6 +23,8 @@ spec:
       value: "https://oppgave-q1.dev-fss-pub.nais.io"
     - name: OPPGAVE_API_SCOPE
       value: "api://dev-fss.oppgavehandtering.oppgave-q1/.default"
+    - name: OPPRETT_OPPGAVER_FRA_TIDSPUNKT
+      value: "2025-01-01T00:00:00+01:00"
   replicas:
     min: 1
     max: 1
