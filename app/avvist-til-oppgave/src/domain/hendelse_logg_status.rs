@@ -6,6 +6,7 @@ pub enum HendelseLoggStatus {
     OppgaveOpprettet,
     AvvistHendelseMottatt,
     EksternOppgaveOpprettelseFeilet,
+    EksternOppgaveOpprettet
 }
 
 impl std::fmt::Display for HendelseLoggStatus {
@@ -14,6 +15,7 @@ impl std::fmt::Display for HendelseLoggStatus {
             HendelseLoggStatus::OppgaveOpprettet => write!(f, "OppgaveOpprettet"),
             HendelseLoggStatus::AvvistHendelseMottatt => write!(f, "AvvistHendelseMottatt"),
             HendelseLoggStatus::EksternOppgaveOpprettelseFeilet => write!(f, "EksternOppgaveOpprettelseFeilet"),
+            HendelseLoggStatus::EksternOppgaveOpprettet => write!(f, "EksternOppgaveOpprettelseFeilet"),
         }
     }
 }
@@ -26,6 +28,7 @@ impl FromStr for HendelseLoggStatus {
             "OppgaveOpprettet" => Ok(HendelseLoggStatus::OppgaveOpprettet),
             "AvvistHendelseMottatt" => Ok(HendelseLoggStatus::AvvistHendelseMottatt),
             "EksternOppgaveOpprettelseFeilet" => Ok(HendelseLoggStatus::EksternOppgaveOpprettelseFeilet),
+            "EksternOppgaveOpprettet" => Ok(HendelseLoggStatus::EksternOppgaveOpprettet),
             _ => Err(HendelseLoggStatusParseError::UgyldigStatus(s.to_string())),
         }
     }
