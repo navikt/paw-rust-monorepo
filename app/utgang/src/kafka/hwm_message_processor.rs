@@ -34,7 +34,6 @@ pub async fn hwm_process_message(
         messaging.destination.partition.id = msg.partition(),
         messaging.kafka.message.offset = msg.offset()
     );
-    let mut tx = pg_pool.begin().await?;
     let topic = msg.topic();
     let headers = extract_headers_as_map(msg);
     let remote_trace_context = extract_remote_otel_context(&headers);
@@ -44,13 +43,15 @@ pub async fn hwm_process_message(
             Err(e) => tracing::error!("Failed to set parent context for span: {}", e),
         }
     }
+    let _span_guard = span.enter();
+    let mut tx = pg_pool.begin().await?;
     let hwm_ok = update_hwm(&mut tx, hwm_version, topic, msg.partition(), msg.offset()).await?;
 
     if hwm_ok {
         let res = processor.process_message(&mut tx, msg).await;
         increment_kafka_messages_processed(true, &topic.to_string(), msg.partition(), res.is_err());
         match res {
-            Ok(_) => tracing::debug!(
+            Ok(_) => tracing::info!(
                 "Message processed successfully: topic={}, partition={}, offset={}",
                 topic,
                 msg.partition(),
