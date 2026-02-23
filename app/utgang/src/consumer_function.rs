@@ -7,13 +7,11 @@ use anyhow::Result;
 use interne_hendelser::InterneHendelser;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
-use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
-use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use tracing::{instrument, warn};
+use tracing::warn;
 
 pub struct UtgangMessageProcessor {
     periode_processor: Arc<PeriodeProcessor>,
@@ -29,16 +27,6 @@ impl UtgangMessageProcessor {
 }
 
 impl MessageProcessor for UtgangMessageProcessor {
-    #[instrument(
-        skip(self, tx, msg),
-        field(
-            otel.name = format!("{} process", msg.topic()).as_str(),
-            messaging.system = "kafka",
-            messaging.destination.name = msg.topic(),
-            messaging.destination.partition.id = msg.partition(),
-            messaging.kafka.message.offset = msg.offset()
-        )
-    )]
     fn process_message<'a>(
         &'a self,
         tx: &'a mut Transaction<'_, Postgres>,

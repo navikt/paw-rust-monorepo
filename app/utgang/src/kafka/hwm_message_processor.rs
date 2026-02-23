@@ -8,6 +8,7 @@ use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::OnceLock;
+use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub type ProcessorError = Box<dyn Error + Send + Sync>;
@@ -19,31 +20,13 @@ pub trait MessageProcessor {
     ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>>;
 }
 
-pub async fn hwm_process_message(
+async fn internal_hwm_process_message(
+    topic: &str,
     hwm_version: i16,
     pg_pool: PgPool,
     msg: &OwnedMessage,
     processor: &(impl MessageProcessor + Send + Sync),
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let span_name = format!("{} process", msg.topic());
-    let span = tracing::info_span!(
-        "kafka_message_process",
-        otel.name = span_name.as_str(),
-        messaging.system = "kafka",
-        messaging.destination.name = msg.topic(),
-        messaging.destination.partition.id = msg.partition(),
-        messaging.kafka.message.offset = msg.offset()
-    );
-    let topic = msg.topic();
-    let headers = extract_headers_as_map(msg);
-    let remote_trace_context = extract_remote_otel_context(&headers);
-    if let Some(remote_ctx) = remote_trace_context {
-        match span.set_parent(remote_ctx) {
-            Ok(_) => tracing::debug!("Successfully set parent context for span"),
-            Err(e) => tracing::error!("Failed to set parent context for span: {}", e),
-        }
-    }
-    let _span_guard = span.enter();
     let mut tx = pg_pool.begin().await?;
     let hwm_ok = update_hwm(&mut tx, hwm_version, topic, msg.partition(), msg.offset()).await?;
 
@@ -79,6 +62,36 @@ pub async fn hwm_process_message(
             msg.offset()
         );
     }
+    Ok(())
+}
+
+pub async fn hwm_process_message(
+    hwm_version: i16,
+    pg_pool: PgPool,
+    msg: &OwnedMessage,
+    processor: &(impl MessageProcessor + Send + Sync),
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let span_name = format!("{} process", msg.topic());
+    let span = tracing::info_span!(
+        "kafka_message_process",
+        otel.name = span_name.as_str(),
+        messaging.system = "kafka",
+        messaging.destination.name = msg.topic(),
+        messaging.destination.partition.id = msg.partition(),
+        messaging.kafka.message.offset = msg.offset()
+    );
+    let topic = msg.topic();
+    let headers = extract_headers_as_map(msg);
+    let remote_trace_context = extract_remote_otel_context(&headers);
+    if let Some(remote_ctx) = remote_trace_context {
+        match span.set_parent(remote_ctx) {
+            Ok(_) => tracing::debug!("Successfully set parent context for span"),
+            Err(e) => tracing::error!("Failed to set parent context for span: {}", e),
+        }
+    }
+    internal_hwm_process_message(topic, hwm_version, pg_pool, msg, processor)
+        .instrument(span)
+        .await?;
     Ok(())
 }
 
