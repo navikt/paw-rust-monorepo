@@ -1272,7 +1272,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tonic",
  "tracing",
- "tracing-log",
  "tracing-opentelemetry",
  "tracing-subscriber",
 ]

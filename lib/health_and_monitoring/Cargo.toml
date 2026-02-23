@@ -15,5 +15,3 @@ opentelemetry_sdk = { workspace = true }
 tonic = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
-tracing-log = { workspace = true }
-
