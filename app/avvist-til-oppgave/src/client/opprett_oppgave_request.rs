@@ -1,4 +1,3 @@
-use crate::domain::oppgave::Oppgave;
 use chrono::Utc;
 use serde;
 use serde::{Deserialize, Serialize};

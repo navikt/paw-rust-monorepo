@@ -13,6 +13,8 @@ pub struct OppgaveApiClient {
     token_client: Arc<dyn M2MTokenClient + Send + Sync>,
 }
 
+pub const OPPGAVER_PATH: &str = "/api/v1/oppgaver";
+
 impl OppgaveApiClient {
     pub fn new(base_url: String, token_client: Arc<dyn M2MTokenClient + Send + Sync>) -> Self {
         let client = Client::builder()
@@ -30,7 +32,7 @@ impl OppgaveApiClient {
         &self,
         request: &OpprettOppgaveRequest,
     ) -> Result<OppgaveDto, OppgaveApiError> {
-        let url = format!("{}/api/v1/oppgaver", self.base_url);
+        let url = format!("{}{}", self.base_url, OPPGAVER_PATH);
         let token = self.hent_token().await?;
         let response = self
             .client
@@ -51,7 +53,7 @@ impl OppgaveApiClient {
     }
 
     pub async fn hent_oppgave(&self, oppgave_id: i64) -> Result<OppgaveDto> {
-        let url = format!("{}/api/v1/oppgaver/{}", self.base_url, oppgave_id);
+        let url = format!("{}{}/{}", self.base_url, OPPGAVER_PATH, oppgave_id);
         let token = self.hent_token().await?;
         let response = self
             .client
@@ -126,7 +128,7 @@ mod tests {
 
         let oppgave_id = 12345;
         let oppgave_mock_api = server
-            .mock("POST", "/api/v1/oppgaver")
+            .mock("POST", OPPGAVER_PATH)
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(
@@ -170,7 +172,7 @@ mod tests {
 
         let oppgave_id = 12345;
         let oppgave_mock_api = server
-            .mock("GET", format!("/api/v1/oppgaver/{}", oppgave_id).as_str())
+            .mock("GET", format!("{}/{}", OPPGAVER_PATH, oppgave_id).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(
