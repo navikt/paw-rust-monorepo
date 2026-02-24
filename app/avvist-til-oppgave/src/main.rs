@@ -59,7 +59,11 @@ async fn main() -> Result<()> {
         appstate.clone(),
     );
 
-    let reqwest_client = reqwest::Client::new();
+    let reqwest_client = reqwest::Client::builder()
+        .connection_verbose(true)
+        .timeout(std::time::Duration::from_secs(5))
+        .build()?;
+
     let token_client_config = read_toml_config(read_config_file!("token_client_config.toml"))?;
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_client_config = read_oppgave_client_config()?;
