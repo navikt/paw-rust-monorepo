@@ -28,7 +28,7 @@ pub fn create_token_client(
 }
 
 impl ReqwestTokenClient {
-    fn new(client: reqwest::Client) -> Result<Self> {
+    fn new(client: Client) -> Result<Self> {
         let token_endpoint = get_nais_token_endpoint()?;
         Ok(Self {
             inner: Arc::new(ReqwestTokenClientRef {
@@ -37,7 +37,7 @@ impl ReqwestTokenClient {
             }),
         })
     }
-    fn new_with_endpoint(token_endpoint: String, client: reqwest::Client) -> Self {
+    fn new_with_endpoint(token_endpoint: String, client: Client) -> Self {
         Self {
             inner: Arc::new(ReqwestTokenClientRef {
                 token_endpoint,

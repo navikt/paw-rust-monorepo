@@ -24,6 +24,7 @@ use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
+use texas_client::TokenClientConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -64,7 +65,8 @@ async fn main() -> Result<()> {
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
 
-    let token_client_config = read_toml_config(read_config_file!("token_client_config.toml"))?;
+    let token_client_config: TokenClientConfig = read_toml_config(read_config_file!("token_client_config.toml"))?;
+    log::info!("Token client config går mot: {}", token_client_config.token_endpoint);
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_client_config = read_oppgave_client_config()?;
     let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client));
