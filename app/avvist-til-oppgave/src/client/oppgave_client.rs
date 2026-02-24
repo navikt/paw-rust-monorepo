@@ -5,7 +5,7 @@ use anyhow::Result;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
-use texas_client::M2MTokenClient;
+use texas_client::token_client::M2MTokenClient;
 
 #[derive(Clone)]
 pub struct OppgaveApiClient {
@@ -57,7 +57,10 @@ impl OppgaveApiClient {
     }
 
     async fn hent_token(&self) -> Result<String> {
-        let token_response = self.token_client.get_token(self.config.scope.to_string()).await?;
+        let token_response = self
+            .token_client
+            .get_token(self.config.scope.to_string())
+            .await?;
         Ok(token_response.access_token)
     }
 }
@@ -85,7 +88,7 @@ mod tests {
     use mockito::Server;
     use serde_json::json;
     use std::sync::Arc;
-    use texas_client::TokenResponse;
+    use texas_client::response::TokenResponse;
 
     struct MockTokenClient;
     #[async_trait]

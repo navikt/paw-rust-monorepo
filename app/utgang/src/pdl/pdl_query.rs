@@ -4,7 +4,7 @@ use crate::pdl::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
 use anyhow::Result;
 use graphql_client::GraphQLQuery;
 use std::sync::Arc;
-use texas_client::M2MTokenClient;
+use texas_client::token_client::M2MTokenClient;
 
 #[derive(Clone)]
 pub struct PDLClient {

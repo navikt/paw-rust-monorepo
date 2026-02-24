@@ -1,14 +1,8 @@
-use anyhow::Result;
-use paw_rust_base::env::get_env;
+use serde::{Deserialize, Serialize};
 
 const ENTRA_ID: &str = "entra_id";
-const NAIS_TOKEN_ENDPOINT_ENV: &str = "NAIS_TOKEN_ENDPOINT";
 
-pub fn get_nais_token_endpoint() -> Result<String> {
-    get_env(NAIS_TOKEN_ENDPOINT_ENV)
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct M2MTokenRequest {
     identity_provider: &'static str,
     target: String,

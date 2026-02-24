@@ -24,7 +24,7 @@ use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
-use texas_client::TokenClientConfig;
+use texas_client::config::TokenClientConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {

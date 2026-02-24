@@ -4,10 +4,11 @@ use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::Client;
 
+use crate::config::TokenClientConfig;
+use crate::response::TokenResponse;
 use crate::{
-    error::TexasClientError, request::{get_nais_token_endpoint, M2MTokenRequest}, M2MTokenClient,
-    TokenClientConfig,
-    TokenResponse,
+    error::TexasClientError,
+    request::M2MTokenRequest,
 };
 
 #[derive(Clone)]
@@ -17,7 +18,7 @@ pub struct ReqwestTokenClient {
 
 pub struct ReqwestTokenClientRef {
     token_endpoint: String,
-    client: reqwest::Client,
+    client: Client,
 }
 
 pub fn create_token_client(
@@ -28,15 +29,6 @@ pub fn create_token_client(
 }
 
 impl ReqwestTokenClient {
-    fn new(client: Client) -> Result<Self> {
-        let token_endpoint = get_nais_token_endpoint()?;
-        Ok(Self {
-            inner: Arc::new(ReqwestTokenClientRef {
-                token_endpoint,
-                client,
-            }),
-        })
-    }
     fn new_with_endpoint(token_endpoint: String, client: Client) -> Self {
         Self {
             inner: Arc::new(ReqwestTokenClientRef {
@@ -45,6 +37,11 @@ impl ReqwestTokenClient {
             }),
         }
     }
+}
+
+#[async_trait]
+pub trait M2MTokenClient {
+    async fn get_token(&self, target: String) -> Result<TokenResponse>;
 }
 
 #[async_trait]

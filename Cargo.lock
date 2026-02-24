@@ -3952,7 +3952,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "paw_rust_base",
  "reqwest 0.13.2",
  "serde",
  "thiserror 2.0.18",

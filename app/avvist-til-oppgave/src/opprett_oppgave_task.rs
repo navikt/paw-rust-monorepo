@@ -148,8 +148,9 @@ mod tests {
     use paw_test::setup_test_db::setup_test_db;
     use serde_json::json;
     use std::sync::Arc;
-    use texas_client::{M2MTokenClient, TokenResponse};
     use tokio::time::sleep;
+    use texas_client::response::TokenResponse;
+    use texas_client::token_client::M2MTokenClient;
 
     #[tokio::test]
     async fn prosesser_tre_oppgaver_to_ok_en_feil() -> Result<()> {
