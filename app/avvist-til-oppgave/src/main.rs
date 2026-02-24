@@ -6,16 +6,16 @@ mod hendelse_processor;
 mod kafka;
 mod opprett_oppgave_task;
 
-use crate::config::{
-    read_application_config, read_database_config, read_kafka_config, read_oppgave_client_config,
-};
+use crate::config::read_application_config;
+use crate::config::read_database_config;
+use crate::config::read_kafka_config;
+use crate::config::read_oppgave_client_config;
+use crate::config::read_token_client_config;
 use anyhow::Result;
 use axum_health::routes;
 use client::oppgave_client::OppgaveApiClient;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_app_config::config::read_toml_config;
-use paw_app_config::read_config_file;
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -24,7 +24,6 @@ use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
-use texas_client::config::TokenClientConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,8 +64,11 @@ async fn main() -> Result<()> {
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
 
-    let token_client_config: TokenClientConfig = read_toml_config(read_config_file!("token_client_config.toml"))?;
-    log::info!("Token client config går mot: {}", token_client_config.token_endpoint);
+    let token_client_config = read_token_client_config()?;
+    log::info!(
+        "Token client config går mot: {}",
+        token_client_config.token_endpoint
+    );
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_client_config = read_oppgave_client_config()?;
     let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client));

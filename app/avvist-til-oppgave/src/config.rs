@@ -6,6 +6,7 @@ use paw_rust_base::env;
 use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
+use texas_client::config::TokenClientConfig;
 
 #[env_field_wrap]
 #[derive(Debug, Deserialize)]
@@ -55,6 +56,20 @@ pub fn read_oppgave_client_config() -> Result<OppgaveClientConfig> {
     read_toml_config::<OppgaveClientConfig>(file_content)
 }
 
+pub fn read_token_client_config() -> Result<TokenClientConfig> {
+    let file_content = read_token_client_config_file();
+    let local: TokenClientConfigLocal = read_toml_config(file_content)?;
+    Ok(TokenClientConfig {
+        token_endpoint: local.token_endpoint.to_string(),
+    })
+}
+
+#[env_field_wrap]
+#[derive(Debug, Deserialize)]
+struct TokenClientConfigLocal {
+    token_endpoint: String,
+}
+
 fn read_application_config_file() -> &'static str {
     match env::nais_cluster_name() {
         Ok(_) => include_str!("../config/nais/application_config.toml"),
@@ -80,6 +95,13 @@ fn read_oppgave_client_config_file() -> &'static str {
     match env::nais_cluster_name() {
         Ok(_) => include_str!("../config/nais/oppgave_client_config.toml"),
         Err(_) => include_str!("../config/local/oppgave_client_config.toml"),
+    }
+}
+
+fn read_token_client_config_file() -> &'static str {
+    match env::nais_cluster_name() {
+        Ok(_) => include_str!("../config/nais/token_client_config.toml"),
+        Err(_) => include_str!("../config/local/token_client_config.toml"),
     }
 }
 
