@@ -1,6 +1,6 @@
 use paw_test::setup_test_db::setup_test_db;
 use utgang::{
-    db_ops,
+    db_write_ops,
     kafka::periode_deserializer::{BrukerType, Metadata, Periode},
 };
 mod common;
@@ -19,12 +19,12 @@ async fn test_db_migrations() {
 
     let periode = main_avro_periode();
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    crate::db_ops::opprett_aktiv_periode(&mut tx, &periode)
+    crate::db_write_ops::opprett_aktiv_periode(&mut tx, &periode)
         .await
         .expect("Failed to insert periode");
     tx.commit().await.expect("Failed to commit transaction");
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let result = crate::db_ops::avslutt_periode(
+    let result = crate::db_write_ops::avslutt_periode(
         &mut tx,
         &periode.id,
         &chrono::Utc::now(),

@@ -1,4 +1,4 @@
-use crate::db_ops::{avslutt_periode, opprett_aktiv_periode, skrive_startet_hendelse};
+use crate::db_write_ops::{avslutt_periode, opprett_aktiv_periode, skrive_startet_hendelse};
 use crate::kafka::hwm_message_processor::{MessageProcessor, ProcessorError};
 use crate::kafka::periode_processor::PeriodeProcessor;
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
@@ -49,52 +49,10 @@ impl MessageProcessor for UtgangMessageProcessor {
 
                 match topic {
                     t if t == HENDELSELOGG_TOPIC => {
-                        // Get the payload as bytes
-                        let payload = msg
-                            .payload()
-                            .ok_or_else(|| ProcessorError::from("Message has no payload"))?;
-
-                        // Convert bytes to UTF-8 string
-                        let payload_str = std::str::from_utf8(payload).map_err(|e| {
-                            ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e))
-                        })?;
-
-                        // Deserialize JSON string to InterneHendelser
-                        let hendelse: InterneHendelser = serde_json::from_str(payload_str)
-                            .map_err(|e| {
-                                ProcessorError::from(format!("Failed to deserialize event: {}", e))
-                            })?;
-                        match hendelse {
-                            InterneHendelser::Startet(startet) => {
-                                tracing::info!(
-                                    "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
-                                    startet.hendelse_id,
-                                    key
-                                );
-                                skrive_startet_hendelse(tx, &startet, key).await?;
-                            }
-                            _ => {
-                                tracing::info!("Mottok en annen hendelse som ikke skal lagres");
-                            }
-                        }
+                        haandter_hendelse(tx, key, msg).await?;
                     }
                     t if t == ARBEIDSSOKERPERIODER_TOPIC => {
-                        let periode = self.periode_processor.deserialize_message(msg).await?;
-                        match periode.avsluttet {
-                            None => {
-                                tracing::info!("Mottok aktiv periode");
-                                opprett_aktiv_periode(tx, &periode).await?;
-                            }
-                            Some(avsluttet) => {
-                                avslutt_periode(
-                                    tx,
-                                    &periode.id,
-                                    &avsluttet.tidspunkt,
-                                    &avsluttet.utfoert_av.bruker_type,
-                                )
-                                .await?;
-                            }
-                        }
+                        haandter_periode_record(self, tx, msg).await?;
                     }
                     _ => {
                         warn!("Received message for unknown topic: {}", topic);
@@ -105,4 +63,63 @@ impl MessageProcessor for UtgangMessageProcessor {
             .instrument(tracing::Span::current()),
         )
     }
+}
+
+async fn haandter_periode_record(
+    utgang_message_processor: &UtgangMessageProcessor,
+    tx: &mut Transaction<'_, Postgres>,
+    msg: &OwnedMessage,
+) -> Result<(), ProcessorError> {
+    let periode = utgang_message_processor
+        .periode_processor
+        .deserialize_message(msg)
+        .await?;
+    match periode.avsluttet {
+        None => {
+            opprett_aktiv_periode(tx, &periode).await?;
+        }
+        Some(avsluttet) => {
+            avslutt_periode(
+                tx,
+                &periode.id,
+                &avsluttet.tidspunkt,
+                &avsluttet.utfoert_av.bruker_type,
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn haandter_hendelse(
+    tx: &mut Transaction<'_, Postgres>,
+    record_key: i64,
+    msg: &OwnedMessage,
+) -> Result<(), ProcessorError> {
+    // Get the payload as bytes
+    let payload = msg
+        .payload()
+        .ok_or_else(|| ProcessorError::from("Message has no payload"))?;
+
+    // Convert bytes to UTF-8 string
+    let payload_str = std::str::from_utf8(payload)
+        .map_err(|e| ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e)))?;
+
+    // Deserialize JSON string to InterneHendelser
+    let hendelse: InterneHendelser = serde_json::from_str(payload_str)
+        .map_err(|e| ProcessorError::from(format!("Failed to deserialize event: {}", e)))?;
+    match hendelse {
+        InterneHendelser::Startet(startet) => {
+            tracing::info!(
+                "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
+                startet.hendelse_id,
+                record_key
+            );
+            skrive_startet_hendelse(tx, &startet, record_key).await?;
+        }
+        _ => {
+            tracing::info!("Mottok en annen hendelse som ikke skal lagres");
+        }
+    }
+    Ok(())
 }
