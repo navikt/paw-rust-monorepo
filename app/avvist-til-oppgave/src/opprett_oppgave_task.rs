@@ -24,14 +24,17 @@ pub async fn start_processing_loop(
     oppgave_api_client: Arc<OppgaveApiClient>,
     opprett_oppgaver_fra_tidspunkt: NaiveDateTime,
 ) -> Result<(), anyhow::Error> {
-    let mut interval = interval(Duration::from_secs(1));
+    let mut interval = interval(Duration::from_secs(10));
     loop {
         interval.tick().await;
-        /*
-        if let Err(e) = prosesser_ubehandlede_oppgaver(db_pool.clone(), oppgave_api_client.clone(), BATCH_SIZE, opprett_oppgaver_fra_tidspunkt).await {
+        if let Err(e) = prosesser_ubehandlede_oppgaver(
+            opprett_oppgaver_fra_tidspunkt,
+            BATCH_SIZE,
+            oppgave_api_client.clone(),
+            db_pool.clone(),
+        ).await {
             log::error!("Feil i prosesseringsloop: {}", e);
         }
-        */
     }
 }
 
@@ -42,7 +45,8 @@ async fn prosesser_ubehandlede_oppgaver(
     db_pool: PgPool,
 ) -> Result<()> {
     let mut tx = db_pool.begin().await?;
-    let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(batch_size, fra_tidspunkt, &mut tx).await?;
+    let mut oppgaver =
+        hent_de_eldste_ubehandlede_oppgavene(batch_size, fra_tidspunkt, &mut tx).await?;
     oppgaver.shuffle(&mut rand::rng());
     tx.commit().await?;
 
@@ -85,6 +89,7 @@ async fn prosesser_oppgave(
             )
             .await?;
             oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
+            log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
             tx.commit().await?;
         }
         Err(error) => {
@@ -114,12 +119,13 @@ async fn prosesser_oppgave(
                 &InsertOppgaveHendelseLoggRow {
                     oppgave_id: oppgave.id,
                     status: EksternOppgaveOpprettelseFeilet.to_string(),
-                    melding: error_melding,
+                    melding: error_melding.clone(),
                     tidspunkt: Utc::now(),
                 },
                 &mut tx,
             )
             .await?;
+            log::error!("Feil ved opprettelse av oppgave {} i Oppgave API: {}", oppgave.id, error_melding);
             tx.commit().await?;
         }
     }
