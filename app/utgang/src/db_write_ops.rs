@@ -8,8 +8,8 @@ use sqlx::{Postgres, Transaction};
 pub async fn opprett_aktiv_periode(
     tx: &mut Transaction<'_, Postgres>,
     periode: &Periode,
-) -> Result<(), sqlx::Error> {
-    let _ = sqlx::query(
+) -> Result<bool, sqlx::Error> {
+    let res = sqlx::query(
         r#"
         INSERT INTO periode (
           id,
@@ -18,7 +18,7 @@ pub async fn opprett_aktiv_periode(
           periode_startet_brukertype,
           sist_oppdatert_timestamp,
           sist_oppdatert_status
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING
         "#,
     )
     .bind(periode.id)
@@ -29,7 +29,7 @@ pub async fn opprett_aktiv_periode(
     .bind(Status::Ok.to_string())
     .execute(&mut **tx)
     .await?;
-    Ok(())
+    Ok(res.rows_affected() == 1)
 }
 
 pub async fn avslutt_periode(

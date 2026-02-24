@@ -76,7 +76,17 @@ async fn haandter_periode_record(
         .await?;
     match periode.avsluttet {
         None => {
-            opprett_aktiv_periode(tx, &periode).await?;
+            let res = opprett_aktiv_periode(tx, &periode).await?;
+            if !res {
+                warn!(
+                    "Ignorer aktive periode melding: topic={}, partition={}, offset={}",
+                    msg.topic(),
+                    msg.partition(),
+                    msg.offset()
+                );
+            } else {
+                tracing::info!("Ny periode med id {} opprettet i databasen", periode.id);
+            }
         }
         Some(avsluttet) => {
             avslutt_periode(
