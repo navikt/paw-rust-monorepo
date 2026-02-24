@@ -1,4 +1,5 @@
 mod consumer_function;
+mod db_read_ops;
 mod db_write_ops;
 mod kafka;
 mod pdl;
