@@ -5,7 +5,7 @@ mod pdl;
 mod vo;
 
 use crate::consumer_function::UtgangMessageProcessor;
-use crate::kafka::hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message};
+use crate::kafka::hwm_message_processor::hwm_process_message;
 use crate::kafka::kafka_consumer::create_kafka_consumer;
 use crate::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
 use crate::pdl::pdl_config::PDLClientConfig;
@@ -17,7 +17,7 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
-use paw_sqlx::postgres::{clear_db, init_db};
+use paw_sqlx::postgres::init_db;
 use rdkafka::Message;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
