@@ -55,6 +55,10 @@ spec:
   azure:
     application:
       enabled: true
+  accessPolicy:
+    outbound:
+      external:
+        - host: oppgave-q1.dev-fss-pub.nais.io
   kafka:
     pool: nav-dev
   gcp:
