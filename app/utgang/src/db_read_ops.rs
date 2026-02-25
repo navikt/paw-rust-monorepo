@@ -2,6 +2,7 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::vo::opplysninger_rad::OpplysningerRad;
+use crate::vo::periode_metadata_rad::PeriodeMetadata;
 use crate::vo::periode_rad::PeriodeRad;
 
 pub async fn hent_opplysninger(
@@ -34,5 +35,20 @@ pub async fn hent_sist_oppdatert_foer(
         .bind(limit)
         .fetch_all(&mut **tx)
         .await?;
+    Ok(res)
+}
+
+pub async fn hent_periode_metadata(
+    tx: &mut Transaction<'_, Postgres>,
+    periode_id: &Uuid,
+) -> Result<PeriodeMetadata, sqlx::Error> {
+    let res: PeriodeMetadata = sqlx::query_as::<_, PeriodeMetadata>(
+        r#"
+        select * from periode_metadata where periode_id = $1
+        "#,
+    )
+    .bind(periode_id)
+    .fetch_one(&mut **tx)
+    .await?;
     Ok(res)
 }
