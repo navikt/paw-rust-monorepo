@@ -81,8 +81,12 @@ async fn lag_oppgave_for_avvist_hendelse(
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
+            tracing::info!("Sjekker dato: record={}, vannskille={}, resultat={}",
+                avvist_hendelse.metadata.tidspunkt,
+                opprett_oppgaver_fra_tidspunkt,
+                avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt
+            );
             if avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt {
-                // Lagre innslag med IGNORERT-status
                 let oppgave_row = to_oppgave_row(
                     avvist_hendelse,
                     OppgaveType::AvvistUnder18,
