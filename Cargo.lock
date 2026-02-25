@@ -177,10 +177,10 @@ dependencies = [
  "serde-env-field",
  "serde_json",
  "sqlx",
+ "strum",
  "texas_client",
  "thiserror 2.0.18",
  "tokio",
- "tracing",
  "uuid",
 ]
 

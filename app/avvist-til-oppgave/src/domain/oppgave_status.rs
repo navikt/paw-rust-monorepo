@@ -1,66 +1,54 @@
+use strum::{Display, EnumString};
 use thiserror::Error;
-use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumString, Display)]
+#[strum(
+    serialize_all = "SCREAMING_SNAKE_CASE",
+    parse_err_fn = oppgave_status_not_found,
+    parse_err_ty = OppgaveStatusParseError
+)]
 pub enum OppgaveStatus {
     Ubehandlet,
     Opprettet,
     Ferdigbehandlet,
 }
 
-impl FromStr for OppgaveStatus {
-    type Err = OppgaveStatusParseError;
-
-    fn from_str(str: &str) -> Result<Self, Self::Err> {
-        match str {
-            "Ubehandlet" => Ok(OppgaveStatus::Ubehandlet),
-            "Opprettet" => Ok(OppgaveStatus::Opprettet),
-            "Ferdigbehandlet" => Ok(OppgaveStatus::Ferdigbehandlet),
-            _ => Err(OppgaveStatusParseError::UkjentStatus(str.to_string())),
-        }
-    }
+fn oppgave_status_not_found(status: &str) -> OppgaveStatusParseError {
+    OppgaveStatusParseError::UgyldigStatus(status.to_string())
 }
 
-impl std::fmt::Display for OppgaveStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            OppgaveStatus::Ubehandlet => write!(f, "Ubehandlet"),
-            OppgaveStatus::Ferdigbehandlet => write!(f, "Ferdigbehandlet"),
-            OppgaveStatus::Opprettet => write!(f, "Opprettet"),
-        }
-    }
-}
 
 #[derive(Error, Debug, PartialEq)]
 pub enum OppgaveStatusParseError {
-    #[error("Ukjent oppgavestatus: {0}")]
-    UkjentStatus(String),
+    #[error("Ugyldig oppgavestatus: {0}")]
+    UgyldigStatus(String),
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use super::*;
 
     #[test]
     fn test_from_str_valid_status() {
         assert_eq!(
-            OppgaveStatus::from_str("Ubehandlet"),
+            OppgaveStatus::from_str("UBEHANDLET"),
             Ok(OppgaveStatus::Ubehandlet)
         );
         assert_eq!(
-            OppgaveStatus::from_str("Opprettet"),
+            OppgaveStatus::from_str("OPPRETTET"),
             Ok(OppgaveStatus::Opprettet)
         );
         assert_eq!(
-            OppgaveStatus::from_str("Ferdigbehandlet"),
+            OppgaveStatus::from_str("FERDIGBEHANDLET"),
             Ok(OppgaveStatus::Ferdigbehandlet)
         );
 
-        let ukjent_status = "UkjentStatus";
-        assert!(OppgaveStatus::from_str(ukjent_status).is_err());
+        let ugyldig_status = "UgyldigStatus";
+        assert!(OppgaveStatus::from_str(ugyldig_status).is_err());
         assert_eq!(
-            OppgaveStatus::from_str(ukjent_status).unwrap_err().to_string(),
-            format!("Ukjent oppgavestatus: {}", ukjent_status)
+            OppgaveStatus::from_str(ugyldig_status).unwrap_err().to_string(),
+            format!("Ugyldig oppgavestatus: {}", ugyldig_status)
         );
     }
 }

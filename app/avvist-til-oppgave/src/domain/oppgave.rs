@@ -106,7 +106,7 @@ mod tests {
             OppgaveError::StatusParseError(e) => {
                 assert_eq!(
                     e.to_string(),
-                    format!("Ukjent oppgavestatus: {}", ugyldig_status)
+                    format!("Ugyldig oppgavestatus: {}", ugyldig_status)
                 )
             }
             _ => panic!("Forventet StatusParseError"),

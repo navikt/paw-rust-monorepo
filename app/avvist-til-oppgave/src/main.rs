@@ -20,7 +20,7 @@ use paw_rdkafka::error::KafkaError;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::error::DatabaseError;
-use paw_sqlx::postgres::init_db;
+use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
@@ -41,7 +41,6 @@ async fn main() -> Result<()> {
 
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
-
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
