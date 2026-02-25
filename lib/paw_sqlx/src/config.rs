@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
+use std::str::FromStr;
 
 #[env_field_wrap]
 #[derive(Deserialize)]
@@ -9,6 +10,7 @@ pub struct DatabaseConfig {
     pub username: String,
     pub password: String,
     pub database: String,
+    pub statement_log_level: Option<String>
 }
 
 impl DatabaseConfig {
@@ -17,6 +19,13 @@ impl DatabaseConfig {
             "postgresql://{}:{}@{}:{}/{}",
             self.username, self.password, self.host, self.port, self.database
         )
+    }
+
+    pub fn statement_log_level(&self) -> log::LevelFilter {
+        match self.statement_log_level.as_deref() {
+            Some(level) => log::LevelFilter::from_str(&level).unwrap_or(log::LevelFilter::Debug),
+            None => log::LevelFilter::Debug,
+        }
     }
 }
 
