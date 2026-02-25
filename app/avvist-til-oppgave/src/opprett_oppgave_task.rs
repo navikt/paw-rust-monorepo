@@ -1,5 +1,6 @@
 use crate::client::oppgave_client::{OppgaveApiClient, OppgaveApiError};
 use crate::client::opprett_oppgave_request::create_oppgave_request;
+use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{
     bytt_oppgave_status, hent_de_eldste_ubehandlede_oppgavene, insert_oppgave_hendelse_logg,
     oppdater_oppgave_med_ekstern_id,
@@ -11,25 +12,28 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus::{Ignorert, Opprettet, Ubehandlet};
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
-
-const BATCH_SIZE: i64 = 10;
+use tokio::time::{Duration, interval};
 
 pub async fn start_processing_loop(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
-    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
+    app_config: ApplicationConfig,
 ) -> Result<()> {
-    let mut interval = interval(Duration::from_secs(10));
+    let opprett_oppgaver_task_interval_minutes = app_config
+        .opprett_oppgaver_task_interval_minutes
+        .into_inner();
+    let opprett_oppgaver_task_batch_size = app_config.opprett_oppgaver_task_batch_size.into_inner();
+    let opprett_oppgaver_fra_tidspunkt = app_config.opprett_oppgaver_fra_tidspunkt.into_inner();
+    let mut interval = interval(Duration::from_mins(opprett_oppgaver_task_interval_minutes));
     loop {
         interval.tick().await;
         if let Err(e) = prosesser_ubehandlede_oppgaver(
             opprett_oppgaver_fra_tidspunkt,
-            BATCH_SIZE,
+            opprett_oppgaver_task_batch_size,
             oppgave_api_client.clone(),
             db_pool.clone(),
         )

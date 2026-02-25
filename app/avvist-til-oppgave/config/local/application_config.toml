@@ -1,4 +1,6 @@
 topics = [
     "paw.arbeidssoker-hendelseslogg-v1"
 ]
+opprett_oppgaver_task_interval_minutes = 1
+opprett_oppgaver_task_batch_size = 10
 opprett_oppgaver_fra_tidspunkt = "2020-01-01T00:00:00+01:00"

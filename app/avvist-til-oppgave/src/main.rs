@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     let opprett_oppgave_task = opprett_oppgave_task::start_processing_loop(
         pg_pool.clone(),
         oppgave_api_client,
-        app_config.opprett_oppgaver_fra_tidspunkt.into_inner(),
+        app_config,
     );
 
     appstate.set_has_started(true);

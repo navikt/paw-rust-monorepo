@@ -12,6 +12,8 @@ use texas_client::config::TokenClientConfig;
 #[derive(Debug, Deserialize)]
 pub struct ApplicationConfig {
     pub topics: Vec<String>,
+    pub opprett_oppgaver_task_interval_minutes: u64,
+    pub opprett_oppgaver_task_batch_size: i64,
     pub opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
 }
 
