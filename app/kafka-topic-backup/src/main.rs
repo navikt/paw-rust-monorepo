@@ -30,7 +30,7 @@ async fn main() {
     register_panic_logger();
     setup_nais_otel().unwrap();
     info!("Starter applikasjon");
-    let _ = match run_app().await {
+    match run_app().await {
         Ok(_) => {
             info!("Applikasjonen avsluttet uten feil");
         }
@@ -88,7 +88,7 @@ async fn run_app() -> Result<(), Box<dyn std::error::Error>> {
         result = signal => {
             match result {
                 Ok(signal) => info!("Signal '{}' mottatt, avslutter....", signal),
-                Err(e) => return Err(e.into()),
+                Err(e) => return Err(e),
             }
         }
     }
