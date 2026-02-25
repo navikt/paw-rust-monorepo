@@ -6,24 +6,24 @@ use crate::db::oppgave_functions::{
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
-    EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet,
+    EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet, OppgaveIgnorert,
 };
 use crate::domain::oppgave::Oppgave;
-use crate::domain::oppgave_status::OppgaveStatus::{Opprettet, Ubehandlet};
+use crate::domain::oppgave_status::OppgaveStatus::{Ignorert, Opprettet, Ubehandlet};
 use anyhow::Result;
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tokio::time::{Duration, interval};
+use tokio::time::{interval, Duration};
 
 const BATCH_SIZE: i64 = 10;
 
 pub async fn start_processing_loop(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
-    opprett_oppgaver_fra_tidspunkt: NaiveDateTime,
-) -> Result<(), anyhow::Error> {
+    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
+) -> Result<()> {
     let mut interval = interval(Duration::from_secs(10));
     loop {
         interval.tick().await;
@@ -32,14 +32,16 @@ pub async fn start_processing_loop(
             BATCH_SIZE,
             oppgave_api_client.clone(),
             db_pool.clone(),
-        ).await {
+        )
+        .await
+        {
             log::error!("Feil i prosesseringsloop: {}", e);
         }
     }
 }
 
 async fn prosesser_ubehandlede_oppgaver(
-    fra_tidspunkt: NaiveDateTime,
+    fra_tidspunkt: DateTime<Utc>,
     batch_size: i64,
     oppgave_api_client: Arc<OppgaveApiClient>,
     db_pool: PgPool,
@@ -51,7 +53,9 @@ async fn prosesser_ubehandlede_oppgaver(
     tx.commit().await?;
 
     for oppgave in oppgaver {
-        if let Err(e) = prosesser_oppgave(&db_pool, &oppgave_api_client, &oppgave).await {
+        if let Err(e) =
+            prosesser_oppgave(&db_pool, &oppgave_api_client, fra_tidspunkt, &oppgave).await
+        {
             log::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id, e);
         }
     }
@@ -61,75 +65,100 @@ async fn prosesser_ubehandlede_oppgaver(
 async fn prosesser_oppgave(
     db_pool: &PgPool,
     oppgave_client: &OppgaveApiClient,
+    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
     oppgave: &Oppgave,
 ) -> Result<()> {
     let mut tx = db_pool.begin().await?;
 
-    if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
-        tx.rollback().await?;
-        log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
-        return Ok(());
-    }
-
-    let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
-
-    match oppgave_client
-        .opprett_oppgave(&opprett_oppgave_request)
-        .await
-    {
-        Ok(oppgave_dto) => {
+    if oppgave.tidspunkt < opprett_oppgaver_fra_tidspunkt {
+        if !bytt_oppgave_status(oppgave.id, Ubehandlet, Ignorert, &mut tx).await? {
+            tx.rollback().await?;
+            log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
+            Ok(())
+        } else {
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
                     oppgave_id: oppgave.id,
-                    status: EksternOppgaveOpprettet.to_string(),
-                    melding: "Ekstern oppgave_id opprettet".to_string(),
+                    status: OppgaveIgnorert.to_string(),
+                    melding: "Oppgaven er eldre enn opprett oppgaver fra tidspunkt".to_string(),
                     tidspunkt: Utc::now(),
                 },
                 &mut tx,
             )
             .await?;
-            oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
-            log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
-            tx.commit().await?;
+            Ok(())
         }
-        Err(error) => {
-            if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
-                return Err(anyhow::anyhow!(
-                    "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
-                    oppgave.id
-                ));
-            }
+    } else {
+        if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
+            tx.rollback().await?;
+            log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
+            Ok(())
+        } else {
+            let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
+            let response = oppgave_client
+                .opprett_oppgave(&opprett_oppgave_request)
+                .await;
 
-            let error_melding = match error {
-                OppgaveApiError::ApiError { status, message } => {
-                    format!(
-                        "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
-                        status, message
+            match response {
+                Ok(oppgave_dto) => {
+                    insert_oppgave_hendelse_logg(
+                        &InsertOppgaveHendelseLoggRow {
+                            oppgave_id: oppgave.id,
+                            status: EksternOppgaveOpprettet.to_string(),
+                            melding: "Ekstern oppgave_id opprettet".to_string(),
+                            tidspunkt: Utc::now(),
+                        },
+                        &mut tx,
                     )
+                    .await?;
+                    oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
+                    log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
+                    tx.commit().await?;
                 }
-                OppgaveApiError::ReqwestError(e) => {
-                    format!("HTTP-feil ved kall til Oppgave API: {}", e)
-                }
-                OppgaveApiError::TokenError(e) => {
-                    format!("Token-feil ved kall til Oppgave API: {}", e)
-                }
-            };
+                Err(error) => {
+                    if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
+                        return Err(anyhow::anyhow!(
+                            "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
+                            oppgave.id
+                        ));
+                    }
 
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
-                    status: EksternOppgaveOpprettelseFeilet.to_string(),
-                    melding: error_melding.clone(),
-                    tidspunkt: Utc::now(),
-                },
-                &mut tx,
-            )
-            .await?;
-            log::error!("Feil ved opprettelse av oppgave {} i Oppgave API: {}", oppgave.id, error_melding);
-            tx.commit().await?;
+                    let error_melding = match error {
+                        OppgaveApiError::ApiError { status, message } => {
+                            format!(
+                                "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
+                                status, message
+                            )
+                        }
+                        OppgaveApiError::ReqwestError(e) => {
+                            format!("HTTP-feil ved kall til Oppgave API: {}", e)
+                        }
+                        OppgaveApiError::TokenError(e) => {
+                            format!("Token-feil ved kall til Oppgave API: {}", e)
+                        }
+                    };
+
+                    insert_oppgave_hendelse_logg(
+                        &InsertOppgaveHendelseLoggRow {
+                            oppgave_id: oppgave.id,
+                            status: EksternOppgaveOpprettelseFeilet.to_string(),
+                            melding: error_melding.clone(),
+                            tidspunkt: Utc::now(),
+                        },
+                        &mut tx,
+                    )
+                    .await?;
+                    log::error!(
+                        "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
+                        oppgave.id,
+                        error_melding
+                    );
+                    tx.commit().await?;
+                }
+            }
+            Ok(())
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -143,14 +172,13 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use async_trait::async_trait;
-    use chrono::NaiveDateTime;
     use mockito::{Matcher, Server};
     use paw_test::setup_test_db::setup_test_db;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::time::sleep;
     use texas_client::response::TokenResponse;
     use texas_client::token_client::M2MTokenClient;
+    use tokio::time::sleep;
 
     #[tokio::test]
     async fn prosesser_tre_oppgaver_to_ok_en_feil() -> Result<()> {
@@ -242,7 +270,7 @@ mod tests {
 
         tx.commit().await?;
 
-        let fra_dato = NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")?;
+        let fra_dato = DateTime::UNIX_EPOCH;
         let result =
             prosesser_ubehandlede_oppgaver(fra_dato, 3, oppgave_api_client, pg_pool.clone()).await;
         assert!(result.is_ok(), "Funksjonen skulle returnere Ok(())");
@@ -294,8 +322,7 @@ mod tests {
         ));
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
-        let fra_dato =
-            NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        let fra_dato = DateTime::UNIX_EPOCH;
         let result =
             prosesser_ubehandlede_oppgaver(fra_dato, 10, oppgave_api_client, pg_pool.clone()).await;
         assert!(result.is_ok());
@@ -304,6 +331,7 @@ mod tests {
 
     #[tokio::test]
     async fn to_tråder_prosesserer_samme_oppgave() -> Result<()> {
+        let opprett_oppgaver_fra_tidspunkt = DateTime::UNIX_EPOCH;
         let mut server = Server::new_async().await;
         let identitetsnummer = "12345678901";
 
@@ -343,7 +371,7 @@ mod tests {
         let mut hent_eldste_oppgaver_tx = pg_pool.begin().await?;
         let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(
             1,
-            NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap(),
+            DateTime::UNIX_EPOCH,
             &mut hent_eldste_oppgaver_tx,
         )
         .await?;
@@ -358,8 +386,9 @@ mod tests {
         // Worker B: spawner prosesser_oppgave — blokkeres av Worker A sin row lock
         let pool_b = pg_pool.clone();
         let client_b = oppgave_api_client.clone();
-        let worker_b =
-            tokio::spawn(async move { prosesser_oppgave(&pool_b, &client_b, &oppgave).await });
+        let worker_b = tokio::spawn(async move {
+            prosesser_oppgave(&pool_b, &client_b, opprett_oppgaver_fra_tidspunkt, &oppgave).await
+        });
 
         // Gi Worker B tid til å nå UPDATE og bli blokkert av row lock
         sleep(Duration::from_secs(1)).await;

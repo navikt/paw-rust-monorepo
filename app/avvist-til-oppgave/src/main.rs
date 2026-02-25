@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
 
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
-    
+    clear_db(&pg_pool).await?;
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
@@ -57,23 +57,19 @@ async fn main() -> Result<()> {
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone(),
+        app_config.opprett_oppgaver_fra_tidspunkt.into_inner()
     );
 
     let reqwest_client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(5)).build()?;
 
     let token_client_config = read_token_client_config()?;
-    log::info!(
-        "Token client config går mot: {}",
-        token_client_config.token_endpoint
-    );
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_client_config = read_oppgave_client_config()?;
     let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client));
-    let opprett_oppgaver_fra_tidspunkt = app_config.opprett_oppgaver_fra_tidspunkt()?;
     let opprett_oppgave_task = opprett_oppgave_task::start_processing_loop(
         pg_pool.clone(),
         oppgave_api_client,
-        opprett_oppgaver_fra_tidspunkt,
+        app_config.opprett_oppgaver_fra_tidspunkt.into_inner(),
     );
 
     appstate.set_has_started(true);

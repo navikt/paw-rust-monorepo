@@ -6,11 +6,11 @@ use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use health_and_monitoring::simple_app_state::AppState;
 use interne_hendelser;
-use interne_hendelser::vo::BrukerType;
 use interne_hendelser::Avvist;
+use interne_hendelser::vo::BrukerType;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
@@ -24,12 +24,13 @@ pub async fn start_processing_loop(
     hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
     pg_pool: PgPool,
     _app_state: Arc<AppState>,
+    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
 ) -> Result<()> {
     log::info!("Starting processing loop");
     loop {
         let kafka_message = hendelselogg_consumer.recv().await?.detach();
         let tx = pg_pool.begin().await?;
-        process_hendelse(&kafka_message, tx).await?;
+        process_hendelse(&kafka_message, opprett_oppgaver_fra_tidspunkt, tx).await?;
     }
 }
 
@@ -37,6 +38,7 @@ const HWM_VERSION: i16 = 1;
 
 pub async fn process_hendelse(
     kafka_message: &OwnedMessage,
+    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
     mut tx: Transaction<'_, Postgres>,
 ) -> Result<()> {
     if update_hwm(
@@ -48,7 +50,8 @@ pub async fn process_hendelse(
     )
     .await?
     {
-        lag_oppgave_for_avvist_hendelse(kafka_message, &mut tx).await?;
+        lag_oppgave_for_avvist_hendelse(kafka_message, opprett_oppgaver_fra_tidspunkt, &mut tx)
+            .await?;
         tx.commit().await?;
     } else {
         tx.rollback().await?;
@@ -58,6 +61,7 @@ pub async fn process_hendelse(
 
 async fn lag_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
+    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<()> {
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
@@ -73,15 +77,48 @@ async fn lag_oppgave_for_avvist_hendelse(
         if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
             return Ok(());
         }
+
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
-            let oppgave_row = to_oppgave_row(
-                avvist_hendelse,
-                OppgaveType::AvvistUnder18,
-                OppgaveStatus::Ubehandlet,
-            );
-            insert_oppgave(&oppgave_row, tx).await?;
+            if avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt {
+                // Lagre innslag med IGNORERT-status
+                let oppgave_row = to_oppgave_row(
+                    avvist_hendelse,
+                    OppgaveType::AvvistUnder18,
+                    OppgaveStatus::Ignorert,
+                );
+                let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+
+                let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
+                    oppgave_id,
+                    status: HendelseLoggStatus::OppgaveIgnorert.to_string(),
+                    melding: format!(
+                        "Oppretter oppgave for avvist hendelse med status {} fordi hendelse er eldre enn {}",
+                        OppgaveStatus::Ignorert.to_string(),
+                        opprett_oppgaver_fra_tidspunkt
+                    ),
+                    tidspunkt: oppgave_row.tidspunkt.clone(),
+                };
+
+                insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
+            } else {
+                let oppgave_row = to_oppgave_row(
+                    avvist_hendelse,
+                    OppgaveType::AvvistUnder18,
+                    OppgaveStatus::Ubehandlet,
+                );
+                let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+
+                let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
+                    oppgave_id,
+                    status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
+                    melding: "Oppretter oppgave for avvist hendelse".to_string(),
+                    tidspunkt: oppgave_row.tidspunkt.clone(),
+                };
+
+                insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
+            }
         } else {
             let status_logg_row = InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.unwrap().id,
@@ -123,6 +160,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
+        let opprett_oppgaver_fra_tidspunkt = DateTime::UNIX_EPOCH;
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
@@ -172,18 +210,23 @@ mod tests {
         );
 
         let tx = pg_pool.begin().await?;
-        process_hendelse(&irrelevant_message, tx).await?;
+        process_hendelse(&irrelevant_message, opprett_oppgaver_fra_tidspunkt, tx).await?;
 
         // Skal ikke prosessere avvist hendelse fra veileder
         let tx = pg_pool.begin().await?;
-        process_hendelse(&avvist_fra_veileder_message, tx).await?;
+        process_hendelse(
+            &avvist_fra_veileder_message,
+            opprett_oppgaver_fra_tidspunkt,
+            tx,
+        )
+        .await?;
 
         let tx = pg_pool.begin().await?;
-        process_hendelse(&avvist_message, tx).await?;
+        process_hendelse(&avvist_message, opprett_oppgaver_fra_tidspunkt, tx).await?;
 
         //Duplikat melding skal kun føre til en entry i status logg
         let tx = pg_pool.begin().await?;
-        process_hendelse(&andre_avvist_message, tx).await?;
+        process_hendelse(&andre_avvist_message, opprett_oppgaver_fra_tidspunkt, tx).await?;
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;

@@ -1,11 +1,10 @@
 use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
-use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 
 pub async fn hent_oppgave(
@@ -95,24 +94,6 @@ pub async fn insert_oppgave(
     oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<i64> {
-    let oppgave_id = _insert_oppgave(oppgave_row, transaction).await?;
-
-    let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-        oppgave_id,
-        status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-        melding: "Oppretter oppgave for avvist hendelse".to_string(),
-        tidspunkt: oppgave_row.tidspunkt.clone(),
-    };
-
-    insert_oppgave_hendelse_logg(&hendelse_logg_row, transaction).await?;
-
-    Ok(oppgave_id)
-}
-
-async fn _insert_oppgave(
-    oppgave_row: &InsertOppgaveRow,
-    transaction: &mut Transaction<'_, Postgres>,
-) -> Result<i64> {
     let oppgave_id = sqlx::query_scalar(
         r#"
         INSERT INTO oppgaver (type, status, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
@@ -196,7 +177,7 @@ pub async fn bytt_oppgave_status(
 
 pub async fn hent_de_eldste_ubehandlede_oppgavene(
     antall_oppgaver: i64,
-    fra_tidspunkt: NaiveDateTime,
+    fra_tidspunkt: DateTime<Utc>,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<Oppgave>> {
     let oppgave_rows = sqlx::query_as::<_, OppgaveRow>(
@@ -250,10 +231,10 @@ mod tests {
     use super::*;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
     use crate::domain::oppgave_type::OppgaveType;
-    use OppgaveType::AvvistUnder18;
     use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
     use uuid::Uuid;
+    use OppgaveType::AvvistUnder18;
 
     #[tokio::test]
     async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {
@@ -291,8 +272,9 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let antall_oppgaver = 2;
-        let fra_tidspunkt = NaiveDateTime::parse_from_str("2020-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")?;
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
+        let fra_tidspunkt = Utc::now() - chrono::Duration::days(1336);
+        let oppgaver =
+            hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
 
         assert_eq!(oppgaver.len(), antall_oppgaver as usize);
         let eldste_oppgave = &oppgaver[0];
@@ -330,16 +312,20 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let fra_tidspunkt = (now - chrono::Duration::seconds(1)).naive_utc();
+        let fra_tidspunkt = now - chrono::Duration::seconds(1);
         let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
         assert_eq!(oppgaver.len(), 1, "Skal bare finne ny_oppgave");
         tx.commit().await?;
 
         // fra_tidspunkt 1 sekund i fremtiden — ingen oppgaver
         let mut tx = pg_pool.begin().await?;
-        let fra_tidspunkt = (now + chrono::Duration::seconds(1)).naive_utc();
+        let fra_tidspunkt = (now + chrono::Duration::seconds(1));
         let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
-        assert_eq!(oppgaver.len(), 0, "Skal ikke finne noen oppgaver med fra_tidspunkt i fremtiden");
+        assert_eq!(
+            oppgaver.len(),
+            0,
+            "Skal ikke finne noen oppgaver med fra_tidspunkt i fremtiden"
+        );
 
         Ok(())
     }
@@ -449,7 +435,6 @@ mod tests {
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
-        assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(oppgave.status, Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
