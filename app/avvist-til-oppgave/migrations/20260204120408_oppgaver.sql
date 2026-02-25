@@ -19,3 +19,7 @@ CREATE TABLE oppgave_hendelse_logg
     melding    TEXT        NOT NULL,
     tidspunkt  TIMESTAMP   NOT NULL
 );
+
+CREATE INDEX oppgaver_arbeidssoeker_id_idx ON oppgaver (arbeidssoeker_id);
+CREATE INDEX oppgaver_status_idx ON oppgaver (status);
+CREATE INDEX oppgave_hendelse_logg_oppgave_id_idx ON oppgave_hendelse_logg (oppgave_id);
