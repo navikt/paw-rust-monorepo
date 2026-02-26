@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "domain/pdl_graphql",
     "domain/interne_hendelser",
     "domain/regler_core",
     "domain/regler_macro",

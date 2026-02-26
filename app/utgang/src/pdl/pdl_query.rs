@@ -1,8 +1,8 @@
-use crate::pdl::hent_person_bolk::hent_person_bolk::HentPersonBolkHentPersonBolk;
-use crate::pdl::hent_person_bolk::{hent_person_bolk, HentPersonBolk};
 use crate::pdl::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
 use anyhow::Result;
 use graphql_client::GraphQLQuery;
+use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
+use pdl_graphql::pdl::{hent_person_bolk, HentPersonBolk};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
 
