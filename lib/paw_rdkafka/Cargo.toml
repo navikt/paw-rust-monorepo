@@ -10,3 +10,4 @@ serde = { workspace = true, features = ["derive"] }
 serde-env-field = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+opentelemetry = { workspace = true }

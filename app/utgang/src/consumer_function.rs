@@ -1,10 +1,10 @@
 use crate::db_write_ops::{avslutt_periode, opprett_aktiv_periode, skrive_startet_hendelse};
-use crate::kafka::hwm_message_processor::{MessageProcessor, ProcessorError};
 use crate::kafka::periode_processor::PeriodeProcessor;
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
 use crate::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 use anyhow::Result;
 use interne_hendelser::InterneHendelser;
+use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};

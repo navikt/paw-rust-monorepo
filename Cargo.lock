@@ -2343,6 +2343,7 @@ name = "paw_rdkafka"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "opentelemetry",
  "paw_rust_base",
  "rdkafka",
  "serde",
@@ -2358,12 +2359,15 @@ dependencies = [
  "futures",
  "health_and_monitoring",
  "log",
+ "paw_rdkafka",
  "paw_test",
+ "prometheus",
  "rdkafka",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]

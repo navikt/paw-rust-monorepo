@@ -1,5 +1,4 @@
-use crate::kafka::headers::{extract_headers_as_map, extract_remote_otel_context};
-use paw_rdkafka_hwm::hwm_functions::update_hwm;
+use paw_rdkafka::headers::{extract_headers_as_map, extract_remote_otel_context};
 use prometheus::{CounterVec, register_counter_vec};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -10,6 +9,8 @@ use std::pin::Pin;
 use std::sync::OnceLock;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+use crate::hwm_functions::update_hwm;
 
 pub type ProcessorError = Box<dyn Error + Send + Sync>;
 pub trait MessageProcessor {
