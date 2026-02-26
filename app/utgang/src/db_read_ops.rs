@@ -1,3 +1,5 @@
+use std::num::NonZeroU16;
+
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
@@ -25,14 +27,14 @@ pub async fn hent_opplysninger(
 pub async fn hent_sist_oppdatert_foer(
     tx: &mut Transaction<'_, Postgres>,
     tidspunkt: &chrono::DateTime<chrono::Utc>,
-    limit: i64,
+    limit: &NonZeroU16,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
     let res: Vec<PeriodeRad> = sqlx::query_as::<_, PeriodeRad>(
         r#"
         select * from periode where sist_oppdatert_timestamp < $1 order by sist_oppdatert_timestamp ASC limit $2
         "#
     ).bind(tidspunkt)
-        .bind(limit)
+        .bind(limit.get() as i64)
         .fetch_all(&mut **tx)
         .await?;
     Ok(res)
