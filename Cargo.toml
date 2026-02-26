@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
+    "domain/interne_hendelser",
+    "domain/regler_core",
+    "domain/regler_macro",
+    "domain/regler_inngang",
     "lib/paw_app_config",
     "lib/axum_health",
     "lib/health_and_monitoring",
@@ -13,13 +17,15 @@ members = [
     "app/test-app",
     "app/kafka-topic-backup",
     "app/avvist-til-oppgave",
-    "app/utgang", "domain/interne_hendelser",
+    "app/utgang",
 ]
 
 [workspace.package]
 edition = "2024"
 
 [workspace.dependencies]
+syn = "2.0"
+quote = "1.0"
 async-trait = "0.1"
 axum = "0.8.8"
 base64 = "0.22.1"

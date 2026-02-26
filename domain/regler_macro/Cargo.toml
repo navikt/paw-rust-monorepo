@@ -1,0 +1,11 @@
+[package]
+name = "regler_macro"
+version = "0.1.0"
+edition.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true, features = ["full", "fold"] }
+quote = { workspace = true }
