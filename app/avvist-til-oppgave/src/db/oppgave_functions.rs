@@ -319,7 +319,7 @@ mod tests {
 
         // fra_tidspunkt 1 sekund i fremtiden — ingen oppgaver
         let mut tx = pg_pool.begin().await?;
-        let fra_tidspunkt = (now + chrono::Duration::seconds(1));
+        let fra_tidspunkt = now + chrono::Duration::seconds(1);
         let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
         assert_eq!(
             oppgaver.len(),

@@ -1,1 +1,1 @@
-token_endpoint = "http://localhost:8080/token"
+token_endpoint = "http://localhost:8090/token"

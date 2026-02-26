@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use paw_app_config::config::read_toml_config;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rust_base::env;

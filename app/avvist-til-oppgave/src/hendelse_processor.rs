@@ -1,3 +1,4 @@
+use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
@@ -6,11 +7,11 @@ use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use health_and_monitoring::simple_app_state::AppState;
 use interne_hendelser;
-use interne_hendelser::Avvist;
 use interne_hendelser::vo::BrukerType;
+use interne_hendelser::Avvist;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::StreamConsumer;
@@ -24,9 +25,10 @@ pub async fn start_processing_loop(
     hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
     pg_pool: PgPool,
     _app_state: Arc<AppState>,
-    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
+    app_config: &ApplicationConfig,
 ) -> Result<()> {
     log::info!("Starting processing loop");
+    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
     loop {
         let kafka_message = hendelselogg_consumer.recv().await?.detach();
         let tx = pg_pool.begin().await?;
@@ -81,7 +83,8 @@ async fn lag_oppgave_for_avvist_hendelse(
         let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
-            tracing::info!("Sjekker dato: record={}, vannskille={}, resultat={}",
+            tracing::info!(
+                "Sjekker dato: record={}, vannskille={}, resultat={}",
                 avvist_hendelse.metadata.tidspunkt,
                 opprett_oppgaver_fra_tidspunkt,
                 avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt

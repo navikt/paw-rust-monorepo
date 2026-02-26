@@ -18,7 +18,6 @@ fn oppgave_status_not_found(status: &str) -> OppgaveStatusParseError {
     OppgaveStatusParseError::UgyldigStatus(status.to_string())
 }
 
-
 #[derive(Error, Debug, PartialEq)]
 pub enum OppgaveStatusParseError {
     #[error("Ugyldig oppgavestatus: {0}")]

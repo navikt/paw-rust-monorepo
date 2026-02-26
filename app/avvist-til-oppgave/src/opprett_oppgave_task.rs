@@ -16,19 +16,19 @@ use chrono::{DateTime, Utc};
 use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tokio::time::{Duration, interval};
+use std::time::Duration;
+use tokio::time::interval;
 
 pub async fn start_processing_loop(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
-    app_config: ApplicationConfig,
+    app_config: &ApplicationConfig,
 ) -> Result<()> {
-    let opprett_oppgaver_task_interval_minutes = app_config
-        .opprett_oppgaver_task_interval_minutes
-        .into_inner();
-    let opprett_oppgaver_task_batch_size = app_config.opprett_oppgaver_task_batch_size.into_inner();
-    let opprett_oppgaver_fra_tidspunkt = app_config.opprett_oppgaver_fra_tidspunkt.into_inner();
-    let mut interval = interval(Duration::from_mins(opprett_oppgaver_task_interval_minutes));
+    let opprett_oppgaver_task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
+    let opprett_oppgaver_task_batch_size = *app_config.opprett_oppgaver_task_batch_size;
+    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
+    let task_interval = Duration::from_mins(opprett_oppgaver_task_interval_minutes);
+    let mut interval = interval(task_interval);
     loop {
         interval.tick().await;
         if let Err(e) = prosesser_ubehandlede_oppgaver(
@@ -180,6 +180,7 @@ mod tests {
     use paw_test::setup_test_db::setup_test_db;
     use serde_json::json;
     use std::sync::Arc;
+    use std::time::Duration;
     use texas_client::response::TokenResponse;
     use texas_client::token_client::M2MTokenClient;
     use tokio::time::sleep;

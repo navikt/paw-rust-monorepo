@@ -57,10 +57,12 @@ async fn main() -> Result<()> {
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone(),
-        app_config.opprett_oppgaver_fra_tidspunkt.into_inner()
+        &app_config,
     );
 
-    let reqwest_client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(5)).build()?;
+    let reqwest_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()?;
 
     let token_client_config = read_token_client_config()?;
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
@@ -69,7 +71,7 @@ async fn main() -> Result<()> {
     let opprett_oppgave_task = opprett_oppgave_task::start_processing_loop(
         pg_pool.clone(),
         oppgave_api_client,
-        app_config,
+        &app_config,
     );
 
     appstate.set_has_started(true);

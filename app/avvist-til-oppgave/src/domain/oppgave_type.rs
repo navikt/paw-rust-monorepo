@@ -1,28 +1,19 @@
+use strum::{Display, EnumString};
 use thiserror::Error;
-use std::str::FromStr;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, EnumString, Display)]
+#[strum(
+    serialize_all = "SCREAMING_SNAKE_CASE",
+    parse_err_fn = oppgave_type_not_found,
+    parse_err_ty = OppgaveTypeParseError
+)]
 pub enum OppgaveType {
+    #[strum(serialize = "AVVIST_UNDER_18")]
     AvvistUnder18,
 }
 
-impl FromStr for OppgaveType {
-    type Err = OppgaveTypeParseError;
-
-    fn from_str(str: &str) -> Result<Self, Self::Err> {
-        match str {
-            "AvvistUnder18" => Ok(OppgaveType::AvvistUnder18),
-            _ => Err(OppgaveTypeParseError::UkjentType(str.to_string())),
-        }
-    }
-}
-
-impl std::fmt::Display for OppgaveType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            OppgaveType::AvvistUnder18 => write!(f, "AvvistUnder18"),
-        }
-    }
+fn oppgave_type_not_found(type_: &str) -> OppgaveTypeParseError {
+    OppgaveTypeParseError::UkjentType(type_.to_string())
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -34,11 +25,12 @@ pub enum OppgaveTypeParseError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_from_str_valid_status() {
         assert_eq!(
-            OppgaveType::from_str("AvvistUnder18"),
+            OppgaveType::from_str("AVVIST_UNDER_18"),
             Ok(OppgaveType::AvvistUnder18)
         );
         let ukjent_type = "UkjentType";
