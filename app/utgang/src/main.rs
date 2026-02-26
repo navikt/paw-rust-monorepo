@@ -3,6 +3,7 @@ mod db_read_ops;
 mod db_write_ops;
 mod kafka;
 mod pdl;
+mod status_oppdatering;
 mod vo;
 
 use crate::consumer_function::UtgangMessageProcessor;
