@@ -17,9 +17,9 @@ spec:
     - name: PGSSLKEY
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_UTGANG_PDL_UTGANGBETA1_SSLKEY)"
     - name: KAFKA_KEYS_SCOPE
-      value: api://dev-gcp.paw.paw-kafka-key-generator/.default
+      value: "api://dev-gcp.paw.paw-kafka-key-generator/.default"
     - name: PDL_SCOPE
-      value: "api://dev-fss.pdl_graphql.pdl_graphql-api/.default"
+      value: "api://dev-fss.pdl.pdl-api/.default"
     - name: PDL_URL
       value: "https://pdl-api.dev-fss-pub.nais.io/graphql"
     - name: HENDELSELOGG_TOPIC
@@ -63,7 +63,7 @@ spec:
   accessPolicy:
     outbound:
       external:
-        - host: pdl_graphql-api.dev-fss-pub.nais.io
+        - host: pdl-api.dev-fss-pub.nais.io
   gcp:
     sqlInstances:
       - type: POSTGRES_18
