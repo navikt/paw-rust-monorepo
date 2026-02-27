@@ -2,8 +2,8 @@ mod consumer_function;
 mod db_read_ops;
 mod db_write_ops;
 mod kafka;
+mod oppdater_pdl_data;
 mod pdl;
-mod status_oppdatering;
 mod vo;
 
 use crate::consumer_function::UtgangMessageProcessor;

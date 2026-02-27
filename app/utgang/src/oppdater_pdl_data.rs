@@ -1,37 +1,42 @@
 use std::{collections::HashMap, num::NonZeroU16, ops::Deref, sync::Arc};
 
 use crate::{
-    db_read_ops::{hent_opplysninger, hent_periode_metadata, hent_sist_oppdatert_foer},
+    db_read_ops::{hent_periode_metadata, hent_sist_oppdatert_foer},
     db_write_ops::{skriv_pdl_info, skriv_status},
     pdl::pdl_query::PDLClient,
     vo::{periode_metadata_rad::PeriodeMetadata, status::Status},
 };
 use anyhow::Result;
-use chrono::DateTime;
-use futures::future::join_all;
+use chrono::Duration;
 use interne_hendelser::vo::Opplysning;
-use pdl_graphql::pdl::PdlPerson;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub struct StatusOppdatering {
-    inner: Arc<StatusOppdateringRef>,
+pub struct PdlDataOppdatering {
+    inner: Arc<PdlDataOppdateringRef>,
 }
 
-struct StatusOppdateringRef {
+struct PdlDataOppdateringRef {
     pg_pool: PgPool,
     pdl_client: PDLClient,
     batch_size: NonZeroU16,
+    intervall: Duration,
 }
 
-impl StatusOppdatering {
-    pub fn new(pg_pool: PgPool, pdl_client: PDLClient, batch_size: NonZeroU16) -> Self {
+impl PdlDataOppdatering {
+    pub fn new(
+        pg_pool: PgPool,
+        pdl_client: PDLClient,
+        batch_size: NonZeroU16,
+        intervall: Duration,
+    ) -> Self {
         Self {
-            inner: Arc::new(StatusOppdateringRef {
+            inner: Arc::new(PdlDataOppdateringRef {
                 pg_pool,
                 pdl_client,
                 batch_size,
+                intervall,
             }),
         }
     }
@@ -41,9 +46,10 @@ impl StatusOppdatering {
         let pdl_client = &self.inner.pdl_client;
         let batch_size = &self.inner.batch_size;
         let mut tx = pg_pool.begin().await?;
+        let sist_oppdatert_foer = chrono::Utc::now() - self.inner.intervall;
         let skal_oppdateres = hent_sist_oppdatert_foer(
             &mut tx,
-            &chrono::Utc::now(),
+            &sist_oppdatert_foer,
             &[Status::Ok, Status::Avvist],
             batch_size,
         )
