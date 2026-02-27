@@ -28,20 +28,21 @@ pub async fn hent_opplysninger(
 pub async fn hent_sist_oppdatert_foer(
     tx: &mut Transaction<'_, Postgres>,
     tidspunkt: &chrono::DateTime<chrono::Utc>,
-    status: &Status,
+    status: &[Status],
     limit: &NonZeroU16,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
+    let status_str_vec: Vec<String> = status.iter().map(|s| s.to_string()).collect();
     let res: Vec<PeriodeRad> = sqlx::query_as::<_, PeriodeRad>(
         r#"
         select * from periode 
         where 
             sist_oppdatert_timestamp < $1 and
-            sist_oppdatert_status = $2 
+            sist_oppdatert_status IN $2 
             order by sist_oppdatert_timestamp ASC limit $3
         "#,
     )
     .bind(tidspunkt)
-    .bind(status.to_string())
+    .bind(status_str_vec)
     .bind(limit.get() as i64)
     .fetch_all(&mut **tx)
     .await?;

@@ -41,8 +41,13 @@ impl StatusOppdatering {
         let pdl_client = &self.inner.pdl_client;
         let batch_size = &self.inner.batch_size;
         let mut tx = pg_pool.begin().await?;
-        let skal_oppdateres =
-            hent_sist_oppdatert_foer(&mut tx, &chrono::Utc::now(), batch_size).await?;
+        let skal_oppdateres = hent_sist_oppdatert_foer(
+            &mut tx,
+            &chrono::Utc::now(),
+            &[Status::Ok, Status::Avvist],
+            batch_size,
+        )
+        .await?;
         let mut periode_metadata: Vec<PeriodeMetadata> = Vec::with_capacity(skal_oppdateres.len());
         for e in &skal_oppdateres {
             let periode_metadata_rad = hent_periode_metadata(&mut tx, &e.id).await?;
@@ -78,6 +83,7 @@ impl StatusOppdatering {
             )
             .await?;
         }
+        tx.commit().await?;
         Ok(())
     }
 }
