@@ -32,6 +32,27 @@ pub async fn opprett_aktiv_periode(
     Ok(res.rows_affected() == 1)
 }
 
+pub async fn skriv_status(
+    tx: &mut Transaction<'_, Postgres>,
+    periode_id: &uuid::Uuid,
+    status: &Status,
+    tidspunkt: &chrono::DateTime<chrono::Utc>,
+) -> Result<bool, sqlx::Error> {
+    let res = sqlx::query(
+        r#"
+        UPDATE periode
+        SET sist_oppdatert_timestamp = $1,
+            sist_oppdatert_status = $2
+        WHERE id = $3
+        "#,
+    )
+    .bind(tidspunkt)
+    .bind(status.to_string())
+    .bind(periode_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(res.rows_affected() > 0)
+}
 pub async fn avslutt_periode(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &uuid::Uuid,
