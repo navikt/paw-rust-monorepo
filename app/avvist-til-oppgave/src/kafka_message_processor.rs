@@ -1,9 +1,10 @@
 use crate::config::ApplicationConfig;
-use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
+use crate::db::oppgave_functions::{finn_oppgave_for_ekstern_id, hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
+use crate::domain::oppgave_hendelse::OppgaveHendelseMelding;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
@@ -220,7 +221,18 @@ async fn oppdater_oppgave_for_avvist_hendelse(
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<()> {
-    // TODO
+    let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
+    let json: Value = serde_json::from_slice(&payload_bytes)?;
+    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json.clone())?;
+    let oppgave_id = oppgave_hendelse.oppgave.oppgave_id;
+
+    let optional_oppgave = finn_oppgave_for_ekstern_id(oppgave_id, tx).await?;
+    match optional_oppgave {
+        None => {}
+        Some(oppgave) => {
+        }
+    }
+
     Ok(())
 }
 

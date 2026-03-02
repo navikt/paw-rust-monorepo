@@ -59,6 +59,52 @@ async fn hent_oppgave_for_arbeidssoeker(
     Ok(rows)
 }
 
+pub async fn finn_oppgave_for_ekstern_id(
+    ekstern_id: i64,
+    tx: &mut Transaction<'_, Postgres>,
+) -> Result<Option<Oppgave>> {
+    let rows = sqlx::query_as::<_, OppgaveRow>(
+        r#"
+        SELECT
+            id,
+            type AS type_,
+            status,
+            melding_id,
+            opplysninger,
+            arbeidssoeker_id,
+            identitetsnummer,
+            ekstern_oppgave_id,
+            tidspunkt AT TIME ZONE 'UTC' as tidspunkt
+        FROM oppgaver
+        WHERE ekstern_oppgave_id = $1
+        "#,
+    )
+    .bind(ekstern_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+
+    let oppgave_row = match rows {
+        None => return Ok(None),
+        Some(row) => row,
+    };
+
+    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
+
+    let oppgave = Oppgave::new(
+        oppgave_row.id,
+        oppgave_row.type_,
+        oppgave_row.status,
+        oppgave_row.opplysninger,
+        oppgave_row.arbeidssoeker_id,
+        oppgave_row.identitetsnummer,
+        oppgave_row.ekstern_oppgave_id,
+        oppgave_row.tidspunkt,
+        hendelse_logg,
+    )?;
+
+    Ok(Some(oppgave))
+}
+
 async fn hent_hendelse_logg(
     oppgave_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
