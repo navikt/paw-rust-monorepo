@@ -2,9 +2,11 @@ mod client;
 mod config;
 mod db;
 mod domain;
-mod kafka_message_processor;
+mod message_processor;
 mod kafka;
 mod opprett_oppgave_task;
+mod process_hendelselogg_message;
+mod process_oppgavehendelse_message;
 
 use crate::config::read_application_config;
 use crate::config::read_database_config;
@@ -53,7 +55,7 @@ async fn main() -> Result<()> {
         kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics)
             .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
 
-    let kafka_processor = kafka_message_processor::start_kafka_consumer_loop(
+    let kafka_processor = message_processor::start_kafka_consumer_loop(
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone(),

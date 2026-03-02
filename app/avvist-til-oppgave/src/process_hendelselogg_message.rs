@@ -1,67 +1,25 @@
 use crate::config::ApplicationConfig;
-use crate::db::oppgave_functions::{finn_oppgave_for_ekstern_id, hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
+use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave::Oppgave;
-use crate::domain::oppgave_hendelse::OppgaveHendelseMelding;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use anyhow::Result;
 use chrono::Utc;
-use health_and_monitoring::simple_app_state::AppState;
-use interne_hendelser;
-use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Avvist;
-use paw_rdkafka::error::KafkaError;
+use interne_hendelser::vo::{BrukerType, Opplysning};
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
-use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
-use rdkafka::consumer::StreamConsumer;
-use rdkafka::message::Message;
+use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
-use std::sync::Arc;
 
-pub async fn start_kafka_consumer_loop(
-    hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
-    pg_pool: PgPool,
-    _app_state: Arc<AppState>,
-    app_config: &ApplicationConfig,
-) -> Result<()> {
-    log::info!("Starting processing loop");
-    loop {
-        let topic_hendelseslogg = app_config.topic_hendelseslogg.to_string();
-        let topic_oppgavehendelse = app_config.topic_oppgavehendelse.to_string();
-
-        let kafka_message = hendelselogg_consumer.recv().await?.detach();
-        tracing::info!(
-            "Mottok Kafka-melding på topic: {}, partiton {}, offset: {}",
-            kafka_message.topic(),
-            kafka_message.partition(),
-            kafka_message.offset()
-        );
-
-        if kafka_message.topic() == topic_hendelseslogg.as_str() {
-            process_hendelselogg_kafka_message(&kafka_message, app_config, pg_pool.clone()).await?;
-        } else if kafka_message.topic() == topic_oppgavehendelse.as_str() {
-            process_oppgavehendelse_kafka_message(&kafka_message, app_config, pg_pool.clone())
-                .await?;
-        } else {
-            return Err(KafkaError::UnexpectedMessage(format!(
-                "Mottok melding fra uventet topic {}",
-                kafka_message.topic()
-            ))
-            .into());
-        }
-    }
-}
-
-pub async fn process_hendelselogg_kafka_message(
+pub async fn process_hendelselogg_message(
     kafka_message: &OwnedMessage,
     app_config: &ApplicationConfig,
     pg_pool: PgPool,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let hwm_version = *app_config.topic_hendelseslogg_version;
     let mut tx = pg_pool.begin().await?;
 
@@ -87,7 +45,7 @@ async fn opprett_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
@@ -190,60 +148,15 @@ fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bo
             .all(|opp| opplysninger.contains(opp))
 }
 
-pub async fn process_oppgavehendelse_kafka_message(
-    kafka_message: &OwnedMessage,
-    app_config: &ApplicationConfig,
-    pg_pool: PgPool,
-) -> Result<()> {
-    let hwm_version = *app_config.topic_oppgavehendelse_version;
-    let mut tx = pg_pool.begin().await?;
-
-    if update_hwm(
-        &mut tx,
-        hwm_version,
-        kafka_message.topic(),
-        kafka_message.partition(),
-        kafka_message.offset(),
-    )
-    .await?
-    {
-        oppdater_oppgave_for_avvist_hendelse(kafka_message, app_config, &mut tx).await?;
-        tx.commit().await?;
-    } else {
-        tx.rollback().await?;
-    }
-
-    Ok(())
-}
-
-async fn oppdater_oppgave_for_avvist_hendelse(
-    kafka_message: &OwnedMessage,
-    app_config: &ApplicationConfig,
-    tx: &mut Transaction<'_, Postgres>,
-) -> Result<()> {
-    let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
-    let json: Value = serde_json::from_slice(&payload_bytes)?;
-    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json.clone())?;
-    let oppgave_id = oppgave_hendelse.oppgave.oppgave_id;
-
-    let optional_oppgave = finn_oppgave_for_ekstern_id(oppgave_id, tx).await?;
-    match optional_oppgave {
-        None => {}
-        Some(oppgave) => {
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::read_application_config;
+    use anyhow::Result;
     use chrono::Utc;
     use health_and_monitoring::nais_otel_setup::setup_nais_otel;
-    use interne_hendelser::vo::{Bruker, Metadata};
     use interne_hendelser::Startet;
+    use interne_hendelser::vo::{Bruker, Metadata};
     use paw_rdkafka_hwm::hwm_functions::insert_hwm;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
@@ -255,11 +168,6 @@ mod tests {
         setup_nais_otel()?;
 
         let test_data = TestData::default();
-        /*let start_hendelse = serde_json::to_vec(&test_data.start_hendelse)?;
-        let avvist_hendelse_1 = serde_json::to_vec(&test_data.avvist_hendelse)?;
-        let avvist_hendelse_2 = avvist_hendelse_1.clone();
-        let avvist_hendelse_fra_veileder =
-            serde_json::to_vec(&test_data.avvist_hendelse_fra_veileder)?;*/
         let start_hendelse = test_data.start_hendelse_string.as_bytes().to_vec();
         let avvist_hendelse_1 = test_data.avvist_hendelse_string.as_bytes().to_vec();
         let avvist_hendelse_2 = test_data.avvist_hendelse_string.as_bytes().to_vec();
@@ -321,21 +229,16 @@ mod tests {
         );
 
         // Skal ignorere irrelevante hendelser
-        process_hendelselogg_kafka_message(&irrelevant_message, &app_config, pg_pool.clone())
-            .await?;
+        process_hendelselogg_message(&irrelevant_message, &app_config, pg_pool.clone()).await?;
 
         // Skal ignorerer avvist hendelse fra veileder
-        process_hendelselogg_kafka_message(
-            &avvist_fra_veileder_message,
-            &app_config,
-            pg_pool.clone(),
-        )
-        .await?;
+        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, pg_pool.clone())
+            .await?;
 
-        process_hendelselogg_kafka_message(&avvist_message_1, &app_config, pg_pool.clone()).await?;
+        process_hendelselogg_message(&avvist_message_1, &app_config, pg_pool.clone()).await?;
 
         //Duplikat melding skal kun føre til en entry i status logg
-        process_hendelselogg_kafka_message(&avvist_message_2, &app_config, pg_pool.clone()).await?;
+        process_hendelselogg_message(&avvist_message_2, &app_config, pg_pool.clone()).await?;
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
