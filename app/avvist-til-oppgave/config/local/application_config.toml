@@ -1,6 +1,7 @@
-topics = [
-    "paw.arbeidssoker-hendelseslogg-v1"
-]
+topic_hendelseslogg = "paw.arbeidssoker-hendelseslogg-v1"
+topic_hendelseslogg_version = 1
+topic_oppgavehendelse = "oppgavehandtering.oppgavehendelse-v1"
+topic_oppgavehendelse_version = 1
 opprett_oppgaver_task_interval_minutes = 1
 opprett_oppgaver_task_batch_size = 10
 opprett_oppgaver_fra_tidspunkt = "2020-01-01T00:00:00+01:00"

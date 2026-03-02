@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
 
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
-    //clear_db(&pg_pool).await?;
+    clear_db(&pg_pool).await?;
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
@@ -51,9 +51,9 @@ async fn main() -> Result<()> {
     let topics = app_config.topics_as_str();
     let hendelselogg_consumer =
         kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics)
-            .map_err(|_| KafkaError::CreateConsumer)?;
+            .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
 
-    let kafka_processor = hendelse_processor::start_processing_loop(
+    let kafka_processor = hendelse_processor::start_kafka_consumer_loop(
         hendelselogg_consumer,
         pg_pool.clone(),
         appstate.clone(),

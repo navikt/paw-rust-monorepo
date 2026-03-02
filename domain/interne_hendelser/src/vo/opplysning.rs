@@ -14,8 +14,11 @@ pub enum Opplysning {
     SystemIkkeTilgang,
     SystemTilgang,
     IkkeSystem,
+    #[strum(serialize = "ER_OVER_18_AAR")]
+    #[serde(rename = "ER_OVER_18_AAR")]
     ErOver18Aar,
-    #[serde(alias = "ER_UNDER_18_AAR")]
+    #[strum(serialize = "ER_UNDER_18_AAR")]
+    #[serde(rename = "ER_UNDER_18_AAR")]
     ErUnder18Aar,
     UkjentFoedselsdato,
     UkjentFoedselsaar,
@@ -28,7 +31,6 @@ pub enum Opplysning {
     HarUtenlandskAdresse,
     HarRegistrertAdresseIEuEoes,
     IngenAdresseFunnet,
-    #[serde(alias = "BOSATT_ETTER_FREG_LOVEN")]
     BosattEtterFregLoven,
     Dnummer,
     UkjentForenkletFregStatus,
@@ -51,18 +53,99 @@ pub enum Opplysning {
     UkjentOpplysning,
 }
 
-#[test]
-fn test_deserialize_opplysning_med_alias() {
-    let json_data = r#"
-        ["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN", "UKJENT_OPPLYSNING"]
-    "#;
+#[cfg(test)]
+mod tests {
+    use crate::vo::Opplysning;
+    use std::str::FromStr;
 
-    // Deserialiser til Vec<Opplysning>
-    let opplysninger: Vec<Opplysning> = serde_json::from_str(json_data).unwrap();
+    #[test]
+    fn test_json_serialize() {
+        let expected_json_data = r#"["ER_OVER_18_AAR","ER_UNDER_18_AAR","BOSATT_ETTER_FREG_LOVEN","BARN_FOEDT_I_NORGE_UTEN_OPPHOLDSTILLATELSE","UKJENT_OPPLYSNING"]"#;
 
-    // Forvent at de to første verdiene blir korrekt deserialisert
-    assert!(matches!(opplysninger[0], Opplysning::ErUnder18Aar));
-    assert!(matches!(opplysninger[1], Opplysning::BosattEtterFregLoven));
-    // Den tredje verdien har ingen alias, så den blir UkjentOpplysning
-    assert!(matches!(opplysninger[2], Opplysning::UkjentOpplysning));
+        let data = vec![
+            Opplysning::ErOver18Aar,
+            Opplysning::ErUnder18Aar,
+            Opplysning::BosattEtterFregLoven,
+            Opplysning::BarnFoedtINorgeUtenOppholdstillatelse,
+            Opplysning::UkjentOpplysning,
+        ];
+
+        let json_data = serde_json::to_string(&data).unwrap();
+        println!("{}", json_data);
+        println!("{}", expected_json_data);
+
+        assert_eq!(json_data, expected_json_data);
+    }
+
+    #[test]
+    fn test_json_deserialize() {
+        let json_data = r#"
+        [
+            "ER_OVER_18_AAR",
+            "ER_UNDER_18_AAR",
+            "BOSATT_ETTER_FREG_LOVEN",
+            "BARN_FOEDT_I_NORGE_UTEN_OPPHOLDSTILLATELSE",
+            "UKJENT_OPPLYSNING"
+        ]
+        "#
+        .chars()
+        .filter(|&c| !c.is_whitespace())
+        .collect::<String>();
+
+        // Deserialiser til Vec<Opplysning>
+        let opplysninger: Vec<Opplysning> = serde_json::from_str(json_data.as_str()).unwrap();
+
+        // Forvent at de to første verdiene blir korrekt deserialisert
+        assert!(matches!(opplysninger[0], Opplysning::ErOver18Aar));
+        assert!(matches!(opplysninger[1], Opplysning::ErUnder18Aar));
+        assert!(matches!(opplysninger[2], Opplysning::BosattEtterFregLoven));
+        assert!(matches!(
+            opplysninger[3],
+            Opplysning::BarnFoedtINorgeUtenOppholdstillatelse
+        ));
+        // Den tredje verdien har ingen alias, så den blir UkjentOpplysning
+        assert!(matches!(opplysninger[4], Opplysning::UkjentOpplysning));
+    }
+
+    #[test]
+    fn test_strum_to_string() {
+        assert_eq!("ER_OVER_18_AAR", Opplysning::ErOver18Aar.to_string());
+        assert_eq!("ER_UNDER_18_AAR", Opplysning::ErUnder18Aar.to_string());
+        assert_eq!(
+            "BOSATT_ETTER_FREG_LOVEN",
+            Opplysning::BosattEtterFregLoven.to_string()
+        );
+        assert_eq!(
+            "BARN_FOEDT_I_NORGE_UTEN_OPPHOLDSTILLATELSE",
+            Opplysning::BarnFoedtINorgeUtenOppholdstillatelse.to_string()
+        );
+        assert_eq!(
+            "UKJENT_OPPLYSNING",
+            Opplysning::UkjentOpplysning.to_string()
+        );
+    }
+
+    #[test]
+    fn test_strum_from_string() {
+        assert_eq!(
+            Opplysning::from_str("ER_OVER_18_AAR").unwrap(),
+            Opplysning::ErOver18Aar
+        );
+        assert_eq!(
+            Opplysning::from_str("ER_UNDER_18_AAR").unwrap(),
+            Opplysning::ErUnder18Aar
+        );
+        assert_eq!(
+            Opplysning::from_str("BOSATT_ETTER_FREG_LOVEN").unwrap(),
+            Opplysning::BosattEtterFregLoven
+        );
+        assert_eq!(
+            Opplysning::from_str("BARN_FOEDT_I_NORGE_UTEN_OPPHOLDSTILLATELSE").unwrap(),
+            Opplysning::BarnFoedtINorgeUtenOppholdstillatelse
+        );
+        assert_eq!(
+            Opplysning::from_str("UKJENT_OPPLYSNING").unwrap(),
+            Opplysning::UkjentOpplysning
+        );
+    }
 }

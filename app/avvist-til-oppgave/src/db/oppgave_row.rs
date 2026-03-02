@@ -37,7 +37,7 @@ pub fn to_oppgave_row(
     let opplysninger: Vec<String> = avvist
         .opplysninger
         .iter()
-        .map(|opplysning| format!("{:?}", opplysning))
+        .map(|opplysning| opplysning.to_string())
         .collect();
 
     InsertOppgaveRow {
@@ -54,9 +54,9 @@ pub fn to_oppgave_row(
 mod tests {
     use super::*;
     use interne_hendelser::vo::{Bruker, BrukerType, Metadata, Opplysning};
+    use paw_rust_base::convenience_functions::contains_all;
     use std::collections::HashSet;
     use uuid::Uuid;
-    use paw_rust_base::convenience_functions::contains_all;
 
     #[test]
     fn test_avvist_hendelse_to_oppgave_row() {
@@ -100,8 +100,8 @@ mod tests {
             contains_all(
                 &oppgave_row.opplysninger,
                 &[
-                    "ErUnder18Aar".to_string(),
-                    "BosattEtterFregLoven".to_string()
+                    "ER_UNDER_18_AAR".to_string(),
+                    "BOSATT_ETTER_FREG_LOVEN".to_string()
                 ]
             ),
             "Mangler forventede opplysninger: {:?}",
