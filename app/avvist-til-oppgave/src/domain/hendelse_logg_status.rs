@@ -13,6 +13,7 @@ pub enum HendelseLoggStatus {
     AvvistHendelseMottatt,
     EksternOppgaveOpprettelseFeilet,
     EksternOppgaveOpprettet,
+    EksternOppgaveFerdigstilt,
 }
 
 fn hendelse_logg_status_not_found(status: &str) -> HendelseLoggStatusParseError {
@@ -51,6 +52,10 @@ mod tests {
         assert_eq!(
             HendelseLoggStatus::from_str("OPPGAVE_IGNORERT"),
             Ok(HendelseLoggStatus::OppgaveIgnorert)
+        );
+        assert_eq!(
+            HendelseLoggStatus::from_str("EKSTERN_OPPGAVE_FERDIGSTILT"),
+            Ok(HendelseLoggStatus::EksternOppgaveFerdigstilt)
         );
 
         let ukjent_status = "UkjentStatus";
