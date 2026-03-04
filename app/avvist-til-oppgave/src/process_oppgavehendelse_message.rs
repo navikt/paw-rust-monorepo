@@ -47,7 +47,6 @@ async fn oppdater_ferdigstilte_oppgaver(
 ) -> anyhow::Result<()> {
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
-    log::info!("Oppgavehendelse: {:?}", json);
     let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json)?;
 
     if oppgave_hendelse.hendelse.hendelsestype != OppgaveFerdigstilt {
@@ -173,7 +172,7 @@ mod tests {
         json!({
             "hendelse": {
                 "hendelsestype": "OPPGAVE_FERDIGSTILT",
-                "tidspunkt": "2023-02-23T08:58:23.832"
+                "tidspunkt": [2023, 2, 23, 8, 58, 23, 832000000]
             },
             "utfortAv": {
                 "navIdent": "Z991459",

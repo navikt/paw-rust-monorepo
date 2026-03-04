@@ -1,5 +1,5 @@
 use chrono::{NaiveDate, NaiveDateTime};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use strum::{Display, EnumString};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,6 +14,7 @@ pub struct OppgaveHendelseMelding {
 #[serde(rename_all = "camelCase")]
 pub struct OppgaveHendelse {
     pub hendelsestype: OppgaveHendelsetype,
+    #[serde(deserialize_with = "deserialize_jackson_datetime")]
     pub tidspunkt: NaiveDateTime,
 }
 
@@ -56,7 +57,9 @@ pub struct OppgaveKategorisering {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OppgaveBehandlingsperiode {
+    #[serde(deserialize_with = "deserialize_jackson_date")]
     pub aktiv: NaiveDate,
+    #[serde(default, deserialize_with = "deserialize_jackson_date_option")]
     pub frist: Option<NaiveDate>,
 }
 
@@ -104,6 +107,49 @@ pub enum OppgaveIdentType {
     SamhandlerNr,
 }
 
+/// Jackson serialiserer LocalDateTime som array: [år, måned, dag, time, minutt, sekund, nano]
+fn deserialize_jackson_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+where D: Deserializer<'de> {
+    let arr: Vec<i64> = Vec::deserialize(deserializer)?;
+    let (aar, mnd, dag, time, min, sek, nano) = match arr.as_slice() {
+        [aar, mnd, dag, time, min, sek, nano] => (*aar, *mnd, *dag, *time, *min, *sek, *nano),
+        [aar, mnd, dag, time, min, sek] => (*aar, *mnd, *dag, *time, *min, *sek, 0),
+        _ => return Err(serde::de::Error::custom(
+            format!("Forventet 6 eller 7 elementer i datetime-array, fikk {}", arr.len())
+        )),
+    };
+    NaiveDate::from_ymd_opt(aar as i32, mnd as u32, dag as u32)
+        .and_then(|d| d.and_hms_nano_opt(time as u32, min as u32, sek as u32, nano as u32))
+        .ok_or_else(|| serde::de::Error::custom(format!("Ugyldig datetime-array: {:?}", arr)))
+}
+
+/// Jackson serialiserer LocalDate som array: [år, måned, dag]
+fn deserialize_jackson_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
+where D: Deserializer<'de> {
+    let arr: Vec<i32> = Vec::deserialize(deserializer)?;
+    let [aar, mnd, dag] = arr.as_slice() else {
+        return Err(serde::de::Error::custom(
+            format!("Forventet 3 elementer i date-array, fikk {}", arr.len())
+        ));
+    };
+    NaiveDate::from_ymd_opt(*aar, *mnd as u32, *dag as u32)
+        .ok_or_else(|| serde::de::Error::custom(format!("Ugyldig date-array: {:?}", arr)))
+}
+
+fn deserialize_jackson_date_option<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
+where D: Deserializer<'de> {
+    let arr: Option<Vec<i32>> = Option::deserialize(deserializer)?;
+    arr.map(|arr| {
+        let [aar, mnd, dag] = arr.as_slice() else {
+            return Err(serde::de::Error::custom(
+                format!("Forventet 3 elementer i date-array, fikk {}", arr.len())
+            ));
+        };
+        NaiveDate::from_ymd_opt(*aar, *mnd as u32, *dag as u32)
+            .ok_or_else(|| serde::de::Error::custom(format!("Ugyldig date-array: {:?}", arr)))
+    }).transpose()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,7 +160,7 @@ mod tests {
         {
             "hendelse": {
                 "hendelsestype": "OPPGAVE_OPPRETTET",
-                "tidspunkt": "2023-02-23T08:58:23.832"
+                "tidspunkt": [2023, 2, 23, 8, 58, 23, 832000000]
             },
             "utfortAv": {
                 "navIdent": "Z991459",
@@ -136,8 +182,8 @@ mod tests {
                     "prioritet": "NORMAL"
                 },
                 "behandlingsperiode": {
-                    "aktiv": "2023-02-23",
-                    "frist": "2023-02-23"
+                    "aktiv": [2023, 2, 23],
+                    "frist": [2023, 2, 23]
                 },
                 "bruker": {
                     "ident": "12345678901",
@@ -187,7 +233,7 @@ mod tests {
         {
             "hendelse": {
                 "hendelsestype": "OPPGAVE_FERDIGSTILT",
-                "tidspunkt": "2023-03-01T12:00:00"
+                "tidspunkt": [2023, 3, 1, 12, 0, 0]
             },
             "utfortAv": null,
             "oppgave": {
