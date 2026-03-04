@@ -1,44 +1,40 @@
 use crate::config::ApplicationConfig;
-use crate::process_hendelselogg_message::process_hendelselogg_message;
-use crate::process_oppgavehendelse_message::process_oppgavehendelse_message;
-use anyhow::Result;
-use health_and_monitoring::simple_app_state::AppState;
-use paw_rdkafka::error::KafkaError;
-use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
-use rdkafka::consumer::StreamConsumer;
-use rdkafka::message::Message;
-use sqlx::PgPool;
-use std::sync::Arc;
+use crate::process_hendelselogg_message::opprett_oppgave_for_avvist_hendelse;
+use crate::process_oppgavehendelse_message::oppdater_ferdigstilte_oppgaver;
+use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
+use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
+use sqlx::{Postgres, Transaction};
+use std::future::Future;
+use std::pin::Pin;
+use tracing::Instrument;
 
-pub async fn start_kafka_consumer_loop(
-    hendelselogg_consumer: StreamConsumer<HwmRebalanceHandler>,
-    pg_pool: PgPool,
-    _app_state: Arc<AppState>,
-    app_config: &ApplicationConfig,
-) -> Result<()> {
-    log::info!("Starting processing loop");
-    let topic_hendelseslogg = app_config.topic_hendelseslogg.as_str();
-    let topic_oppgavehendelse = app_config.topic_oppgavehendelse.as_str();
+pub struct AvvistTilOppgaveMessageProcessor {
+    pub app_config: ApplicationConfig,
+}
 
-    loop {
-        let kafka_message = hendelselogg_consumer.recv().await?.detach();
-        tracing::info!(
-            "Mottok Kafka-melding på topic: {}, partiton {}, offset: {}",
-            kafka_message.topic(),
-            kafka_message.partition(),
-            kafka_message.offset()
-        );
+impl MessageProcessor for AvvistTilOppgaveMessageProcessor {
+    fn process_message<'a>(
+        &'a self,
+        tx: &'a mut Transaction<'_, Postgres>,
+        msg: &'a OwnedMessage,
+    ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>> {
+        Box::pin(
+            async move {
+                let topic = msg.topic();
+                let hendelseslogg_topic = &self.app_config.topic_hendelseslogg;
+                let oppgavehendelse_topic = &self.app_config.topic_oppgavehendelse;
 
-        let topic = kafka_message.topic();
-        if topic == topic_hendelseslogg {
-            process_hendelselogg_message(&kafka_message, app_config, pg_pool.clone()).await?;
-        } else if topic == topic_oppgavehendelse {
-            process_oppgavehendelse_message(&kafka_message, app_config, pg_pool.clone()).await?;
-        } else {
-            return Err(KafkaError::UnexpectedMessage(format!(
-                "Mottok melding fra uventet topic {topic}"
-            ))
-            .into());
-        }
+                if topic == hendelseslogg_topic.as_str() {
+                    opprett_oppgave_for_avvist_hendelse(msg, &self.app_config, tx).await?;
+                } else if topic == oppgavehendelse_topic.as_str() {
+                    oppdater_ferdigstilte_oppgaver(msg, tx).await?;
+                } else {
+                    tracing::warn!("Mottok melding fra uventet topic: {}", topic);
+                }
+                Ok(())
+            }
+            .instrument(tracing::Span::current()),
+        )
     }
 }

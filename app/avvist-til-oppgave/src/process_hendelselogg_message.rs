@@ -9,39 +9,12 @@ use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use interne_hendelser::Avvist;
 use interne_hendelser::vo::{BrukerType, Opplysning};
-use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use serde_json::Value;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 
-pub async fn process_hendelselogg_message(
-    kafka_message: &OwnedMessage,
-    app_config: &ApplicationConfig,
-    pg_pool: PgPool,
-) -> anyhow::Result<()> {
-    let hwm_version = *app_config.topic_hendelseslogg_version;
-    let mut tx = pg_pool.begin().await?;
-
-    if update_hwm(
-        &mut tx,
-        hwm_version,
-        kafka_message.topic(),
-        kafka_message.partition(),
-        kafka_message.offset(),
-    )
-    .await?
-    {
-        opprett_oppgave_for_avvist_hendelse(kafka_message, app_config, &mut tx).await?;
-        tx.commit().await?;
-    } else {
-        tx.rollback().await?;
-    }
-
-    Ok(())
-}
-
-async fn opprett_oppgave_for_avvist_hendelse(
+pub async fn opprett_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
@@ -157,7 +130,6 @@ mod tests {
     use health_and_monitoring::nais_otel_setup::setup_nais_otel;
     use interne_hendelser::Startet;
     use interne_hendelser::vo::{Bruker, Metadata};
-    use paw_rdkafka_hwm::hwm_functions::insert_hwm;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
@@ -177,21 +149,15 @@ mod tests {
             .to_vec();
 
         let app_config = read_application_config()?;
-        let hwm_version = *app_config.topic_hendelseslogg_version;
-        let topic_hendelseslogg = app_config.topic_hendelseslogg.to_string();
+        let topic = "test-topic";
 
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
-        let mut tx = pg_pool.begin().await?;
-
-        //Blir vanligvis gjort av hwm_rebalance_listener
-        insert_hwm(&mut tx, hwm_version, topic_hendelseslogg.as_str(), 0, 0).await?;
-        tx.commit().await?;
 
         let irrelevant_message = OwnedMessage::new(
             Some(start_hendelse),
             None,
-            topic_hendelseslogg.to_string(),
+            topic.to_string(),
             Timestamp::CreateTime(Utc::now().timestamp_micros()),
             0,
             0,
@@ -201,7 +167,7 @@ mod tests {
         let avvist_fra_veileder_message = OwnedMessage::new(
             Some(avvist_hendelse_fra_veileder),
             None,
-            topic_hendelseslogg.to_string(),
+            topic.to_string(),
             Timestamp::CreateTime(Utc::now().timestamp_micros()),
             0,
             1,
@@ -211,7 +177,7 @@ mod tests {
         let avvist_message_1 = OwnedMessage::new(
             Some(avvist_hendelse_1),
             None,
-            topic_hendelseslogg.to_string(),
+            topic.to_string(),
             Timestamp::CreateTime(Utc::now().timestamp_micros()),
             0,
             2,
@@ -221,7 +187,7 @@ mod tests {
         let avvist_message_2 = OwnedMessage::new(
             Some(avvist_hendelse_2),
             None,
-            topic_hendelseslogg.to_string(),
+            topic.to_string(),
             Timestamp::CreateTime(Utc::now().timestamp_micros()),
             0,
             3,
@@ -229,16 +195,24 @@ mod tests {
         );
 
         // Skal ignorere irrelevante hendelser
-        process_hendelselogg_message(&irrelevant_message, &app_config, pg_pool.clone()).await?;
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&irrelevant_message, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
-        // Skal ignorerer avvist hendelse fra veileder
-        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, pg_pool.clone())
-            .await?;
+        // Skal ignorere avvist hendelse fra veileder
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&avvist_fra_veileder_message, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
-        process_hendelselogg_message(&avvist_message_1, &app_config, pg_pool.clone()).await?;
+        // Skal opprette oppgave for avvist hendelse
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&avvist_message_1, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
-        //Duplikat melding skal kun føre til en entry i status logg
-        process_hendelselogg_message(&avvist_message_2, &app_config, pg_pool.clone()).await?;
+        // Duplikat melding skal kun føre til en entry i status logg
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&avvist_message_2, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;

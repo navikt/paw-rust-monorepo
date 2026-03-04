@@ -9,7 +9,7 @@ use serde_env_field::env_field_wrap;
 use texas_client::config::TokenClientConfig;
 
 #[env_field_wrap]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ApplicationConfig {
     pub topic_hendelseslogg: String,
     pub topic_hendelseslogg_version: i16,
