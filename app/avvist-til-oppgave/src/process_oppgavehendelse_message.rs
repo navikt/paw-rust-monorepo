@@ -47,7 +47,7 @@ async fn oppdater_ferdigstilte_oppgaver(
 ) -> anyhow::Result<()> {
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
-    log::trace!("Oppgavehendelse: {:?}", json);
+    log::info!("Oppgavehendelse: {:?}", json);
     let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json)?;
 
     if oppgave_hendelse.hendelse.hendelsestype != OppgaveFerdigstilt {
