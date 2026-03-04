@@ -7,8 +7,8 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use crate::domain::oppgave_status::OppgaveStatus;
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
-use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use OppgaveHendelsetype::OppgaveFerdigstilt;
@@ -47,11 +47,13 @@ async fn oppdater_ferdigstilte_oppgaver(
 ) -> anyhow::Result<()> {
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
     let json: Value = serde_json::from_slice(&payload_bytes)?;
-    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json)?;
+    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json.clone())?;
 
     if oppgave_hendelse.hendelse.hendelsestype != OppgaveFerdigstilt {
         return Ok(());
     }
+
+    log::info!("Ferdigstilt oppgavehendelse mottatt: {}", json);
 
     let ekstern_oppgave_id = oppgave_hendelse.oppgave.oppgave_id;
     let oppgave = match finn_oppgave_for_ekstern_id(ekstern_oppgave_id, tx).await? {
@@ -87,7 +89,10 @@ async fn oppdater_ferdigstilte_oppgaver(
             oppgave.id
         );
     } else {
-        tracing::warn!("Kunne ikke oppdatere oppgave {} til Ferdigbehandlet", oppgave.id)
+        tracing::warn!(
+            "Kunne ikke oppdatere oppgave {} til Ferdigbehandlet",
+            oppgave.id
+        )
     }
 
     Ok(())
@@ -187,6 +192,6 @@ mod tests {
                 "bruker": null
             }
         })
-            .to_string()
+        .to_string()
     }
 }
