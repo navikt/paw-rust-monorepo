@@ -24,7 +24,7 @@ impl ApplicationConfig {
     pub fn topics_as_str(&self) -> Vec<&str> {
         vec![
             self.topic_hendelseslogg.as_str(),
-            //self.topic_oppgavehendelse.as_str(),
+            self.topic_oppgavehendelse.as_str(),
         ]
     }
 }
