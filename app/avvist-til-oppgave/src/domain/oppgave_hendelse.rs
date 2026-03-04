@@ -114,8 +114,9 @@ where D: Deserializer<'de> {
     let (aar, mnd, dag, time, min, sek, nano) = match arr.as_slice() {
         [aar, mnd, dag, time, min, sek, nano] => (*aar, *mnd, *dag, *time, *min, *sek, *nano),
         [aar, mnd, dag, time, min, sek] => (*aar, *mnd, *dag, *time, *min, *sek, 0),
+        [aar, mnd, dag, time, min] => (*aar, *mnd, *dag, *time, *min, 0, 0),
         _ => return Err(serde::de::Error::custom(
-            format!("Forventet 6 eller 7 elementer i datetime-array, fikk {}", arr.len())
+            format!("Forventet 5-7 elementer i datetime-array, fikk {}", arr.len())
         )),
     };
     NaiveDate::from_ymd_opt(aar as i32, mnd as u32, dag as u32)
@@ -233,7 +234,7 @@ mod tests {
         {
             "hendelse": {
                 "hendelsestype": "OPPGAVE_FERDIGSTILT",
-                "tidspunkt": [2023, 3, 1, 12, 0, 0]
+                "tidspunkt": [2023, 3, 1, 12, 0]
             },
             "utfortAv": null,
             "oppgave": {
@@ -250,11 +251,27 @@ mod tests {
         let melding: OppgaveHendelseMelding = serde_json::from_str(json).unwrap();
 
         assert_eq!(melding.hendelse.hendelsestype, OppgaveHendelsetype::OppgaveFerdigstilt);
+        assert_eq!(melding.hendelse.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 0, 0).unwrap());
         assert_eq!(melding.utfort_av, None);
         assert_eq!(melding.oppgave.oppgave_id, 99999);
         assert_eq!(melding.oppgave.tilordning, None);
         assert_eq!(melding.oppgave.kategorisering, None);
         assert_eq!(melding.oppgave.behandlingsperiode, None);
         assert_eq!(melding.oppgave.bruker, None);
+    }
+
+    #[test]
+    fn test_deserialize_jackson_datetime_array_lengder() {
+        let json_5 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,0]}"#;
+        let h5: OppgaveHendelse = serde_json::from_str(json_5).unwrap();
+        assert_eq!(h5.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 0, 0).unwrap());
+
+        let json_6 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45]}"#;
+        let h6: OppgaveHendelse = serde_json::from_str(json_6).unwrap();
+        assert_eq!(h6.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 30, 45).unwrap());
+
+        let json_7 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45,500000000]}"#;
+        let h7: OppgaveHendelse = serde_json::from_str(json_7).unwrap();
+        assert_eq!(h7.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_nano_opt(12, 30, 45, 500000000).unwrap());
     }
 }
