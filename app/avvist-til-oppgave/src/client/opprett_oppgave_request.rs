@@ -44,12 +44,14 @@ Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøke
 Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
 
 pub fn create_oppgave_request(identitetsnummer: String) -> OpprettOppgaveRequest {
+    const KONTAKT_BRUKER: &str = "KONT_BRUK";
+    const GENERELL: &str = "GEN";
     OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
-        oppgavetype: "KONT_BRUK".to_string(),
+        oppgavetype: KONTAKT_BRUKER.to_string(),
         prioritet: PrioritetV1::Norm,
-        tema: "GEN".to_string(),
+        tema: GENERELL.to_string(),
         beskrivelse: Some(OPPGAVE_BESKRIVELSE.to_string()),
         ..Default::default()
     }
