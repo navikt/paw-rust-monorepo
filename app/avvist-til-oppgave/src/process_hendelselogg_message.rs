@@ -39,20 +39,10 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
             return Ok(());
         }
 
-        tracing::info!(
-            "Håndterer melding på hendelselogg av type: {}",
-            hendelse_type
-        );
-
-        let oppgave = hent_oppgave(avvist_hendelse.id, tx).await?;
+        let arbeidssoeker_id = avvist_hendelse.id;
+        let oppgave = hent_oppgave(arbeidssoeker_id, tx).await?;
 
         if skal_opprette_oppgave(&oppgave) {
-            tracing::info!(
-                "Sjekker dato: record={}, vannskille={}, resultat={}",
-                avvist_hendelse.metadata.tidspunkt,
-                opprett_oppgaver_fra_tidspunkt,
-                avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt
-            );
             if avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt {
                 let oppgave_row = to_oppgave_row(
                     avvist_hendelse,
@@ -100,10 +90,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
             };
             insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;
         }
-    } else {
-        tracing::info!("Ignorerer irrelevant hendelse av type: {}", hendelse_type);
     }
-
     Ok(())
 }
 
@@ -116,9 +103,7 @@ fn skal_opprette_oppgave(oppgave: &Option<Oppgave>) -> bool {
 
 fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
     hendelse_type == interne_hendelser::AVVIST_HENDELSE_TYPE
-        && [Opplysning::ErUnder18Aar.to_string().as_str()]
-            .iter()
-            .all(|opp| opplysninger.contains(opp))
+        && opplysninger.contains(&Opplysning::ErUnder18Aar.to_string().as_str())
 }
 
 #[cfg(test)]
