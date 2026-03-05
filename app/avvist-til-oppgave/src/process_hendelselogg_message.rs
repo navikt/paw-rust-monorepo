@@ -7,10 +7,10 @@ use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
-use interne_hendelser::Avvist;
 use interne_hendelser::vo::{BrukerType, Opplysning};
-use rdkafka::Message;
+use interne_hendelser::Avvist;
 use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 
@@ -112,9 +112,8 @@ mod tests {
     use crate::config::read_application_config;
     use anyhow::Result;
     use chrono::Utc;
-    use health_and_monitoring::nais_otel_setup::setup_nais_otel;
-    use interne_hendelser::Startet;
     use interne_hendelser::vo::{Bruker, Metadata};
+    use interne_hendelser::Startet;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
@@ -122,8 +121,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
-        setup_nais_otel()?;
-
         let test_data = TestData::default();
         let start_hendelse = test_data.start_hendelse_string.as_bytes().to_vec();
         let avvist_hendelse_1 = test_data.avvist_hendelse_string.as_bytes().to_vec();
