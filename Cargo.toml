@@ -32,7 +32,7 @@ async-trait = "0.1"
 axum = "0.8.8"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
-futures = "0.3.31"
+futures = "0.3.32"
 log = "0.4.29"
 log4rs = "1.4.0"
 opentelemetry = { version = "0.31.0", features = ["trace"] }

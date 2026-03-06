@@ -17,7 +17,6 @@ health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
-log = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 tokio = { workspace = true }
 rdkafka = { workspace = true }
