@@ -33,7 +33,7 @@ use tokio::task::JoinHandle;
 async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
-    log::info!("Application started");
+    tracing::info!("Application started");
     let appstate = Arc::new(AppState::new());
     let app_config = read_application_config()?;
     let health_routes = routes(appstate.clone());
@@ -95,21 +95,21 @@ async fn main() -> Result<()> {
     tokio::select! {
         result = web_server_task => {
             match result {
-                Ok(Ok(())) => log::info!("Web server exited successfully"),
+                Ok(Ok(())) => tracing::info!("Web server exited successfully"),
                 Ok(Err(e)) => return Err(e),
                 Err(_) => return Err(ServerError::ThreadSpawn.into()),
             }
         }
         result = kafka_consumer_task => {
             match result {
-                Ok(Ok(())) => log::info!("Kafka consumer stopped"),
+                Ok(Ok(())) => tracing::info!("Kafka consumer stopped"),
                 Ok(Err(e)) => return Err(e),
                 Err(_) => return Err(ServerError::ThreadSpawn.into()),
             }
         }
         result = opprett_oppgave_task => {
             match result {
-                Ok(()) => log::info!("Opprett oppgave task stopped"),
+                Ok(()) => tracing::info!("Opprett oppgave task stopped"),
                 Err(e) => return Err(e),
             }
         }
@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
 
     appstate.set_is_alive(false);
     let _ = pg_pool.close().await;
-    log::info!("PG Pool closed");
+    tracing::info!("PG Pool closed");
 
     Ok(())
 }
