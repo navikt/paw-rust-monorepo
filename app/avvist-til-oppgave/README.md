@@ -13,7 +13,7 @@ Appen konsumerer hendelser fra Kafka-topicen `paw.arbeidssoker-hendelseslogg-v1`
 Noen regler gjelder:
 
 - **Kun bruker-initierte avvisninger** — dersom en veileder registrerer en bruker under 18 år, vil det også generere en avvist hendelse, men denne ignoreres. Kun avvisninger trigget av brukeren selv fører til oppgave.
-- **Duplikathåndtering** — dersom brukeren prøver å registrere seg flere ganger, opprettes det ikke en ny oppgave. I stedet logges hendelsen i `oppgave_hendelse_logg`.
+- **Duplikathåndtering** — dersom brukeren prøver å registrere seg flere ganger, opprettes det ikke en ny oppgave. I stedet logges hendelsen i `oppgave_hendelse_logg`. Dersom forrige oppgave er ferdigbehandlet, opprettes det en ny oppgave.
 - **Vannskille** — hendelser eldre enn `OPPRETT_OPPGAVER_FRA_TIDSPUNKT` får status `IGNORERT`. Dette brukes for å koordinere overgang fra legacy-appen ([aia-backend](https://github.com/navikt/aia-backend)) til denne appen.
 
 ### 2. Opprettelse av oppgaver i Oppgave API
@@ -31,6 +31,8 @@ Dersom kallet feiler, settes oppgaven tilbake til `UBEHANDLET` slik at den plukk
 ### 3. Ferdigstilling av oppgaver
 
 Appen konsumerer hendelser fra Kafka-topicen `oppgavehandtering.oppgave-hendelse-v1`. Når en oppgave ferdigstilles i det eksterne Oppgave API-et, mottar vi en `OPPGAVE_FERDIGSTILT`-hendelse. Appen matcher denne mot vår interne oppgave via `ekstern_oppgave_id`, og oppdaterer status til `FERDIGBEHANDLET`.
+
+Hendelser eldre enn vannskillet (`OPPRETT_OPPGAVER_FRA_TIDSPUNKT`) ignoreres. Merk at tidspunktene fra oppgave-appen er i Oslo-tid (`TZ="Europe/Oslo"` i deres Dockerfile), og konverteres til UTC før sammenligning.
 
 ## Oppgavestatuser
 
