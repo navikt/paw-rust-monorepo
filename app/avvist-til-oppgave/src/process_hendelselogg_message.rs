@@ -77,7 +77,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
                 oppgave_id,
                 status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
                 melding: "Oppretter oppgave for avvist hendelse".to_string(),
-                tidspunkt: oppgave_row.tidspunkt.clone(),
+                tidspunkt: oppgave_row.tidspunkt,
             },
             tx,
         )
@@ -98,7 +98,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
                     OppgaveStatus::Ignorert,
                     opprett_oppgaver_fra_tidspunkt
                 ),
-                tidspunkt: oppgave_row.tidspunkt.clone(),
+                tidspunkt: oppgave_row.tidspunkt,
             },
             tx,
         )
