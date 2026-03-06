@@ -23,10 +23,10 @@ tokio = { workspace = true }
 rdkafka = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
 serde-env-field = { workspace = true }
 sqlx = { workspace = true }
 chrono = { workspace = true }
+chrono-tz = "0.10"
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 reqwest = { workspace = true }

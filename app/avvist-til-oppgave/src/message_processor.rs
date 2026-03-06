@@ -28,7 +28,7 @@ impl MessageProcessor for AvvistTilOppgaveMessageProcessor {
                 if topic == hendelseslogg_topic.as_str() {
                     opprett_oppgave_for_avvist_hendelse(msg, &self.app_config, tx).await?;
                 } else if topic == oppgavehendelse_topic.as_str() {
-                    oppdater_ferdigstilte_oppgaver(msg, tx).await?;
+                    oppdater_ferdigstilte_oppgaver(msg, *self.app_config.opprett_oppgaver_fra_tidspunkt, tx).await?;
                 } else {
                     tracing::warn!("Mottok melding fra uventet topic: {}", topic);
                 }
