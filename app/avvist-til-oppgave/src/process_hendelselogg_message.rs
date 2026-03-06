@@ -1,5 +1,7 @@
 use crate::config::ApplicationConfig;
-use crate::db::oppgave_functions::{hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
+use crate::db::oppgave_functions::{
+    hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
+};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
@@ -36,7 +38,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     }
 
     let avvist_hendelse: Avvist =
-        serde_json::from_value(json.clone()).context("Kunne ikke deserialisere avvist hendelse")?;
+        serde_json::from_value(json).context("Kunne ikke deserialisere avvist hendelse")?;
 
     if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
         tracing::info!("Ignorerer hendelse fordi den er innsendt av veileder");
@@ -205,7 +207,9 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx)
+            .await?
+            .unwrap();
 
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
@@ -233,10 +237,11 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut app_config = read_application_config()?;
-        app_config.opprett_oppgaver_fra_tidspunkt = chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc)
-            .into();
+        app_config.opprett_oppgaver_fra_tidspunkt =
+            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc)
+                .into();
 
         let avvist_hendelse = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
         let message = OwnedMessage::new(
@@ -294,7 +299,13 @@ mod tests {
         // Sett oppgaven til Ferdigbehandlet
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
-        bytt_oppgave_status(oppgave.id, OppgaveStatus::Ubehandlet, OppgaveStatus::Ferdigbehandlet, &mut tx).await?;
+        bytt_oppgave_status(
+            oppgave.id,
+            OppgaveStatus::Ubehandlet,
+            OppgaveStatus::Ferdigbehandlet,
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         // Send ny avvist hendelse for samme arbeidssøker — skal opprette ny oppgave
