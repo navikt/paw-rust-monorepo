@@ -7,10 +7,10 @@ use crate::db::oppgave_functions::{
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
-    EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet, OppgaveIgnorert,
+    EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet,
 };
 use crate::domain::oppgave::Oppgave;
-use crate::domain::oppgave_status::OppgaveStatus::{Ignorert, Opprettet, Ubehandlet};
+use crate::domain::oppgave_status::OppgaveStatus::{Opprettet, Ubehandlet};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rand::prelude::*;
@@ -57,9 +57,7 @@ async fn prosesser_ubehandlede_oppgaver(
     tx.commit().await?;
 
     for oppgave in oppgaver {
-        if let Err(e) =
-            prosesser_oppgave(&db_pool, &oppgave_api_client, fra_tidspunkt, &oppgave).await
-        {
+        if let Err(e) = prosesser_oppgave(&db_pool, &oppgave_api_client, &oppgave).await {
             log::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id, e);
         }
     }
@@ -69,100 +67,81 @@ async fn prosesser_ubehandlede_oppgaver(
 async fn prosesser_oppgave(
     db_pool: &PgPool,
     oppgave_client: &OppgaveApiClient,
-    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
     oppgave: &Oppgave,
 ) -> Result<()> {
     let mut tx = db_pool.begin().await?;
 
-    if oppgave.tidspunkt < opprett_oppgaver_fra_tidspunkt {
-        if !bytt_oppgave_status(oppgave.id, Ubehandlet, Ignorert, &mut tx).await? {
-            tx.rollback().await?;
-            log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
-            Ok(())
-        } else {
+    // CAS: prøv å ta eierskap over oppgaven
+    if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
+        tx.rollback().await?;
+        log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
+        return Ok(());
+    }
+
+    let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
+    let response = oppgave_client
+        .opprett_oppgave(&opprett_oppgave_request)
+        .await;
+
+    match response {
+        Ok(oppgave_dto) => {
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
                     oppgave_id: oppgave.id,
-                    status: OppgaveIgnorert.to_string(),
-                    melding: "Oppgaven er eldre enn opprett oppgaver fra tidspunkt".to_string(),
+                    status: EksternOppgaveOpprettet.to_string(),
+                    melding: "Ekstern oppgave_id opprettet".to_string(),
                     tidspunkt: Utc::now(),
                 },
                 &mut tx,
             )
             .await?;
-            Ok(())
+            oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
+            log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
+            tx.commit().await?;
         }
-    } else {
-        if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
-            tx.rollback().await?;
-            log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
-            Ok(())
-        } else {
-            let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
-            let response = oppgave_client
-                .opprett_oppgave(&opprett_oppgave_request)
-                .await;
-
-            match response {
-                Ok(oppgave_dto) => {
-                    insert_oppgave_hendelse_logg(
-                        &InsertOppgaveHendelseLoggRow {
-                            oppgave_id: oppgave.id,
-                            status: EksternOppgaveOpprettet.to_string(),
-                            melding: "Ekstern oppgave_id opprettet".to_string(),
-                            tidspunkt: Utc::now(),
-                        },
-                        &mut tx,
-                    )
-                    .await?;
-                    oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
-                    log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
-                    tx.commit().await?;
-                }
-                Err(error) => {
-                    if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
-                        return Err(anyhow::anyhow!(
-                            "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
-                            oppgave.id
-                        ));
-                    }
-
-                    let error_melding = match error {
-                        OppgaveApiError::ApiError { status, message } => {
-                            format!(
-                                "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
-                                status, message
-                            )
-                        }
-                        OppgaveApiError::ReqwestError(e) => {
-                            format!("HTTP-feil ved kall til Oppgave API: {}", e)
-                        }
-                        OppgaveApiError::TokenError(e) => {
-                            format!("Token-feil ved kall til Oppgave API: {}", e)
-                        }
-                    };
-
-                    insert_oppgave_hendelse_logg(
-                        &InsertOppgaveHendelseLoggRow {
-                            oppgave_id: oppgave.id,
-                            status: EksternOppgaveOpprettelseFeilet.to_string(),
-                            melding: error_melding.clone(),
-                            tidspunkt: Utc::now(),
-                        },
-                        &mut tx,
-                    )
-                    .await?;
-                    log::error!(
-                        "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
-                        oppgave.id,
-                        error_melding
-                    );
-                    tx.commit().await?;
-                }
+        Err(error) => {
+            if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
+                return Err(anyhow::anyhow!(
+                    "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
+                    oppgave.id
+                ));
             }
-            Ok(())
+
+            let error_melding = match error {
+                OppgaveApiError::ApiError { status, message } => {
+                    format!(
+                        "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
+                        status, message
+                    )
+                }
+                OppgaveApiError::ReqwestError(e) => {
+                    format!("HTTP-feil ved kall til Oppgave API: {}", e)
+                }
+                OppgaveApiError::TokenError(e) => {
+                    format!("Token-feil ved kall til Oppgave API: {}", e)
+                }
+            };
+
+            insert_oppgave_hendelse_logg(
+                &InsertOppgaveHendelseLoggRow {
+                    oppgave_id: oppgave.id,
+                    status: EksternOppgaveOpprettelseFeilet.to_string(),
+                    melding: error_melding.clone(),
+                    tidspunkt: Utc::now(),
+                },
+                &mut tx,
+            )
+            .await?;
+            log::error!(
+                "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
+                oppgave.id,
+                error_melding
+            );
+            tx.commit().await?;
         }
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -283,7 +262,9 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         // Oppgave 1: vellykket
-        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx).await?.unwrap();
+        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
         assert_eq!(oppgave_1.ekstern_oppgave_id, Some(100));
         assert!(
@@ -294,7 +275,9 @@ mod tests {
         );
 
         // Oppgave 2: feilet — tilbake til Ubehandlet med feil-logg
-        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx).await?.unwrap();
+        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave_2.status, Ubehandlet);
         assert!(oppgave_2.ekstern_oppgave_id.is_none());
         assert!(
@@ -305,7 +288,9 @@ mod tests {
         );
 
         // Oppgave 3: vellykket
-        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, &mut tx).await?.unwrap();
+        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave_3.status, Opprettet);
         assert_eq!(oppgave_3.ekstern_oppgave_id, Some(200));
         assert!(
@@ -336,7 +321,6 @@ mod tests {
 
     #[tokio::test]
     async fn to_tråder_prosesserer_samme_oppgave() -> Result<()> {
-        let opprett_oppgaver_fra_tidspunkt = DateTime::UNIX_EPOCH;
         let mut server = Server::new_async().await;
         let identitetsnummer = "12345678901";
 
@@ -391,9 +375,8 @@ mod tests {
         // Worker B: spawner prosesser_oppgave — blokkeres av Worker A sin row lock
         let pool_b = pg_pool.clone();
         let client_b = oppgave_api_client.clone();
-        let worker_b = tokio::spawn(async move {
-            prosesser_oppgave(&pool_b, &client_b, opprett_oppgaver_fra_tidspunkt, &oppgave).await
-        });
+        let worker_b =
+            tokio::spawn(async move { prosesser_oppgave(&pool_b, &client_b, &oppgave).await });
 
         // Gi Worker B tid til å nå UPDATE og bli blokkert av row lock
         sleep(Duration::from_secs(1)).await;
