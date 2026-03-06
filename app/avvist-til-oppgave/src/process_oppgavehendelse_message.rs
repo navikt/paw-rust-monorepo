@@ -36,17 +36,7 @@ pub async fn oppdater_ferdigstilte_oppgaver(
         .context("Kunne ikke deserialisere ferdigstilt oppgavehendelse")?;
 
     // Tidspunktet fra oppgave-appen er i Oslo-tid (TZ="Europe/Oslo" i Dockerfile)
-    let hendelse_tidspunkt = oppgave_hendelse.hendelse.tidspunkt
-        .and_local_timezone(chrono_tz::Europe::Oslo)
-        .earliest()
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| {
-            tracing::warn!(
-                "Kunne ikke konvertere tidspunkt {:?} til Oslo-tid, faller tilbake til UTC",
-                oppgave_hendelse.hendelse.tidspunkt
-            );
-            oppgave_hendelse.hendelse.tidspunkt.and_utc()
-        });
+    let hendelse_tidspunkt = oslo_tid_til_utc(oppgave_hendelse.hendelse.tidspunkt);
     if hendelse_tidspunkt < opprett_oppgaver_fra_tidspunkt {
         return Ok(());
     }
@@ -79,6 +69,20 @@ pub async fn oppdater_ferdigstilte_oppgaver(
     }
 
     Ok(())
+}
+
+fn oslo_tid_til_utc(tidspunkt: chrono::NaiveDateTime) -> DateTime<Utc> {
+    tidspunkt
+        .and_local_timezone(chrono_tz::Europe::Oslo)
+        .earliest()
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(|| {
+            tracing::warn!(
+                "Kunne ikke konvertere tidspunkt {:?} til Oslo-tid, faller tilbake til UTC",
+                tidspunkt
+            );
+            tidspunkt.and_utc()
+        })
 }
 
 #[cfg(test)]
