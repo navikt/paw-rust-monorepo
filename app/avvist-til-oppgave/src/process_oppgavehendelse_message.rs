@@ -71,7 +71,7 @@ pub async fn oppdater_ferdigstilte_oppgaver(
 mod tests {
     use super::*;
     use crate::db::oppgave_functions::{
-        hent_oppgave, insert_oppgave, oppdater_oppgave_med_ekstern_id,
+        hent_nyeste_oppgave, insert_oppgave, oppdater_oppgave_med_ekstern_id,
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
@@ -117,7 +117,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
         assert!(
             oppgave

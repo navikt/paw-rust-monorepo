@@ -171,7 +171,7 @@ mod tests {
     use crate::client::oppgave_client::OPPGAVER_PATH;
     use crate::config::OppgaveClientConfig;
     use crate::db::oppgave_functions::{
-        hent_de_eldste_ubehandlede_oppgavene, hent_oppgave, insert_oppgave,
+        hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, insert_oppgave,
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
@@ -283,7 +283,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         // Oppgave 1: vellykket
-        let oppgave_1 = hent_oppgave(arbeidssoeker_id_1, &mut tx).await?.unwrap();
+        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx).await?.unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
         assert_eq!(oppgave_1.ekstern_oppgave_id, Some(100));
         assert!(
@@ -294,7 +294,7 @@ mod tests {
         );
 
         // Oppgave 2: feilet — tilbake til Ubehandlet med feil-logg
-        let oppgave_2 = hent_oppgave(arbeidssoeker_id_2, &mut tx).await?.unwrap();
+        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx).await?.unwrap();
         assert_eq!(oppgave_2.status, Ubehandlet);
         assert!(oppgave_2.ekstern_oppgave_id.is_none());
         assert!(
@@ -305,7 +305,7 @@ mod tests {
         );
 
         // Oppgave 3: vellykket
-        let oppgave_3 = hent_oppgave(arbeidssoeker_id_3, &mut tx).await?.unwrap();
+        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, &mut tx).await?.unwrap();
         assert_eq!(oppgave_3.status, Opprettet);
         assert_eq!(oppgave_3.ekstern_oppgave_id, Some(200));
         assert!(

@@ -7,11 +7,11 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 
-pub async fn hent_oppgave(
+pub async fn hent_nyeste_oppgave(
     arbeidssoeker_id: i64,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>> {
-    let oppgave_row = match hent_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await? {
+    let oppgave_row = match hent_nyeste_oppgave_for_arbeidssoeker(arbeidssoeker_id, tx).await? {
         None => return Ok(None),
         Some(row) => row,
     };
@@ -33,7 +33,7 @@ pub async fn hent_oppgave(
     Ok(Some(oppgave))
 }
 
-async fn hent_oppgave_for_arbeidssoeker(
+async fn hent_nyeste_oppgave_for_arbeidssoeker(
     arbeidssoeker_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<OppgaveRow>> {
@@ -51,6 +51,7 @@ async fn hent_oppgave_for_arbeidssoeker(
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
         FROM oppgaver
         WHERE arbeidssoeker_id = $1
+        ORDER BY id DESC
         "#,
     )
     .bind(arbeidssoeker_id)
@@ -398,7 +399,7 @@ mod tests {
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.ekstern_oppgave_id.unwrap(), ekstern_oppgave_id);
 
@@ -427,7 +428,7 @@ mod tests {
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
 
         Ok(())
@@ -453,7 +454,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_hent_oppgave() -> Result<()> {
+    async fn test_hent_nyeste_oppgave() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
@@ -469,7 +470,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?;
         tx.commit().await?;
 
         let oppgave = oppgave.unwrap();
@@ -484,7 +485,7 @@ mod tests {
         assert_eq!(oppgave.status, Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
-        assert_eq!(hent_oppgave(99999, &mut tx).await?, None);
+        assert_eq!(hent_nyeste_oppgave(99999, &mut tx).await?, None);
 
         Ok(())
     }
