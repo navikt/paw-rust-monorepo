@@ -10,7 +10,7 @@ use strum::{Display, EnumString};
 pub enum HendelseLoggStatus {
     OppgaveOpprettet,
     OppgaveIgnorert,
-    AvvistHendelseMottatt,
+    OppgaveFinnesAllerede,
     EksternOppgaveOpprettelseFeilet,
     EksternOppgaveOpprettet,
     EksternOppgaveFerdigstilt,
@@ -38,8 +38,8 @@ mod tests {
             Ok(HendelseLoggStatus::OppgaveOpprettet)
         );
         assert_eq!(
-            HendelseLoggStatus::from_str("AVVIST_HENDELSE_MOTTATT"),
-            Ok(HendelseLoggStatus::AvvistHendelseMottatt)
+            HendelseLoggStatus::from_str("OPPGAVE_FINNES_ALLEREDE"),
+            Ok(HendelseLoggStatus::OppgaveFinnesAllerede)
         );
         assert_eq!(
             HendelseLoggStatus::from_str("EKSTERN_OPPGAVE_OPPRETTELSE_FEILET"),
