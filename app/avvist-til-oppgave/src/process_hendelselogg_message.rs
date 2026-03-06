@@ -1,11 +1,11 @@
 use crate::config::ApplicationConfig;
-use crate::db::oppgave_functions::{hent_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
+use crate::db::oppgave_functions::{hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg};
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
-use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Avvist;
@@ -21,84 +21,89 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
 ) -> anyhow::Result<()> {
     let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
     let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
-    let json: Value = serde_json::from_slice(&payload_bytes)?;
+    let json: Value = match serde_json::from_slice(&payload_bytes) {
+        Ok(value) => value,
+        Err(_) => return Ok(()),
+    };
     let hendelse_type = json["hendelseType"].as_str().unwrap_or_default();
     let opplysninger: Vec<&str> = match json["opplysninger"].as_array() {
-        Some(arr) => arr.iter().filter_map(|v| v.as_str()).collect(),
+        Some(arr) => arr.iter().filter_map(|value| value.as_str()).collect(),
         None => Vec::new(),
     };
 
-    if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
-        let avvist_hendelse: Avvist = serde_json::from_value(json.clone())?;
-        if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
-            tracing::info!(
-                "Ignorerer hendelse av type: {} fordi den er innsendt av {}",
-                hendelse_type,
-                BrukerType::Veileder
-            );
+    if !er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
+        return Ok(());
+    }
+
+    let avvist_hendelse: Avvist =
+        serde_json::from_value(json.clone()).context("Kunne ikke deserialisere avvist hendelse")?;
+
+    if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
+        tracing::info!("Ignorerer hendelse fordi den er innsendt av veileder");
+        return Ok(());
+    }
+
+    let arbeidssoeker_id = avvist_hendelse.id;
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
+
+    if let Some(oppgave) = &eksisterende_oppgave {
+        if oppgave.status != OppgaveStatus::Ferdigbehandlet {
+            insert_oppgave_hendelse_logg(
+                &InsertOppgaveHendelseLoggRow {
+                    oppgave_id: oppgave.id,
+                    status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
+                    melding: "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
+                        .to_string(),
+                    tidspunkt: Utc::now(),
+                },
+                tx,
+            )
+            .await?;
             return Ok(());
         }
+    }
 
-        let arbeidssoeker_id = avvist_hendelse.id;
-        let oppgave = hent_oppgave(arbeidssoeker_id, tx).await?;
-
-        if skal_opprette_oppgave(&oppgave) {
-            if avvist_hendelse.metadata.tidspunkt < opprett_oppgaver_fra_tidspunkt {
-                let oppgave_row = to_oppgave_row(
-                    avvist_hendelse,
-                    OppgaveType::AvvistUnder18,
+    if avvist_hendelse.metadata.tidspunkt >= opprett_oppgaver_fra_tidspunkt {
+        let oppgave_row = to_oppgave_row(
+            avvist_hendelse,
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ubehandlet,
+        );
+        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id,
+                status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
+                melding: "Oppretter oppgave for avvist hendelse".to_string(),
+                tidspunkt: oppgave_row.tidspunkt.clone(),
+            },
+            tx,
+        )
+        .await?;
+    } else {
+        let oppgave_row = to_oppgave_row(
+            avvist_hendelse,
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ignorert,
+        );
+        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id,
+                status: HendelseLoggStatus::OppgaveIgnorert.to_string(),
+                melding: format!(
+                    "Oppretter oppgave for avvist hendelse med status {} fordi hendelse er eldre enn {}",
                     OppgaveStatus::Ignorert,
-                );
-                let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
-
-                let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-                    oppgave_id,
-                    status: HendelseLoggStatus::OppgaveIgnorert.to_string(),
-                    melding: format!(
-                        "Oppretter oppgave for avvist hendelse med status {} fordi hendelse er eldre enn {}",
-                        OppgaveStatus::Ignorert.to_string(),
-                        opprett_oppgaver_fra_tidspunkt
-                    ),
-                    tidspunkt: oppgave_row.tidspunkt.clone(),
-                };
-
-                insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
-            } else {
-                let oppgave_row = to_oppgave_row(
-                    avvist_hendelse,
-                    OppgaveType::AvvistUnder18,
-                    OppgaveStatus::Ubehandlet,
-                );
-                let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
-
-                let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-                    oppgave_id,
-                    status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-                    melding: "Oppretter oppgave for avvist hendelse".to_string(),
-                    tidspunkt: oppgave_row.tidspunkt.clone(),
-                };
-
-                insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
-            }
-        } else {
-            let status_logg_row = InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave.unwrap().id,
-                status: HendelseLoggStatus::AvvistHendelseMottatt.to_string(),
-                melding: "Oppgave allerede opprettet for avvist hendelse for denne arbeidssoekeren"
-                    .to_string(),
-                tidspunkt: Utc::now(),
-            };
-            insert_oppgave_hendelse_logg(&status_logg_row, tx).await?;
-        }
+                    opprett_oppgaver_fra_tidspunkt
+                ),
+                tidspunkt: oppgave_row.tidspunkt.clone(),
+            },
+            tx,
+        )
+        .await?;
     }
+
     Ok(())
-}
-
-fn skal_opprette_oppgave(oppgave: &Option<Oppgave>) -> bool {
-    match oppgave {
-        None => true,
-        Some(oppgave) => oppgave.status == OppgaveStatus::Ferdigbehandlet,
-    }
 }
 
 fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
@@ -110,6 +115,7 @@ fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bo
 mod tests {
     use super::*;
     use crate::config::read_application_config;
+    use crate::db::oppgave_functions::bytt_oppgave_status;
     use anyhow::Result;
     use chrono::Utc;
     use interne_hendelser::vo::{Bruker, Metadata};
@@ -183,7 +189,8 @@ mod tests {
 
         // Skal ignorere avvist hendelse fra veileder
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&avvist_fra_veileder_message, &app_config, &mut tx).await?;
+        opprett_oppgave_for_avvist_hendelse(&avvist_fra_veileder_message, &app_config, &mut tx)
+            .await?;
         tx.commit().await?;
 
         // Skal opprette oppgave for avvist hendelse
@@ -198,7 +205,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
-        let oppgave = hent_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx).await?.unwrap();
 
         assert_eq!(oppgave.type_, OppgaveType::AvvistUnder18);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
@@ -216,6 +223,103 @@ mod tests {
         );
         assert_eq!(oppgave.arbeidssoeker_id, arbeidssoeker_id);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_gammel_hendelse_gir_ignorert_oppgave() -> Result<()> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+
+        let mut app_config = read_application_config()?;
+        app_config.opprett_oppgaver_fra_tidspunkt = chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc)
+            .into();
+
+        let avvist_hendelse = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
+        let message = OwnedMessage::new(
+            Some(avvist_hendelse),
+            None,
+            "test-topic".to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            0,
+            Some(OwnedHeaders::new()),
+        );
+
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&message, &app_config, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
+        assert_eq!(oppgave.hendelse_logg.len(), 1);
+        assert_eq!(
+            oppgave.hendelse_logg[0].status,
+            HendelseLoggStatus::OppgaveIgnorert
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_ny_registrering_etter_ferdigbehandlet_oppgave() -> Result<()> {
+        let (pg_pool, _db_container) = setup_test_db().await?;
+        sqlx::migrate!("./migrations").run(&pg_pool).await?;
+
+        let app_config = read_application_config()?;
+        let topic = "test-topic";
+
+        let avvist_hendelse_1 = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
+        let avvist_hendelse_2 = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
+
+        let message_1 = OwnedMessage::new(
+            Some(avvist_hendelse_1),
+            None,
+            topic.to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            0,
+            Some(OwnedHeaders::new()),
+        );
+
+        // Opprett første oppgave
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&message_1, &app_config, &mut tx).await?;
+        tx.commit().await?;
+
+        // Sett oppgaven til Ferdigbehandlet
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        bytt_oppgave_status(oppgave.id, OppgaveStatus::Ubehandlet, OppgaveStatus::Ferdigbehandlet, &mut tx).await?;
+        tx.commit().await?;
+
+        // Send ny avvist hendelse for samme arbeidssøker — skal opprette ny oppgave
+        let message_2 = OwnedMessage::new(
+            Some(avvist_hendelse_2),
+            None,
+            topic.to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            1,
+            Some(OwnedHeaders::new()),
+        );
+
+        let mut tx = pg_pool.begin().await?;
+        opprett_oppgave_for_avvist_hendelse(&message_2, &app_config, &mut tx).await?;
+        tx.commit().await?;
+
+        // Verifiser at ny oppgave ble opprettet (hent_nyeste_oppgave henter den nyeste)
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        assert_eq!(
+            oppgave.hendelse_logg[0].status,
+            HendelseLoggStatus::OppgaveOpprettet
+        );
 
         Ok(())
     }
