@@ -121,22 +121,22 @@ async fn prosesser_oppgave(
                     format!("Token-feil ved kall til Oppgave API: {}", e)
                 }
             };
-
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
-                    status: EksternOppgaveOpprettelseFeilet.to_string(),
-                    melding: error_melding.clone(),
-                    tidspunkt: Utc::now(),
-                },
-                &mut tx,
-            )
-            .await?;
             tracing::error!(
                 "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
                 oppgave.id,
                 error_melding
             );
+
+            insert_oppgave_hendelse_logg(
+                &InsertOppgaveHendelseLoggRow {
+                    oppgave_id: oppgave.id,
+                    status: EksternOppgaveOpprettelseFeilet.to_string(),
+                    melding: error_melding,
+                    tidspunkt: Utc::now(),
+                },
+                &mut tx,
+            )
+            .await?;
             tx.commit().await?;
         }
     }
