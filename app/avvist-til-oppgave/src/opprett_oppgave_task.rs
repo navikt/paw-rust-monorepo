@@ -39,7 +39,7 @@ pub async fn start_processing_loop(
         )
         .await
         {
-            log::error!("Feil i prosesseringsloop: {}", e);
+            tracing::error!("Feil i prosesseringsloop: {}", e);
         }
     }
 }
@@ -58,7 +58,7 @@ async fn prosesser_ubehandlede_oppgaver(
 
     for oppgave in oppgaver {
         if let Err(e) = prosesser_oppgave(&db_pool, &oppgave_api_client, &oppgave).await {
-            log::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id, e);
+            tracing::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id, e);
         }
     }
     Ok(())
@@ -74,7 +74,7 @@ async fn prosesser_oppgave(
     // CAS: prøv å ta eierskap over oppgaven
     if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
         tx.rollback().await?;
-        log::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
+        tracing::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
         return Ok(());
     }
 
@@ -96,7 +96,7 @@ async fn prosesser_oppgave(
             )
             .await?;
             oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
-            log::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
+            tracing::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
             tx.commit().await?;
         }
         Err(error) => {
@@ -132,7 +132,7 @@ async fn prosesser_oppgave(
                 &mut tx,
             )
             .await?;
-            log::error!(
+            tracing::error!(
                 "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
                 oppgave.id,
                 error_melding
