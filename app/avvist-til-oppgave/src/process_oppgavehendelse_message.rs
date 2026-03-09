@@ -5,13 +5,13 @@ use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use crate::domain::oppgave_status::OppgaveStatus;
-use chrono::{DateTime, Utc};
 use anyhow::Context;
+use chrono::{DateTime, Utc};
 use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use OppgaveHendelsetype::OppgaveFerdigstilt;
+use OppgaveHendelsetype::{OppgaveFeilregistrert, OppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 
 pub async fn oppdater_ferdigstilte_oppgaver(
@@ -27,13 +27,17 @@ pub async fn oppdater_ferdigstilte_oppgaver(
 
     let hendelsestype = json["hendelse"]["hendelsestype"]
         .as_str()
-        .unwrap_or_default();
-    if hendelsestype != OppgaveFerdigstilt.to_string() {
+        .unwrap_or_default()
+        .to_string();
+
+    if hendelsestype != OppgaveFerdigstilt.to_string()
+        && hendelsestype != OppgaveFeilregistrert.to_string()
+    {
         return Ok(());
     }
 
-    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json)
-        .context("Kunne ikke deserialisere ferdigstilt oppgavehendelse")?;
+    let oppgave_hendelse: OppgaveHendelseMelding =
+        serde_json::from_value(json).context("Kunne ikke deserialisere oppgavehendelse")?;
 
     // Tidspunktet fra oppgave-appen er i Oslo-tid (TZ="Europe/Oslo" i Dockerfile)
     let hendelse_tidspunkt = oslo_tid_til_utc(oppgave_hendelse.hendelse.tidspunkt);
@@ -47,24 +51,30 @@ pub async fn oppdater_ferdigstilte_oppgaver(
         Some(oppgave) => oppgave,
     };
 
-    if bytt_oppgave_status(
-        oppgave.id,
-        Opprettet,
-        Ferdigbehandlet,
-        tx,
-    )
-    .await?
-    {
+    let logg_status = match oppgave_hendelse.hendelse.hendelsestype {
+        OppgaveFerdigstilt => HendelseLoggStatus::EksternOppgaveFerdigstilt,
+        OppgaveFeilregistrert => HendelseLoggStatus::EksternOppgaveFeilregistrert,
+        OppgaveHendelsetype::OppgaveOpprettet | OppgaveHendelsetype::OppgaveEndret => {
+            unreachable!("Filtrert bort av hendelsestype-sjekken over")
+        }
+    };
+
+    if bytt_oppgave_status(oppgave.id, Opprettet, Ferdigbehandlet, tx).await? {
         let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
             oppgave_id: oppgave.id,
-            status: HendelseLoggStatus::EksternOppgaveFerdigstilt.to_string(),
-            melding: format!("Ekstern oppgave {} ble ferdigstilt", ekstern_oppgave_id),
+            status: logg_status.to_string(),
+            melding: format!(
+                "Ekstern oppgave {} ble {}",
+                ekstern_oppgave_id,
+                hendelsestype.to_lowercase()
+            ),
             tidspunkt: Utc::now(),
         };
         insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
         tracing::info!(
-            "Oppgave {} oppdatert til Ferdigbehandlet etter melding om ekstern ferdigstilling",
-            oppgave.id
+            "Oppgave {} oppdatert til Ferdigbehandlet etter melding om ekstern {}",
+            oppgave.id,
+            hendelsestype.to_lowercase()
         );
     }
 
@@ -97,9 +107,11 @@ mod tests {
     use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
-    use HendelseLoggStatus::EksternOppgaveFerdigstilt;
+    use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 
     const FRA_TIDSPUNKT: DateTime<Utc> = DateTime::UNIX_EPOCH;
+    const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
+    const EKSTERN_OPPGAVE_ID_FEILREGISTRERT: i64 = 66666;
 
     #[tokio::test]
     async fn test_irrelevante_meldinger_ignoreres() -> Result<()> {
@@ -108,38 +120,52 @@ mod tests {
 
         let ugyldig_message = lag_kafka_melding(b"dette er ikke json".to_vec());
         let mut tx = pg_pool.begin().await?;
-        assert!(oppdater_ferdigstilte_oppgaver(&ugyldig_message, FRA_TIDSPUNKT, &mut tx).await.is_ok());
+        assert!(
+            oppdater_ferdigstilte_oppgaver(&ugyldig_message, FRA_TIDSPUNKT, &mut tx)
+                .await
+                .is_ok()
+        );
         tx.commit().await?;
 
         let irrelevant_message = lag_kafka_melding(OPPGAVE_OPPRETTET_JSON.as_bytes().to_vec());
         let mut tx = pg_pool.begin().await?;
-        assert!(oppdater_ferdigstilte_oppgaver(&irrelevant_message, FRA_TIDSPUNKT, &mut tx).await.is_ok());
+        assert!(
+            oppdater_ferdigstilte_oppgaver(&irrelevant_message, FRA_TIDSPUNKT, &mut tx)
+                .await
+                .is_ok()
+        );
         tx.commit().await?;
 
         let ukjent_message = lag_kafka_melding(OPPGAVE_FERDIGSTILT_JSON.as_bytes().to_vec());
         let mut tx = pg_pool.begin().await?;
-        assert!(oppdater_ferdigstilte_oppgaver(&ukjent_message, FRA_TIDSPUNKT, &mut tx).await.is_ok());
+        assert!(
+            oppdater_ferdigstilte_oppgaver(&ukjent_message, FRA_TIDSPUNKT, &mut tx)
+                .await
+                .is_ok()
+        );
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_ferdigstilt_oppgave() -> Result<()> {
+    async fn test_ferdigstilt_og_feilregistrert_oppgave() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let arbeidssoeker_id = 12345;
+        // --- Ferdigstilt ---
+        let arbeidssoeker_id_1 = 12345;
         let mut tx = pg_pool.begin().await?;
         let oppgave_id = insert_oppgave(
             &InsertOppgaveRow {
-                arbeidssoeker_id,
+                arbeidssoeker_id: arbeidssoeker_id_1,
                 status: Opprettet.to_string(),
                 ..Default::default()
             },
             &mut tx,
         )
         .await?;
-        oppdater_oppgave_med_ekstern_id(oppgave_id, EKSTERN_OPPGAVE_ID, &mut tx).await?;
+        oppdater_oppgave_med_ekstern_id(oppgave_id, EKSTERN_OPPGAVE_ID_FERDIGSTILT, &mut tx)
+            .await?;
         tx.commit().await?;
 
         let message = lag_kafka_melding(OPPGAVE_FERDIGSTILT_JSON.as_bytes().to_vec());
@@ -148,7 +174,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
@@ -169,7 +195,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
@@ -179,11 +205,45 @@ mod tests {
             "Forventet kun 1 hendelseslogg-entry, fant: {:?}",
             oppgave.hendelse_logg
         );
+        tx.commit().await?;
+
+        // --- Feilregistrert ---
+        let arbeidssoeker_id_2 = 67890;
+        let mut tx = pg_pool.begin().await?;
+        let oppgave_id = insert_oppgave(
+            &InsertOppgaveRow {
+                arbeidssoeker_id: arbeidssoeker_id_2,
+                status: Opprettet.to_string(),
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
+        oppdater_oppgave_med_ekstern_id(oppgave_id, EKSTERN_OPPGAVE_ID_FEILREGISTRERT, &mut tx)
+            .await?;
+        tx.commit().await?;
+
+        let message = lag_kafka_melding(OPPGAVE_FEILREGISTRERT_JSON.as_bytes().to_vec());
+        let mut tx = pg_pool.begin().await?;
+        oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx)
+            .await?
+            .unwrap();
+        assert_eq!(oppgave.status, Ferdigbehandlet);
+        assert!(
+            oppgave
+                .hendelse_logg
+                .iter()
+                .any(|logg| logg.status == EksternOppgaveFeilregistrert),
+            "Forventet EksternOppgaveFeilregistrert i hendelseloggen, fant: {:?}",
+            oppgave.hendelse_logg
+        );
 
         Ok(())
     }
-
-    const EKSTERN_OPPGAVE_ID: i64 = 55555;
 
     fn lag_kafka_melding(payload: Vec<u8>) -> OwnedMessage {
         OwnedMessage::new(
@@ -209,6 +269,26 @@ mod tests {
         },
         "oppgave": {
             "oppgaveId": 55555,
+            "versjon": 2,
+            "tilordning": null,
+            "kategorisering": null,
+            "behandlingsperiode": null,
+            "bruker": null
+        }
+    }"#;
+
+    //language=JSON
+    const OPPGAVE_FEILREGISTRERT_JSON: &str = r#"{
+        "hendelse": {
+            "hendelsestype": "OPPGAVE_FEILREGISTRERT",
+            "tidspunkt": [2023, 2, 23, 8, 58, 23, 832000000]
+        },
+        "utfortAv": {
+            "navIdent": "Z991459",
+            "enhetsnr": "2990"
+        },
+        "oppgave": {
+            "oppgaveId": 66666,
             "versjon": 2,
             "tilordning": null,
             "kategorisering": null,
