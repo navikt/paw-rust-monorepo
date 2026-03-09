@@ -1,0 +1,71 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: paw-arbeidssoekerregisteret-avvist-til-oppgave
+  namespace: paw
+  labels:
+    team: paw
+spec:
+  image: {{ image }}
+  port: 8080
+  env:
+    - name: RUST_BACKTRACE
+      value: "1"
+    - name: RUST_LOG
+      value: "info"
+    - name: PGSSLMODE
+      value: "VerifyFull"
+    - name: PGSSLROOTCERT
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_SSLROOTCERT)"
+    - name: PGSSLCERT
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_SSLCERT)"
+    - name: PGSSLKEY
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_AVVIST_TIL_OPPGAVE_AVVISTTILOPPGAVE_SSLKEY)"
+    - name: OPPGAVE_API_URL
+      value: "https://oppgave.prod-fss-pub.nais.io"
+    - name: OPPGAVE_API_SCOPE
+      value: "api://prod-fss.oppgavehandtering.oppgave/.default"
+    - name: OPPRETT_OPPGAVER_FRA_TIDSPUNKT
+      value: "2026-03-09T14:00:00+01:00"
+  replicas:
+    min: 1
+    max: 1
+  resources:
+    limits:
+      memory: 64Mi
+    requests:
+      memory: 32Mi
+      cpu: 1m
+  liveness:
+    path: /internal/isAlive
+    initialDelay: 10
+  readiness:
+    path: /internal/isReady
+    initialDelay: 10
+  startup:
+    failureThreshold: 10
+    initialDelay: 2
+    path: /internal/hasStarted
+    periodSeconds: 10
+    timeout: 5
+  prometheus:
+    enabled: true
+    path: /internal/metrics
+  observability:
+    tracing:
+      enabled: true
+  azure:
+    application:
+      enabled: true
+  accessPolicy:
+    outbound:
+      external:
+        - host: oppgave.prod-fss-pub.nais.io
+  kafka:
+    pool: nav-prod
+  gcp:
+    sqlInstances:
+      - type: POSTGRES_18
+        tier: db-custom-1-3840
+        databases:
+          - name: avvisttiloppgave

@@ -70,3 +70,19 @@ jobs:
           CLUSTER: dev-gcp
           RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
           VAR: image=${{ needs.build.outputs.image }}
+
+# deploy-prod:
+#    if: github.ref == 'refs/heads/main'
+#    name: Deploy to prod-gcp
+#    needs: [test, build, deploy-dev]
+#    permissions:
+#      contents: read
+#      id-token: write
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v5
+#      - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
+#        env:
+#          CLUSTER: prod-gcp
+#          RESOURCE: app/${{ env.APP_NAME }}/nais/nais-prod.yaml
+#          VAR: image=${{ needs.build.outputs.image }}
