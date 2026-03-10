@@ -14,6 +14,7 @@ members = [
     "lib/paw_rdkafka_hwm",
     "lib/paw_rdkafka",
     "lib/texas_client",
+    "lib/azure_m2m_client",
     "lib/paw_test",
     "app/test-app",
     "app/kafka-topic-backup",
@@ -54,7 +55,7 @@ tracing = "0.1.44"
 tracing-opentelemetry = "0.32.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", features = ["json", "form"] }
 thiserror = "2.0"
 anyhow = "1.0"
 graphql_client = { version = "0.16.0", features = ["reqwest"] }

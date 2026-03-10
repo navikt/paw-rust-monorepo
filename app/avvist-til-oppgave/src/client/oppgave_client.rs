@@ -12,6 +12,7 @@ pub struct OppgaveApiClient {
     client: Client,
     config: OppgaveClientConfig,
     token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+    azure_m2m_client: Arc<dyn azure_m2m_client::M2MTokenClient + Send + Sync>,
 }
 
 pub const OPPGAVER_PATH: &str = "/api/v1/oppgaver";
@@ -20,6 +21,7 @@ impl OppgaveApiClient {
     pub fn new(
         config: OppgaveClientConfig,
         token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+        azure_m2m_client: Arc<dyn azure_m2m_client::M2MTokenClient + Send + Sync>,
     ) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
@@ -29,6 +31,7 @@ impl OppgaveApiClient {
             client,
             config,
             token_client,
+            azure_m2m_client,
         }
     }
 
@@ -58,10 +61,10 @@ impl OppgaveApiClient {
 
     async fn hent_token(&self) -> Result<String> {
         let token_response = self
-            .token_client
+            .azure_m2m_client
             .get_token(self.config.scope.to_string())
             .await?;
-        Ok(token_response.access_token)
+        Ok(token_response)
     }
 }
 
@@ -88,6 +91,7 @@ mod tests {
     use mockito::Server;
     use serde_json::json;
     use std::sync::Arc;
+    use azure_m2m_client::AzureAdM2MClientError;
     use texas_client::response::TokenResponse;
 
     struct MockTokenClient;
@@ -99,6 +103,14 @@ mod tests {
                 expires_in: 3600,
                 token_type: "Bearer".to_string(),
             })
+        }
+    }
+
+    struct MockAzureM2MClient;
+    #[async_trait]
+    impl azure_m2m_client::M2MTokenClient for MockAzureM2MClient {
+        async fn get_token(&self, scope: String) -> std::result::Result<String, AzureAdM2MClientError> {
+            Ok("dummy-token".to_string())
         }
     }
 
@@ -128,8 +140,9 @@ mod tests {
             .await;
 
         let token_client = Arc::new(MockTokenClient);
+        let azure_m2m_client = Arc::new(MockAzureM2MClient);
         let config = OppgaveClientConfig::test_config(server.url());
-        let client = OppgaveApiClient::new(config, token_client);
+        let client = OppgaveApiClient::new(config, token_client, azure_m2m_client);
 
         let request = OpprettOppgaveRequest {
             personident: Some("12345678910".to_string()),

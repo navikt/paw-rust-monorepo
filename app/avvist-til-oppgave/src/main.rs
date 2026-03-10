@@ -28,6 +28,7 @@ use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
+use azure_m2m_client::{AzureAdM2MClient, AzureAdM2MConfig};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -63,9 +64,11 @@ async fn main() -> Result<()> {
         .build()?;
 
     let token_client_config = read_token_client_config()?;
+    let azure_m2m_client_config = AzureAdM2MConfig::from_env()?;
+    let azure_m2m_client = Arc::new(AzureAdM2MClient::from_config(azure_m2m_client_config));
     let token_client = Arc::new(create_token_client(token_client_config, reqwest_client));
     let oppgave_client_config = read_oppgave_client_config()?;
-    let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client));
+    let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client, azure_m2m_client));
 
     let opprett_oppgave_task = opprett_oppgave_task::start_processing_loop(
         pg_pool.clone(),
@@ -106,12 +109,12 @@ async fn main() -> Result<()> {
                 Err(_) => return Err(ServerError::ThreadSpawn.into()),
             }
         }
-        /*result = opprett_oppgave_task => {
+        result = opprett_oppgave_task => {
             match result {
                 Ok(()) => tracing::info!("Opprett oppgave task stopped"),
                 Err(e) => return Err(e),
             }
-        }*/
+        }
     }
 
     appstate.set_is_alive(false);
