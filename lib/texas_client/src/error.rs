@@ -7,4 +7,11 @@ pub enum TexasClientError {
     Request { status: u16, target: String },
     #[error("Received error response for target {target:?}: HTTP {status:?}")]
     Response { status: u16, target: String },
+    #[error("Token error for target {target:?}: HTTP {status} - {error}: {error_description}")]
+    TokenError {
+        status: u16,
+        target: String,
+        error: String,
+        error_description: String,
+    },
 }
