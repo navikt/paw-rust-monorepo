@@ -106,12 +106,12 @@ async fn main() -> Result<()> {
                 Err(_) => return Err(ServerError::ThreadSpawn.into()),
             }
         }
-        result = opprett_oppgave_task => {
+        /*result = opprett_oppgave_task => {
             match result {
                 Ok(()) => tracing::info!("Opprett oppgave task stopped"),
                 Err(e) => return Err(e),
             }
-        }
+        }*/
     }
 
     appstate.set_is_alive(false);
