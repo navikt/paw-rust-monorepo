@@ -1,6 +1,5 @@
 mod client;
 mod config;
-mod data_patch;
 mod db;
 mod domain;
 mod kafka;
