@@ -1,5 +1,6 @@
 mod client;
 mod config;
+mod data_patch;
 mod db;
 mod domain;
 mod kafka;
@@ -24,7 +25,7 @@ use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::error::DatabaseError;
-use paw_sqlx::postgres::{clear_db, init_db};
+use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
@@ -106,13 +107,13 @@ async fn main() -> Result<()> {
                 Err(_) => return Err(ServerError::ThreadSpawn.into()),
             }
         }
-        /*
+
         result = opprett_oppgave_task => {
             match result {
                 Ok(()) => tracing::info!("Opprett oppgave task stopped"),
                 Err(e) => return Err(e),
             }
-        }*/
+        }
     }
 
     appstate.set_is_alive(false);
