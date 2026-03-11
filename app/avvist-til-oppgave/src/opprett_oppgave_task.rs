@@ -209,7 +209,6 @@ mod tests {
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
             OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
-            Arc::new(MockAzureM2MClient),
         ));
 
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -311,7 +310,6 @@ mod tests {
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
             OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
-            Arc::new(MockAzureM2MClient),
         ));
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
@@ -341,7 +339,6 @@ mod tests {
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
             OppgaveClientConfig::test_config(server.url()),
             Arc::new(MockTokenClient),
-            Arc::new(MockAzureM2MClient),
         ));
 
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -413,11 +410,4 @@ mod tests {
         }
     }
 
-    struct MockAzureM2MClient;
-    #[async_trait]
-    impl azure_m2m_client::M2MTokenClient for MockAzureM2MClient {
-        async fn get_token(&self, scope: String) -> std::result::Result<String, AzureAdM2MClientError> {
-            Ok("dummy-token".to_string())
-        }
-    }
 }
