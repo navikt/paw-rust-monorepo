@@ -35,7 +35,7 @@ async fn internal_hwm_process_message(
         let res = processor.process_message(&mut tx, msg).await;
         increment_kafka_messages_processed(true, &topic.to_string(), msg.partition(), res.is_err());
         match res {
-            Ok(_) => tracing::info!(
+            Ok(_) => tracing::debug!(
                 "Message processed successfully: topic={}, partition={}, offset={}",
                 topic,
                 msg.partition(),
