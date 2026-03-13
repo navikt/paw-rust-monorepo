@@ -1291,6 +1291,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "paw_rust_base",
+ "temp-env",
  "thiserror 2.0.18",
  "tonic",
  "tracing",
@@ -2396,6 +2397,7 @@ name = "paw_rust_base"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "temp-env",
  "thiserror 2.0.18",
 ]
 
