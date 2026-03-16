@@ -11,12 +11,12 @@ use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
 pub struct UtledePersonFakta {
-    pub alder_fakta: UtledeAlderFakta,
-    pub adresse_fakta: UtledeAdresseFakta,
-    pub folkeregister_fakta: UtledeFolkeregisterFakta,
-    pub statsborgerskap_fakta: UtledeStatsborgerskapFakta,
-    pub opphold_fakta: UtledeOppholdstillatelseFakta,
-    pub utflytting_fakta: UtledeUtflyttingFakta,
+    alder_fakta: UtledeAlderFakta,
+    adresse_fakta: UtledeAdresseFakta,
+    folkeregister_fakta: UtledeFolkeregisterFakta,
+    statsborgerskap_fakta: UtledeStatsborgerskapFakta,
+    opphold_fakta: UtledeOppholdstillatelseFakta,
+    utflytting_fakta: UtledeUtflyttingFakta,
 }
 
 impl Default for UtledePersonFakta {
@@ -60,34 +60,62 @@ mod tests {
     };
     use regler_core::fakta::UtledeFakta;
 
-    #[test]
-    fn en_normal_person_gir_rette_fakta() {
-        let person = Person {
+    fn person(
+        foedselsdato: Option<NaiveDate>,
+        kommunenummer: Vec<&str>,
+        statsborgerskap: Vec<&str>,
+        freg_status: Vec<&str>,
+        opphold: Vec<Oppholdstillatelse>,
+    ) -> Person {
+        Person {
             foedselsdato: vec![Foedselsdato {
-                foedselsdato: NaiveDate::from_ymd_opt(1970, 1, 1),
+                foedselsdato,
                 foedselsaar: None,
             }],
-            bostedsadresse: vec![Bostedsadresse {
-                vegadresse: Some(Vegadresse {
-                    kommunenummer: Some("5501".to_string()),
-                }),
-                ..Default::default()
-            }],
-            statsborgerskap: vec![Statsborgerskap {
-                land: "NOR".to_string(),
-                ..Default::default()
-            }],
-            folkeregisterpersonstatus: vec![Folkeregisterpersonstatus {
-                forenklet_status: "bosattEtterFolkeregisterloven".to_string(),
-                ..Default::default()
-            }],
-            opphold: vec![Opphold {
-                type_: Oppholdstillatelse::Permanent,
-                ..Default::default()
-            }],
+            bostedsadresse: kommunenummer
+                .iter()
+                .map(|&k| Bostedsadresse {
+                    vegadresse: Some(Vegadresse {
+                        kommunenummer: Some(k.to_string()),
+                    }),
+                    ..Default::default()
+                })
+                .collect(),
+            statsborgerskap: statsborgerskap
+                .iter()
+                .map(|&s| Statsborgerskap {
+                    land: s.to_string(),
+                    ..Default::default()
+                })
+                .collect(),
+            folkeregisterpersonstatus: freg_status
+                .iter()
+                .map(|&s| Folkeregisterpersonstatus {
+                    forenklet_status: s.to_string(),
+                    ..Default::default()
+                })
+                .collect(),
+            opphold: opphold
+                .iter()
+                .map(|o| Opphold {
+                    type_: o.clone(),
+                    ..Default::default()
+                })
+                .collect(),
             innflytting_til_norge: vec![],
             utflytting_fra_norge: vec![],
-        };
+        }
+    }
+
+    #[test]
+    fn en_normal_person_gir_rette_fakta() {
+        let person = person(
+            NaiveDate::from_ymd_opt(1970, 1, 1),
+            vec!["5501"],
+            vec!["NOR"],
+            vec!["bosattEtterFolkeregisterloven"],
+            vec![Oppholdstillatelse::Permanent],
+        );
 
         let result = UtledePersonFakta::default().utlede_fakta(&person);
         let fakta = result.unwrap();

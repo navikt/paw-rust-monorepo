@@ -1,12 +1,13 @@
-use interne_hendelser::vo::Opplysning;
 use super::betingelse::Betingelse;
 use super::regel_id::RegelId;
 use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
+use anyhow::Result;
+use interne_hendelser::vo::Opplysning;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Aksjon {
-    GrunnlagForGodkjenning,
     SkalAvvises,
+    GrunnlagForGodkjenning,
     MuligGrunnlagForAvvisning,
 }
 
@@ -19,14 +20,21 @@ pub struct Regel {
 
 impl Regel {
     pub fn new(id: RegelId, betingelser: Vec<Betingelse>, aksjon: Aksjon) -> Self {
-        Regel { id, betingelser, aksjon }
+        Regel {
+            id,
+            betingelser,
+            aksjon,
+        }
     }
 
     pub fn evaluer(&self, opplysninger: &[Opplysning]) -> bool {
         self.betingelser.iter().all(|b| b.eval(opplysninger))
     }
 
-    pub fn ved_treff(&self, opplysninger: Vec<Opplysning>) -> Result<GrunnlagForGodkjenning, Problem> {
+    pub fn ved_treff(
+        &self,
+        opplysninger: Vec<Opplysning>,
+    ) -> Result<GrunnlagForGodkjenning, Problem> {
         match self.aksjon {
             Aksjon::GrunnlagForGodkjenning => Ok(GrunnlagForGodkjenning {
                 opplysninger,

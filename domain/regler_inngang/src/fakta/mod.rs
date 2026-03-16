@@ -1,5 +1,4 @@
 mod config;
-pub mod feil;
 pub mod person_fakta;
 mod alder_fakta;
 mod adresse_fakta;

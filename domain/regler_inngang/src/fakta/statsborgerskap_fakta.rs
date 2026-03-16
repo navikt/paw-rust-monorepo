@@ -12,7 +12,7 @@ const GBR: &str = "GBR";
 
 #[derive(Debug)]
 pub struct UtledeStatsborgerskapFakta {
-    pub eea_land: Vec<String>,
+    eea_land: Vec<String>,
 }
 
 impl Default for UtledeStatsborgerskapFakta {

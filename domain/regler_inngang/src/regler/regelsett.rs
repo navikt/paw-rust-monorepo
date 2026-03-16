@@ -1,7 +1,8 @@
-use interne_hendelser::vo::Opplysning;
 use super::regel::Regel;
 use super::regel_id::RegelId;
 use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
+use anyhow::Result;
+use interne_hendelser::vo::Opplysning;
 
 pub struct Regelsett {
     pub regler: Vec<Regel>,
@@ -32,7 +33,10 @@ impl Regelsett {
             }
         }
 
-        if let Some(idx) = problemer.iter().position(|p| p.kind == ProblemKind::SkalAvvises) {
+        if let Some(idx) = problemer
+            .iter()
+            .position(|p| p.kind == ProblemKind::SkalAvvises)
+        {
             if problemer[idx].regel_id == RegelId::IkkeFunnet {
                 return Err(vec![problemer.swap_remove(idx)]);
             }

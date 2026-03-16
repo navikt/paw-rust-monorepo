@@ -1,13 +1,13 @@
 use interne_hendelser::vo::Opplysning;
-use super::betingelse::Betingelse::{ErNorskEllerTredjelandsborger, Har, HarIkke};
-use super::regel::{Aksjon, Regel};
-use super::regel_id::RegelId;
-use super::regler::Regelsett;
+use crate::regler::betingelse::Betingelse::{ErNorskEllerTredjelandsborger, Har, HarIkke};
+use crate::regler::regel::{Aksjon, Regel};
+use crate::regler::regel_id::RegelId;
+use crate::regler::regelsett::Regelsett;
 
 /// V3 differences from V2:
 /// - `EuEoesStatsborgerOver18Aar` does NOT require `!IkkeBosatt`.
 /// - The `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule is removed.
-pub fn inngangsregler_v3() -> Regelsett {
+pub fn inngang_regelsett_v3() -> Regelsett {
     Regelsett {
         regler: vec![
             Regel::new(

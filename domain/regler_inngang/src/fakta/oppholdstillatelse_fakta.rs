@@ -1,4 +1,4 @@
-use crate::fakta::feil::FaktaFeil;
+use crate::modell::feil::FaktaFeil;
 use crate::modell::pdl::{Oppholdstillatelse, Person};
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
@@ -32,7 +32,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
 
 #[cfg(test)]
 mod tests {
-    use crate::fakta::feil::FaktaFeil;
+    use crate::modell::feil::FaktaFeil;
     use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
     use crate::modell::pdl::{Opphold, Oppholdstillatelse, Person};
     use interne_hendelser::vo::Opplysning::{

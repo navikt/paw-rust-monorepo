@@ -1,4 +1,4 @@
-use crate::fakta::feil::FaktaFeil;
+use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::config::read_regler_config;
 use crate::modell::pdl::Person;
@@ -11,7 +11,7 @@ use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
 pub struct UtledeAdresseFakta {
-    pub eea_land: Vec<String>,
+    eea_land: Vec<String>,
 }
 
 impl Default for UtledeAdresseFakta {

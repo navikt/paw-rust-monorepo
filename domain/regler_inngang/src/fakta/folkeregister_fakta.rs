@@ -17,7 +17,7 @@ const D_NUMMER: &str = "dNummer";
 
 #[derive(Debug)]
 pub struct UtledeFolkeregisterFakta {
-    pub status_map: HashMap<String, Opplysning>,
+    status_map: HashMap<String, Opplysning>,
 }
 
 impl Default for UtledeFolkeregisterFakta {

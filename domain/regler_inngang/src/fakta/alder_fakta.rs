@@ -1,4 +1,4 @@
-use crate::fakta::feil::FaktaFeil;
+use crate::modell::feil::FaktaFeil;
 
 use crate::modell::pdl::Person;
 use crate::utils::finn_alder;
@@ -51,7 +51,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::alder_fakta::UtledeAlderFakta;
-    use crate::fakta::feil::FaktaFeil;
+    use crate::modell::feil::FaktaFeil;
     use crate::modell::pdl::{Foedselsdato, Person};
     use chrono::{Datelike, Local, Months};
     use interne_hendelser::vo::Opplysning::{

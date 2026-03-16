@@ -1,13 +1,13 @@
+use crate::regler::betingelse::Betingelse::{ErNorskEllerTredjelandsborger, Har, HarIkke};
+use crate::regler::regel::{Aksjon, Regel};
+use crate::regler::regel_id::RegelId;
+use crate::regler::regelsett::Regelsett;
 use interne_hendelser::vo::Opplysning;
-use super::betingelse::Betingelse::{ErNorskEllerTredjelandsborger, Har, HarIkke};
-use super::regel::{Aksjon, Regel};
-use super::regel_id::RegelId;
-use super::regler::Regelsett;
 
 /// V2 differences from V3:
 /// - `EuEoesStatsborgerOver18Aar` additionally requires `!IkkeBosatt`.
 /// - Includes the `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule (Arena compatibility).
-pub fn inngangsregler_v2() -> Regelsett {
+pub fn inngang_regelsett_v2() -> Regelsett {
     Regelsett {
         regler: vec![
             Regel::new(
@@ -99,14 +99,14 @@ mod tests {
     use interne_hendelser::vo::Opplysning::*;
 
     fn avviste_regel_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
-        match inngangsregler_v2().evaluer(opplysninger) {
-            Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
+        match inngang_regelsett_v2().evaluer(opplysninger) {
             Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
+            Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
         }
     }
 
     fn er_godkjent(opplysninger: &[Opplysning]) -> bool {
-        inngangsregler_v2().evaluer(opplysninger).is_ok()
+        inngang_regelsett_v2().evaluer(opplysninger).is_ok()
     }
 
     // --- Under 18 år, ikke forhåndsgodkjent ---
@@ -196,7 +196,7 @@ mod tests {
     // --- Under 18 år, forhåndsgodkjent, skal avvises ---
 
     #[test]
-    fn under_18_forhåndsgodkjent_er_doed_avvises() {
+    fn under_18_forhaandsgodkjent_er_doed_avvises() {
         let mut ids = avviste_regel_ider(&[
             Doed,
             ForhaandsgodkjentAvAnsatt,
@@ -210,9 +210,8 @@ mod tests {
     }
 
     #[test]
-    fn under_18_forhåndsgodkjent_er_savnet_avvises() {
-        let mut ids =
-            avviste_regel_ider(&[Savnet, ForhaandsgodkjentAvAnsatt, ErUnder18Aar]);
+    fn under_18_forhaandsgodkjent_er_savnet_avvises() {
+        let mut ids = avviste_regel_ider(&[Savnet, ForhaandsgodkjentAvAnsatt, ErUnder18Aar]);
         ids.sort_by_key(|id| format!("{:?}", id));
         let mut expected = vec![
             RegelId::Savnet,
@@ -232,12 +231,16 @@ mod tests {
     // --- Under 18 år, forhåndsgodkjent, skal godkjennes ---
 
     #[test]
-    fn under_18_forhåndsgodkjent_ikke_bosatt_godkjennes() {
-        assert!(er_godkjent(&[IkkeBosatt, ErUnder18Aar, ForhaandsgodkjentAvAnsatt]));
+    fn under_18_forhaandsgodkjent_ikke_bosatt_godkjennes() {
+        assert!(er_godkjent(&[
+            IkkeBosatt,
+            ErUnder18Aar,
+            ForhaandsgodkjentAvAnsatt
+        ]));
     }
 
     #[test]
-    fn under_18_forhåndsgodkjent_ingen_bosatt_info_godkjennes() {
+    fn under_18_forhaandsgodkjent_ingen_bosatt_info_godkjennes() {
         assert!(er_godkjent(&[ErUnder18Aar, ForhaandsgodkjentAvAnsatt]));
     }
 
@@ -280,8 +283,12 @@ mod tests {
     }
 
     #[test]
-    fn over_18_forhåndsgodkjent_godkjennes() {
-        assert!(er_godkjent(&[ErOver18Aar, IkkeBosatt, ForhaandsgodkjentAvAnsatt]));
+    fn over_18_forhaandsgodkjent_godkjennes() {
+        assert!(er_godkjent(&[
+            ErOver18Aar,
+            IkkeBosatt,
+            ForhaandsgodkjentAvAnsatt
+        ]));
     }
 
     #[test]
