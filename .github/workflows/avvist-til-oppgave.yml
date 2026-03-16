@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: "read"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: stable
@@ -30,11 +30,11 @@ jobs:
       contents: "read"
       id-token: "write"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
         with:
           toolchain: stable
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         continue-on-error: false
         with:
           path: |
@@ -42,7 +42,7 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-${{ github.workflow_ref }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: docker-build-push
-        uses: nais/docker-build-push@791ebb6f74b82849c742a9bc9c97abe44c6c111f
+        uses: nais/docker-build-push@v0
         id: docker-build-push
         with:
           team: paw
@@ -64,8 +64,8 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
+      - uses: actions/checkout@v6
+      - uses: nais/deploy/actions/deploy@v2
         env:
           CLUSTER: dev-gcp
           RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
@@ -80,8 +80,8 @@ jobs:
        id-token: write
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v5
-       - uses: nais/deploy/actions/deploy@56e14061f2a8437bd9119e7b8f92749a3b288db1
+       - uses: actions/checkout@v6
+       - uses: nais/deploy/actions/deploy@v2
          env:
            CLUSTER: prod-gcp
            RESOURCE: app/${{ env.APP_NAME }}/nais/nais-prod.yaml
