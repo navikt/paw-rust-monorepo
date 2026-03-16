@@ -1,40 +1,8 @@
-use std::sync::Arc;
-
-use crate::config::TokenClientConfig;
+use super::client::{parse_token_response, request_send_error, ReqwestTokenClient};
+use crate::request::M2MTokenRequest;
 use crate::response::TokenResponse;
-use crate::{error::TexasClientError, request::M2MTokenRequest};
 use anyhow::Result;
 use async_trait::async_trait;
-use reqwest::Client;
-use serde::Deserialize;
-
-#[derive(Clone)]
-pub struct ReqwestTokenClient {
-    inner: Arc<ReqwestTokenClientRef>,
-}
-
-pub struct ReqwestTokenClientRef {
-    token_endpoint: String,
-    client: Client,
-}
-
-pub fn create_token_client(
-    token_endpoint: TokenClientConfig,
-    client: Client,
-) -> ReqwestTokenClient {
-    ReqwestTokenClient::new_with_endpoint(token_endpoint.token_endpoint, client)
-}
-
-impl ReqwestTokenClient {
-    fn new_with_endpoint(token_endpoint: String, client: Client) -> Self {
-        Self {
-            inner: Arc::new(ReqwestTokenClientRef {
-                token_endpoint,
-                client,
-            }),
-        }
-    }
-}
 
 #[async_trait]
 pub trait M2MTokenClient {
@@ -53,62 +21,27 @@ impl M2MTokenClient for ReqwestTokenClient {
             .json(&request)
             .send()
             .await
-            .map_err(|e| TexasClientError::Request {
-                status: e.status().map(|s| s.as_u16()).unwrap_or(0),
-                target: target.clone(),
-            })?;
+            .map_err(|e| request_send_error(&e, target.clone()))?;
 
-        match response.status().is_success() {
-            false => Err(parse_error_response(response, target).await),
-            true => response.json::<TokenResponse>().await.map_err(|_| {
-                TexasClientError::Response {
-                    status: 200,
-                    target,
-                }
-                .into()
-            }),
-        }
+        parse_token_response(response, target).await
     }
-}
-
-async fn parse_error_response(response: reqwest::Response, target: String) -> anyhow::Error {
-    let status = response.status().as_u16();
-    let error_response =
-        response
-            .json::<TexasErrorResponse>()
-            .await
-            .unwrap_or(TexasErrorResponse {
-                error: "unknown".to_string(),
-                error_description: "Kunne ikke parse feilrespons fra Texas".to_string(),
-            });
-
-    TexasClientError::TokenError {
-        status,
-        target,
-        error: error_response.error,
-        error_description: error_response.error_description,
-    }
-    .into()
-}
-
-#[derive(Debug, Deserialize)]
-struct TexasErrorResponse {
-    error: String,
-    error_description: String,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::TokenClientConfig;
+    use crate::token_client::client::create_token_client;
     use mockito::Server;
+    use reqwest::Client;
     use serde_json::json;
 
     fn create_test_client(base_url: String) -> ReqwestTokenClient {
-        let client = Client::new();
         let config = TokenClientConfig {
             token_endpoint: format!("{}/api/v1/token", base_url),
+            token_exchange_endpoint: None,
         };
-        create_token_client(config, client)
+        create_token_client(config, Client::new())
     }
 
     #[tokio::test]

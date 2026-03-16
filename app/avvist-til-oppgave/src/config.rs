@@ -61,6 +61,7 @@ pub fn read_token_client_config() -> Result<TokenClientConfig> {
     let local: TokenClientConfigLocal = read_toml_config(file_content)?;
     Ok(TokenClientConfig {
         token_endpoint: local.token_endpoint.to_string(),
+        token_exchange_endpoint: None,
     })
 }
 

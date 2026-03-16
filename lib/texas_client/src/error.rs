@@ -14,4 +14,7 @@ pub enum TexasClientError {
         error: String,
         error_description: String,
     },
+
+    #[error("Token exchange endpoint is not configured")]
+    ExchangeEndpointNotConfigured,
 }
