@@ -1,30 +1,30 @@
 use crate::fakta::person_fakta::UtledePersonFakta;
 use crate::fakta::UtledeFakta;
-use crate::inngang_regelsett_v2::inngang_regelsett_v2;
-use crate::inngang_regelsett_v3::inngang_regelsett_v3;
 use crate::modell::feil::EvalueringFeil;
+use crate::regelsett_inngang::regelsett_inngang;
+use crate::regelsett_utgang::regelsett_utgang;
 use crate::regler::regelsett::Regelsett;
 use crate::regler::resultat::GrunnlagForGodkjenning;
 use anyhow::Result;
 use pdl_graphql::pdl::Person;
 
-struct InngangRegelmotor {
+struct Regelmotor {
     utlede_fakta: UtledePersonFakta,
     regelsett: Regelsett,
 }
 
-impl InngangRegelmotor {
-    fn v2() -> Self {
+impl Regelmotor {
+    fn inngang() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
-            regelsett: inngang_regelsett_v2(),
+            regelsett: regelsett_inngang(),
         }
     }
 
-    fn v3() -> Self {
+    fn utgang() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
-            regelsett: inngang_regelsett_v3(),
+            regelsett: regelsett_utgang(),
         }
     }
 
@@ -39,8 +39,8 @@ impl InngangRegelmotor {
 
 #[cfg(test)]
 mod tests {
-    use crate::inngang_regelmotor::InngangRegelmotor;
     use crate::modell::feil::EvalueringFeil;
+    use crate::regelmotor::Regelmotor;
     use crate::regler::regel_id::RegelId;
     use crate::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use chrono::NaiveDate;
@@ -118,9 +118,8 @@ mod tests {
             vec!["bosattEtterFolkeregisterloven"],
             vec![Oppholdstillatelse::PERMANENT],
         );
-        let v2: InngangRegelmotor = InngangRegelmotor::v2();
-        let result = v2.evaluer(&person);
-        match result {
+        let regler_inngang: Regelmotor = Regelmotor::inngang();
+        match regler_inngang.evaluer(&person) {
             Ok(grunnlag) => assert_eq!(
                 grunnlag,
                 GrunnlagForGodkjenning {
@@ -150,9 +149,8 @@ mod tests {
             vec![],
             vec![Oppholdstillatelse::Other("__UNKNOWN_VALUE".to_string())],
         );
-        let v2: InngangRegelmotor = InngangRegelmotor::v2();
-        let result = v2.evaluer(&person);
-        match result {
+        let regler_inngang: Regelmotor = Regelmotor::inngang();
+        match regler_inngang.evaluer(&person) {
             Ok(grunnlag) => panic!("Forventet problemer, fikk: {:?}", grunnlag),
             Err(error) => match error.downcast::<EvalueringFeil>() {
                 Ok(EvalueringFeil::Problemer(problemer)) => {

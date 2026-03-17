@@ -4,10 +4,10 @@ use crate::regler::regel_id::RegelId;
 use crate::regler::regelsett::Regelsett;
 use interne_hendelser::vo::Opplysning;
 
-/// V2 differences from V3:
+/// inngang differences from utgang:
 /// - `EuEoesStatsborgerOver18Aar` additionally requires `!IkkeBosatt`.
 /// - Includes the `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule (Arena compatibility).
-pub fn inngang_regelsett_v2() -> Regelsett {
+pub fn regelsett_inngang() -> Regelsett {
     Regelsett {
         regler: vec![
             Regel::new(
@@ -99,14 +99,14 @@ mod tests {
     use interne_hendelser::vo::Opplysning::*;
 
     fn avviste_regel_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
-        match inngang_regelsett_v2().evaluer(opplysninger) {
+        match regelsett_inngang().evaluer(opplysninger) {
             Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
             Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
         }
     }
 
     fn er_godkjent(opplysninger: &[Opplysning]) -> bool {
-        inngang_regelsett_v2().evaluer(opplysninger).is_ok()
+        regelsett_inngang().evaluer(opplysninger).is_ok()
     }
 
     // --- Under 18 år, ikke forhåndsgodkjent ---

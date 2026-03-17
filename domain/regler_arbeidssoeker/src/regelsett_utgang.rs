@@ -4,10 +4,10 @@ use crate::regler::regel::{Aksjon, Regel};
 use crate::regler::regel_id::RegelId;
 use crate::regler::regelsett::Regelsett;
 
-/// V3 differences from V2:
+/// utgang differences from inngang:
 /// - `EuEoesStatsborgerOver18Aar` does NOT require `!IkkeBosatt`.
 /// - The `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule is removed.
-pub fn inngang_regelsett_v3() -> Regelsett {
+pub fn regelsett_utgang() -> Regelsett {
     Regelsett {
         regler: vec![
             Regel::new(

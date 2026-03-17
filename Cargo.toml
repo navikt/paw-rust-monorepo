@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "domain/pdl_graphql",
     "domain/interne_hendelser",
-    "domain/regler_inngang",
+    "domain/regler_arbeidssoeker",
     "lib/paw_app_config",
     "lib/axum_health",
     "lib/health_and_monitoring",
