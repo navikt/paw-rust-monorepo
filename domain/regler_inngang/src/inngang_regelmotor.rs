@@ -1,4 +1,5 @@
 use crate::fakta::person_fakta::UtledePersonFakta;
+use crate::fakta::UtledeFakta;
 use crate::inngang_regelsett_v2::inngang_regelsett_v2;
 use crate::inngang_regelsett_v3::inngang_regelsett_v3;
 use crate::modell::feil::EvalueringFeil;
@@ -6,7 +7,6 @@ use crate::regler::regelsett::Regelsett;
 use crate::regler::resultat::GrunnlagForGodkjenning;
 use anyhow::Result;
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 
 struct InngangRegelmotor {
     utlede_fakta: UtledePersonFakta,

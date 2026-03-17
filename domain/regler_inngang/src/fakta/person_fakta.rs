@@ -4,10 +4,10 @@ use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
 use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
 use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
+use crate::fakta::UtledeFakta;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
 pub struct UtledePersonFakta {
@@ -48,6 +48,7 @@ impl UtledeFakta<Person, Opplysning> for UtledePersonFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::person_fakta::UtledePersonFakta;
+    use crate::fakta::UtledeFakta;
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, ErEuEoesStatsborger, ErNorskStatsborger, ErOver18Aar,
@@ -59,7 +60,6 @@ mod tests {
         Bostedsadresse, Foedselsdato, Folkeregisterpersonstatus, Opphold, Person, Statsborgerskap,
         Vegadresse,
     };
-    use regler_core::fakta::UtledeFakta;
 
     fn person(
         foedselsdato: Option<NaiveDate>,

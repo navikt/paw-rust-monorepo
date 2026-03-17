@@ -1,5 +1,6 @@
 use crate::modell::feil::FaktaFeil;
 
+use crate::fakta::UtledeFakta;
 use crate::utils::finn_alder;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -8,7 +9,6 @@ use interne_hendelser::vo::Opplysning::{
     ErOver18Aar, ErUnder18Aar, UkjentFoedselsaar, UkjentFoedselsdato,
 };
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
 pub struct UtledeAlderFakta;
@@ -53,13 +53,13 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::alder_fakta::UtledeAlderFakta;
+    use crate::fakta::UtledeFakta;
     use crate::modell::feil::FaktaFeil;
     use chrono::{Datelike, Local, Months};
     use interne_hendelser::vo::Opplysning::{
         ErOver18Aar, ErUnder18Aar, UkjentFoedselsaar, UkjentFoedselsdato,
     };
     use pdl_graphql::pdl::{Foedselsdato, Person};
-    use regler_core::fakta::UtledeFakta;
 
     fn create_person(foedselsdato: Vec<Foedselsdato>) -> Person {
         Person {

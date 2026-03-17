@@ -1,3 +1,4 @@
+use crate::fakta::UtledeFakta;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
@@ -5,7 +6,6 @@ use interne_hendelser::vo::Opplysning::{
     UkjentForenkletFregStatus,
 };
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 use std::collections::HashMap;
 
 const BOSATT: &str = "bosattEtterFolkeregisterloven";
@@ -55,11 +55,11 @@ impl UtledeFakta<Person, Opplysning> for UtledeFolkeregisterFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
+    use crate::fakta::UtledeFakta;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, Dnummer, Doed, IkkeBosatt, OpphoertIdentitet, Savnet,
     };
     use pdl_graphql::pdl::{Folkeregisterpersonstatus, Person};
-    use regler_core::fakta::UtledeFakta;
 
     fn create_person(status: Vec<&str>) -> Person {
         let folkeregisterpersonstatus = status

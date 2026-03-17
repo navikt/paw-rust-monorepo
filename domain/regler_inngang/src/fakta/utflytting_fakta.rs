@@ -1,3 +1,4 @@
+use crate::fakta::UtledeFakta;
 use anyhow::Result;
 use chrono::NaiveDate;
 use interne_hendelser::vo::Opplysning;
@@ -6,7 +7,6 @@ use interne_hendelser::vo::Opplysning::{
     SisteFlyttingVarUtAvNorge,
 };
 use pdl_graphql::pdl::{InnflyttingTilNorge, Person, UtflyttingFraNorge};
-use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
 pub struct UtledeUtflyttingFakta;
@@ -88,6 +88,7 @@ impl Flytting {
 #[cfg(test)]
 mod tests {
     use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
+    use crate::fakta::UtledeFakta;
     use chrono::{Local, NaiveDate};
     use interne_hendelser::vo::Opplysning::{
         IkkeMuligAaIdentifisereSisteFlytting, IngenFlytteInformasjon, SisteFlyttingVarInnTilNorge,
@@ -96,7 +97,6 @@ mod tests {
     use pdl_graphql::pdl::{
         InnflyttingTilNorge, InnflyttingTilNorgeFolkeregistermetadata, Person, UtflyttingFraNorge,
     };
-    use regler_core::fakta::UtledeFakta;
 
     fn create_person(
         innflyttet: &Vec<Option<NaiveDate>>,

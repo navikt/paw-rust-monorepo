@@ -113,7 +113,7 @@ impl Default for UtenlandskAdresse {
 impl Default for Statsborgerskap {
     fn default() -> Self {
         Self {
-            land: "".to_string(),
+            land: "NOR".to_string(),
             metadata: StatsborgerskapMetadata::default(),
         }
     }

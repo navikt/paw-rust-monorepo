@@ -1,3 +1,4 @@
+use crate::fakta::UtledeFakta;
 use crate::modell::feil::FaktaFeil;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
@@ -7,7 +8,6 @@ use interne_hendelser::vo::Opplysning::{
 };
 use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
 pub struct UtledeOppholdstillatelseFakta;
@@ -34,6 +34,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
+    use crate::fakta::UtledeFakta;
     use crate::modell::feil::FaktaFeil;
     use interne_hendelser::vo::Opplysning::{
         BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
@@ -41,7 +42,6 @@ mod tests {
     };
     use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
     use pdl_graphql::pdl::{Opphold, Person};
-    use regler_core::fakta::UtledeFakta;
 
     fn create_person(opphold: Vec<Opphold>) -> Person {
         Person {

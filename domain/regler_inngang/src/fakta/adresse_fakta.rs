@@ -1,13 +1,13 @@
 use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::config::read_regler_config;
+use crate::fakta::UtledeFakta;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     HarNorskAdresse, HarRegistrertAdresseIEuEoes, HarUtenlandskAdresse, IngenAdresseFunnet,
 };
 use pdl_graphql::pdl::Person;
-use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
 pub struct UtledeAdresseFakta {

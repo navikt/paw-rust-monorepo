@@ -2956,18 +2956,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
-name = "regler_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "paw_test",
- "temp-env",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "regler_inngang"
 version = "0.1.0"
 dependencies = [
@@ -2975,25 +2963,10 @@ dependencies = [
  "chrono",
  "interne_hendelser",
  "paw_app_config",
- "paw_test",
  "pdl_graphql",
- "regler_core",
- "regler_macro",
  "serde",
  "serde-env-field",
- "serde_with",
- "temp-env",
  "thiserror 2.0.18",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "regler_macro"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn 2.0.117",
 ]
 
 [[package]]
