@@ -1,11 +1,12 @@
 use crate::modell::feil::FaktaFeil;
-use crate::modell::pdl::{Oppholdstillatelse, Person};
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
     IngenInformasjonOmOppholdstillatelse, UkjentStatusForOppholdstillatelse,
 };
+use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
@@ -20,10 +21,10 @@ impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
         } else {
             let opphold = &input.opphold[0];
             let fakta = match opphold.type_ {
-                Oppholdstillatelse::Permanent => HarGyldigOppholdstillatelse,
-                Oppholdstillatelse::Midlertidig => HarGyldigOppholdstillatelse,
-                Oppholdstillatelse::OpplysningMangler => BarnFoedtINorgeUtenOppholdstillatelse,
-                Oppholdstillatelse::UkjentVerdi => UkjentStatusForOppholdstillatelse,
+                Oppholdstillatelse::PERMANENT => HarGyldigOppholdstillatelse,
+                Oppholdstillatelse::MIDLERTIDIG => HarGyldigOppholdstillatelse,
+                Oppholdstillatelse::OPPLYSNING_MANGLER => BarnFoedtINorgeUtenOppholdstillatelse,
+                Oppholdstillatelse::Other(_) => UkjentStatusForOppholdstillatelse,
             };
             Ok(vec![fakta])
         }
@@ -32,13 +33,14 @@ impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
 
 #[cfg(test)]
 mod tests {
-    use crate::modell::feil::FaktaFeil;
     use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
-    use crate::modell::pdl::{Opphold, Oppholdstillatelse, Person};
+    use crate::modell::feil::FaktaFeil;
     use interne_hendelser::vo::Opplysning::{
         BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
         IngenInformasjonOmOppholdstillatelse, UkjentStatusForOppholdstillatelse,
     };
+    use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
+    use pdl_graphql::pdl::{Opphold, Person};
     use regler_core::fakta::UtledeFakta;
 
     fn create_person(opphold: Vec<Opphold>) -> Person {
@@ -73,7 +75,7 @@ mod tests {
     #[test]
     fn en_permanent_oppholdstillatelse_gir_gyldig_opphold_fakta() {
         let opphold = vec![Opphold {
-            type_: Oppholdstillatelse::Permanent,
+            type_: Oppholdstillatelse::PERMANENT,
             ..Default::default()
         }];
         let person = create_person(opphold);
@@ -85,7 +87,7 @@ mod tests {
     #[test]
     fn en_midlertidig_oppholdstillatelse_gir_gyldig_opphold_fakta() {
         let opphold = vec![Opphold {
-            type_: Oppholdstillatelse::Midlertidig,
+            type_: Oppholdstillatelse::MIDLERTIDIG,
             ..Default::default()
         }];
         let person = create_person(opphold);
@@ -97,7 +99,7 @@ mod tests {
     #[test]
     fn opplysninger_mangler_om_oppholdstillatelse_gir_barn_foedt_i_norge_uten_opphold_fakta() {
         let opphold = vec![Opphold {
-            type_: Oppholdstillatelse::OpplysningMangler,
+            type_: Oppholdstillatelse::OPPLYSNING_MANGLER,
             ..Default::default()
         }];
         let person = create_person(opphold);
@@ -109,7 +111,7 @@ mod tests {
     #[test]
     fn ukjent_verdi_gir_ukjent_status_for_opphold_fakta() {
         let opphold = vec![Opphold {
-            type_: Oppholdstillatelse::UkjentVerdi,
+            type_: Oppholdstillatelse::Other("__UNKNOWN_VALUE".to_string()),
             ..Default::default()
         }];
         let person = create_person(opphold);

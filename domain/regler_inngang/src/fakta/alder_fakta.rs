@@ -1,6 +1,5 @@
 use crate::modell::feil::FaktaFeil;
 
-use crate::modell::pdl::Person;
 use crate::utils::finn_alder;
 use anyhow::Result;
 use chrono::NaiveDate;
@@ -8,6 +7,7 @@ use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     ErOver18Aar, ErUnder18Aar, UkjentFoedselsaar, UkjentFoedselsdato,
 };
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
@@ -21,9 +21,10 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
             Err(FaktaFeil::FlereFoedselsdatoer(input.foedselsdato.len()).into())
         } else {
             let foedselsdato = &input.foedselsdato[0];
-            match foedselsdato.foedselsdato {
+            match foedselsdato.foedselsdato.clone() {
                 Some(dato) => {
-                    let alder = finn_alder(dato);
+                    let naive_date = NaiveDate::parse_from_str(&dato, "%Y-%m-%d")?;
+                    let alder = finn_alder(naive_date);
                     if alder > 18 {
                         Ok(vec![ErOver18Aar])
                     } else {
@@ -32,7 +33,8 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
                 }
                 None => match foedselsdato.foedselsaar {
                     Some(aar) => {
-                        let foedt_dato = NaiveDate::from_ymd_opt(aar, 12, 31).unwrap();
+                        let int = aar.to_string().parse::<i32>()?; // TODO: Finn bedre løsning
+                        let foedt_dato = NaiveDate::from_ymd_opt(int, 12, 31).unwrap();
                         let alder = finn_alder(foedt_dato);
                         println!("Alder: {}", alder);
                         if alder > 18 {
@@ -52,11 +54,11 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
 mod tests {
     use crate::fakta::alder_fakta::UtledeAlderFakta;
     use crate::modell::feil::FaktaFeil;
-    use crate::modell::pdl::{Foedselsdato, Person};
     use chrono::{Datelike, Local, Months};
     use interne_hendelser::vo::Opplysning::{
         ErOver18Aar, ErUnder18Aar, UkjentFoedselsaar, UkjentFoedselsdato,
     };
+    use pdl_graphql::pdl::{Foedselsdato, Person};
     use regler_core::fakta::UtledeFakta;
 
     fn create_person(foedselsdato: Vec<Foedselsdato>) -> Person {
@@ -105,7 +107,7 @@ mod tests {
     fn foedselsdato_under_18_aar_gir_under_18_aar_fakta() {
         let dato = Local::now() - Months::new(12 * 17);
         let foedselsdato = vec![Foedselsdato {
-            foedselsdato: dato.date_naive().into(),
+            foedselsdato: Some(dato.date_naive().format("%Y-%m-%d").to_string()),
             foedselsaar: None,
         }];
         let person = create_person(foedselsdato);
@@ -118,7 +120,7 @@ mod tests {
     fn foedselsdato_over_18_aar_gir_over_18_aar_fakta() {
         let dato = Local::now() - Months::new(12 * 20);
         let foedselsdato = vec![Foedselsdato {
-            foedselsdato: dato.date_naive().into(),
+            foedselsdato: Some(dato.date_naive().format("%Y-%m-%d").to_string()),
             foedselsaar: None,
         }];
         let person = create_person(foedselsdato);
@@ -132,7 +134,7 @@ mod tests {
         let dato = Local::now() - Months::new(12 * 17);
         let foedselsdato = vec![Foedselsdato {
             foedselsdato: None,
-            foedselsaar: Some(dato.year()),
+            foedselsaar: Some(dato.year().into()),
         }];
         let person = create_person(foedselsdato);
         let result = UtledeAlderFakta::default().utlede_fakta(&person);
@@ -145,7 +147,7 @@ mod tests {
         let dato = Local::now() - Months::new(12 * 20);
         let foedselsdato = vec![Foedselsdato {
             foedselsdato: None,
-            foedselsaar: Some(dato.year()),
+            foedselsaar: Some(dato.year().into()),
         }];
         let person = create_person(foedselsdato);
         let result = UtledeAlderFakta::default().utlede_fakta(&person);

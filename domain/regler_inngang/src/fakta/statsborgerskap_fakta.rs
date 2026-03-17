@@ -1,10 +1,10 @@
 use crate::fakta::config::read_regler_config;
-use crate::modell::pdl::Person;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     ErEuEoesStatsborger, ErGbrStatsborger, ErNorskStatsborger,
 };
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 const NOR: &str = "NOR";
@@ -53,10 +53,10 @@ impl UtledeFakta<Person, Opplysning> for UtledeStatsborgerskapFakta {
 mod tests {
     use crate::fakta::config::read_regler_config;
     use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
-    use crate::modell::pdl::{Person, Statsborgerskap};
     use interne_hendelser::vo::Opplysning::{
         ErEuEoesStatsborger, ErGbrStatsborger, ErNorskStatsborger,
     };
+    use pdl_graphql::pdl::{Person, Statsborgerskap};
     use regler_core::fakta::UtledeFakta;
 
     fn create_person(land: &Vec<&str>) -> Person {

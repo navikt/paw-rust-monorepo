@@ -1,12 +1,12 @@
 use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::config::read_regler_config;
-use crate::modell::pdl::Person;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     HarNorskAdresse, HarRegistrertAdresseIEuEoes, HarUtenlandskAdresse, IngenAdresseFunnet,
 };
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
@@ -60,7 +60,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAdresseFakta {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modell::pdl::{
+    use pdl_graphql::pdl::{
         Bostedsadresse, Matrikkeladresse, UkjentBosted, UtenlandskAdresse, Vegadresse,
     };
 

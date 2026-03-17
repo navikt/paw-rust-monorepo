@@ -1,4 +1,3 @@
-use crate::modell::pdl::{InnflyttingTilNorge, Person, UtflyttingFraNorge};
 use anyhow::Result;
 use chrono::NaiveDate;
 use interne_hendelser::vo::Opplysning;
@@ -6,6 +5,7 @@ use interne_hendelser::vo::Opplysning::{
     IkkeMuligAaIdentifisereSisteFlytting, IngenFlytteInformasjon, SisteFlyttingVarInnTilNorge,
     SisteFlyttingVarUtAvNorge,
 };
+use pdl_graphql::pdl::{InnflyttingTilNorge, Person, UtflyttingFraNorge};
 use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug, Default)]
@@ -16,12 +16,12 @@ impl UtledeFakta<Person, Opplysning> for UtledeUtflyttingFakta {
         let innflyttinger = input
             .innflytting_til_norge
             .iter()
-            .map(|i| Flytting::fra_innflytting(i))
+            .map(|i| Flytting::fra_innflytting(i.clone()))
             .collect::<Vec<Flytting>>();
         let utflyttinger = input
             .utflytting_fra_norge
             .iter()
-            .map(|u| Flytting::fra_utflytting(u))
+            .map(|u| Flytting::fra_utflytting(u.clone()))
             .collect::<Vec<Flytting>>();
         if innflyttinger.is_empty() && utflyttinger.is_empty() {
             Ok(vec![IngenFlytteInformasjon])
@@ -63,21 +63,24 @@ struct Flytting {
 }
 
 impl Flytting {
-    fn fra_innflytting(innflytting: &InnflyttingTilNorge) -> Flytting {
-        let tidspunkt = innflytting
+    fn fra_innflytting(innflytting: InnflyttingTilNorge) -> Flytting {
+        let dato = innflytting
             .folkeregistermetadata
-            .clone()
-            .and_then(|metadata| metadata.ajourholdstidspunkt);
+            .and_then(|metadata| metadata.ajourholdstidspunkt)
+            .and_then(|t| Some(NaiveDate::parse_from_str(&t, "%Y-%m-%dT%H:%M:%S").unwrap()));
         Self {
             innflytting: true,
-            dato: tidspunkt.map(|t| t.naive_local().date()),
+            dato,
         }
     }
 
-    fn fra_utflytting(utflytting: &UtflyttingFraNorge) -> Flytting {
+    fn fra_utflytting(utflytting: UtflyttingFraNorge) -> Flytting {
+        let dato = utflytting
+            .utflyttingsdato
+            .and_then(|t| Some(NaiveDate::parse_from_str(&t, "%Y-%m-%d").unwrap()));
         Self {
             innflytting: false,
-            dato: utflytting.utflyttingsdato,
+            dato,
         }
     }
 }
@@ -85,13 +88,13 @@ impl Flytting {
 #[cfg(test)]
 mod tests {
     use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
-    use crate::modell::pdl::{
-        Folkeregistermetadata, InnflyttingTilNorge, Person, UtflyttingFraNorge,
-    };
     use chrono::{Local, NaiveDate};
     use interne_hendelser::vo::Opplysning::{
         IkkeMuligAaIdentifisereSisteFlytting, IngenFlytteInformasjon, SisteFlyttingVarInnTilNorge,
         SisteFlyttingVarUtAvNorge,
+    };
+    use pdl_graphql::pdl::{
+        InnflyttingTilNorge, InnflyttingTilNorgeFolkeregistermetadata, Person, UtflyttingFraNorge,
     };
     use regler_core::fakta::UtledeFakta;
 
@@ -106,17 +109,18 @@ mod tests {
                     .and_then(|t| t.and_hms_opt(0, 0, 0))
                     .and_then(|t| Some(t.and_local_timezone(Local).unwrap()));
                 InnflyttingTilNorge {
-                    folkeregistermetadata: Some(Folkeregistermetadata {
+                    folkeregistermetadata: Some(InnflyttingTilNorgeFolkeregistermetadata {
                         gyldighetstidspunkt: None,
-                        ajourholdstidspunkt: tidspunkt,
+                        ajourholdstidspunkt: tidspunkt
+                            .map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string()),
                     }),
                 }
             })
             .collect::<Vec<InnflyttingTilNorge>>();
         let utflytting_fra_norge = utflyttet
             .iter()
-            .map(|dato| UtflyttingFraNorge {
-                utflyttingsdato: *dato,
+            .map(|&dato| UtflyttingFraNorge {
+                utflyttingsdato: dato.map(|d| d.format("%Y-%m-%d").to_string()),
                 folkeregistermetadata: None,
             })
             .collect::<Vec<UtflyttingFraNorge>>();

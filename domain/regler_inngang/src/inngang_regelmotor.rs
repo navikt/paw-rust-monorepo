@@ -2,10 +2,10 @@ use crate::fakta::person_fakta::UtledePersonFakta;
 use crate::inngang_regelsett_v2::inngang_regelsett_v2;
 use crate::inngang_regelsett_v3::inngang_regelsett_v3;
 use crate::modell::feil::EvalueringFeil;
-use crate::modell::pdl::Person;
 use crate::regler::regelsett::Regelsett;
 use crate::regler::resultat::GrunnlagForGodkjenning;
 use anyhow::Result;
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 struct InngangRegelmotor {
@@ -41,10 +41,6 @@ impl InngangRegelmotor {
 mod tests {
     use crate::inngang_regelmotor::InngangRegelmotor;
     use crate::modell::feil::EvalueringFeil;
-    use crate::modell::pdl::{
-        Bostedsadresse, Foedselsdato, Folkeregisterpersonstatus, Opphold, Oppholdstillatelse,
-        Person, Statsborgerskap, Vegadresse,
-    };
     use crate::regler::regel_id::RegelId;
     use crate::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use chrono::NaiveDate;
@@ -52,6 +48,11 @@ mod tests {
         BosattEtterFregLoven, ErEuEoesStatsborger, ErNorskStatsborger, ErOver18Aar,
         HarGyldigOppholdstillatelse, HarNorskAdresse, HarRegistrertAdresseIEuEoes,
         IngenAdresseFunnet, IngenFlytteInformasjon, UkjentStatusForOppholdstillatelse,
+    };
+    use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
+    use pdl_graphql::pdl::{
+        Bostedsadresse, Foedselsdato, Folkeregisterpersonstatus, FolkeregisterpersonstatusMetadata,
+        Opphold, OppholdMetadata, Person, Statsborgerskap, StatsborgerskapMetadata, Vegadresse,
     };
 
     fn person(
@@ -63,37 +64,44 @@ mod tests {
     ) -> Person {
         Person {
             foedselsdato: vec![Foedselsdato {
-                foedselsdato,
+                foedselsdato: foedselsdato.map(|d| d.format("%Y-%m-%d").to_string()),
                 foedselsaar: None,
             }],
             bostedsadresse: kommunenummer
                 .iter()
                 .map(|&k| Bostedsadresse {
+                    angitt_flyttedato: None,
+                    gyldig_fra_og_med: None,
+                    gyldig_til_og_med: None,
                     vegadresse: Some(Vegadresse {
                         kommunenummer: Some(k.to_string()),
                     }),
-                    ..Default::default()
+                    matrikkeladresse: None,
+                    ukjent_bosted: None,
+                    utenlandsk_adresse: None,
                 })
                 .collect(),
             statsborgerskap: statsborgerskap
                 .iter()
                 .map(|&s| Statsborgerskap {
                     land: s.to_string(),
-                    ..Default::default()
+                    metadata: StatsborgerskapMetadata { endringer: vec![] },
                 })
                 .collect(),
             folkeregisterpersonstatus: freg_status
                 .iter()
                 .map(|&s| Folkeregisterpersonstatus {
                     forenklet_status: s.to_string(),
-                    ..Default::default()
+                    metadata: FolkeregisterpersonstatusMetadata { endringer: vec![] },
                 })
                 .collect(),
             opphold: opphold
                 .iter()
                 .map(|o| Opphold {
                     type_: o.clone(),
-                    ..Default::default()
+                    opphold_fra: None,
+                    opphold_til: None,
+                    metadata: OppholdMetadata { endringer: vec![] },
                 })
                 .collect(),
             innflytting_til_norge: vec![],
@@ -108,7 +116,7 @@ mod tests {
             vec!["5501"],
             vec!["NOR"],
             vec!["bosattEtterFolkeregisterloven"],
-            vec![Oppholdstillatelse::Permanent],
+            vec![Oppholdstillatelse::PERMANENT],
         );
         let v2: InngangRegelmotor = InngangRegelmotor::v2();
         let result = v2.evaluer(&person);
@@ -140,7 +148,7 @@ mod tests {
             vec![],
             vec!["FIJ"],
             vec![],
-            vec![Oppholdstillatelse::UkjentVerdi],
+            vec![Oppholdstillatelse::Other("__UNKNOWN_VALUE".to_string())],
         );
         let v2: InngangRegelmotor = InngangRegelmotor::v2();
         let result = v2.evaluer(&person);

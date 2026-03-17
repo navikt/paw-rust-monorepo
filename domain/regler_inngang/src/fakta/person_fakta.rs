@@ -4,9 +4,9 @@ use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
 use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
 use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
-use crate::modell::pdl::Person;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
+use pdl_graphql::pdl::Person;
 use regler_core::fakta::UtledeFakta;
 
 #[derive(Debug)]
@@ -48,15 +48,16 @@ impl UtledeFakta<Person, Opplysning> for UtledePersonFakta {
 #[cfg(test)]
 mod tests {
     use crate::fakta::person_fakta::UtledePersonFakta;
-    use crate::modell::pdl::{
-        Bostedsadresse, Foedselsdato, Folkeregisterpersonstatus, Opphold, Oppholdstillatelse,
-        Person, Statsborgerskap, Vegadresse,
-    };
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, ErEuEoesStatsborger, ErNorskStatsborger, ErOver18Aar,
         HarGyldigOppholdstillatelse, HarNorskAdresse, HarRegistrertAdresseIEuEoes,
         IngenFlytteInformasjon,
+    };
+    use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
+    use pdl_graphql::pdl::{
+        Bostedsadresse, Foedselsdato, Folkeregisterpersonstatus, Opphold, Person, Statsborgerskap,
+        Vegadresse,
     };
     use regler_core::fakta::UtledeFakta;
 
@@ -69,7 +70,7 @@ mod tests {
     ) -> Person {
         Person {
             foedselsdato: vec![Foedselsdato {
-                foedselsdato,
+                foedselsdato: foedselsdato.map(|d| d.format("%Y-%m-%d").to_string()),
                 foedselsaar: None,
             }],
             bostedsadresse: kommunenummer
@@ -114,7 +115,7 @@ mod tests {
             vec!["5501"],
             vec!["NOR"],
             vec!["bosattEtterFolkeregisterloven"],
-            vec![Oppholdstillatelse::Permanent],
+            vec![Oppholdstillatelse::PERMANENT],
         );
 
         let result = UtledePersonFakta::default().utlede_fakta(&person);
