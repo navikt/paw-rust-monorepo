@@ -8,7 +8,7 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use paw_rust_base::env::{get_env, nais_namespace, nais_otel_service_name};
 use std::time::Duration;
-use tracing::log::info;
+use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
