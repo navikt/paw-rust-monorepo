@@ -35,8 +35,8 @@ futures = "0.3.32"
 log = "0.4.29"
 log4rs = "1.4.0"
 opentelemetry = { version = "0.31.0", features = ["trace"] }
-opentelemetry-otlp = { version = "0.31.0", features = ["grpc-tonic", "trace"] }
-opentelemetry_sdk = { version = "0.31.0", features = ["trace", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio"] }
 prometheus = "0.14.0"
 rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -51,7 +51,7 @@ tower = "0.5.3"
 tower-http = { version = "0.6.8", features = ["trace"] }
 tracing = "0.1.44"
 tracing-opentelemetry = "0.32.1"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "json", "tracing-log"] }
+tracing-subscriber = { version = "0.3.2", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 reqwest = { version = "0.13", features = ["json", "form"] }
 thiserror = "2.0"
