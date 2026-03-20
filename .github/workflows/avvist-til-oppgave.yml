@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - dev/**
     paths:
       - 'app/avvist-til-oppgave/**'
       - 'Cargo.lock'
@@ -56,7 +57,7 @@ jobs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
   deploy-dev:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev/')
     name: Deploy to dev-gcp
     needs: [ test, build ]
     permissions:
