@@ -1,34 +1,22 @@
 use crate::error::OtelError;
+use crate::logging_filter::resolve_logging_filter;
+#[cfg(feature = "nais")]
 use crate::otel_json_format_layer;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
-use opentelemetry::{KeyValue, global};
+use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::{Protocol, SpanExporter, WithExportConfig};
-use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::Resource;
 use paw_rust_base::env::{get_env, nais_namespace, nais_otel_service_name};
 use std::time::Duration;
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, fmt};
-
-pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>> {
-    let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
-    if let Some(otel_endpoint) = otel_endpoint {
-        let exporter = SpanExporter::builder()
-            .with_tonic()
-            .with_protocol(Protocol::Grpc)
-            .with_endpoint(otel_endpoint)
-            .with_timeout(Duration::from_secs(5))
-            .build()
-            .map_err(OtelError::CreateOtlpExporter)?;
-        Ok(Some(exporter))
-    } else {
-        Ok(None)
-    }
-}
+use tracing_subscriber::fmt;
+use tracing_subscriber::Layer;
 
 pub fn setup_nais_otel() -> Result<()> {
     let exporter = nais_otlp_exporter()?;
@@ -53,19 +41,20 @@ pub fn setup_nais_otel() -> Result<()> {
         .build();
     global::set_text_map_propagator(TraceContextPropagator::new());
 
+    #[cfg(feature = "nais")]
     let fmt_layer = fmt::layer()
         .event_format(otel_json_format_layer::OtelJsonFormat)
-        .with_ansi(false);
+        .with_ansi(false)
+        .boxed();
+
+    #[cfg(not(feature = "nais"))]
+    let fmt_layer = fmt::layer().boxed();
+
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
     tracing_subscriber::registry()
-        .with(
-            EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
-                .add_directive("sqlx::query=info".parse().unwrap()),
-        )
-        .with(OpenTelemetryLayer::new(tracer))
-        .with(fmt_layer)
+        .with(OpenTelemetryLayer::new(tracer).with_filter(LevelFilter::TRACE))
+        .with(fmt_layer.with_filter(resolve_logging_filter()))
         .init();
     info!(
         "Initialized NAIS OpenTelemetry with service name: {}, namespace: {}, exporter_active={}",
@@ -73,3 +62,20 @@ pub fn setup_nais_otel() -> Result<()> {
     );
     Ok(())
 }
+
+pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>> {
+    let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
+    if let Some(otel_endpoint) = otel_endpoint {
+        let exporter = SpanExporter::builder()
+            .with_tonic()
+            .with_protocol(Protocol::Grpc)
+            .with_endpoint(otel_endpoint)
+            .with_timeout(Duration::from_secs(5))
+            .build()
+            .map_err(OtelError::CreateOtlpExporter)?;
+        Ok(Some(exporter))
+    } else {
+        Ok(None)
+    }
+}
+

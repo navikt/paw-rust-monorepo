@@ -1,5 +1,6 @@
 pub mod compound_health;
 pub mod error;
+mod logging_filter;
 pub mod nais_otel_setup;
 pub mod otel_json_format_layer;
 pub mod simple_app_state;
@@ -14,3 +15,4 @@ pub enum CheckType {
     IsAlive,
     HasStarted,
 }
+    
