@@ -87,6 +87,7 @@ pub enum OppgavePrioritet {
     Hoy,
     Normal,
     Lav,
+    Kritisk
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Display, EnumString)]
