@@ -36,8 +36,16 @@ pub async fn oppdater_ferdigstilte_oppgaver(
         return Ok(());
     }
 
-    let oppgave_hendelse: OppgaveHendelseMelding =
-        serde_json::from_value(json).context("Kunne ikke deserialisere oppgavehendelse")?;
+    let oppgave_hendelse: OppgaveHendelseMelding = serde_json::from_value(json.clone())
+        .map_err(|error| {
+            tracing::debug!(
+                error = %error,
+                payload = %json,
+                "Kunne ikke deserialisere oppgavehendelse fra payload"
+            );
+            error
+        })
+        .context("Kunne ikke deserialisere oppgavehendelse")?;
 
     // Tidspunktet fra oppgave-appen er i Oslo-tid (TZ="Europe/Oslo" i Dockerfile)
     let hendelse_tidspunkt = oslo_tid_til_utc(oppgave_hendelse.hendelse.tidspunkt);
