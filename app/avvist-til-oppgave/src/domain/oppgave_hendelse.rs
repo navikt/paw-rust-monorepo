@@ -87,6 +87,7 @@ pub enum OppgavePrioritet {
     Hoy,
     Normal,
     Lav,
+    Kritisk
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Display, EnumString)]
@@ -273,5 +274,54 @@ mod tests {
         let json_7 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45,500000000]}"#;
         let h7: OppgaveHendelse = serde_json::from_str(json_7).unwrap();
         assert_eq!(h7.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_nano_opt(12, 30, 45, 500000000).unwrap());
+    }
+
+    #[test]
+    fn test_deserialize_ferdigstilt_med_kritisk_prioritet() {
+        let json = r#"
+        {
+            "hendelse": {
+                "hendelsestype": "OPPGAVE_FERDIGSTILT",
+                "tidspunkt": [2026, 3, 20, 14, 10, 52, 306000000]
+            },
+            "oppgave": {
+                "behandlingsperiode": {
+                    "aktiv": [2024, 10, 22],
+                    "frist": [2024, 10, 22]
+                },
+                "bruker": {
+                    "ident": "01047514661",
+                    "identType": "FOLKEREGISTERIDENT"
+                },
+                "kategorisering": {
+                    "behandlingstema": null,
+                    "behandlingstype": null,
+                    "oppgavetype": "JFR",
+                    "prioritet": "KRITISK",
+                    "tema": "BAR"
+                },
+                "oppgaveId": 236155,
+                "tilordning": {
+                    "enhetsmappeId": 481,
+                    "enhetsnr": "2990",
+                    "navIdent": "Z991459"
+                },
+                "versjon": 11
+            },
+            "utfortAv": {
+                "enhetsnr": "2990",
+                "navIdent": "Z991459"
+            }
+        }
+        "#;
+
+        let melding: OppgaveHendelseMelding = serde_json::from_str(json).unwrap();
+
+        assert_eq!(melding.hendelse.hendelsestype, OppgaveHendelsetype::OppgaveFerdigstilt);
+        assert_eq!(melding.oppgave.oppgave_id, 236155);
+        assert_eq!(
+            melding.oppgave.kategorisering.unwrap().prioritet,
+            OppgavePrioritet::Kritisk
+        );
     }
 }
