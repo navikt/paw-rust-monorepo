@@ -18,6 +18,7 @@ pub struct ApplicationConfig {
     pub opprett_oppgaver_task_interval_minutes: u64,
     pub opprett_oppgaver_task_batch_size: i64,
     pub opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
+    pub metrikk_task_interval_seconds: u64,
 }
 
 impl ApplicationConfig {

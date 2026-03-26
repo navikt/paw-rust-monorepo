@@ -5,3 +5,4 @@ topic_oppgavehendelse_version = 1
 opprett_oppgaver_task_interval_minutes = 1
 opprett_oppgaver_task_batch_size = 50
 opprett_oppgaver_fra_tidspunkt = "${OPPRETT_OPPGAVER_FRA_TIDSPUNKT}"
+metrikk_task_interval_seconds = 60

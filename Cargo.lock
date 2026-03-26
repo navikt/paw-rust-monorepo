@@ -171,6 +171,7 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
+ "prometheus",
  "rand 0.10.0",
  "rdkafka",
  "reqwest 0.13.2",

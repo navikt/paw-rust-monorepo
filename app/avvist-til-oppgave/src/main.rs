@@ -4,6 +4,7 @@ mod db;
 mod domain;
 mod kafka;
 mod message_processor;
+mod metrics;
 mod opprett_oppgave_task;
 mod process_hendelselogg_message;
 mod process_oppgavehendelse_message;
@@ -14,6 +15,7 @@ use crate::config::read_kafka_config;
 use crate::config::read_oppgave_client_config;
 use crate::config::read_token_client_config;
 use crate::message_processor::AvvistTilOppgaveMessageProcessor;
+use crate::metrics::polling_task::start_metrics_task;
 use anyhow::Result;
 use axum_health::routes;
 use client::oppgave_client::OppgaveApiClient;
@@ -26,6 +28,7 @@ use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::error::DatabaseError;
 use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
+use std::time::Duration;
 use texas_client::token_client::create_token_client;
 use tokio::task::JoinHandle;
 
@@ -59,7 +62,7 @@ async fn main() -> Result<()> {
             .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
 
     let reqwest_client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(Duration::from_secs(5))
         .build()?;
 
     let token_client_config = read_token_client_config()?;
@@ -88,6 +91,8 @@ async fn main() -> Result<()> {
                 })?;
         }
     });
+    let metrikk_task_interval = Duration::from_secs(*app_config.metrikk_task_interval_seconds);
+    let metrikk_task = start_metrics_task(pg_pool.clone(), metrikk_task_interval);
 
     appstate.set_has_started(true);
 
@@ -111,6 +116,13 @@ async fn main() -> Result<()> {
             match result {
                 Ok(()) => tracing::info!("Opprett oppgave task stopped"),
                 Err(e) => return Err(e),
+            }
+        }
+
+        result = metrikk_task => {
+            match result {
+                Ok(()) => tracing::warn!("Metrikk task stoppet uventet"),
+                Err(join_error) => tracing::warn!(error = %join_error, "Metrikk task paniced"),
             }
         }
     }
