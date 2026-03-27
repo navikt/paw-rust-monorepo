@@ -1,6 +1,5 @@
-FROM clux/muslrust:stable AS builder
+FROM clux/muslrust:1.94.0 AS builder
 WORKDIR /build
-ENV RUSTUP_AUTO_UPDATE=disable
 RUN cargo install cargo-auditable
 COPY . .
 ENV RUSTFLAGS='-C target-feature=+crt-static'
