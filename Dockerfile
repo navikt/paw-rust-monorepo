@@ -1,6 +1,6 @@
 FROM clux/muslrust:1.94.0-stable AS builder
 WORKDIR /build
-RUN cargo install cargo-auditable
+RUN cargo install cargo-auditable && rustup target add x86_64-unknown-linux-musl
 COPY . .
 ENV RUSTFLAGS='-C target-feature=+crt-static'
 
