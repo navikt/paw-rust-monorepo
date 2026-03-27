@@ -1,6 +1,7 @@
+use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
 use anyhow::Result;
 use chrono::{TimeZone, Utc};
-use prometheus::{Gauge, register_gauge};
+use prometheus::{register_gauge, Gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::OnceLock;
 
@@ -12,17 +13,20 @@ pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()>
     Ok(())
 }
 
-async fn hent_antall_duplikater_avverget(transaction: &mut Transaction<'_, Postgres>) -> Result<i64> {
+async fn hent_antall_duplikater_avverget(
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<i64> {
     // Teller fra 10. mars 2026 — data før dette er upålitelig pga. en bug
     let fra_tidspunkt = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
     let antall: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
         FROM oppgave_hendelse_logg
-        WHERE status = 'OPPGAVE_FINNES_ALLEREDE'
-          AND tidspunkt >= $1
+        WHERE status = $1
+          AND tidspunkt >= $2
         "#,
     )
+    .bind(OppgaveFinnesAllerede.to_string())
     .bind(fra_tidspunkt)
     .fetch_one(&mut **transaction)
     .await?;
@@ -52,6 +56,7 @@ mod tests {
     use anyhow::Result;
     use chrono::Duration;
     use paw_test::setup_test_db::setup_test_db;
+    use HendelseLoggStatus::OppgaveOpprettet;
 
     #[tokio::test]
     async fn test_hent_antall_duplikate_oppgaver() -> Result<()> {
@@ -66,7 +71,7 @@ mod tests {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id,
-                status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
+                status: OppgaveFinnesAllerede.to_string(),
                 melding: String::new(),
                 tidspunkt: etter_cutoff,
             },
@@ -76,7 +81,7 @@ mod tests {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id,
-                status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
+                status: OppgaveFinnesAllerede.to_string(),
                 melding: String::new(),
                 tidspunkt: foer_cutoff,
             },
@@ -86,7 +91,7 @@ mod tests {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id,
-                status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
+                status: OppgaveOpprettet.to_string(),
                 melding: String::new(),
                 tidspunkt: etter_cutoff,
             },
@@ -98,7 +103,10 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
         let antall = hent_antall_duplikater_avverget(&mut tx).await?;
 
-        assert_eq!(antall, 1, "Skal kun telle OPPGAVE_FINNES_ALLEREDE etter cutoff");
+        assert_eq!(
+            antall, 1,
+            "Skal kun telle OPPGAVE_FINNES_ALLEREDE etter cutoff"
+        );
 
         Ok(())
     }
