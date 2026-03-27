@@ -1,4 +1,4 @@
-FROM clux/muslrust:1.94.0 AS builder
+FROM clux/muslrust:1.94.0-stable AS builder
 WORKDIR /build
 RUN cargo install cargo-auditable
 COPY . .
