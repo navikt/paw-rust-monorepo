@@ -1,7 +1,7 @@
 use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
 use prometheus::{register_gauge_vec, GaugeVec};
-use sqlx::{Postgres, Transaction};
+use sqlx::{FromRow, Postgres, Transaction};
 use std::sync::OnceLock;
 use strum::IntoEnumIterator;
 
@@ -13,15 +13,16 @@ pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()>
     Ok(())
 }
 
+#[derive(Debug, FromRow)]
 struct OppgaveStatusAntall {
-    oppgave_status: OppgaveStatus,
+    status: String,
     antall: i64,
 }
 
 async fn hent_antall(
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<OppgaveStatusAntall>> {
-    let rows: Vec<(String, i64)> = sqlx::query_as(
+    let rader = sqlx::query_as::<_, OppgaveStatusAntall>(
         r#"
         SELECT status, COUNT(*) as antall
         FROM oppgaver
@@ -31,23 +32,10 @@ async fn hent_antall(
     .fetch_all(&mut **transaction)
     .await?;
 
-    let result = rows
-        .into_iter()
-        .filter_map(|(status_str, antall)| {
-            status_str
-                .parse::<OppgaveStatus>()
-                .ok()
-                .map(|oppgave_status| OppgaveStatusAntall {
-                    oppgave_status,
-                    antall,
-                })
-        })
-        .collect();
-
-    Ok(result)
+    Ok(rader)
 }
 
-fn sett_oppgave_statuser(oppgave_status_antall: &[OppgaveStatusAntall]) {
+fn sett_oppgave_statuser(rader: &[OppgaveStatusAntall]) {
     let gauge = OPPGAVER_PER_STATUS.get_or_init(|| {
         register_gauge_vec!(
             "avvist_til_oppgave_oppgaver_total",
@@ -58,10 +46,10 @@ fn sett_oppgave_statuser(oppgave_status_antall: &[OppgaveStatusAntall]) {
     });
 
     for oppgave_status in OppgaveStatus::iter() {
-        let antall = oppgave_status_antall
+        let antall = rader
             .iter()
-            .find(|entry| entry.oppgave_status == oppgave_status)
-            .map(|entry| entry.antall)
+            .find(|rad| rad.status == oppgave_status.to_string())
+            .map(|rad| rad.antall)
             .unwrap_or(0);
         gauge
             .with_label_values(&[&oppgave_status.to_string()])
@@ -118,12 +106,12 @@ mod tests {
 
         let ubehandlet_antall = oppgave_status_antall
             .iter()
-            .find(|entry| entry.oppgave_status == Ubehandlet)
-            .map(|entry| entry.antall);
+            .find(|rad| rad.status == Ubehandlet.to_string())
+            .map(|rad| rad.antall);
         let ferdigbehandlet_antall = oppgave_status_antall
             .iter()
-            .find(|entry| entry.oppgave_status == Ferdigbehandlet)
-            .map(|entry| entry.antall);
+            .find(|rad| rad.status == Ferdigbehandlet.to_string())
+            .map(|rad| rad.antall);
 
         assert_eq!(ubehandlet_antall, Some(2));
         assert_eq!(ferdigbehandlet_antall, Some(1));
