@@ -43,7 +43,6 @@ async fn hent_nyeste_oppgave_for_arbeidssoeker(
             id,
             type AS type_,
             status,
-            melding_id,
             opplysninger,
             arbeidssoeker_id,
             identitetsnummer,
@@ -70,7 +69,6 @@ pub async fn finn_oppgave_for_ekstern_id(
             id,
             type AS type_,
             status,
-            melding_id,
             opplysninger,
             arbeidssoeker_id,
             identitetsnummer,
@@ -113,10 +111,7 @@ async fn hent_hendelse_logg(
     let rows = sqlx::query_as::<_, OppgaveHendelseLoggRow>(
         r#"
         SELECT
-            id,
-            oppgave_id,
             status,
-            melding,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
         FROM oppgave_hendelse_logg
         WHERE oppgave_id = $1
@@ -233,7 +228,6 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
             id,
             type AS type_,
             status,
-            melding_id,
             opplysninger,
             arbeidssoeker_id,
             identitetsnummer,

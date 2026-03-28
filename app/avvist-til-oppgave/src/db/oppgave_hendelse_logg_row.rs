@@ -11,9 +11,6 @@ pub struct InsertOppgaveHendelseLoggRow {
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveHendelseLoggRow {
-    pub id: i64,
-    pub oppgave_id: i64,
     pub status: String,
-    pub melding: String,
     pub tidspunkt: DateTime<Utc>,
 }

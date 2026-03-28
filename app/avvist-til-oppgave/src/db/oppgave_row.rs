@@ -10,7 +10,6 @@ pub struct OppgaveRow {
     pub id: i64,
     pub type_: String,
     pub status: String,
-    pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
