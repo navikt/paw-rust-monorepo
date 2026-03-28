@@ -1,4 +1,4 @@
-use crate::metrics::{avvergede_duplikate_oppgaver, oppgave_statuser};
+use crate::metrics::{avvergede_duplikate_oppgaver, avvergede_duplikater_per_dag, oppgave_statuser};
 use anyhow::Result;
 use sqlx::PgPool;
 use std::time::Duration;
@@ -19,5 +19,6 @@ async fn oppdater_metrikker(pg_pool: &PgPool) -> Result<()> {
     let mut transaction = pg_pool.begin().await?;
     oppgave_statuser::oppdater(&mut transaction).await?;
     avvergede_duplikate_oppgaver::oppdater(&mut transaction).await?;
+    avvergede_duplikater_per_dag::oppdater(&mut transaction).await?;
     Ok(())
 }

@@ -1,3 +1,4 @@
 pub mod avvergede_duplikate_oppgaver;
+pub mod avvergede_duplikater_per_dag;
 pub mod oppgave_statuser;
-pub mod polling_task;
+pub mod metrics_task;

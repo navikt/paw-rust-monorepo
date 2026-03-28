@@ -15,7 +15,7 @@ use crate::config::read_kafka_config;
 use crate::config::read_oppgave_client_config;
 use crate::config::read_token_client_config;
 use crate::message_processor::AvvistTilOppgaveMessageProcessor;
-use crate::metrics::polling_task::start_metrics_task;
+use crate::metrics::metrics_task::start_metrics_task;
 use anyhow::Result;
 use axum_health::routes;
 use client::oppgave_client::OppgaveApiClient;
