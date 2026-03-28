@@ -117,12 +117,9 @@ mod tests {
     use crate::db::oppgave_functions::bytt_oppgave_status;
     use anyhow::Result;
     use chrono::Utc;
-    use interne_hendelser::Startet;
-    use interne_hendelser::vo::{Bruker, Metadata};
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
-    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
@@ -391,9 +388,6 @@ mod tests {
     }
 
     pub struct TestData {
-        pub start_hendelse: Startet,
-        pub avvist_hendelse: Avvist,
-        pub avvist_hendelse_fra_veileder: Avvist,
         pub start_hendelse_string: &'static str,
         pub avvist_hendelse_string: &'static str,
         pub avvist_hendelse_fra_veileder_string: &'static str,
@@ -402,63 +396,6 @@ mod tests {
     impl Default for TestData {
         fn default() -> Self {
             TestData {
-                start_hendelse: Startet {
-                    hendelse_id: Uuid::parse_str("701e247c-8c50-4ac1-8b29-d3f5e771da0c").unwrap(),
-                    id: 0,
-                    identitetsnummer: "".to_string(),
-                    metadata: Metadata {
-                        tidspunkt: Utc::now(),
-                        utfoert_av: Bruker {
-                            bruker_type: BrukerType::System,
-                            id: "test.system".to_string(),
-                            sikkerhetsnivaa: None,
-                        },
-                        kilde: "Testkilde".to_string(),
-                        aarsak: "Mistet jobben".to_string(),
-                        tidspunkt_fra_kilde: None,
-                    },
-                    opplysninger: vec![].into_iter().collect(),
-                },
-                avvist_hendelse: Avvist {
-                    hendelse_id: Uuid::parse_str("cbbda03b-5fe5-48fd-a4ff-15605812f8cb").unwrap(),
-                    id: 12345,
-                    identitetsnummer: "01017012345".to_string(),
-                    metadata: Metadata {
-                        tidspunkt: Utc::now(),
-                        utfoert_av: Bruker {
-                            bruker_type: BrukerType::System,
-                            id: "test.system".to_string(),
-                            sikkerhetsnivaa: None,
-                        },
-                        kilde: "Testkilde".to_string(),
-                        aarsak: "Er under 18 år".to_string(),
-                        tidspunkt_fra_kilde: None,
-                    },
-                    opplysninger: vec![Opplysning::ErUnder18Aar, Opplysning::BosattEtterFregLoven]
-                        .into_iter()
-                        .collect(),
-                    handling: None,
-                },
-                avvist_hendelse_fra_veileder: Avvist {
-                    hendelse_id: Uuid::parse_str("723d5d09-83c7-4f83-97fd-35f7c9c5c798").unwrap(),
-                    id: 12345,
-                    identitetsnummer: "01017012345".to_string(),
-                    metadata: Metadata {
-                        tidspunkt: Utc::now(),
-                        utfoert_av: Bruker {
-                            bruker_type: BrukerType::Veileder,
-                            id: "AA1234".to_string(),
-                            sikkerhetsnivaa: None,
-                        },
-                        kilde: "Testkilde".to_string(),
-                        aarsak: "Er under 18 år".to_string(),
-                        tidspunkt_fra_kilde: None,
-                    },
-                    opplysninger: vec![Opplysning::ErUnder18Aar, Opplysning::BosattEtterFregLoven]
-                        .into_iter()
-                        .collect(),
-                    handling: None,
-                },
                 start_hendelse_string: STARTET_HENDELSE,
                 avvist_hendelse_string: AVVIST_HENDELSE_JSON,
                 avvist_hendelse_fra_veileder_string: AVVIST_HENDELSE_FRA_VEILEDER_JSON,
