@@ -91,8 +91,7 @@ async fn main() -> Result<()> {
                 })?;
         }
     });
-    let metrikk_task_interval = Duration::from_secs(*app_config.metrikk_task_interval_seconds);
-    let metrikk_task = start_metrics_task(pg_pool.clone(), metrikk_task_interval);
+    let metrikk_task = start_metrics_task(pg_pool.clone());
 
     appstate.set_has_started(true);
 
