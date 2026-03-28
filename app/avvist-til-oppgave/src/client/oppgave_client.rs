@@ -65,7 +65,8 @@ impl OppgaveApiClient {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, strum::EnumDiscriminants)]
+#[strum_discriminants(derive(strum::EnumIter, strum::Display))]
 pub enum OppgaveApiError {
     #[error("HTTP-feil: {0}")]
     ReqwestError(#[from] reqwest::Error),

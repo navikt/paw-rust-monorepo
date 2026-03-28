@@ -11,6 +11,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
 };
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus::{Opprettet, Ubehandlet};
+use crate::metrics::ekstern_oppgave_opprettelse_feil::inkrement_ekstern_oppgave_opprettelse_feil;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rand::prelude::*;
@@ -100,6 +101,7 @@ async fn prosesser_oppgave(
             tx.commit().await?;
         }
         Err(error) => {
+            inkrement_ekstern_oppgave_opprettelse_feil(&error);
             if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
                 return Err(anyhow::anyhow!(
                     "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
@@ -107,7 +109,7 @@ async fn prosesser_oppgave(
                 ));
             }
 
-            let error_melding = match error {
+            let error_melding = match &error {
                 OppgaveApiError::ApiError { status, message } => {
                     format!(
                         "Feil ved opprettelse av oppgave i Oppgave API. Status: {}, message: {}",
