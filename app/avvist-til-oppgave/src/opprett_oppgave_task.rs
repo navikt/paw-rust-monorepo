@@ -163,7 +163,6 @@ mod tests {
     use texas_client::response::TokenResponse;
     use texas_client::token_client::M2MTokenClient;
     use tokio::time::sleep;
-    use azure_m2m_client::AzureAdM2MClientError;
 
     #[tokio::test]
     async fn prosesser_tre_oppgaver_to_ok_en_feil() -> Result<()> {
@@ -409,5 +408,4 @@ mod tests {
             })
         }
     }
-
 }
