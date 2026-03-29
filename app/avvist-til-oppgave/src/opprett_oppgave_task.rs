@@ -79,6 +79,8 @@ async fn prosesser_oppgave(
         return Ok(());
     }
 
+    warning_ved_gjentatte_feil(oppgave);
+
     let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
     let response = oppgave_client
         .opprett_oppgave(&opprett_oppgave_request)
@@ -144,6 +146,22 @@ async fn prosesser_oppgave(
     }
 
     Ok(())
+}
+
+fn warning_ved_gjentatte_feil(oppgave: &Oppgave) {
+    let antall_tidligere_feil = oppgave
+        .hendelse_logg
+        .iter()
+        .filter(|innslag| innslag.status == EksternOppgaveOpprettelseFeilet)
+        .count();
+
+    if antall_tidligere_feil >= 5 {
+        tracing::warn!(
+            oppgave_id = oppgave.id,
+            antall_feil = antall_tidligere_feil,
+            "Oppgave har feilet gjentatte ganger mot Oppgave API — mulig kork"
+        );
+    }
 }
 
 #[cfg(test)]
