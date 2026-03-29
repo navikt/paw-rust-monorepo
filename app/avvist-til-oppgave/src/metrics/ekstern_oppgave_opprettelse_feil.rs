@@ -14,7 +14,7 @@ pub fn inkrement_ekstern_oppgave_opprettelse_feil(error: &OppgaveApiError) {
                 "Antall feil ved opprettelse av oppgave mot eksternt Oppgave API",
                 &["feil_type"]
             )
-            .expect("Failed to register avvist_til_oppgave_ekstern_opprettelse_feilet_total counter");
+            .expect("Failed to register avvist_til_oppgave_ekstern_oppgave_opprettelse_feil_total counter");
             for variant in OppgaveApiErrorDiscriminants::iter() {
                 counter.with_label_values(&[&variant.to_string()]);
             }
