@@ -27,12 +27,12 @@ async fn hent_avvergede_duplikater_per_dag(
     let vis_siste_dager: i64 = 30;
     let rader = sqlx::query_as::<_, AvvergedeDuplikaterPerDag>(
         r#"
-        SELECT TO_CHAR(tidspunkt, 'DD.MM') AS dato, COUNT(*) AS antall
+        SELECT TO_CHAR(DATE(tidspunkt), 'DD.MM.YYYY') AS dato, COUNT(*) AS antall
         FROM oppgave_hendelse_logg
         WHERE status = $1
           AND tidspunkt >= $2
-        GROUP BY dato
-        ORDER BY dato DESC
+        GROUP BY DATE(tidspunkt)
+        ORDER BY DATE(tidspunkt) DESC
         LIMIT $3
         "#,
     )
@@ -117,11 +117,11 @@ mod tests {
         assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff");
         let avvergede_duplikater_forste_dag = rader
             .iter()
-            .find(|avverget_duplikat| avverget_duplikat.dato == "15.03")
+            .find(|avverget_duplikat| avverget_duplikat.dato == "15.03.2026")
             .unwrap();
         let avvergede_duplikater_andre_dag = rader
             .iter()
-            .find(|avverget_duplikat| avverget_duplikat.dato == "16.03")
+            .find(|avverget_duplikat| avverget_duplikat.dato == "16.03.2026")
             .unwrap();
         assert_eq!(avvergede_duplikater_forste_dag.antall, 2);
         assert_eq!(avvergede_duplikater_andre_dag.antall, 1);
