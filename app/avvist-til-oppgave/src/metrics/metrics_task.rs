@@ -23,5 +23,6 @@ async fn oppdater_metrikker(pg_pool: &PgPool) -> Result<()> {
     avvergede_duplikate_oppgaver::oppdater(&mut transaction).await?;
     avvergede_duplikater_per_dag::oppdater(&mut transaction).await?;
     gjentatte_forsok::oppdater(&mut transaction).await?;
+    transaction.commit().await?;
     Ok(())
 }
