@@ -19,6 +19,7 @@ async fn hent_antall_duplikater_avverget(
     // Teller fra 10. mars 2026 — data før dette er upålitelig pga. en bug
     let fra_tidspunkt = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
     let antall: i64 = sqlx::query_scalar(
+        //language=PostgreSQL
         r#"
         SELECT COUNT(*)
         FROM oppgave_hendelse_logg
