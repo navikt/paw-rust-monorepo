@@ -55,7 +55,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                 tracing::info!("Rebalance assign - got HWMs: {:?}", hwms);
                 hwms.iter().for_each(|hwm| {
                     if hwm.offset.is_none() {
-                        log::info!("Inserting initial HWM {:?}", hwm);
+                        log::debug!("Inserting initial HWM {:?}", hwm);
                         block_on(insert_hwm(
                             &mut tx,
                             self.version,
@@ -69,10 +69,10 @@ impl ConsumerContext for HwmRebalanceHandler {
                             )
                         });
                     } else {
-                        log::info!("Using existing HWM {:?}", hwm);
+                        log::debug!("Using existing HWM {:?}", hwm);
                     }
                     let seek_to_offset = hwm.seek_to_rd_kafka_offset();
-                    log::info!("Seeking to offset {:?}", seek_to_offset);
+                    log::debug!("Seeking to offset {:?}", seek_to_offset);
                     let rebalance_result = base_consumer.seek(
                         &hwm.topic,
                         hwm.partition,
@@ -80,7 +80,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                         std::time::Duration::from_secs(10),
                     );
                     match rebalance_result {
-                        Ok(_) => log::info!(
+                        Ok(_) => log::debug!(
                             "Successfully seeked to offset {:?} for topic {} partition {}",
                             seek_to_offset,
                             hwm.topic,
