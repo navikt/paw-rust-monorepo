@@ -129,14 +129,15 @@ pub async fn skriv_pdl_info(
     periode_id: &uuid::Uuid,
     pdl_info: Vec<Opplysning>,
 ) -> Result<(), sqlx::Error> {
-    let _ = sqlx::query(
+    let opplysninger_id: i64 = sqlx::query_scalar(
         r#"
-                insert into options (
+                insert into opplysninger (
                     periode_id,
                     kilde,
                     tidspunkt,
                     opplysninger
             ) values ($1, $2, $3, $4)
+            RETURNING id
         "#,
     )
     .bind(periode_id)
@@ -148,7 +149,41 @@ pub async fn skriv_pdl_info(
             .map(|o| o.to_string())
             .collect::<Vec<String>>(),
     )
+    .fetch_one(&mut **tx)
+    .await?;
+    klar_for_kontrol(tx, opplysninger_id).await?;
+    Ok(())
+}
+
+pub async fn klar_for_kontrol(
+    tx: &mut Transaction<'_, Postgres>,
+    opplysninger_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let res = sqlx::query(
+        r#"
+        INSERT INTO klar_for_kontroll (opplysninger_id)
+        VALUES ($1)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(opplysninger_id)
     .execute(&mut **tx)
     .await?;
-    Ok(())
+    Ok(res.rows_affected() == 1)
+}
+
+pub async fn ferdig_kontrollert(
+    tx: &mut Transaction<'_, Postgres>,
+    opplysninger_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let res = sqlx::query(
+        r#"
+        delete from klar_for_kontroll
+        where opplysninger_id = $1
+        "#,
+    )
+    .bind(opplysninger_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(res.rows_affected() > 0)
 }

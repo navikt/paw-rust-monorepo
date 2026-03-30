@@ -4635,6 +4635,7 @@ dependencies = [
  "pdl_graphql",
  "prometheus",
  "rdkafka",
+ "regler_arbeidssoeker",
  "reqwest 0.13.2",
  "schema_registry_converter",
  "serde",
