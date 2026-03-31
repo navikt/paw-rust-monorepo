@@ -45,6 +45,7 @@ apache-avro = { workspace = true }
 uuid = { workspace = true }
 toml = { workspace = true }
 strum = { workspace = true }
+serde-env-field = { workspace = true }
 serde_with = { workspace = true }
 futures = { workspace = true }
 

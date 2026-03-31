@@ -4628,6 +4628,7 @@ dependencies = [
  "reqwest 0.13.2",
  "schema_registry_converter",
  "serde",
+ "serde-env-field",
  "serde_json",
  "serde_with",
  "sqlx",

@@ -27,7 +27,7 @@ impl PDLClient {
         http_client: reqwest::Client,
         token_client: Arc<dyn M2MTokenClient + Send + Sync>,
     ) -> PDLClient {
-        Self::new(config.target_scope, config.url, http_client, token_client)
+        Self::new(config.target_scope.into_inner(), config.url.into_inner(), http_client, token_client)
     }
 
     pub fn new(
