@@ -87,7 +87,8 @@ async fn main() -> Result<()> {
                 })?;
         }
     });
-    let pdl_client_config = PDLClientConfig::from_default_file()?;
+    let pdl_client_config =
+        toml::from_str::<PDLClientConfig>(read_config_file!("pdl_config.toml"))?;
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
     let pdl_oppdatering =
