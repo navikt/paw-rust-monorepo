@@ -1,2 +1,2 @@
-target_scope =  "${PDL_SCOPE}"
+target_scope = "${PDL_SCOPE}"
 url = "${PDL_URL}"
