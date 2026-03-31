@@ -5,6 +5,7 @@ use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
 use pdl_graphql::pdl::{HentPersonBolk, hent_person_bolk};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct PDLClient {
@@ -44,7 +45,8 @@ impl PDLClient {
         });
         PDLClient { inner }
     }
-
+    //instrument excluding identitetsnummer for privacy reasons
+    #[instrument(skip(self, identitetsnummer))]
     pub async fn perform_hent_person_bolk(
         &self,
         identitetsnummer: Vec<String>,

@@ -11,6 +11,7 @@ use chrono::Duration;
 use interne_hendelser::vo::Opplysning;
 use regler_arbeidssoeker::fakta::{UtledeFakta, person_fakta::UtledePersonFakta};
 use sqlx::PgPool;
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct PdlDataOppdatering {
@@ -40,8 +41,9 @@ impl PdlDataOppdatering {
             }),
         }
     }
-
+    #[instrument(skip(self))]
     pub async fn kjoer_oppdatering(&self) -> Result<()> {
+        tracing::info!("Starter oppdatering av PDL data");
         let pg_pool = &self.inner.pg_pool;
         let pdl_client = &self.inner.pdl_client;
         let batch_size = &self.inner.batch_size;
@@ -54,6 +56,7 @@ impl PdlDataOppdatering {
             batch_size,
         )
         .await?;
+        tracing::info!("{} perioder skal oppdateres", skal_oppdateres.len());
         let mut periode_metadata: Vec<PeriodeMetadata> = Vec::with_capacity(skal_oppdateres.len());
         for e in &skal_oppdateres {
             let periode_metadata_rad = hent_periode_metadata(&mut tx, &e.id).await?;
@@ -61,6 +64,7 @@ impl PdlDataOppdatering {
         }
         let periode_metadata = periode_metadata;
         tx.commit().await?;
+        tracing::info!("Hentet metadata for {} perioder", periode_metadata.len());
         if periode_metadata.is_empty() {
             return Ok(());
         }

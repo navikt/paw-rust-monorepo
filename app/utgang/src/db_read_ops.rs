@@ -1,6 +1,7 @@
 use std::num::NonZeroU16;
 
 use sqlx::{Postgres, Transaction};
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::vo::opplysninger_rad::OpplysningerRad;
@@ -25,6 +26,7 @@ pub async fn hent_opplysninger(
     Ok(res)
 }
 
+#[instrument(skip(tx))]
 pub async fn hent_sist_oppdatert_foer(
     tx: &mut Transaction<'_, Postgres>,
     tidspunkt: &chrono::DateTime<chrono::Utc>,
@@ -49,6 +51,7 @@ pub async fn hent_sist_oppdatert_foer(
     Ok(res)
 }
 
+#[instrument(skip(tx, periode_id))]
 pub async fn hent_periode_metadata(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &Uuid,
