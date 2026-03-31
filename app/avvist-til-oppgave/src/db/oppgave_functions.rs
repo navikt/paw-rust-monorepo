@@ -147,7 +147,7 @@ pub async fn insert_oppgave(
     )
         .bind(&oppgave_row.type_)
         .bind(&oppgave_row.status)
-        .bind(&oppgave_row.melding_id)
+        .bind(oppgave_row.melding_id)
         .bind(&oppgave_row.opplysninger)
         .bind(oppgave_row.arbeidssoeker_id)
         .bind(&oppgave_row.identitetsnummer)
