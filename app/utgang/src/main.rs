@@ -29,7 +29,7 @@ use std::{num::NonZeroU16, sync::Arc, time::Duration};
 use texas_client::token_client::create_token_client;
 use tokio::{
     signal::{unix::SignalKind, unix::signal},
-    task::JoinHandle,
+    task::{JoinError, JoinHandle},
 };
 
 pub const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
@@ -96,77 +96,13 @@ async fn main() -> Result<()> {
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {
-        res = web_server_task => {
-            match res {
-                Ok(Ok(())) => {
-                    tracing::info!("Webserveren avsluttet normalt");
-                    Ok(())
-                },
-                Ok(Err(e)) => {
-                    tracing::error!("Webserveren avsluttet med feil: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "Webserver".to_string(),
-                        message: e.to_string(),
-                    })
-                },
-                Err(e) => {
-                    tracing::error!("Feil i spawned task for webserver: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "Webserver".to_string(),
-                        message: e.to_string(),
-                    })
-                }
-            }
-        },
+        res = web_server_task      => haandter_task_resultat("Webserver", res),
+        res = consumer_task        => haandter_task_resultat("KafkaConsumer", res),
+        res = pdl_oppdatering_task => haandter_task_resultat("PDLOppdatering", res),
         signal = signal_task => {
-            let signal = signal?;
-            tracing::info!("Mottok shutdown-signal: {}", signal);
+            tracing::info!("Mottok shutdown-signal: {}", signal?);
             Ok(())
         },
-        kafka_consumer = consumer_task => {
-            match kafka_consumer {
-                Ok(Ok(())) => {
-                    tracing::info!("Kafka-consumer avsluttet normalt");
-                    Ok(())
-                },
-                Ok(Err(e)) => {
-                    tracing::error!("Kafka-consumer avsluttet med feil: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "KafkaConsumer".to_string(),
-                        message: e.to_string(),
-                    })
-                },
-                Err(e) => {
-                    tracing::error!("Feil i spawned task for Kafka-consumer: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "KafkaConsumer".to_string(),
-                        message: e.to_string(),
-                    })
-                }
-            }
-        },
-        pdl_oppdatering = pdl_oppdatering_task => {
-            match pdl_oppdatering {
-                Ok(Ok(())) => {
-                    tracing::info!("PDL-oppdatering avsluttet normalt");
-                    Ok(())
-                },
-                Ok(Err(e)) => {
-                    tracing::error!("PDL-oppdatering avsluttet med feil: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "PDLOppdatering".to_string(),
-                        message: e.to_string(),
-                    })
-                },
-                Err(e) => {
-                    tracing::error!("Feil i spawned task for PDL-oppdatering: {}", e);
-                    Err(ServerError::InternalProcessTerminated {
-                        process: "PDLOppdatering".to_string(),
-                        message: e.to_string(),
-                    })
-                }
-            }
-        }
     }?;
     Ok(())
 }
@@ -177,5 +113,30 @@ async fn get_shutdown_signal() -> Result<String> {
     tokio::select! {
         _ = term_signal.recv() => Ok("SIGTERM".to_string()),
         _ = interrupt_signal.recv() => Ok("SIGINT".to_string())
+    }
+}
+
+fn haandter_task_resultat(navn: &str, res: Result<Result<()>, JoinError>) -> Result<()> {
+    match res {
+        Ok(Ok(())) => {
+            tracing::info!("{} avsluttet normalt", navn);
+            Ok(())
+        }
+        Ok(Err(e)) => {
+            tracing::error!("{} avsluttet med feil: {}", navn, e);
+            Err(ServerError::InternalProcessTerminated {
+                process: navn.to_string(),
+                message: e.to_string(),
+            }
+            .into())
+        }
+        Err(e) => {
+            tracing::error!("Feil i spawned task for {}: {}", navn, e);
+            Err(ServerError::InternalProcessTerminated {
+                process: navn.to_string(),
+                message: e.to_string(),
+            }
+            .into())
+        }
     }
 }
