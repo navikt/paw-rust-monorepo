@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
-        .map_err(|e| DatabaseError::MigrateSchema(e))?;
+        .map_err(DatabaseError::MigrateSchema)?;
 
     let kafka_config = read_kafka_config()?;
     let hwm_version = *kafka_config.hwm_version;
