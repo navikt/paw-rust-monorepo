@@ -8,6 +8,18 @@ use health_and_monitoring::{
 };
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
+use tokio::task::JoinHandle;
+
+pub fn spawn_health_server(
+    health_check: Arc<dyn HealthCheck + Send + Sync>,
+) -> JoinHandle<anyhow::Result<()>> {
+    let health_routes = routes(health_check);
+    tokio::spawn(async move {
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+        axum::serve(listener, health_routes).await?;
+        Ok(())
+    })
+}
 
 pub fn routes(health_check: Arc<dyn HealthCheck + Send + Sync>) -> Router {
     Router::new()
