@@ -6,7 +6,7 @@ use tokio::task::JoinHandle;
 
 const METRIKK_TASK_INTERVALL: Duration = Duration::from_secs(60);
 
-pub fn start_metrics_task(pg_pool: PgPool) -> JoinHandle<()> {
+pub fn spawn_metrics_task(pg_pool: PgPool) -> JoinHandle<()> {
     tokio::spawn(async move {
         loop {
             if let Err(feil) = oppdater_metrikker(&pg_pool).await {

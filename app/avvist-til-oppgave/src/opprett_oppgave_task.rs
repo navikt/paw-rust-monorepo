@@ -18,12 +18,21 @@ use rand::prelude::*;
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::task::JoinHandle;
 use tokio::time::interval;
 
-pub async fn start_processing_loop(
+pub fn spawn_oppgave_task(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
-    app_config: &ApplicationConfig,
+    app_config: ApplicationConfig,
+) -> JoinHandle<Result<()>> {
+    tokio::spawn(kjør_processing_loop(db_pool, oppgave_api_client, app_config))
+}
+
+async fn kjør_processing_loop(
+    db_pool: PgPool,
+    oppgave_api_client: Arc<OppgaveApiClient>,
+    app_config: ApplicationConfig,
 ) -> Result<()> {
     let opprett_oppgaver_task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
     let opprett_oppgaver_task_batch_size = *app_config.opprett_oppgaver_task_batch_size;

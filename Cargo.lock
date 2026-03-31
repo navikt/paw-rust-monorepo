@@ -265,12 +265,12 @@ dependencies = [
 name = "axum_health"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "health_and_monitoring",
  "opentelemetry",
  "prometheus",
  "tokio",
- "tower",
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
