@@ -12,7 +12,6 @@ members = [
     "lib/paw_rdkafka_hwm",
     "lib/paw_rdkafka",
     "lib/texas_client",
-    "lib/azure_m2m_client",
     "lib/paw_test",
     "app/test-app",
     "app/kafka-topic-backup",

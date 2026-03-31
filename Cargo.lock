@@ -159,7 +159,6 @@ dependencies = [
  "async-trait",
  "axum",
  "axum_health",
- "azure_m2m_client",
  "chrono",
  "chrono-tz",
  "health_and_monitoring",
@@ -274,19 +273,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
-]
-
-[[package]]
-name = "azure_m2m_client"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "mockito",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
