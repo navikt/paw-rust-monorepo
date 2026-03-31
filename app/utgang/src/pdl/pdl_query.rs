@@ -90,8 +90,16 @@ impl PDLClient {
                 .into());
             }
         }
-        let personer: hent_person_bolk::ResponseData = res.json().await?;
-        Ok(personer.hent_person_bolk)
+        let response: graphql_client::Response<hent_person_bolk::ResponseData> =
+            res.json().await?;
+        if let Some(errors) = response.errors {
+            let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
+            return Err(PDLQueryError::UnknownError(messages.join(", ")).into());
+        }
+        let data = response
+            .data
+            .ok_or_else(|| PDLQueryError::UnknownError("No data in PDL response".to_string()))?;
+        Ok(data.hent_person_bolk)
     }
 }
 

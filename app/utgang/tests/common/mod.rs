@@ -62,7 +62,7 @@ pub fn lag_pdl_bolk_respons(items: Vec<(&str, Option<Value>)>) -> String {
             })
         })
         .collect();
-    json!({ "hentPersonBolk": bolk }).to_string()
+    json!({ "data": { "hentPersonBolk": bolk } }).to_string()
 }
 
 pub async fn sett_gammel_sist_oppdatert(
