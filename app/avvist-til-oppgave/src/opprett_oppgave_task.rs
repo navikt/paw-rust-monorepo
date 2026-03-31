@@ -114,6 +114,10 @@ async fn prosesser_oppgave(
         Err(error) => {
             inkrement_ekstern_oppgave_opprettelse_feil(&error);
             if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
+                tracing::error!(
+                    oppgave_id = oppgave.id,
+                    "Oppgave sitter fast i status Opprettet uten ekstern_id — manuell gjennomgang nødvendig"
+                );
                 return Err(anyhow::anyhow!(
                     "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
                     oppgave.id
