@@ -5,11 +5,8 @@ use chrono::Duration;
 use mockito::Server;
 use paw_test::setup_test_db::setup_test_db;
 use utgang::{
-    db_read_ops::hent_opplysninger,
-    db_write_ops::opprett_aktiv_periode,
-    oppdater_pdl_data::PdlDataOppdatering,
-    pdl::pdl_query::PDLClient,
-    vo::kilde::InfoKilde,
+    db_read_ops::hent_opplysninger, db_write_ops::opprett_aktiv_periode,
+    oppdater_pdl_data::PdlDataOppdatering, pdl::pdl_query::PDLClient, vo::kilde::InfoKilde,
 };
 
 mod common;
@@ -45,7 +42,9 @@ async fn setup_db_med_periode(pool: &sqlx::PgPool, identitetsnummer: &str) -> uu
 
 #[tokio::test]
 async fn kjoer_oppdatering_skriver_pdl_opplysninger() {
-    let (pool, _container) = setup_test_db().await.expect("Failed to setup test database");
+    let (pool, _container) = setup_test_db()
+        .await
+        .expect("Failed to setup test database");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
@@ -104,11 +103,14 @@ async fn kjoer_oppdatering_skriver_pdl_opplysninger() {
         !pdl_rad.opplysninger.is_empty(),
         "Expected non-empty opplysninger from PDL"
     );
+    println!("PDL opplysninger: {:?}", pdl_rad.opplysninger);
 }
 
 #[tokio::test]
 async fn kjoer_oppdatering_ingen_perioder_aa_oppdatere() {
-    let (pool, _container) = setup_test_db().await.expect("Failed to setup test database");
+    let (pool, _container) = setup_test_db()
+        .await
+        .expect("Failed to setup test database");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
@@ -165,7 +167,9 @@ async fn kjoer_oppdatering_ingen_perioder_aa_oppdatere() {
 
 #[tokio::test]
 async fn kjoer_oppdatering_pdl_returnerer_ingen_person() {
-    let (pool, _container) = setup_test_db().await.expect("Failed to setup test database");
+    let (pool, _container) = setup_test_db()
+        .await
+        .expect("Failed to setup test database");
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
