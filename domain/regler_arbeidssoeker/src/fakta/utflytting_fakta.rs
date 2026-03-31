@@ -67,7 +67,7 @@ impl Flytting {
         let dato = innflytting
             .folkeregistermetadata
             .and_then(|metadata| metadata.ajourholdstidspunkt)
-            .and_then(|t| Some(NaiveDate::parse_from_str(&t, "%Y-%m-%dT%H:%M:%S").unwrap()));
+            .and_then(|t| parse_pdl_datetime(&t));
         Self {
             innflytting: true,
             dato,
@@ -77,7 +77,7 @@ impl Flytting {
     fn fra_utflytting(utflytting: UtflyttingFraNorge) -> Flytting {
         let dato = utflytting
             .utflyttingsdato
-            .and_then(|t| Some(NaiveDate::parse_from_str(&t, "%Y-%m-%d").unwrap()));
+            .and_then(|t| NaiveDate::parse_from_str(&t, "%Y-%m-%d").ok());
         Self {
             innflytting: false,
             dato,
@@ -85,10 +85,26 @@ impl Flytting {
     }
 }
 
+fn parse_pdl_datetime(s: &str) -> Option<NaiveDate> {
+    chrono::DateTime::parse_from_rfc3339(s)
+        .map(|dt| dt.date_naive())
+        .ok()
+        .or_else(|| {
+            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
+                .map(|dt| dt.date())
+                .ok()
+        })
+        .or_else(|| {
+            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f")
+                .map(|dt| dt.date())
+                .ok()
+        })
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
     use crate::fakta::UtledeFakta;
+    use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
     use chrono::{Local, NaiveDate};
     use interne_hendelser::vo::Opplysning::{
         IkkeMuligAaIdentifisereSisteFlytting, IngenFlytteInformasjon, SisteFlyttingVarInnTilNorge,
