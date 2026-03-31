@@ -23,7 +23,7 @@ impl DatabaseConfig {
 
     pub fn statement_log_level(&self) -> log::LevelFilter {
         match self.statement_log_level.as_deref() {
-            Some(level) => log::LevelFilter::from_str(&level).unwrap_or(log::LevelFilter::Debug),
+            Some(level) => log::LevelFilter::from_str(level).unwrap_or(log::LevelFilter::Debug),
             None => log::LevelFilter::Debug,
         }
     }
