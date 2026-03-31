@@ -23,16 +23,21 @@ pub enum HendelseLoggEntryError {
     ParseError(#[from] HendelseLoggStatusParseError),
 }
 
-#[test]
-fn test_new_with_invalid_status() {
-    let tidspunkt = Utc::now();
-    let ugyldig_logg_status = "UgyldigStatus";
-    let result = HendelseLoggEntry::new(ugyldig_logg_status.to_string(), tidspunkt);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert!(result.is_err());
-    let error = result.unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        format!("Ugyldig HendelseLoggStatus: {}", ugyldig_logg_status)
-    );
+    #[test]
+    fn test_new_with_invalid_status() {
+        let tidspunkt = Utc::now();
+        let ugyldig_logg_status = "UgyldigStatus";
+        let result = HendelseLoggEntry::new(ugyldig_logg_status.to_string(), tidspunkt);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("Ugyldig HendelseLoggStatus: {}", ugyldig_logg_status)
+        );
+    }
 }
