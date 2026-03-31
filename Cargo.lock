@@ -4604,6 +4604,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apache-avro",
+ "async-trait",
  "axum",
  "axum_health",
  "base64 0.22.1",
@@ -4612,6 +4613,7 @@ dependencies = [
  "graphql_client",
  "health_and_monitoring",
  "interne_hendelser",
+ "mockito",
  "opentelemetry",
  "paw_app_config",
  "paw_rdkafka",

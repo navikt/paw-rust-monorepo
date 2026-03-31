@@ -61,6 +61,9 @@ impl PdlDataOppdatering {
         }
         let periode_metadata = periode_metadata;
         tx.commit().await?;
+        if periode_metadata.is_empty() {
+            return Ok(());
+        }
         let identitetsnummer: Vec<String> = periode_metadata
             .iter()
             .map(|pm| pm.identitetsnummer.clone())

@@ -24,9 +24,9 @@ impl FromRow<'_, PgRow> for PeriodeRad {
         let periode_aktiv: bool = row.try_get("periode_aktiv")?;
         let periode_startet_timestamp: NaiveDateTime = row.try_get("periode_startet_timestamp")?;
         let periode_starter_brukertype =
-            BrukerType::from_str(row.try_get("periode_starter_brukertype")?).map_err(|e| {
+            BrukerType::from_str(row.try_get("periode_startet_brukertype")?).map_err(|e| {
                 sqlx::Error::ColumnDecode {
-                    index: "periode_starter_brukertype".into(),
+                    index: "periode_startet_brukertype".into(),
                     source: Box::new(e),
                 }
             })?;

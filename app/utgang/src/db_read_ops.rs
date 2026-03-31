@@ -37,7 +37,7 @@ pub async fn hent_sist_oppdatert_foer(
         select * from periode 
         where 
             sist_oppdatert_timestamp < $1 and
-            sist_oppdatert_status IN $2 
+            sist_oppdatert_status = ANY($2) 
             order by sist_oppdatert_timestamp ASC limit $3
         "#,
     )
