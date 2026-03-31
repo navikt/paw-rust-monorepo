@@ -4,14 +4,18 @@ mod db_write_ops;
 mod kafka;
 mod oppdater_pdl_data;
 mod pdl;
+mod pdl_oppdatering_task;
 mod vo;
 
 use crate::consumer_function::UtgangMessageProcessor;
 use crate::kafka::kafka_consumer::create_kafka_consumer;
 use crate::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
+use crate::oppdater_pdl_data::PdlDataOppdatering;
 use crate::pdl::pdl_config::PDLClientConfig;
 use crate::pdl::pdl_query::PDLClient;
+use crate::pdl_oppdatering_task::start_pdl_oppdatering_task;
 use anyhow::Result;
+use chrono::TimeDelta;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::read_config_file;
 use paw_rdkafka::kafka_config::KafkaConfig;
@@ -21,7 +25,7 @@ use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
 use paw_sqlx::postgres::init_db;
 use rdkafka::Message;
-use std::sync::Arc;
+use std::{num::NonZeroU16, sync::Arc, time::Duration};
 use texas_client::token_client::create_token_client;
 use tokio::{
     signal::{unix::SignalKind, unix::signal},
@@ -30,6 +34,9 @@ use tokio::{
 
 pub const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
 pub const ARBEIDSSOKERPERIODER_TOPIC: &str = "paw.arbeidssokerperioder-v1";
+
+pub const PDL_BATCH_SIZE: NonZeroU16 =
+    NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -41,9 +48,6 @@ async fn main() -> Result<()> {
         token_client_config,
         reqwest_client.clone(),
     ));
-    let pdl_client_config = PDLClientConfig::from_default_file()?;
-    let pdl_client =
-        PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
     let app_state = Arc::new(simple_app_state::AppState::new());
     let health_routes = axum_health::routes(app_state.clone());
     let web_server_task: JoinHandle<Result<()>> = tokio::spawn(async move {
@@ -67,6 +71,7 @@ async fn main() -> Result<()> {
         message: e.to_string(),
     })?;
     let utgang_processor = UtgangMessageProcessor::new()?;
+    let pdl_pool = pg_pool.clone();
     let consumer_task: JoinHandle<Result<()>> = tokio::spawn(async move {
         let processor = utgang_processor;
         loop {
@@ -82,6 +87,12 @@ async fn main() -> Result<()> {
                 })?;
         }
     });
+    let pdl_client_config = PDLClientConfig::from_default_file()?;
+    let pdl_client =
+        PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
+    let pdl_oppdatering =
+        PdlDataOppdatering::new(pdl_pool, pdl_client, PDL_BATCH_SIZE, TimeDelta::days(1));
+    let pdl_oppdatering_task = start_pdl_oppdatering_task(pdl_oppdatering, Duration::from_mins(1));
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {
@@ -129,6 +140,28 @@ async fn main() -> Result<()> {
                     tracing::error!("Feil i spawned task for Kafka-consumer: {}", e);
                     Err(ServerError::InternalProcessTerminated {
                         process: "KafkaConsumer".to_string(),
+                        message: e.to_string(),
+                    })
+                }
+            }
+        },
+        pdl_oppdatering = pdl_oppdatering_task => {
+            match pdl_oppdatering {
+                Ok(Ok(())) => {
+                    tracing::info!("PDL-oppdatering avsluttet normalt");
+                    Ok(())
+                },
+                Ok(Err(e)) => {
+                    tracing::error!("PDL-oppdatering avsluttet med feil: {}", e);
+                    Err(ServerError::InternalProcessTerminated {
+                        process: "PDLOppdatering".to_string(),
+                        message: e.to_string(),
+                    })
+                },
+                Err(e) => {
+                    tracing::error!("Feil i spawned task for PDL-oppdatering: {}", e);
+                    Err(ServerError::InternalProcessTerminated {
+                        process: "PDLOppdatering".to_string(),
                         message: e.to_string(),
                     })
                 }
