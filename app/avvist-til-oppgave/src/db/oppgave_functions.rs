@@ -1,4 +1,4 @@
-use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggRow};
+use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave::Oppgave;
@@ -6,6 +6,8 @@ use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
+use std::collections::HashMap;
+
 
 pub async fn hent_nyeste_oppgave(
     arbeidssoeker_id: i64,
@@ -247,9 +249,12 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
     .fetch_all(&mut **transaction)
     .await?;
 
+    let oppgave_ider: Vec<i64> = oppgave_rows.iter().map(|r| r.id).collect();
+    let mut hendelse_logg_map = hent_hendelse_logger(&oppgave_ider, transaction).await?;
+
     let mut oppgaver = Vec::with_capacity(oppgave_rows.len());
     for oppgave_row in oppgave_rows {
-        let hendelse_logg = hent_hendelse_logg(oppgave_row.id, transaction).await?;
+        let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
         let oppgave = Oppgave::new(
             oppgave_row.id,
             oppgave_row.type_,
@@ -266,6 +271,34 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
 
     Ok(oppgaver)
 }
+
+async fn hent_hendelse_logger(
+    oppgave_ider: &[i64],
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<HashMap<i64, Vec<HendelseLoggEntry>>> {
+    let rows = sqlx::query_as::<_, OppgaveHendelseLoggBatchRow>(
+        r#"
+        SELECT
+            oppgave_id,
+            status,
+            tidspunkt AT TIME ZONE 'UTC' as tidspunkt
+        FROM oppgave_hendelse_logg
+        WHERE oppgave_id = ANY($1)
+        ORDER BY oppgave_id, tidspunkt DESC
+        "#,
+    )
+        .bind(oppgave_ider)
+        .fetch_all(&mut **transaction)
+        .await?;
+
+    let mut map: HashMap<i64, Vec<HendelseLoggEntry>> = HashMap::new();
+    for row in rows {
+        let entry = HendelseLoggEntry::new(row.status, row.tidspunkt)?;
+        map.entry(row.oppgave_id).or_default().push(entry);
+    }
+    Ok(map)
+}
+
 
 #[cfg(test)]
 mod tests {
