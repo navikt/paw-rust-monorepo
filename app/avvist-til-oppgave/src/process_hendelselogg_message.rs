@@ -7,15 +7,15 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 use anyhow::Context;
-use chrono::{Utc};
-use interne_hendelser::Avvist;
+use chrono::Utc;
 use interne_hendelser::vo::{BrukerType, Opplysning};
-use rdkafka::Message;
+use interne_hendelser::Avvist;
 use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
+use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
 pub async fn opprett_oppgave_for_avvist_hendelse(
     kafka_message: &OwnedMessage,
@@ -23,8 +23,8 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
     let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
-    let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
-    let json: Value = match serde_json::from_slice(&payload_bytes) {
+    let payload = kafka_message.payload().unwrap_or(&[]);
+    let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
         Err(_) => return Ok(()),
     };
@@ -57,9 +57,8 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
                 &InsertOppgaveHendelseLoggRow {
                     oppgave_id: oppgave.id,
                     status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
-                    melding:
-                        "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
-                            .to_string(),
+                    melding: "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
+                        .to_string(),
                     tidspunkt: Utc::now(),
                 },
                 tx,

@@ -19,8 +19,8 @@ pub async fn oppdater_ferdigstilte_oppgaver(
     opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let payload_bytes: Vec<u8> = kafka_message.payload().unwrap_or(&[]).to_vec();
-    let json: Value = match serde_json::from_slice(&payload_bytes) {
+    let payload = kafka_message.payload().unwrap_or(&[]);
+    let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
         Err(_) => return Ok(()),
     };
