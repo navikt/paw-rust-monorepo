@@ -49,22 +49,23 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     if avvist_hendelse.metadata.tidspunkt >= opprett_oppgaver_fra_tidspunkt {
         let arbeidssoeker_id = avvist_hendelse.id;
         let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
-        if let Some(oppgave) = &eksisterende_oppgave {
-            if oppgave.status != Ferdigbehandlet && oppgave.status != Ignorert {
-                insert_oppgave_hendelse_logg(
-                    &InsertOppgaveHendelseLoggRow {
-                        oppgave_id: oppgave.id,
-                        status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
-                        melding:
-                            "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
-                                .to_string(),
-                        tidspunkt: Utc::now(),
-                    },
-                    tx,
-                )
-                .await?;
-                return Ok(());
-            }
+        if let Some(oppgave) = &eksisterende_oppgave
+            && oppgave.status != Ferdigbehandlet
+            && oppgave.status != Ignorert
+        {
+            insert_oppgave_hendelse_logg(
+                &InsertOppgaveHendelseLoggRow {
+                    oppgave_id: oppgave.id,
+                    status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
+                    melding:
+                        "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
+                            .to_string(),
+                    tidspunkt: Utc::now(),
+                },
+                tx,
+            )
+            .await?;
+            return Ok(());
         }
 
         let oppgave_row = to_oppgave_row(
