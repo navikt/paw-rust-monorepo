@@ -19,7 +19,11 @@ pub(super) struct ReqwestTokenClientRef {
 }
 
 pub fn create_token_client(config: TokenClientConfig, client: Client) -> ReqwestTokenClient {
-    ReqwestTokenClient::new(config.token_endpoint, config.token_exchange_endpoint, client)
+    ReqwestTokenClient::new(
+        config.token_endpoint.into_inner(),
+        config.token_exchange_endpoint.map(|e| e.into_inner()),
+        client,
+    )
 }
 
 impl ReqwestTokenClient {

@@ -4048,6 +4048,7 @@ dependencies = [
  "mockito",
  "reqwest 0.13.2",
  "serde",
+ "serde-env-field",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",

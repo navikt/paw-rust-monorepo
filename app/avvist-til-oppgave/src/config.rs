@@ -57,18 +57,7 @@ pub fn read_oppgave_client_config() -> Result<OppgaveClientConfig> {
 }
 
 pub fn read_token_client_config() -> Result<TokenClientConfig> {
-    let file_content = read_token_client_config_file();
-    let local: TokenClientConfigLocal = read_toml_config(file_content)?;
-    Ok(TokenClientConfig {
-        token_endpoint: local.token_endpoint.to_string(),
-        token_exchange_endpoint: None,
-    })
-}
-
-#[env_field_wrap]
-#[derive(Debug, Deserialize)]
-struct TokenClientConfigLocal {
-    token_endpoint: String,
+    read_toml_config(read_token_client_config_file())
 }
 
 fn read_application_config_file() -> &'static str {

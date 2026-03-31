@@ -38,7 +38,7 @@ mod tests {
 
     fn create_test_client(base_url: String) -> ReqwestTokenClient {
         let config = TokenClientConfig {
-            token_endpoint: format!("{}/api/v1/token", base_url),
+            token_endpoint: format!("{}/api/v1/token", base_url).into(),
             token_exchange_endpoint: None,
         };
         create_token_client(config, Client::new())
