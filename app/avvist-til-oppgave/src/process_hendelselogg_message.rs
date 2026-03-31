@@ -26,7 +26,12 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     let payload = kafka_message.payload().unwrap_or(&[]);
     let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
-        Err(_) => return Ok(()),
+        Err(_) => {
+            tracing::warn!(
+                "Klarte ikke å deserialisere Kafka-melding fra hendelselogg som JSON, hopper over"
+            );
+            return Ok(());
+        }
     };
     let hendelse_type = json["hendelseType"].as_str().unwrap_or_default();
     let opplysninger: Vec<&str> = match json["opplysninger"].as_array() {

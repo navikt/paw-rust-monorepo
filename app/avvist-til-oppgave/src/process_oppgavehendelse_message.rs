@@ -22,7 +22,12 @@ pub async fn oppdater_ferdigstilte_oppgaver(
     let payload = kafka_message.payload().unwrap_or(&[]);
     let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
-        Err(_) => return Ok(()),
+        Err(_) => {
+            tracing::warn!(
+                "Klarte ikke å deserialisere Kafka-melding fra oppgavehendelse som JSON, hopper over"
+            );
+            return Ok(());
+        }
     };
 
     let hendelsestype = json["hendelse"]["hendelsestype"]
