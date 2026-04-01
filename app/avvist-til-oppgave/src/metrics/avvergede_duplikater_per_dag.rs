@@ -1,14 +1,14 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
 use anyhow::Result;
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use prometheus::{register_gauge_vec, GaugeVec};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::sync::OnceLock;
 
 static AVVERGEDE_DUPLIKATER_PER_DAG: OnceLock<GaugeVec> = OnceLock::new();
 
-pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let avvergede_duplikater_per_dag = hent_avvergede_duplikater_per_dag(transaction).await?;
+pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+    let avvergede_duplikater_per_dag = hent_avvergede_duplikater_per_dag(fra_tidspunkt, transaction).await?;
     sett_avvergede_duplikater_per_dag(&avvergede_duplikater_per_dag);
     Ok(())
 }
@@ -20,10 +20,9 @@ struct AvvergedeDuplikaterPerDag {
 }
 
 async fn hent_avvergede_duplikater_per_dag(
+    fra_tidspunkt: DateTime<Utc>,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<AvvergedeDuplikaterPerDag>> {
-    // Teller fra 10. mars 2026 — data før dette er upålitelig pga. en bug
-    let fra_tidspunkt = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
     let vis_siste_dager: i64 = 30;
     let rader = sqlx::query_as::<_, AvvergedeDuplikaterPerDag>(
         r#"
@@ -69,7 +68,7 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use anyhow::Result;
-    use chrono::Duration;
+    use chrono::{Duration, TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
 
     #[tokio::test]
@@ -112,7 +111,8 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let rader = hent_avvergede_duplikater_per_dag(&mut tx).await?;
+        let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
+        let rader = hent_avvergede_duplikater_per_dag(cutoff, &mut tx).await?;
 
         assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff");
         let avvergede_duplikater_forste_dag = rader

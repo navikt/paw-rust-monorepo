@@ -1,23 +1,22 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
 use anyhow::Result;
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::OnceLock;
 
 static DUPLIKATE_OPPGAVER_AVVERGET: OnceLock<Gauge> = OnceLock::new();
 
-pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let antall = hent_antall_duplikater_avverget(transaction).await?;
+pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+    let antall = hent_antall_duplikater_avverget(fra_tidspunkt, transaction).await?;
     sett_forhindrede_duplikater(antall);
     Ok(())
 }
 
 async fn hent_antall_duplikater_avverget(
+    fra_tidspunkt: DateTime<Utc>,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<i64> {
-    // Teller fra 10. mars 2026 — data før dette er upålitelig pga. en bug
-    let fra_tidspunkt = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
     let antall: i64 = sqlx::query_scalar(
         //language=PostgreSQL
         r#"
@@ -55,7 +54,7 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use anyhow::Result;
-    use chrono::Duration;
+    use chrono::{Duration, TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
     use HendelseLoggStatus::OppgaveOpprettet;
 
@@ -102,7 +101,8 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let antall = hent_antall_duplikater_avverget(&mut tx).await?;
+        let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
+        let antall = hent_antall_duplikater_avverget(cutoff, &mut tx).await?;
 
         assert_eq!(
             antall, 1,

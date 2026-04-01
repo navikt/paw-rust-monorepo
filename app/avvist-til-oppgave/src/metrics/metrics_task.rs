@@ -1,8 +1,9 @@
-use crate::metrics::{avvergede_duplikate_oppgaver, avvergede_duplikater_per_dag, gjentatte_forsok, oppgave_statuser};
 use anyhow::Result;
+use chrono::{DateTime, TimeZone, Utc};
 use sqlx::PgPool;
 use std::time::Duration;
 use tokio::task::JoinHandle;
+use crate::metrics::{avvergede_duplikate_oppgaver, avvergede_duplikater_per_dag, gjentatte_forsok, oppgave_statuser};
 
 const METRIKK_TASK_INTERVALL: Duration = Duration::from_secs(60);
 
@@ -18,11 +19,17 @@ pub fn spawn_metrics_task(pg_pool: PgPool) -> JoinHandle<()> {
 }
 
 async fn oppdater_metrikker(pg_pool: &PgPool) -> Result<()> {
+    let fra_tidspunkt = metrics_cutoff();
     let mut transaction = pg_pool.begin().await?;
     oppgave_statuser::oppdater(&mut transaction).await?;
-    avvergede_duplikate_oppgaver::oppdater(&mut transaction).await?;
-    avvergede_duplikater_per_dag::oppdater(&mut transaction).await?;
-    gjentatte_forsok::oppdater(&mut transaction).await?;
+    avvergede_duplikate_oppgaver::oppdater(fra_tidspunkt, &mut transaction).await?;
+    avvergede_duplikater_per_dag::oppdater(fra_tidspunkt, &mut transaction).await?;
+    gjentatte_forsok::oppdater(fra_tidspunkt, &mut transaction).await?;
     transaction.commit().await?;
     Ok(())
+}
+
+/// Data før denne datoen er upålitelig pga. en bug
+fn metrics_cutoff() -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap()
 }

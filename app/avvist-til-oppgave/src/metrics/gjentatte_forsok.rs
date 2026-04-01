@@ -1,23 +1,22 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
 use anyhow::Result;
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::OnceLock;
 
 static GJENTATTE_FORSOK_GJENNOMSNITT: OnceLock<Gauge> = OnceLock::new();
 
-pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(transaction).await?;
+pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+    let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(fra_tidspunkt, transaction).await?;
     sett_gjentatte_forsok_gjennomsnitt(gjennomsnitt);
     Ok(())
 }
 
 async fn hent_gjentatte_forsok_gjennomsnitt(
+    fra_tidspunkt: DateTime<Utc>,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<f64> {
-    // Teller fra 10. mars 2026 — data før dette er upålitelig pga. en bug
-    let fra_tidspunkt = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
     let gjennomsnitt: Option<f64> = sqlx::query_scalar(
         //language=PostgreSQL
         r#"
@@ -60,6 +59,7 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use anyhow::Result;
+    use chrono::{TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
 
     #[tokio::test]
@@ -139,7 +139,8 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(&mut tx).await?;
+        let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
+        let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(cutoff, &mut tx).await?;
 
         // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0
         assert_eq!(gjennomsnitt, 1.0);
