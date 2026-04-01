@@ -1,10 +1,8 @@
 use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
 
 use crate::{
-    db_read_ops::{hent_periode_metadata, hent_sist_oppdatert_foer},
-    db_write_ops::skriv_pdl_info,
-    pdl::pdl_query::PDLClient,
-    vo::{periode_metadata_rad::PeriodeMetadata, status::Status},
+    db_read_ops::hent_sist_oppdatert_foer_med_metadata, db_write_ops::skriv_pdl_info,
+    pdl::pdl_query::PDLClient, vo::status::Status,
 };
 use anyhow::Result;
 use chrono::Duration;
@@ -49,7 +47,7 @@ impl PdlDataOppdatering {
         let batch_size = &self.inner.batch_size;
         let mut tx = pg_pool.begin().await?;
         let sist_oppdatert_foer = chrono::Utc::now() - self.inner.intervall;
-        let skal_oppdateres = hent_sist_oppdatert_foer(
+        let skal_oppdateres = hent_sist_oppdatert_foer_med_metadata(
             &mut tx,
             &sist_oppdatert_foer,
             &[Status::Ok, Status::Avvist],
@@ -57,18 +55,11 @@ impl PdlDataOppdatering {
         )
         .await?;
         tracing::info!("{} perioder skal oppdateres", skal_oppdateres.len());
-        let mut periode_metadata: Vec<PeriodeMetadata> = Vec::with_capacity(skal_oppdateres.len());
-        for e in &skal_oppdateres {
-            let periode_metadata_rad = hent_periode_metadata(&mut tx, &e.id).await?;
-            periode_metadata.push(periode_metadata_rad);
-        }
-        let periode_metadata = periode_metadata;
         tx.commit().await?;
-        tracing::info!("Hentet metadata for {} perioder", periode_metadata.len());
-        if periode_metadata.is_empty() {
+        if skal_oppdateres.is_empty() {
             return Ok(());
         }
-        let identitetsnummer: Vec<String> = periode_metadata
+        let identitetsnummer: Vec<String> = skal_oppdateres
             .iter()
             .map(|pm| pm.identitetsnummer.clone())
             .collect();
@@ -84,9 +75,9 @@ impl PdlDataOppdatering {
             })
             .collect();
         let mut tx = pg_pool.begin().await?;
-        for periode in periode_metadata {
+        for periode in skal_oppdateres {
             let identitetsnummer = periode.identitetsnummer;
-            let periode_id = periode.periode_id;
+            let periode_id = periode.id;
             let opplysninger = ident_til_person.get(&identitetsnummer);
             match opplysninger {
                 Some(Ok(opplysninger)) => {
