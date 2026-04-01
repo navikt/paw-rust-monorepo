@@ -4,6 +4,7 @@ use crate::vo::status::Status;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::Opplysning;
 use sqlx::{Postgres, Transaction};
+use uuid::Uuid;
 
 pub async fn opprett_aktiv_periode(
     tx: &mut Transaction<'_, Postgres>,
@@ -53,6 +54,32 @@ pub async fn skriv_status(
     .await?;
     Ok(res.rows_affected() > 0)
 }
+
+pub async fn skriv_status_batch(
+    tx: &mut Transaction<'_, Postgres>,
+    periode_ids: &[Uuid],
+    status: &Status,
+    tidspunkt: &chrono::DateTime<chrono::Utc>,
+) -> Result<u64, sqlx::Error> {
+    if periode_ids.is_empty() {
+        return Ok(0);
+    }
+    let res = sqlx::query(
+        r#"
+        UPDATE periode
+        SET sist_oppdatert_timestamp = $1,
+            sist_oppdatert_status = $2
+        WHERE id = ANY($3::uuid[])
+        "#,
+    )
+    .bind(tidspunkt)
+    .bind(status.to_string())
+    .bind(periode_ids)
+    .execute(&mut **tx)
+    .await?;
+    Ok(res.rows_affected())
+}
+
 pub async fn avslutt_periode(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &uuid::Uuid,
@@ -187,3 +214,69 @@ pub async fn ferdig_kontrollert(
     .await?;
     Ok(res.rows_affected() > 0)
 }
+
+pub async fn skriv_pdl_info_batch(
+    tx: &mut Transaction<'_, Postgres>,
+    batch: Vec<(Uuid, Vec<Opplysning>)>,
+) -> Result<(), sqlx::Error> {
+    if batch.is_empty() {
+        return Ok(());
+    }
+
+    let tidspunkt = chrono::Utc::now();
+    let kilde = InfoKilde::PdlSjekk.to_string();
+
+    let periode_ids: Vec<Uuid> = batch.iter().map(|(id, _)| *id).collect();
+    let opplysninger_json: Vec<String> = batch
+        .iter()
+        .map(|(_, ops)| {
+            let strings: Vec<String> = ops.iter().map(|o| o.to_string()).collect();
+            serde_json::to_string(&strings)
+                .map_err(|e| sqlx::Error::Protocol(format!("opplysninger serialization failed: {e}")))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let ids: Vec<i64> = sqlx::query_scalar(
+        r#"
+        INSERT INTO opplysninger (periode_id, kilde, tidspunkt, opplysninger)
+        SELECT
+            periode_id,
+            $2,
+            $3,
+            ARRAY(SELECT jsonb_array_elements_text(ops::jsonb))
+        FROM UNNEST($1::uuid[], $4::text[]) AS t(periode_id, ops)
+        RETURNING id
+        "#,
+    )
+    .bind(&periode_ids)
+    .bind(&kilde)
+    .bind(tidspunkt)
+    .bind(&opplysninger_json)
+    .fetch_all(&mut **tx)
+    .await?;
+
+    klar_for_kontroll_batch(tx, &ids).await
+}
+
+pub async fn klar_for_kontroll_batch(
+    tx: &mut Transaction<'_, Postgres>,
+    opplysninger_ids: &[i64],
+) -> Result<(), sqlx::Error> {
+    if opplysninger_ids.is_empty() {
+        return Ok(());
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO klar_for_kontroll (opplysninger_id)
+        SELECT * FROM UNNEST($1::bigint[])
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(opplysninger_ids)
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+

@@ -1,8 +1,10 @@
 use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
 
 use crate::{
-    db_read_ops::hent_sist_oppdatert_foer_med_metadata, db_write_ops::skriv_pdl_info,
-    pdl::pdl_query::PDLClient, vo::status::Status,
+    db_read_ops::hent_sist_oppdatert_foer_med_metadata,
+    db_write_ops::{skriv_pdl_info, skriv_pdl_info_batch},
+    pdl::pdl_query::PDLClient,
+    vo::status::Status,
 };
 use anyhow::Result;
 use chrono::Duration;
