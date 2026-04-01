@@ -92,8 +92,12 @@ impl PdlDataOppdatering {
                 Some(Ok(opplysninger)) => {
                     skriv_pdl_info(&mut tx, &periode_id, opplysninger.clone()).await?;
                 }
-                Some(Err(_)) => {
-                    tracing::error!("Feil ved utleding av fakta for periode: {}", periode_id);
+                Some(Err(err)) => {
+                    tracing::error!(
+                        "Feil ved utleding av fakta for periode: {} : {}",
+                        periode_id,
+                        err
+                    );
                 }
                 None => {
                     tracing::error!("Fant ingen PDL data for periode: {}", periode_id);
