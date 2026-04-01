@@ -60,24 +60,25 @@ pub async fn skriv_status_batch(
     periode_ids: &[Uuid],
     status: &Status,
     tidspunkt: &chrono::DateTime<chrono::Utc>,
-) -> Result<u64, sqlx::Error> {
+) -> Result<Vec<Uuid>, sqlx::Error> {
     if periode_ids.is_empty() {
-        return Ok(0);
+        return Ok(vec![]);
     }
-    let res = sqlx::query(
+    let oppdaterte: Vec<Uuid> = sqlx::query_scalar(
         r#"
         UPDATE periode
         SET sist_oppdatert_timestamp = $1,
             sist_oppdatert_status = $2
-        WHERE id = ANY($3::uuid[])
+        WHERE id = ANY($3::uuid[]) and sist_oppdatert_status != $2
+        RETURNING id
         "#,
     )
     .bind(tidspunkt)
     .bind(status.to_string())
     .bind(periode_ids)
-    .execute(&mut **tx)
+    .fetch_all(&mut **tx)
     .await?;
-    Ok(res.rows_affected())
+    Ok(oppdaterte)
 }
 
 pub async fn avslutt_periode(
@@ -231,8 +232,9 @@ pub async fn skriv_pdl_info_batch(
         .iter()
         .map(|(_, ops)| {
             let strings: Vec<String> = ops.iter().map(|o| o.to_string()).collect();
-            serde_json::to_string(&strings)
-                .map_err(|e| sqlx::Error::Protocol(format!("opplysninger serialization failed: {e}")))
+            serde_json::to_string(&strings).map_err(|e| {
+                sqlx::Error::Protocol(format!("opplysninger serialization failed: {e}"))
+            })
         })
         .collect::<Result<_, _>>()?;
 
@@ -279,4 +281,3 @@ pub async fn klar_for_kontroll_batch(
 
     Ok(())
 }
-

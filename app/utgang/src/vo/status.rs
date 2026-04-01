@@ -5,4 +5,5 @@ pub enum Status {
     Ok,
     Avvist,
     Ubehandlet,
+    Oppdateres,
 }
