@@ -30,12 +30,14 @@ use paw_sqlx::error::DatabaseError;
 use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use std::time::Duration;
+use metrics::ekstern_oppgave_opprettelse_feil::init_ekstern_oppgave_opprettelse_feil_counter;
 use texas_client::token_client::create_token_client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
+    init_ekstern_oppgave_opprettelse_feil_counter();
     tracing::info!("Application started");
     let appstate = Arc::new(AppState::new());
     let app_config = read_application_config()?;
