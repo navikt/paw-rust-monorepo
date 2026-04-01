@@ -27,7 +27,12 @@ impl PDLClient {
         http_client: reqwest::Client,
         token_client: Arc<dyn M2MTokenClient + Send + Sync>,
     ) -> PDLClient {
-        Self::new(config.target_scope.into_inner(), config.url.into_inner(), http_client, token_client)
+        Self::new(
+            config.target_scope.into_inner(),
+            config.url.into_inner(),
+            http_client,
+            token_client,
+        )
     }
 
     pub fn new(
@@ -53,7 +58,7 @@ impl PDLClient {
     ) -> Result<Vec<HentPersonBolkHentPersonBolk>> {
         let variables = hent_person_bolk::Variables {
             identer: identitetsnummer,
-            historisk: Some(true),
+            historisk: Some(false),
         };
         let request_body = HentPersonBolk::build_query(variables);
         let token = match self
@@ -90,8 +95,7 @@ impl PDLClient {
                 .into());
             }
         }
-        let response: graphql_client::Response<hent_person_bolk::ResponseData> =
-            res.json().await?;
+        let response: graphql_client::Response<hent_person_bolk::ResponseData> = res.json().await?;
         if let Some(errors) = response.errors {
             let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
             return Err(PDLQueryError::UnknownError(messages.join(", ")).into());
