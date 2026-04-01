@@ -1,33 +1,62 @@
 use anyhow::Result;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
+use tokio::sync::OnceCell;
+use uuid::Uuid;
 
-pub async fn setup_test_db() -> Result<(PgPool, ContainerAsync<Postgres>)> {
-    let postgres_container = Postgres::default().with_tag("18-alpine").start().await?;
+pub struct TestDbGuard;
 
-    let host_port = postgres_container.get_host_port_ipv4(5432).await?;
-    let connection_string = format!(
+static CONTAINER_PORT: OnceCell<u16> = OnceCell::const_new();
+
+pub async fn setup_test_db() -> Result<(PgPool, TestDbGuard)> {
+    let host_port = *CONTAINER_PORT
+        .get_or_init(|| async {
+            let container: &'static ContainerAsync<Postgres> = Box::leak(Box::new(
+                Postgres::default()
+                    .with_tag("18-alpine")
+                    .start()
+                    .await
+                    .expect("Failed to start Postgres container"),
+            ));
+            container
+                .get_host_port_ipv4(5432)
+                .await
+                .expect("Failed to get Postgres port")
+        })
+        .await;
+
+    let schema = format!("test_{}", Uuid::new_v4().simple());
+
+    let admin_url = format!(
         "postgresql://postgres:postgres@127.0.0.1:{}/postgres",
         host_port
     );
+    let admin_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&admin_url)
+        .await?;
+    sqlx::query(&format!("CREATE SCHEMA {schema}"))
+        .execute(&admin_pool)
+        .await?;
+    admin_pool.close().await;
 
-    unsafe {
-        std::env::set_var("DATABASE_URL", &connection_string);
-        std::env::set_var("PG_HOST", "127.0.0.1");
-        std::env::set_var("PG_PORT", host_port.to_string());
-        std::env::set_var("PG_USERNAME", "postgres");
-        std::env::set_var("PG_PASSWORD", "postgres");
-        std::env::set_var("PG_DATABASE_NAME", "postgres");
-    }
+    let options = PgConnectOptions::new()
+        .host("127.0.0.1")
+        .port(host_port)
+        .username("postgres")
+        .password("postgres")
+        .database("postgres")
+        .options([("search_path", schema.as_str())]);
 
     let pool = PgPoolOptions::new()
         .min_connections(1)
         .max_connections(3)
-        .connect(&connection_string)
+        .connect_with(options)
         .await?;
 
-    Ok((pool, postgres_container))
+    Ok((pool, TestDbGuard))
 }
+

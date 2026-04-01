@@ -9,3 +9,5 @@ testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
