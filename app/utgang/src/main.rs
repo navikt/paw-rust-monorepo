@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
     let pdl_oppdatering =
-        PdlDataOppdatering::new(pdl_pool, pdl_client, PDL_BATCH_SIZE, TimeDelta::days(1));
+        PdlDataOppdatering::new(pdl_pool, pdl_client, PDL_BATCH_SIZE, TimeDelta::minutes(1));
     let pdl_oppdatering_task = start_pdl_oppdatering_task(pdl_oppdatering, Duration::from_mins(1));
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
