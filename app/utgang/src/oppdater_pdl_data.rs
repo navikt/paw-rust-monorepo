@@ -100,7 +100,7 @@ impl PdlDataOppdatering {
                     );
                 }
                 None => {
-                    tracing::error!("Fant ingen PDL data for periode: {}", periode_id);
+                    tracing::error!("Ingen PDL data for periode: {}", periode_id);
                 }
             }
         }

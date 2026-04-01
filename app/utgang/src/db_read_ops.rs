@@ -37,7 +37,8 @@ pub async fn hent_sist_oppdatert_foer(
     let res: Vec<PeriodeRad> = sqlx::query_as::<_, PeriodeRad>(
         r#"
         select * from periode 
-        where 
+        where
+            periode_avsluttet_timestamp is null and
             sist_oppdatert_timestamp < $1 and
             sist_oppdatert_status = ANY($2) 
             order by sist_oppdatert_timestamp ASC limit $3
