@@ -1,4 +1,8 @@
-use std::{collections::{HashMap, HashSet}, num::NonZeroU16, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroU16,
+    sync::Arc,
+};
 
 use crate::{
     db_read_ops::hent_sist_oppdatert_foer_med_metadata,
@@ -58,6 +62,7 @@ impl PdlDataOppdatering {
             batch_size,
         )
         .await?;
+        let antall_med_utdatert_pdl_info = skal_oppdateres.len();
         let laast = skriv_status_batch(
             &mut tx,
             skal_oppdateres
@@ -75,7 +80,11 @@ impl PdlDataOppdatering {
             .filter(|e| laast_set.contains(&e.id))
             .collect();
 
-        tracing::info!("{} perioder skal oppdateres", skal_oppdateres.len());
+        tracing::info!(
+            "{}/{} utdaterte perioder er låst og klar for oppdatering",
+            skal_oppdateres.len(),
+            antall_med_utdatert_pdl_info
+        );
         if skal_oppdateres.is_empty() {
             return Ok(());
         }
@@ -89,7 +98,7 @@ impl PdlDataOppdatering {
             .await?;
 
         let utlede_person_fakta = UtledePersonFakta::default();
-        let ident_til_person: HashMap<String, Result<Vec<Opplysning>>> = pdl_data
+        let ident_til_fakta: HashMap<String, Result<Vec<Opplysning>>> = pdl_data
             .into_iter()
             .filter_map(|e| {
                 e.person
@@ -100,7 +109,7 @@ impl PdlDataOppdatering {
         let batch: Vec<(Uuid, Vec<Opplysning>)> = skal_oppdateres
             .iter()
             .filter_map(
-                |periode| match ident_til_person.get(&periode.identitetsnummer) {
+                |periode| match ident_til_fakta.get(&periode.identitetsnummer) {
                     Some(Ok(opplysninger)) => Some((periode.id, opplysninger.clone())),
                     Some(Err(err)) => {
                         tracing::error!(
