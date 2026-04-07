@@ -238,14 +238,14 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
         FROM oppgaver
         WHERE status = $1
             AND ekstern_oppgave_id IS NULL
-            AND tidspunkt >= $3
+            AND tidspunkt >= $2
         ORDER BY tidspunkt ASC
-        LIMIT $2
+        LIMIT $3
         "#,
     )
     .bind(OppgaveStatus::Ubehandlet.to_string())
-    .bind(antall_oppgaver)
     .bind(fra_tidspunkt)
+    .bind(antall_oppgaver)
     .fetch_all(&mut **transaction)
     .await?;
 
