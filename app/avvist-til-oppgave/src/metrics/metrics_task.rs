@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use crate::metrics::{avvergede_duplikate_oppgaver, avvergede_duplikater_per_dag, ekstern_oppgave_feilregistrert, gjentatte_forsok, oppgave_statuser, saksbehandlingstid};
 
-const METRIKK_TASK_INTERVALL: Duration = Duration::from_secs(60);
+const METRIKK_TASK_INTERVALL: Duration = Duration::from_secs(300);
 
 pub fn spawn_metrics_task(pg_pool: PgPool) -> JoinHandle<()> {
     tokio::spawn(async move {
