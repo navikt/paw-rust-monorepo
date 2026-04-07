@@ -4,6 +4,7 @@ use sqlx::{Postgres, Transaction};
 use tracing::instrument;
 use uuid::Uuid;
 
+use crate::vo::klar_for_kontroll_rad::KlarForKontrollRad;
 use crate::vo::opplysninger_rad::OpplysningerRad;
 use crate::vo::periode_med_metadata_rad::PeriodeMedMetadataRad;
 use crate::vo::status::Status;
@@ -20,6 +21,44 @@ pub async fn hent_opplysninger(
     )
     .bind(periode_id)
     .bind(antall)
+    .fetch_all(&mut **tx)
+    .await?;
+    Ok(res)
+}
+
+#[instrument(skip(tx))]
+pub async fn hent_klar_for_kontroll(
+    tx: &mut Transaction<'_, Postgres>,
+    limit: &NonZeroU16,
+) -> Result<Vec<KlarForKontrollRad>, sqlx::Error> {
+    let res: Vec<KlarForKontrollRad> = sqlx::query_as::<_, KlarForKontrollRad>(
+        r#"
+        select
+            kfk.id,
+            o.id as opplysninger_id,
+            o.periode_id,
+            o.kilde,
+            o.tidspunkt,
+            o.opplysninger,
+            pm.identitetsnummer,
+            pm.arbeidssoeker_id,
+            pm.kafka_key,
+            os.opplysninger as startet_opplysninger,
+            op.opplysninger as forrige_pdl_opplysninger
+        from klar_for_kontroll kfk
+        inner join opplysninger o on kfk.opplysninger_id = o.id
+        inner join periode_metadata pm on o.periode_id = pm.periode_id
+        left join opplysninger os on os.periode_id = o.periode_id and os.kilde = 'StartetHendelse'
+        left join lateral (
+            select opplysninger from opplysninger
+            where periode_id = o.periode_id and kilde = 'PdlSjekk' and id < o.id
+            order by id desc limit 1
+        ) op on true
+        order by kfk.id asc
+        limit $1
+        "#,
+    )
+    .bind(limit.get() as i64)
     .fetch_all(&mut **tx)
     .await?;
     Ok(res)
