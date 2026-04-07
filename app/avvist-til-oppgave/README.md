@@ -1,63 +1,94 @@
-# Avvist til oppgave
+# Avvist-til-oppgave
 
-Applikasjon som oppretter oppgaver i [Oppgave API](https://github.com/navikt/oppgave) ([Swagger](https://oppgave.intern.dev.nav.no/)) basert på avviste hendelser fra arbeidssøkerregisteret.
+Arbeidssøkere under 18 år avvises automatisk ved registrering. Appen lytter på slike avvisninger og oppretter oppgaver i [Oppgave API](https://github.com/navikt/oppgave) ([Swagger](https://oppgave.intern.dev.nav.no/)) så en NAV-veileder kan følge opp.
 
-Når en person under 18 år forsøker å registrere seg som arbeidssøker, blir registreringen avvist. Denne appen sørger for at avvisningen fører til en oppgave som en saksbehandler kan følge opp.
+---
+
+## Innhold
+
+- [Arkitektur](#arkitektur)
+- [Flyt](#flyt)
+- [Oppgavestatuser](#oppgavestatuser)
+- [Kjøre lokalt](#kjøre-lokalt)
+
+---
+
+## Arkitektur
+
+```mermaid
+flowchart LR
+  subgraph KIN["Kafka inn"]
+    K1(["paw.arbeidssoker-hendelseslogg-v1"])
+    K2(["oppgavehandtering.oppgavehendelse-v1"])
+  end
+
+  APP["avvist-til-oppgave"]
+  DB[("PostgreSQL\noppgaver\noppgave_hendelse_logg\nhwm")]
+  TEXAS["Texas\n(M2M-token)"]
+  OPPGAVE["Oppgave API\nPOST /api/v1/oppgaver"]
+
+  K1 -->|"intern.v1.avvist\n(ER_UNDER_18_AAR)"| APP
+  K2 -->|"OPPGAVE_FERDIGSTILT\nOPPGAVE_FEILREGISTRERT"| APP
+  APP <--> DB
+  APP -->|"hent token"| TEXAS
+  TEXAS -->|"Bearer token"| APP
+  APP -->|"opprett oppgave"| OPPGAVE
+```
+
+---
 
 ## Flyt
 
-### 1. Mottak av avviste hendelser
+### 1. Mottak av avviste hendelser (`paw.arbeidssoker-hendelseslogg-v1`)
 
-Appen konsumerer hendelser fra Kafka-topicen `paw.arbeidssoker-hendelseslogg-v1`. Når en avvist-hendelse med opplysningen `ER_UNDER_18_AAR` mottas, lagres den som en intern oppgave i databasen med status `UBEHANDLET`.
+Appen filtrerer hendelser av typen `intern.v1.avvist` med opplysningen `ER_UNDER_18_AAR`. Følgende regler gjelder:
 
-Noen regler gjelder:
-
-- **Kun bruker-initierte avvisninger** — dersom en veileder registrerer en bruker under 18 år, vil det også generere en avvist hendelse, men denne ignoreres. Kun avvisninger trigget av brukeren selv fører til oppgave.
-- **Duplikathåndtering** — dersom brukeren prøver å registrere seg flere ganger, opprettes det ikke en ny oppgave. I stedet logges hendelsen i `oppgave_hendelse_logg`. Dersom forrige oppgave er ferdigbehandlet, opprettes det en ny oppgave.
-- **Vannskille** — hendelser eldre enn `OPPRETT_OPPGAVER_FRA_TIDSPUNKT` får status `IGNORERT`. Dette brukes for å koordinere overgang fra legacy-appen ([aia-backend](https://github.com/navikt/aia-backend)) til denne appen.
+- **Veileder ignoreres** — hendelser der `utfoertAv.type == VEILEDER` ignoreres. Kun bruker-initierte registreringer fører til oppgave.
+- **Vannskille** — hendelser eldre enn `opprett_oppgaver_fra_tidspunkt` lagres med status `IGNORERT` og behandles ikke videre.
+- **Duplikathåndtering** — dersom det finnes en aktiv oppgave (status ∉ `FERDIGBEHANDLET`, `IGNORERT`) for arbeidssøkeren, opprettes ikke en ny oppgave. Hendelsen logges som `OPPGAVE_FINNES_ALLEREDE`.
+- **Ny oppgave etter ferdigbehandlet** — dersom forrige oppgave er ferdigbehandlet, opprettes en ny.
 
 ### 2. Opprettelse av oppgaver i Oppgave API
 
-En bakgrunnsjobb (`opprett_oppgave_task`) kjører med konfigurerbart intervall og oppretter oppgaver mot det eksterne Oppgave API-et:
+En bakgrunnsjobb kjører hvert minutt og behandler oppgaver med status `UBEHANDLET`:
 
-1. Henter de eldste ubehandlede oppgavene fra databasen (batch)
-2. Shuffler listen for å unngå at flere pods alltid tar samme oppgave
-3. Bruker optimistisk CAS-lock (Compare-And-Swap) via `UPDATE ... WHERE status = $expected` for å sikre at kun én pod behandler hver oppgave
-4. Kaller Oppgave API for å opprette oppgaven eksternt
-5. Oppdaterer status til `OPPRETTET` og logger resultatet i `oppgave_hendelse_logg`
+1. Henter de eldste oppgavene (batch på inntil 50 i prod)
+2. Shuffler listen tilfeldig for å unngå at alle pods tar samme oppgave
+3. **CAS-lock** (`UPDATE ... WHERE status = 'UBEHANDLET'`) sikrer at kun én pod behandler hver oppgave
+4. Kaller Oppgave API med oppgavetype `KONT_BRUK`, tema `GEN` og en fast beskrivelse om samtykke fra foresatte
+5. Ved suksess: oppdaterer `ekstern_oppgave_id` og logger `EKSTERN_OPPGAVE_OPPRETTET`
+6. Ved feil: setter status tilbake til `UBEHANDLET` og logger `EKSTERN_OPPGAVE_OPPRETTELSE_FEILET`
 
-Dersom kallet feiler, settes oppgaven tilbake til `UBEHANDLET` slik at den plukkes opp igjen ved neste kjøring.
+Oppgaver som feiler ≥ 5 ganger logger en advarsel om mulig kork.
 
-### 3. Ferdigstilling av oppgaver
+### 3. Ferdigstilling av oppgaver (`oppgavehandtering.oppgavehendelse-v1`)
 
-Appen konsumerer hendelser fra Kafka-topicen `oppgavehandtering.oppgave-hendelse-v1`. Når en oppgave ferdigstilles i det eksterne Oppgave API-et, mottar vi en `OPPGAVE_FERDIGSTILT`-hendelse. Appen matcher denne mot vår interne oppgave via `ekstern_oppgave_id`, og oppdaterer status til `FERDIGBEHANDLET`.
+Når en oppgave ferdigstilles eller feilregistreres i Oppgave API mottar vi en hendelse. Appen matcher mot intern oppgave via `ekstern_oppgave_id` og oppdaterer status til `FERDIGBEHANDLET`.
 
-Hendelser eldre enn vannskillet (`OPPRETT_OPPGAVER_FRA_TIDSPUNKT`) ignoreres. Merk at tidspunktene fra oppgave-appen er i Oslo-tid (`TZ="Europe/Oslo"` i deres Dockerfile), og konverteres til UTC før sammenligning.
+> Tidspunkter fra Oppgave API er i Oslo-tid og konverteres til UTC ved mottak.
+
+---
 
 ## Oppgavestatuser
 
+```
+UBEHANDLET ──(CAS)──► OPPRETTET ──────────────► FERDIGBEHANDLET
+    ▲                     │
+    └──── (API-feil) ─────┘
+
+Hendelse eldre enn vannskillet ──► IGNORERT
+```
+
 | Status | Beskrivelse |
 |---|---|
-| `UBEHANDLET` | Avvist hendelse mottatt, venter på å bli sendt til Oppgave API |
-| `OPPRETTET` | Oppgave opprettet i Oppgave API |
-| `FERDIGBEHANDLET` | Oppgave ferdigstilt eksternt |
+| `UBEHANDLET` | Avvist hendelse mottatt, venter på behandling |
+| `OPPRETTET` | Oppgave sendt til Oppgave API (CAS-lås holder mens kallet pågår) |
+| `FERDIGBEHANDLET` | Oppgave ferdigstilt eller feilregistrert eksternt |
 | `IGNORERT` | Hendelse eldre enn vannskillet |
-
-## Database
-
-PostgreSQL med to tabeller:
-
-- **`oppgaver`** — Intern oppgave med kobling til arbeidssøker og ekstern oppgave-id
-- **`oppgave_hendelse_logg`** — Hendelseslogg per oppgave for sporing av statusendringer
-
-## Autentisering
-
-Appen bruker [Texas](https://doc.nais.io/auth/) (Token Exchange as a Service) for maskin-til-maskin-token mot Oppgave API via Azure/Entra ID.
-
 
 ## Kjøre lokalt
 
-Appen krever Kafka og PostgreSQL. Bruk docker-compose-filene i `docker/`:
+Appen krever Kafka og PostgreSQL. Start avhengigheter med docker-compose:
 
 ```sh
 docker compose -f docker/postgres/docker-compose.yaml up -d
@@ -65,20 +96,3 @@ docker compose -f docker/kafka/docker-compose.yaml up -d
 cargo run -p avvist-til-oppgave
 ```
 
-Alternativt kan du trykke på den grønne play-knappen ved `main`-funksjonen i IDE-en.
-
-## Konfigurasjon
-
-Konfigurasjon leses fra TOML-filer under `config/`. I NAIS-miljø brukes filer fra `config/nais/`, lokalt fra `config/local/`. Miljøvariabler substitueres via `serde_env_field`.
-
-| Konfigurasjon | Beskrivelse |
-|---|---|
-| `topic_hendelseslogg` | Kafka-topic for hendelsesloggen |
-| `topic_oppgavehendelse` | Kafka-topic for oppgavehendelser |
-| `opprett_oppgaver_task_interval_minutes` | Intervall for oppgaveopprettelses-tasken |
-| `opprett_oppgaver_task_batch_size` | Antall oppgaver per batch |
-| `opprett_oppgaver_fra_tidspunkt` | Vannskille — hendelser eldre enn dette ignoreres |
-
-## Deploy
-
-Deployes til NAIS via GitHub Actions. Se `nais/nais-dev.yaml` for NAIS-konfigurasjon.
