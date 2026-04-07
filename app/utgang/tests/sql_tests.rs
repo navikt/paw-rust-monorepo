@@ -5,7 +5,7 @@ use std::num::NonZeroU16;
 use utgang::{
     db_read_ops::{hent_opplysninger, hent_sist_oppdatert_foer_med_metadata},
     db_write_ops::{
-        self, avslutt_periode, opprett_aktiv_periode, skriv_pdl_info, skrive_startet_hendelse,
+        self, avslutt_periode, opprett_aktiv_periode, skriv_pdl_info_batch, skrive_startet_hendelse,
     },
     kafka::periode_deserializer::BrukerType,
     vo::{kilde::InfoKilde, status::Status},
@@ -140,7 +140,7 @@ async fn skriv_pdl_info_lagrer_korrekte_opplysninger() {
     ];
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_pdl_info(&mut tx, &periode_id, forventede.clone())
+    skriv_pdl_info_batch(&mut tx, vec![(periode_id, forventede.clone())])
         .await
         .expect("Failed to write pdl info");
     tx.commit().await.unwrap();
