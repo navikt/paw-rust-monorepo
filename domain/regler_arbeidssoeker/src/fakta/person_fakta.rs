@@ -1,10 +1,10 @@
+use crate::fakta::UtledeFakta;
 use crate::fakta::adresse_fakta::UtledeAdresseFakta;
 use crate::fakta::alder_fakta::UtledeAlderFakta;
 use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
 use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
 use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
-use crate::fakta::UtledeFakta;
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
@@ -35,20 +35,20 @@ impl Default for UtledePersonFakta {
 impl UtledeFakta<Person, Opplysning> for UtledePersonFakta {
     fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
         let mut fakta = vec![];
-        fakta.append(&mut self.alder_fakta.utlede_fakta(&input)?);
-        fakta.append(&mut self.adresse_fakta.utlede_fakta(&input)?);
-        fakta.append(&mut self.folkeregister_fakta.utlede_fakta(&input)?);
-        fakta.append(&mut self.statsborgerskap_fakta.utlede_fakta(&input)?);
-        fakta.append(&mut self.opphold_fakta.utlede_fakta(&input)?);
-        fakta.append(&mut self.utflytting_fakta.utlede_fakta(&input)?);
+        fakta.append(&mut self.alder_fakta.utlede_fakta(input)?);
+        fakta.append(&mut self.adresse_fakta.utlede_fakta(input)?);
+        fakta.append(&mut self.folkeregister_fakta.utlede_fakta(input)?);
+        fakta.append(&mut self.statsborgerskap_fakta.utlede_fakta(input)?);
+        fakta.append(&mut self.opphold_fakta.utlede_fakta(input)?);
+        fakta.append(&mut self.utflytting_fakta.utlede_fakta(input)?);
         Ok(fakta)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::fakta::person_fakta::UtledePersonFakta;
     use crate::fakta::UtledeFakta;
+    use crate::fakta::person_fakta::UtledePersonFakta;
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, ErEuEoesStatsborger, ErNorskStatsborger, ErOver18Aar,
