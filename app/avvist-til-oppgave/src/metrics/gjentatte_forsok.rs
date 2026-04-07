@@ -3,13 +3,19 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
 use sqlx::{Postgres, Transaction};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
-static GJENTATTE_FORSOK_GJENNOMSNITT: OnceLock<Gauge> = OnceLock::new();
+static GJENTATTE_FORSOK_GJENNOMSNITT: LazyLock<Gauge> = LazyLock::new(|| {
+    register_gauge!(
+        "avvist_til_oppgave_gjentatte_forsok_gjennomsnitt",
+        "Gjennomsnittlig antall ekstra registreringsforsøk per arbeidssøker under 18 etter første avvisning"
+    )
+    .expect("Failed to register avvist_til_oppgave_gjentatte_forsok_gjennomsnitt gauge")
+});
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
     let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(fra_tidspunkt, transaction).await?;
-    sett_gjentatte_forsok_gjennomsnitt(gjennomsnitt);
+    GJENTATTE_FORSOK_GJENNOMSNITT.set(gjennomsnitt);
     Ok(())
 }
 
@@ -38,17 +44,6 @@ async fn hent_gjentatte_forsok_gjennomsnitt(
     .await?;
 
     Ok(gjennomsnitt.unwrap_or(0.0))
-}
-
-fn sett_gjentatte_forsok_gjennomsnitt(gjennomsnitt: f64) {
-    let gauge = GJENTATTE_FORSOK_GJENNOMSNITT.get_or_init(|| {
-        register_gauge!(
-            "avvist_til_oppgave_gjentatte_forsok_gjennomsnitt",
-            "Gjennomsnittlig antall ekstra registreringsforsøk per arbeidssøker under 18 etter første avvisning"
-        )
-        .expect("Failed to register avvist_til_oppgave_gjentatte_forsok_gjennomsnitt gauge")
-    });
-    gauge.set(gjennomsnitt);
 }
 
 #[cfg(test)]

@@ -3,13 +3,25 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge_vec, GaugeVec};
 use sqlx::{FromRow, Postgres, Transaction};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
-static AVVERGEDE_DUPLIKATER_PER_DAG: OnceLock<GaugeVec> = OnceLock::new();
+static AVVERGEDE_DUPLIKATER_PER_DAG: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "avvist_til_oppgave_avvergede_duplikater_per_dag",
+        "Antall duplikate oppgaver avverget per dag (OPPGAVE_FINNES_ALLEREDE)",
+        &["dato"]
+    )
+    .expect("Failed to register avvist_til_oppgave_avvergede_duplikater_per_dag gauge")
+});
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let avvergede_duplikater_per_dag = hent_avvergede_duplikater_per_dag(fra_tidspunkt, transaction).await?;
-    sett_avvergede_duplikater_per_dag(&avvergede_duplikater_per_dag);
+    let rader = hent_avvergede_duplikater_per_dag(fra_tidspunkt, transaction).await?;
+    AVVERGEDE_DUPLIKATER_PER_DAG.reset();
+    for rad in &rader {
+        AVVERGEDE_DUPLIKATER_PER_DAG
+            .with_label_values(&[&rad.dato])
+            .set(rad.antall as f64);
+    }
     Ok(())
 }
 
@@ -42,22 +54,6 @@ async fn hent_avvergede_duplikater_per_dag(
     .await?;
 
     Ok(rader)
-}
-
-fn sett_avvergede_duplikater_per_dag(rader: &[AvvergedeDuplikaterPerDag]) {
-    let gauge = AVVERGEDE_DUPLIKATER_PER_DAG.get_or_init(|| {
-        register_gauge_vec!(
-            "avvist_til_oppgave_avvergede_duplikater_per_dag",
-            "Antall duplikate oppgaver avverget per dag (OPPGAVE_FINNES_ALLEREDE)",
-            &["dato"]
-        )
-        .expect("Failed to register avvist_til_oppgave_avvergede_duplikater_per_dag gauge")
-    });
-
-    gauge.reset();
-    for rad in rader {
-        gauge.with_label_values(&[&rad.dato]).set(rad.antall as f64);
-    }
 }
 
 #[cfg(test)]

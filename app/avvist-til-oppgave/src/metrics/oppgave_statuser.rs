@@ -2,14 +2,30 @@ use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Result;
 use prometheus::{register_gauge_vec, GaugeVec};
 use sqlx::{FromRow, Postgres, Transaction};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 use strum::IntoEnumIterator;
 
-static OPPGAVER_PER_STATUS: OnceLock<GaugeVec> = OnceLock::new();
+static OPPGAVER_PER_STATUS: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "avvist_til_oppgave_oppgaver_total",
+        "Antall oppgaver per status",
+        &["status"]
+    )
+    .expect("Failed to register avvist_til_oppgave_oppgaver_total gauge")
+});
 
 pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let oppgave_status_antall = hent_antall(transaction).await?;
-    sett_oppgave_statuser(&oppgave_status_antall);
+    let rader = hent_antall(transaction).await?;
+    for oppgave_status in OppgaveStatus::iter() {
+        let antall = rader
+            .iter()
+            .find(|rad| rad.status == oppgave_status.to_string())
+            .map(|rad| rad.antall)
+            .unwrap_or(0);
+        OPPGAVER_PER_STATUS
+            .with_label_values(&[&oppgave_status.to_string()])
+            .set(antall as f64);
+    }
     Ok(())
 }
 
@@ -33,28 +49,6 @@ async fn hent_antall(
     .await?;
 
     Ok(rader)
-}
-
-fn sett_oppgave_statuser(rader: &[OppgaveStatusAntall]) {
-    let gauge = OPPGAVER_PER_STATUS.get_or_init(|| {
-        register_gauge_vec!(
-            "avvist_til_oppgave_oppgaver_total",
-            "Antall oppgaver per status",
-            &["status"]
-        )
-        .expect("Failed to register avvist_til_oppgave_oppgaver_total gauge")
-    });
-
-    for oppgave_status in OppgaveStatus::iter() {
-        let antall = rader
-            .iter()
-            .find(|rad| rad.status == oppgave_status.to_string())
-            .map(|rad| rad.antall)
-            .unwrap_or(0);
-        gauge
-            .with_label_values(&[&oppgave_status.to_string()])
-            .set(antall as f64);
-    }
 }
 
 #[cfg(test)]

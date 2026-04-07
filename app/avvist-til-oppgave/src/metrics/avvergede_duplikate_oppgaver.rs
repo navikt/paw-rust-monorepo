@@ -3,13 +3,19 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
 use sqlx::{Postgres, Transaction};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
-static DUPLIKATE_OPPGAVER_AVVERGET: OnceLock<Gauge> = OnceLock::new();
+static DUPLIKATE_OPPGAVER_AVVERGET: LazyLock<Gauge> = LazyLock::new(|| {
+    register_gauge!(
+        "avvist_til_oppgave_forhindrede_duplikater_total",
+        "Antall ganger en arbeidssøker ble avvist på nytt mens en aktiv oppgave allerede fantes (OPPGAVE_FINNES_ALLEREDE)"
+    )
+    .expect("Failed to register avvist_til_oppgave_forhindrede_duplikater_total gauge")
+});
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
     let antall = hent_antall_duplikater_avverget(fra_tidspunkt, transaction).await?;
-    sett_forhindrede_duplikater(antall);
+    DUPLIKATE_OPPGAVER_AVVERGET.set(antall as f64);
     Ok(())
 }
 
@@ -32,18 +38,6 @@ async fn hent_antall_duplikater_avverget(
     .await?;
 
     Ok(antall)
-}
-
-fn sett_forhindrede_duplikater(antall: i64) {
-    DUPLIKATE_OPPGAVER_AVVERGET
-        .get_or_init(|| {
-            register_gauge!(
-                "avvist_til_oppgave_forhindrede_duplikater_total",
-                "Antall ganger en arbeidssøker ble avvist på nytt mens en aktiv oppgave allerede fantes (OPPGAVE_FINNES_ALLEREDE)"
-            )
-            .expect("Failed to register avvist_til_oppgave_forhindrede_duplikater_total gauge")
-        })
-        .set(antall as f64);
 }
 
 #[cfg(test)]
