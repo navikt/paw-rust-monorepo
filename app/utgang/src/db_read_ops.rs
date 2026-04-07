@@ -6,8 +6,6 @@ use uuid::Uuid;
 
 use crate::vo::opplysninger_rad::OpplysningerRad;
 use crate::vo::periode_med_metadata_rad::PeriodeMedMetadataRad;
-use crate::vo::periode_metadata_rad::PeriodeMetadata;
-use crate::vo::periode_rad::PeriodeRad;
 use crate::vo::status::Status;
 
 pub async fn hent_opplysninger(
@@ -23,48 +21,6 @@ pub async fn hent_opplysninger(
     .bind(periode_id)
     .bind(antall)
     .fetch_all(&mut **tx)
-    .await?;
-    Ok(res)
-}
-
-#[instrument(skip(tx))]
-pub async fn hent_sist_oppdatert_foer(
-    tx: &mut Transaction<'_, Postgres>,
-    tidspunkt: &chrono::DateTime<chrono::Utc>,
-    status: &[Status],
-    limit: &NonZeroU16,
-) -> Result<Vec<PeriodeRad>, sqlx::Error> {
-    let status_str_vec: Vec<String> = status.iter().map(|s| s.to_string()).collect();
-    let res: Vec<PeriodeRad> = sqlx::query_as::<_, PeriodeRad>(
-        r#"
-        select * from periode 
-        where
-            periode_avsluttet_timestamp is null and
-            sist_oppdatert_timestamp < $1 and
-            sist_oppdatert_status = ANY($2) 
-            order by sist_oppdatert_timestamp ASC limit $3
-        "#,
-    )
-    .bind(tidspunkt)
-    .bind(status_str_vec)
-    .bind(limit.get() as i64)
-    .fetch_all(&mut **tx)
-    .await?;
-    Ok(res)
-}
-
-#[instrument(skip(tx, periode_id))]
-pub async fn hent_periode_metadata(
-    tx: &mut Transaction<'_, Postgres>,
-    periode_id: &Uuid,
-) -> Result<PeriodeMetadata, sqlx::Error> {
-    let res: PeriodeMetadata = sqlx::query_as::<_, PeriodeMetadata>(
-        r#"
-        select * from periode_metadata where periode_id = $1
-        "#,
-    )
-    .bind(periode_id)
-    .fetch_one(&mut **tx)
     .await?;
     Ok(res)
 }
