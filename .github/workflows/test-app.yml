@@ -1,5 +1,8 @@
 name: Rust test-app - build and deploy
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
