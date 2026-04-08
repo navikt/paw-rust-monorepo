@@ -8,10 +8,10 @@ name = "kafka_topic_backup"
 path = "src/lib.rs"
 
 [dependencies]
+axum_health = { path = "../../lib/axum_health" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 health_and_monitoring = { path = "../../lib/health_and_monitoring"}
 tokio = { workspace = true }
-axum = { workspace = true }
 prometheus = { workspace = true }
 log = { workspace = true }
 sqlx = { workspace = true }

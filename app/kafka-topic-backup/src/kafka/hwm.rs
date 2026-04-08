@@ -1,9 +1,7 @@
 use std::{error::Error, sync::Arc};
 
-use crate::{
-    app_state::AppState,
-    database::hwm_statements::{get_hwm, insert_hwm},
-};
+use crate::database::hwm_statements::{get_hwm, insert_hwm};
+use health_and_monitoring::simple_app_state::AppState;
 use log::{error, info};
 use rdkafka::{
     ClientContext, Offset,

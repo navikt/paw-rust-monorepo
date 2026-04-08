@@ -1,10 +1,10 @@
 use std::{error::Error, sync::Arc};
 
+use health_and_monitoring::simple_app_state::AppState;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 
 use crate::{
-    app_state::AppState,
     kafka::{config::ApplicationKafkaConfig, hwm::HwmRebalanceHandler},
 };
 

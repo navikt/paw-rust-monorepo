@@ -1,21 +1,20 @@
-mod app_state;
 mod config;
 mod config_utils;
 mod database;
 mod errors;
 mod kafka;
 mod metrics;
-mod nais_http_apis;
 
-use crate::app_state::AppState;
 use crate::database::init_pg_pool::init_db;
 use crate::kafka::config::ApplicationKafkaConfig;
 use crate::kafka::hwm::HwmRebalanceHandler;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
-use crate::nais_http_apis::register_nais_http_apis;
+use crate::metrics::init_metrics;
+use axum_health::spawn_health_server;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
+use health_and_monitoring::simple_app_state::AppState;
 use log::error;
 use log::info;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -50,15 +49,14 @@ async fn main() {
     info!("Main funksjon ferdig, applikasjon avsluttet");
 }
 
-async fn run_app() -> Result<(), Box<dyn std::error::Error>> {
+async fn run_app() -> Result<(), Box<dyn Error>> {
     let config = config::Config::from_default_file()?;
     info!("Konfigurasjon lastet: {:?}", config);
-    // Initialize Prometheus metrics
-    crate::metrics::init_metrics();
+    init_metrics();
     info!("Prometheus metrics initialized");
 
     let app_state = Arc::new(AppState::new());
-    let http_server_task = register_nais_http_apis(app_state.clone());
+    let http_server_task = spawn_health_server(app_state.clone());
     info!("HTTP server startet");
     let pg_pool = init_db().await?;
     let stream = create_kafka_consumer(
@@ -75,7 +73,7 @@ async fn run_app() -> Result<(), Box<dyn std::error::Error>> {
         result = http_server_task => {
             match result {
                 Ok(Ok(())) => info!("HTTP server stoppet."),
-                Ok(Err(e)) => return Err(e as Box<dyn std::error::Error>),
+                Ok(Err(e)) => return Err(e.into()),
                 Err(join_error) => return Err(Box::new(join_error)),
             }
         }
