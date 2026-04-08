@@ -9,8 +9,6 @@ spec:
   image: {{ image }}
   port: 8080
   env:
-    - name: RUST_BACKTRACE
-      value: "1"
     - name: RUST_LOG
       value: "info"
     - name: PGSSLMODE
