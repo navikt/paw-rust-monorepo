@@ -7,7 +7,6 @@ mod metrics;
 
 use crate::database::init_pg_pool::init_db;
 use crate::kafka::config::ApplicationKafkaConfig;
-use crate::kafka::hwm::HwmRebalanceHandler;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
@@ -17,12 +16,15 @@ use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use log::error;
 use log::info;
+use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::panic_logger::register_panic_logger;
 use rdkafka::consumer::StreamConsumer;
 use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::signal::unix::{SignalKind, signal};
+
+const HWM_VERSION: i16 = 1;
 
 #[tokio::main]
 async fn main() {
@@ -64,6 +66,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         pg_pool.clone(),
         ApplicationKafkaConfig::new("hedelselogg_backup2_v1", "ssl"),
         &config.topics_as_str_slice(),
+        HWM_VERSION,
     )?;
     let reader = read_all(pg_pool.clone(), stream);
     let signal = await_signal();
@@ -103,7 +106,7 @@ async fn read_all(
     loop {
         let msg = stream.recv().await?;
         let msg = KafkaMessage::from_borrowed_message(msg)?;
-        prosesser_melding(pg_pool.clone(), msg).await?;
+        prosesser_melding(pg_pool.clone(), msg, HWM_VERSION).await?;
     }
 }
 

@@ -11,6 +11,7 @@ path = "src/lib.rs"
 axum_health = { path = "../../lib/axum_health" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 health_and_monitoring = { path = "../../lib/health_and_monitoring"}
+paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 tokio = { workspace = true }
 prometheus = { workspace = true }
 log = { workspace = true }
@@ -19,7 +20,6 @@ rdkafka = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
-futures = { workspace = true }
 serde-env-field = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }

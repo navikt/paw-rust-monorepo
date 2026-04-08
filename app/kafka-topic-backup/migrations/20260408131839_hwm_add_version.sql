@@ -1,0 +1,3 @@
+ALTER TABLE hwm ADD COLUMN version SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE hwm DROP CONSTRAINT hwm_pkey;
+ALTER TABLE hwm ADD PRIMARY KEY (version, topic, partition);

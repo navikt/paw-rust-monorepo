@@ -1,9 +1,9 @@
-use crate::database::hwm_statements::update_hwm;
 use crate::database::insert_data;
 use crate::kafka::headers::extract_headers_as_json;
 use crate::metrics;
 use chrono::{DateTime, Utc};
 use log::{info, trace};
+use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use rdkafka::Message;
 use rdkafka::message::BorrowedMessage;
 use sqlx::PgPool;
@@ -38,11 +38,11 @@ impl KafkaMessage {
     }
 }
 
-pub async fn prosesser_melding(pg_pool: PgPool, msg: KafkaMessage) -> Result<(), Box<dyn Error>> {
+pub async fn prosesser_melding(pg_pool: PgPool, msg: KafkaMessage, hwm_version: i16) -> Result<(), Box<dyn Error>> {
     let mut tx = pg_pool.begin().await?;
     let topic = &msg.topic;
 
-    let hwm_ok = update_hwm(&mut tx, topic, msg.partition, msg.offset).await?;
+    let hwm_ok = update_hwm(&mut tx, hwm_version, topic, msg.partition, msg.offset).await?;
 
     if hwm_ok {
         let _ = insert_data::insert_data(

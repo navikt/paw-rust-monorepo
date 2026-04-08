@@ -1,4 +1,4 @@
-use kafka_topic_backup::database::hwm_statements::{get_hwm, insert_hwm, update_hwm};
+use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm, update_hwm};
 use paw_test::setup_test_db::setup_test_db;
 
 #[tokio::test]
@@ -16,7 +16,7 @@ async fn test_insert_hwm_data() {
     let partition = 0i32;
     let hwm = 100i64;
 
-    let result = insert_hwm(&mut tx, &topic, partition, hwm).await;
+    let result = insert_hwm(&mut tx, 1i16, &topic, partition, hwm).await;
     assert!(
         result.is_ok(),
         "Failed to insert HWM data: {:?}",
@@ -28,7 +28,7 @@ async fn test_insert_hwm_data() {
 
     // Verify the data was inserted by querying in a new transaction
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let retrieved_hwm = get_hwm(&mut tx, &topic, partition)
+    let retrieved_hwm = get_hwm(&mut tx, 1i16, &topic, partition)
         .await
         .expect("Failed to query HWM data");
     tx.commit().await.expect("Failed to commit transaction");
@@ -46,7 +46,7 @@ async fn test_get_nonexistent_hwm() {
 
     // Query non-existent data using hwm_statements function
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let result = get_hwm(&mut tx, &"nonexistent-topic".to_string(), 999i32)
+    let result = get_hwm(&mut tx, 1i16, &"nonexistent-topic".to_string(), 999i32)
         .await
         .expect("Failed to query HWM data");
     tx.commit().await.expect("Failed to commit transaction");
@@ -68,14 +68,14 @@ async fn test_update_hwm_data() {
 
     // Insert initial data
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    insert_hwm(&mut tx, &topic, partition, initial_hwm)
+    insert_hwm(&mut tx, 1i16, &topic, partition, initial_hwm)
         .await
         .expect("Failed to insert initial test data");
     tx.commit().await.expect("Failed to commit transaction");
 
     // Update the HWM using hwm_statements function (should succeed because new_hwm > old_hwm)
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let update_result = update_hwm(&mut tx, &topic, partition, updated_hwm).await;
+    let update_result = update_hwm(&mut tx, 1i16, &topic, partition, updated_hwm).await;
     tx.commit().await.expect("Failed to commit transaction");
 
     assert!(
@@ -91,7 +91,7 @@ async fn test_update_hwm_data() {
 
     // Verify the update
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let actual_hwm = get_hwm(&mut tx, &topic, partition)
+    let actual_hwm = get_hwm(&mut tx, 1i16, &topic, partition)
         .await
         .expect("Failed to query updated HWM");
     tx.commit().await.expect("Failed to commit transaction");
@@ -113,14 +113,14 @@ async fn test_update_hwm_no_change_when_lower() {
 
     // Insert initial data
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    insert_hwm(&mut tx, &topic, partition, initial_hwm)
+    insert_hwm(&mut tx, 1i16, &topic, partition, initial_hwm)
         .await
         .expect("Failed to insert initial test data");
     tx.commit().await.expect("Failed to commit transaction");
 
     // Try to update with lower HWM using hwm_statements function
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let update_result = update_hwm(&mut tx, &topic, partition, lower_hwm).await;
+    let update_result = update_hwm(&mut tx, 1i16, &topic, partition, lower_hwm).await;
     tx.commit().await.expect("Failed to commit transaction");
 
     assert!(update_result.is_ok());
@@ -132,7 +132,7 @@ async fn test_update_hwm_no_change_when_lower() {
 
     // Verify the HWM remains unchanged
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let actual_hwm = get_hwm(&mut tx, &topic, partition)
+    let actual_hwm = get_hwm(&mut tx, 1i16, &topic, partition)
         .await
         .expect("Failed to query HWM after attempted update");
     tx.commit().await.expect("Failed to commit transaction");
@@ -161,7 +161,7 @@ async fn test_multiple_topics_and_partitions() {
 
     for (topic, partition, hwm) in &test_data {
         let mut tx = pool.begin().await.expect("Failed to start transaction");
-        insert_hwm(&mut tx, &topic, *partition, *hwm)
+        insert_hwm(&mut tx, 1i16, &topic, *partition, *hwm)
             .await
             .expect("Failed to insert test data");
         tx.commit().await.expect("Failed to commit transaction");
@@ -170,7 +170,7 @@ async fn test_multiple_topics_and_partitions() {
     // Verify all data was inserted correctly using hwm_statements functions
     for (topic, partition, expected_hwm) in test_data {
         let mut tx = pool.begin().await.expect("Failed to start transaction");
-        let actual_hwm = get_hwm(&mut tx, &topic, partition)
+        let actual_hwm = get_hwm(&mut tx, 1i16, &topic, partition)
             .await
             .expect("Failed to query HWM");
         tx.commit().await.expect("Failed to commit transaction");
@@ -198,7 +198,7 @@ async fn test_transaction_rollback() {
 
     // Start a transaction and insert data but don't commit
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    insert_hwm(&mut tx, &topic, partition, hwm)
+    insert_hwm(&mut tx, 1i16, &topic, partition, hwm)
         .await
         .expect("Failed to insert test data");
 
@@ -207,7 +207,7 @@ async fn test_transaction_rollback() {
 
     // Verify the data was not persisted
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let result = get_hwm(&mut tx, &topic, partition)
+    let result = get_hwm(&mut tx, 1i16, &topic, partition)
         .await
         .expect("Failed to query HWM data");
     tx.commit().await.expect("Failed to commit transaction");
