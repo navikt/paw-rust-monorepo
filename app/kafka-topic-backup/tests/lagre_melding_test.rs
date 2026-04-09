@@ -1,7 +1,7 @@
-use chrono::DateTime;
-use kafka_topic_backup::{KafkaMessage, prosesser_melding};
+use kafka_topic_backup::prosesser_melding;
 use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
 use paw_test::setup_test_db::setup_test_db;
+use rdkafka::message::{Header, OwnedHeaders, OwnedMessage, Timestamp};
 
 const HWM_VERSION: i16 = 1;
 
@@ -20,15 +20,25 @@ async fn alle_felt_lagres_korrekt_og_hwm_oppdateres() {
     let expected_payload = br#"{"hendelse":"REGISTRERT"}"#.to_vec();
     let expected_headers = serde_json::json!({"traceparent": "00-abc", "source": "test"});
 
-    let msg = KafkaMessage {
-        topic: expected_topic.to_string(),
-        partition: expected_partition,
-        offset: expected_offset,
-        timestamp: DateTime::from_timestamp_millis(expected_timestamp_millis).unwrap(),
-        key: expected_key.clone(),
-        payload: expected_payload.clone(),
-        headers: Some(expected_headers.clone()),
-    };
+    let headers = OwnedHeaders::new()
+        .insert(Header {
+            key: "traceparent",
+            value: Some("00-abc"),
+        })
+        .insert(Header {
+            key: "source",
+            value: Some("test"),
+        });
+
+    let msg = OwnedMessage::new(
+        Some(expected_payload.clone()),
+        Some(expected_key.clone()),
+        expected_topic.to_string(),
+        Timestamp::CreateTime(expected_timestamp_millis),
+        expected_partition,
+        expected_offset,
+        Some(headers),
+    );
 
     let mut tx = pool.begin().await.unwrap();
     insert_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition, 0)
@@ -36,16 +46,18 @@ async fn alle_felt_lagres_korrekt_og_hwm_oppdateres() {
         .unwrap();
     tx.commit().await.unwrap();
 
-    prosesser_melding(pool.clone(), msg, HWM_VERSION)
-        .await
-        .unwrap();
+    prosesser_melding(&pool, &msg, HWM_VERSION).await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
     let hwm = get_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition)
         .await
         .unwrap();
     tx.commit().await.unwrap();
-    assert_eq!(hwm, Some(expected_offset), "HWM should be updated to the message offset");
+    assert_eq!(
+        hwm,
+        Some(expected_offset),
+        "HWM should be updated to the message offset"
+    );
 
     let lagret_melding: LagretMelding = sqlx::query_as(
         "SELECT kafka_topic, kafka_partition, kafka_offset,
@@ -83,38 +95,36 @@ async fn edgecases_lagres_korrekt() {
         .unwrap();
     tx.commit().await.unwrap();
 
-    let tom_key = KafkaMessage {
-        topic: "test-topic".to_string(),
-        partition: 0,
-        offset: 1,
-        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
-        key: vec![],
-        payload: b"payload".to_vec(),
-        headers: None,
-    };
-    let tom_payload = KafkaMessage {
-        topic: "test-topic".to_string(),
-        partition: 0,
-        offset: 2,
-        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
-        key: b"key".to_vec(),
-        payload: vec![],
-        headers: None,
-    };
-    let ingen_headers = KafkaMessage {
-        topic: "test-topic".to_string(),
-        partition: 0,
-        offset: 3,
-        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
-        key: b"key".to_vec(),
-        payload: b"payload".to_vec(),
-        headers: None,
-    };
+    let tom_key = OwnedMessage::new(
+        Some(b"payload".to_vec()),
+        Some(vec![]),
+        "test-topic".to_string(),
+        Timestamp::CreateTime(1_000_000_000_000),
+        0,
+        1,
+        None,
+    );
+    let tom_payload = OwnedMessage::new(
+        Some(vec![]),
+        Some(b"key".to_vec()),
+        "test-topic".to_string(),
+        Timestamp::CreateTime(1_000_000_000_000),
+        0,
+        2,
+        None,
+    );
+    let ingen_headers = OwnedMessage::new(
+        Some(b"payload".to_vec()),
+        Some(b"key".to_vec()),
+        "test-topic".to_string(),
+        Timestamp::CreateTime(1_000_000_000_000),
+        0,
+        3,
+        None,
+    );
 
     for msg in [tom_key, tom_payload, ingen_headers] {
-        prosesser_melding(pool.clone(), msg, HWM_VERSION)
-            .await
-            .unwrap();
+        prosesser_melding(&pool, &msg, HWM_VERSION).await.unwrap();
     }
 
     let lagrede_meldinger: Vec<LagretMelding> = sqlx::query_as(

@@ -6,7 +6,6 @@ mod metrics;
 use crate::config::read_database_config;
 use crate::config::read_kafka_config;
 use crate::kafka::kafka_connection::create_kafka_consumer;
-use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
 use crate::metrics::init_metrics;
 use axum_health::spawn_health_server;
@@ -107,9 +106,8 @@ async fn read_all(
     hwm_version: i16,
 ) -> Result<(), Box<dyn Error>> {
     loop {
-        let msg = stream.recv().await?;
-        let msg = KafkaMessage::from_borrowed_message(msg)?;
-        prosesser_melding(pg_pool.clone(), msg, hwm_version).await?;
+        let msg = stream.recv().await?.detach();
+        prosesser_melding(&pg_pool, &msg, hwm_version).await?;
     }
 }
 

@@ -14,10 +14,12 @@ pub fn init_metrics() {
     });
 }
 
-pub fn increment_kafka_messages_processed(above_hwm: bool, topic: String, partition: i32) {
+pub fn increment_kafka_messages_processed(above_hwm: bool, topic: &str, partition: i32) {
     if let Some(counter_vec) = KAFKA_MESSAGES_PROCESSED.get() {
+        let above_hwm = above_hwm.to_string();
+        let partition = partition.to_string();
         counter_vec
-            .with_label_values(&[&above_hwm.to_string(), &topic, &partition.to_string()])
+            .with_label_values(&[above_hwm.as_str(), topic, partition.as_str()])
             .inc();
     }
 }

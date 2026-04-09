@@ -1,74 +1,44 @@
 use crate::database::insert_data;
 use crate::kafka::headers::extract_headers_as_json;
 use crate::metrics;
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use tracing::{info, trace};
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use rdkafka::Message;
-use rdkafka::message::BorrowedMessage;
+use rdkafka::message::OwnedMessage;
 use sqlx::PgPool;
 use std::error::Error;
+use insert_data::insert_data;
 
-#[derive(Debug, Clone)]
-pub struct KafkaMessage {
-    pub topic: String,
-    pub partition: i32,
-    pub offset: i64,
-    pub headers: Option<serde_json::Value>,
-    pub key: Vec<u8>,
-    pub payload: Vec<u8>,
-    pub timestamp: DateTime<Utc>,
-}
+pub async fn prosesser_melding(pg_pool: &PgPool, msg: &OwnedMessage, hwm_version: i16) -> Result<(), Box<dyn Error>> {
+    let topic = msg.topic();
+    let partition = msg.partition();
+    let offset = msg.offset();
+    let timestamp_millis = msg.timestamp().to_millis().unwrap_or(0);
+    let timestamp = DateTime::from_timestamp_millis(timestamp_millis)
+        .ok_or_else(|| format!("Invalid timestamp: {}", timestamp_millis))?;
 
-impl KafkaMessage {
-    pub fn from_borrowed_message(msg: BorrowedMessage<'_>) -> Result<Self, Box<dyn Error>> {
-        let timestamp_millis = msg.timestamp().to_millis().unwrap_or(0);
-        let timestamp = DateTime::from_timestamp_millis(timestamp_millis)
-            .ok_or_else(|| format!("Invalid timestamp: {}", timestamp_millis))?;
-
-        Ok(KafkaMessage {
-            topic: msg.topic().to_string(),
-            partition: msg.partition(),
-            offset: msg.offset(),
-            headers: extract_headers_as_json(&msg)?,
-            key: msg.key().unwrap_or(&[]).to_vec(),
-            payload: msg.payload().unwrap_or(&[]).to_vec(),
-            timestamp,
-        })
-    }
-}
-
-pub async fn prosesser_melding(pg_pool: PgPool, msg: KafkaMessage, hwm_version: i16) -> Result<(), Box<dyn Error>> {
     let mut tx = pg_pool.begin().await?;
-    let topic = &msg.topic;
-
-    let hwm_ok = update_hwm(&mut tx, hwm_version, topic, msg.partition, msg.offset).await?;
+    let hwm_ok = update_hwm(&mut tx, hwm_version, topic, partition, offset).await?;
 
     if hwm_ok {
-        let _ = insert_data::insert_data(
+        insert_data(
             &mut tx,
             topic,
-            msg.partition,
-            msg.offset,
-            msg.timestamp,
-            msg.headers,
-            msg.key,
-            msg.payload,
+            partition,
+            offset,
+            timestamp,
+            extract_headers_as_json(msg),
+            msg.key().unwrap_or(&[]).to_vec(),
+            msg.payload().unwrap_or(&[]).to_vec(),
         )
         .await?;
         tx.commit().await?;
-
-        trace!(
-            "Message processed: topic={}, partition={}, offset={}",
-            topic, msg.partition, msg.offset
-        );
+        trace!("Message processed: topic={}, partition={}, offset={}", topic, partition, offset);
     } else {
-        info!(
-            "Below HWM, skipping insert: topic={}, partition={}, offset={}",
-            topic, msg.partition, msg.offset
-        );
+        info!("Below HWM, skipping insert: topic={}, partition={}, offset={}", topic, partition, offset);
         tx.rollback().await?;
     }
-    metrics::increment_kafka_messages_processed(hwm_ok, topic.clone(), msg.partition);
+    metrics::increment_kafka_messages_processed(hwm_ok, topic, partition);
     Ok(())
 }

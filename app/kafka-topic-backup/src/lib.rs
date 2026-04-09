@@ -3,5 +3,5 @@ pub mod database;
 pub mod kafka;
 pub mod metrics;
 
-pub use kafka::message_processor::{KafkaMessage, prosesser_melding};
+pub use kafka::message_processor::prosesser_melding;
 
