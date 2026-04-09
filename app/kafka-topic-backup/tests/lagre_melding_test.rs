@@ -6,149 +6,147 @@ use paw_test::setup_test_db::setup_test_db;
 const HWM_VERSION: i16 = 1;
 
 #[tokio::test]
-async fn test_lagre_melding_i_db_new_message() {
+async fn alle_felt_lagres_korrekt_og_hwm_oppdateres() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-    // Insert initial HWM record with a lower offset so our test message will be processed
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 50)
+    let expected_topic = "paw.test-topic";
+    let expected_partition = 3i32;
+    let expected_offset = 42i64;
+    let expected_timestamp_millis = 1_700_000_000_000i64;
+    let expected_key = b"fnr-12345678901".to_vec();
+    let expected_payload = br#"{"hendelse":"REGISTRERT"}"#.to_vec();
+    let expected_headers = serde_json::json!({"traceparent": "00-abc", "source": "test"});
+
+    let msg = KafkaMessage {
+        topic: expected_topic.to_string(),
+        partition: expected_partition,
+        offset: expected_offset,
+        timestamp: DateTime::from_timestamp_millis(expected_timestamp_millis).unwrap(),
+        key: expected_key.clone(),
+        payload: expected_payload.clone(),
+        headers: Some(expected_headers.clone()),
+    };
+
+    let mut tx = pool.begin().await.unwrap();
+    insert_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition, 0)
         .await
-        .expect("Failed to insert initial HWM");
-    tx.commit().await.expect("Failed to commit initial HWM");
+        .unwrap();
+    tx.commit().await.unwrap();
 
-    // Create a test message with offset higher than HWM
-    let test_message = create_test_kafka_message("test-topic", 0, 100);
-
-    // Use the actual function to process the message
-    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
+    prosesser_melding(pool.clone(), msg, HWM_VERSION)
         .await
-        .expect("lagre_melding_i_db should succeed");
+        .unwrap();
 
-    // Verify the HWM was updated to the new offset
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let hwm = get_hwm(&mut tx, HWM_VERSION, "test-topic", 0)
+    let mut tx = pool.begin().await.unwrap();
+    let hwm = get_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition)
         .await
-        .expect("Failed to get HWM");
-    assert_eq!(hwm, Some(100), "HWM should be updated to new offset");
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(hwm, Some(expected_offset), "HWM should be updated to the message offset");
 
-    // Verify data was inserted
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM data_v2 WHERE kafka_topic = $1 AND kafka_partition = $2",
+    let lagret_melding: LagretMelding = sqlx::query_as(
+        "SELECT kafka_topic, kafka_partition, kafka_offset,
+                (EXTRACT(EPOCH FROM timestamp) * 1000)::BIGINT AS timestamp_millis,
+                headers, record_key, record_value
+         FROM data_v2
+         WHERE kafka_topic = $1 AND kafka_partition = $2 AND kafka_offset = $3",
     )
-    .bind("test-topic")
-    .bind(0i32)
-    .fetch_one(&mut *tx)
+    .bind(expected_topic)
+    .bind(expected_partition)
+    .bind(expected_offset)
+    .fetch_one(&pool)
     .await
-    .expect("Failed to count rows");
+    .expect("Should find the stored record");
 
-    tx.commit().await.expect("Failed to commit");
-
-    assert_eq!(count.0, 1, "Should have inserted 1 data record");
+    assert_eq!(lagret_melding.kafka_topic, expected_topic);
+    assert_eq!(lagret_melding.kafka_partition, expected_partition as i16);
+    assert_eq!(lagret_melding.kafka_offset, expected_offset);
+    assert_eq!(lagret_melding.timestamp_millis, expected_timestamp_millis);
+    assert_eq!(lagret_melding.record_key, Some(expected_key));
+    assert_eq!(lagret_melding.record_value, Some(expected_payload));
+    assert_eq!(lagret_melding.headers, Some(expected_headers));
 }
 
 #[tokio::test]
-async fn test_lagre_melding_i_db_duplicate_message() {
+async fn edgecases_lagres_korrekt() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-    // Insert initial HWM record with the SAME offset as our test message
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 100)
+    let mut tx = pool.begin().await.unwrap();
+    insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 0)
         .await
-        .expect("Failed to insert initial HWM");
-    tx.commit().await.expect("Failed to commit initial HWM");
+        .unwrap();
+    tx.commit().await.unwrap();
 
-    // Create a test message with the same offset (should be skipped)
-    let test_message = create_test_kafka_message("test-topic", 0, 100);
+    let tom_key = KafkaMessage {
+        topic: "test-topic".to_string(),
+        partition: 0,
+        offset: 1,
+        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
+        key: vec![],
+        payload: b"payload".to_vec(),
+        headers: None,
+    };
+    let tom_payload = KafkaMessage {
+        topic: "test-topic".to_string(),
+        partition: 0,
+        offset: 2,
+        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
+        key: b"key".to_vec(),
+        payload: vec![],
+        headers: None,
+    };
+    let ingen_headers = KafkaMessage {
+        topic: "test-topic".to_string(),
+        partition: 0,
+        offset: 3,
+        timestamp: DateTime::from_timestamp_millis(1_000_000_000_000).unwrap(),
+        key: b"key".to_vec(),
+        payload: b"payload".to_vec(),
+        headers: None,
+    };
 
-    // Use the actual function to process the duplicate message
-    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
-        .await
-        .expect("lagre_melding_i_db should succeed even for duplicates");
-
-    // Verify no additional data was inserted
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM data_v2 WHERE kafka_topic = $1 AND kafka_partition = $2",
-    )
-    .bind("test-topic")
-    .bind(0i32)
-    .fetch_one(&mut *tx)
-    .await
-    .expect("Failed to count rows");
-
-    tx.commit().await.expect("Failed to commit");
-
-    assert_eq!(
-        count.0, 0,
-        "Should not have inserted any data records for duplicate offset"
-    );
-}
-
-#[tokio::test]
-async fn test_lagre_melding_i_db_lower_offset_message() {
-    let (pool, _container) = setup_test_db()
-        .await
-        .expect("Failed to setup test database");
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-
-    let higher_hwm = 150i64;
-
-    // Insert initial HWM record with a HIGHER offset than our test message
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, higher_hwm)
-        .await
-        .expect("Failed to insert initial HWM");
-    tx.commit().await.expect("Failed to commit initial HWM");
-
-    // Create a test message with lower offset (should be skipped)
-    let test_message = create_test_kafka_message("test-topic", 0, 100);
-
-    // Use the actual function to process the lower offset message
-    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
-        .await
-        .expect("lagre_melding_i_db should succeed even for lower offsets");
-
-    // Verify HWM remains unchanged
-    let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let hwm = get_hwm(&mut tx, HWM_VERSION, "test-topic", 0)
-        .await
-        .expect("Failed to get HWM");
-    assert_eq!(hwm, Some(higher_hwm), "HWM should remain unchanged");
-
-    // Verify no data was inserted
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM data_v2 WHERE kafka_topic = $1 AND kafka_partition = $2",
-    )
-    .bind("test-topic")
-    .bind(0i32)
-    .fetch_one(&mut *tx)
-    .await
-    .expect("Failed to count rows");
-
-    tx.commit().await.expect("Failed to commit");
-
-    assert_eq!(
-        count.0, 0,
-        "Should not have inserted any data records for lower offset"
-    );
-}
-
-fn create_test_kafka_message(topic: &str, partition: i32, offset: i64) -> KafkaMessage {
-    let timestamp = DateTime::from_timestamp_millis(1234567890000).expect("Valid timestamp");
-
-    KafkaMessage {
-        topic: topic.to_string(),
-        partition,
-        offset,
-        headers: Some(serde_json::json!({"test": "header", "source": "integration-test"})),
-        key: format!("test-key-{}", offset).into_bytes(),
-        payload: format!(r#"{{"message": "test payload", "offset": {}}}"#, offset).into_bytes(),
-        timestamp,
+    for msg in [tom_key, tom_payload, ingen_headers] {
+        prosesser_melding(pool.clone(), msg, HWM_VERSION)
+            .await
+            .unwrap();
     }
+
+    let lagrede_meldinger: Vec<LagretMelding> = sqlx::query_as(
+        "SELECT kafka_topic,
+                    kafka_partition,
+                    kafka_offset,
+                    (EXTRACT(EPOCH FROM timestamp) * 1000)::BIGINT AS timestamp_millis,
+                    headers,
+                    record_key,
+                    record_value
+                FROM data_v2
+                WHERE kafka_topic = $1
+                ORDER BY kafka_offset",
+    )
+    .bind("test-topic")
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(lagrede_meldinger.len(), 3);
+    assert_eq!(lagrede_meldinger[0].record_key, Some(vec![]));
+    assert_eq!(lagrede_meldinger[1].record_value, Some(vec![]));
+    assert_eq!(lagrede_meldinger[2].headers, None);
+}
+
+#[derive(sqlx::FromRow)]
+struct LagretMelding {
+    kafka_topic: String,
+    kafka_partition: i16,
+    kafka_offset: i64,
+    timestamp_millis: i64,
+    headers: Option<serde_json::Value>,
+    record_key: Option<Vec<u8>>,
+    record_value: Option<Vec<u8>>,
 }
