@@ -5,8 +5,8 @@ mod errors;
 mod kafka;
 mod metrics;
 
+use crate::config::read_kafka_config;
 use crate::database::init_pg_pool::init_db;
-use crate::kafka::config::ApplicationKafkaConfig;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
@@ -23,7 +23,6 @@ use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::signal::unix::{SignalKind, signal};
-use kafka_topic_backup::HWM_VERSION;
 
 #[tokio::main]
 async fn main() {
@@ -53,6 +52,8 @@ async fn main() {
 async fn run_app() -> Result<(), Box<dyn Error>> {
     let config = config::Config::from_default_file()?;
     info!("Konfigurasjon lastet: {:?}", config);
+    let kafka_config = read_kafka_config()?;
+    info!("Kafka konfigurasjon lastet: {:?}", kafka_config);
     init_metrics();
     info!("Prometheus metrics initialized");
 
@@ -60,14 +61,15 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let http_server_task = spawn_health_server(app_state.clone());
     info!("HTTP server startet");
     let pg_pool = init_db().await?;
+    let hwm_version = *kafka_config.hwm_version;
     let stream = create_kafka_consumer(
         app_state.clone(),
         pg_pool.clone(),
-        ApplicationKafkaConfig::new("hedelselogg_backup2_v1", "ssl"),
+        kafka_config,
         &config.topics_as_str_slice(),
-        HWM_VERSION,
+        hwm_version,
     )?;
-    let reader = read_all(pg_pool.clone(), stream);
+    let reader = read_all(pg_pool.clone(), stream, hwm_version);
     let signal = await_signal();
     app_state.set_has_started(true);
     info!("Alle tjenester startet, applikasjon kjører");
@@ -101,11 +103,12 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
 async fn read_all(
     pg_pool: PgPool,
     stream: StreamConsumer<HwmRebalanceHandler>,
+    hwm_version: i16,
 ) -> Result<(), Box<dyn Error>> {
     loop {
         let msg = stream.recv().await?;
         let msg = KafkaMessage::from_borrowed_message(msg)?;
-        prosesser_melding(pg_pool.clone(), msg, HWM_VERSION).await?;
+        prosesser_melding(pg_pool.clone(), msg, hwm_version).await?;
     }
 }
 

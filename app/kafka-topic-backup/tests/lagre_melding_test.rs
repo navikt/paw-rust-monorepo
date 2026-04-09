@@ -1,7 +1,9 @@
 use chrono::DateTime;
-use kafka_topic_backup::{KafkaMessage, prosesser_melding, HWM_VERSION};
+use kafka_topic_backup::{KafkaMessage, prosesser_melding};
 use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
 use paw_test::setup_test_db::setup_test_db;
+
+const HWM_VERSION: i16 = 1;
 
 #[tokio::test]
 async fn test_lagre_melding_i_db_new_message() {

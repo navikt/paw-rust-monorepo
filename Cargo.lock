@@ -1742,6 +1742,7 @@ dependencies = [
  "chrono",
  "health_and_monitoring",
  "log",
+ "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_test",
