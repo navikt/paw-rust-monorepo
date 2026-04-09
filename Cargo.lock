@@ -1737,6 +1737,7 @@ dependencies = [
 name = "kafka-topic-backup"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum_health",
  "base64 0.22.1",
  "chrono",
@@ -1746,7 +1747,6 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
- "prometheus",
  "rdkafka",
  "serde",
  "serde-env-field",

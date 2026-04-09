@@ -1,25 +1,21 @@
 mod config;
 mod database;
 mod kafka;
-mod metrics;
 
 use crate::config::read_database_config;
 use crate::config::read_kafka_config;
+use crate::kafka::consumer_task::spawn_kafka_consumer_task;
 use crate::kafka::kafka_connection::create_kafka_consumer;
-use crate::kafka::message_processor::prosesser_melding;
-use crate::metrics::init_metrics;
+use crate::kafka::message_processor::BackupMessageProcessor;
 use axum_health::spawn_health_server;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
-use tracing::{error, info};
-use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
-use rdkafka::consumer::StreamConsumer;
-use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::signal::unix::{SignalKind, signal};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() {
@@ -51,8 +47,6 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     info!("Konfigurasjon lastet: {:?}", config);
     let kafka_config = read_kafka_config()?;
     info!("Kafka konfigurasjon lastet: {:?}", kafka_config);
-    init_metrics();
-    info!("Prometheus metrics initialized");
 
     let app_state = Arc::new(AppState::new());
     let http_server_task = spawn_health_server(app_state.clone());
@@ -62,14 +56,19 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let pg_pool = init_db(db_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let hwm_version = *kafka_config.hwm_version;
-    let stream = create_kafka_consumer(
+    let consumer = create_kafka_consumer(
         app_state.clone(),
         pg_pool.clone(),
         kafka_config,
         &config.topics_as_str_slice(),
         hwm_version,
     )?;
-    let reader = read_all(pg_pool.clone(), stream, hwm_version);
+    let kafka_task = spawn_kafka_consumer_task(
+        consumer,
+        hwm_version,
+        pg_pool.clone(),
+        BackupMessageProcessor,
+    );
     let signal = await_signal();
     app_state.set_has_started(true);
     info!("Alle tjenester startet, applikasjon kjører");
@@ -81,10 +80,11 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
                 Err(join_error) => return Err(Box::new(join_error)),
             }
         }
-        result = reader => {
+        result = kafka_task => {
             match result {
-                Ok(()) => info!("Lesing av kafka topics stoppet."),
-                Err(e) => return Err(e),
+                Ok(Ok(())) => info!("Kafka consumer stoppet."),
+                Ok(Err(e)) => return Err(e.into()),
+                Err(join_error) => return Err(Box::new(join_error)),
             }
         }
         result = signal => {
@@ -98,17 +98,6 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let _ = pg_pool.close().await;
     info!("Pg pool lukket");
     Ok(())
-}
-
-async fn read_all(
-    pg_pool: PgPool,
-    stream: StreamConsumer<HwmRebalanceHandler>,
-    hwm_version: i16,
-) -> Result<(), Box<dyn Error>> {
-    loop {
-        let msg = stream.recv().await?.detach();
-        prosesser_melding(&pg_pool, &msg, hwm_version).await?;
-    }
 }
 
 async fn await_signal() -> Result<String, Box<dyn Error>> {

@@ -1,12 +1,9 @@
-use kafka_topic_backup::prosesser_melding;
-use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
+use kafka_topic_backup::kafka::message_processor::lagre_melding;
 use paw_test::setup_test_db::setup_test_db;
 use rdkafka::message::{Header, OwnedHeaders, OwnedMessage, Timestamp};
 
-const HWM_VERSION: i16 = 1;
-
 #[tokio::test]
-async fn alle_felt_lagres_korrekt_og_hwm_oppdateres() {
+async fn alle_felt_lagres_korrekt() {
     let (pool, _container) = setup_test_db()
         .await
         .expect("Failed to setup test database");
@@ -41,23 +38,8 @@ async fn alle_felt_lagres_korrekt_og_hwm_oppdateres() {
     );
 
     let mut tx = pool.begin().await.unwrap();
-    insert_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition, 0)
-        .await
-        .unwrap();
+    lagre_melding(&msg, &mut tx).await.unwrap();
     tx.commit().await.unwrap();
-
-    prosesser_melding(&pool, &msg, HWM_VERSION).await.unwrap();
-
-    let mut tx = pool.begin().await.unwrap();
-    let hwm = get_hwm(&mut tx, HWM_VERSION, expected_topic, expected_partition)
-        .await
-        .unwrap();
-    tx.commit().await.unwrap();
-    assert_eq!(
-        hwm,
-        Some(expected_offset),
-        "HWM should be updated to the message offset"
-    );
 
     let lagret_melding: LagretMelding = sqlx::query_as(
         "SELECT kafka_topic, kafka_partition, kafka_offset,
@@ -89,12 +71,6 @@ async fn edgecases_lagres_korrekt() {
         .expect("Failed to setup test database");
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-    let mut tx = pool.begin().await.unwrap();
-    insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 0)
-        .await
-        .unwrap();
-    tx.commit().await.unwrap();
-
     let tom_key = OwnedMessage::new(
         Some(b"payload".to_vec()),
         Some(vec![]),
@@ -123,8 +99,10 @@ async fn edgecases_lagres_korrekt() {
         None,
     );
 
-    for msg in [tom_key, tom_payload, ingen_headers] {
-        prosesser_melding(&pool, &msg, HWM_VERSION).await.unwrap();
+    for message in [tom_key, tom_payload, ingen_headers] {
+        let mut tx = pool.begin().await.unwrap();
+        lagre_melding(&message, &mut tx).await.unwrap();
+        tx.commit().await.unwrap();
     }
 
     let lagrede_meldinger: Vec<LagretMelding> = sqlx::query_as(
