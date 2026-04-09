@@ -1,12 +1,10 @@
 mod config;
-mod config_utils;
 mod database;
-mod errors;
 mod kafka;
 mod metrics;
 
+use crate::config::read_database_config;
 use crate::config::read_kafka_config;
-use crate::database::init_pg_pool::init_db;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::KafkaMessage;
 use crate::kafka::message_processor::prosesser_melding;
@@ -18,6 +16,7 @@ use log::error;
 use log::info;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::panic_logger::register_panic_logger;
+use paw_sqlx::postgres::init_db;
 use rdkafka::consumer::StreamConsumer;
 use sqlx::PgPool;
 use std::error::Error;
@@ -60,7 +59,10 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let app_state = Arc::new(AppState::new());
     let http_server_task = spawn_health_server(app_state.clone());
     info!("HTTP server startet");
-    let pg_pool = init_db().await?;
+    let db_config = read_database_config()?;
+    info!("Database config: {:?}", db_config);
+    let pg_pool = init_db(db_config).await?;
+    sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let hwm_version = *kafka_config.hwm_version;
     let stream = create_kafka_consumer(
         app_state.clone(),

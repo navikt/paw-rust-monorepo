@@ -1,4 +1,5 @@
 use paw_rdkafka::kafka_config::KafkaConfig;
+use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::error::Error;
@@ -31,5 +32,14 @@ pub fn read_kafka_config() -> Result<KafkaConfig, Box<dyn Error>> {
         Err(_) => include_str!("../config/local/kafka_config.toml"),
     };
     let config: KafkaConfig = toml::from_str(file_content)?;
+    Ok(config)
+}
+
+pub fn read_database_config() -> Result<DatabaseConfig, Box<dyn Error>> {
+    let file_content = match std::env::var("NAIS_CLUSTER_NAME") {
+        Ok(_) => include_str!("../config/nais/database_config.toml"),
+        Err(_) => include_str!("../config/local/database_config.toml"),
+    };
+    let config: DatabaseConfig = toml::from_str(file_content)?;
     Ok(config)
 }
