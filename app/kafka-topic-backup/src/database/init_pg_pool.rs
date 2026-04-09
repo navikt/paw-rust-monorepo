@@ -5,6 +5,15 @@ use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
 
+pub async fn init_db() -> Result<PgPool, Box<dyn Error>> {
+    let db_config = get_database_config()?;
+    info!("Database config: {:?}", db_config);
+    let pg_pool = get_pg_pool(&db_config).await?;
+    info!("Postgres pool opprettet");
+    let _ = sqlx::migrate!("./migrations").run(&pg_pool).await?;
+    Ok(pg_pool)
+}
+
 async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, AppError> {
     let database_url = config.full_url();
     let pool = PgPoolOptions::new()
@@ -22,13 +31,4 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool, AppError> {
             value: format!("Failed to run 'SELECT 1', connection not ok: {}", e),
         })?;
     Ok(pool)
-}
-
-pub async fn init_db() -> Result<PgPool, Box<dyn Error>> {
-    let db_config = get_database_config()?;
-    info!("Database config: {:?}", db_config);
-    let pg_pool = get_pg_pool(&db_config).await?;
-    info!("Postgres pool opprettet");
-    let _ = sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    Ok(pg_pool)
 }

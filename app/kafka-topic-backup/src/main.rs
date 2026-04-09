@@ -23,8 +23,7 @@ use sqlx::PgPool;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::signal::unix::{SignalKind, signal};
-
-const HWM_VERSION: i16 = 1;
+use kafka_topic_backup::HWM_VERSION;
 
 #[tokio::main]
 async fn main() {

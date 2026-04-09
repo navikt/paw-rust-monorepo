@@ -1,22 +1,7 @@
 use chrono::DateTime;
+use kafka_topic_backup::{KafkaMessage, prosesser_melding, HWM_VERSION};
 use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
-use kafka_topic_backup::{KafkaMessage, prosesser_melding};
 use paw_test::setup_test_db::setup_test_db;
-
-// Helper function to create a mock KafkaMessage for testing
-fn create_test_kafka_message(topic: &str, partition: i32, offset: i64) -> KafkaMessage {
-    let timestamp = DateTime::from_timestamp_millis(1234567890000).expect("Valid timestamp");
-
-    KafkaMessage {
-        topic: topic.to_string(),
-        partition,
-        offset,
-        headers: Some(serde_json::json!({"test": "header", "source": "integration-test"})),
-        key: format!("test-key-{}", offset).into_bytes(),
-        payload: format!(r#"{{"message": "test payload", "offset": {}}}"#, offset).into_bytes(),
-        timestamp,
-    }
-}
 
 #[tokio::test]
 async fn test_lagre_melding_i_db_new_message() {
@@ -27,7 +12,7 @@ async fn test_lagre_melding_i_db_new_message() {
 
     // Insert initial HWM record with a lower offset so our test message will be processed
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, 1i16, "test-topic", 0, 50)
+    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 50)
         .await
         .expect("Failed to insert initial HWM");
     tx.commit().await.expect("Failed to commit initial HWM");
@@ -36,13 +21,13 @@ async fn test_lagre_melding_i_db_new_message() {
     let test_message = create_test_kafka_message("test-topic", 0, 100);
 
     // Use the actual function to process the message
-    prosesser_melding(pool.clone(), test_message, 1i16)
+    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
         .await
         .expect("lagre_melding_i_db should succeed");
 
     // Verify the HWM was updated to the new offset
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let hwm = get_hwm(&mut tx, 1i16, "test-topic", 0)
+    let hwm = get_hwm(&mut tx, HWM_VERSION, "test-topic", 0)
         .await
         .expect("Failed to get HWM");
     assert_eq!(hwm, Some(100), "HWM should be updated to new offset");
@@ -71,7 +56,7 @@ async fn test_lagre_melding_i_db_duplicate_message() {
 
     // Insert initial HWM record with the SAME offset as our test message
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, 1i16, "test-topic", 0, 100)
+    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, 100)
         .await
         .expect("Failed to insert initial HWM");
     tx.commit().await.expect("Failed to commit initial HWM");
@@ -80,7 +65,7 @@ async fn test_lagre_melding_i_db_duplicate_message() {
     let test_message = create_test_kafka_message("test-topic", 0, 100);
 
     // Use the actual function to process the duplicate message
-    prosesser_melding(pool.clone(), test_message, 1i16)
+    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
         .await
         .expect("lagre_melding_i_db should succeed even for duplicates");
 
@@ -114,7 +99,7 @@ async fn test_lagre_melding_i_db_lower_offset_message() {
 
     // Insert initial HWM record with a HIGHER offset than our test message
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let _ = insert_hwm(&mut tx, 1i16, "test-topic", 0, higher_hwm)
+    let _ = insert_hwm(&mut tx, HWM_VERSION, "test-topic", 0, higher_hwm)
         .await
         .expect("Failed to insert initial HWM");
     tx.commit().await.expect("Failed to commit initial HWM");
@@ -123,13 +108,13 @@ async fn test_lagre_melding_i_db_lower_offset_message() {
     let test_message = create_test_kafka_message("test-topic", 0, 100);
 
     // Use the actual function to process the lower offset message
-    prosesser_melding(pool.clone(), test_message, 1i16)
+    prosesser_melding(pool.clone(), test_message, HWM_VERSION)
         .await
         .expect("lagre_melding_i_db should succeed even for lower offsets");
 
     // Verify HWM remains unchanged
     let mut tx = pool.begin().await.expect("Failed to start transaction");
-    let hwm = get_hwm(&mut tx, 1i16, "test-topic", 0)
+    let hwm = get_hwm(&mut tx, HWM_VERSION, "test-topic", 0)
         .await
         .expect("Failed to get HWM");
     assert_eq!(hwm, Some(higher_hwm), "HWM should remain unchanged");
@@ -150,4 +135,18 @@ async fn test_lagre_melding_i_db_lower_offset_message() {
         count.0, 0,
         "Should not have inserted any data records for lower offset"
     );
+}
+
+fn create_test_kafka_message(topic: &str, partition: i32, offset: i64) -> KafkaMessage {
+    let timestamp = DateTime::from_timestamp_millis(1234567890000).expect("Valid timestamp");
+
+    KafkaMessage {
+        topic: topic.to_string(),
+        partition,
+        offset,
+        headers: Some(serde_json::json!({"test": "header", "source": "integration-test"})),
+        key: format!("test-key-{}", offset).into_bytes(),
+        payload: format!(r#"{{"message": "test payload", "offset": {}}}"#, offset).into_bytes(),
+        timestamp,
+    }
 }
