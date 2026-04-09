@@ -1741,7 +1741,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "health_and_monitoring",
- "log",
  "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
@@ -1755,6 +1754,7 @@ dependencies = [
  "sqlx",
  "tokio",
  "toml",
+ "tracing",
 ]
 
 [[package]]

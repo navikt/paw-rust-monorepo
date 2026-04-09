@@ -16,7 +16,7 @@ paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 tokio = { workspace = true }
 prometheus = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 sqlx = { workspace = true }
 rdkafka = { workspace = true }
 serde_json = { workspace = true }

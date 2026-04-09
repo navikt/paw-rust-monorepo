@@ -2,7 +2,7 @@ use crate::database::insert_data;
 use crate::kafka::headers::extract_headers_as_json;
 use crate::metrics;
 use chrono::{DateTime, Utc};
-use log::{info, trace};
+use tracing::{info, trace};
 use paw_rdkafka_hwm::hwm_functions::update_hwm;
 use rdkafka::Message;
 use rdkafka::message::BorrowedMessage;
