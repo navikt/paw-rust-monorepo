@@ -24,9 +24,9 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
 }
 
 pub async fn init_db(config: DatabaseConfig) -> Result<PgPool> {
-    log::info!("Database config: {:?}", config);
+    tracing::info!("Database config: {:?}", config);
     let pg_pool = get_pg_pool(&config).await?;
-    log::info!("Postgres pool opprettet");
+    tracing::info!("Postgres pool opprettet");
     Ok(pg_pool)
 }
 
@@ -44,14 +44,14 @@ pub async fn clear_db(pool: &PgPool) -> Result<()> {
         .iter()
         .map(|row| row.tablename.as_str())
         .collect::<Vec<&str>>();
-    log::info!("Sletter tabellene: {}", tables.join(", "));
+    tracing::info!("Sletter tabellene: {}", tables.join(", "));
     let sql = format!("DROP TABLE IF EXISTS {} CASCADE", tables.join(", "));
     let _ = sqlx::query(sql.as_str())
         .bind(tables.join(", ").as_str())
         .execute(pool)
         .await
         .map_err(DatabaseError::ExecuteQuery)?;
-    log::info!("Slettet alle tabeller i databasen");
+    tracing::info!("Slettet alle tabeller i databasen");
     Ok(())
 }
 
