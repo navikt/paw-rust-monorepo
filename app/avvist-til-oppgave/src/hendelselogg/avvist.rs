@@ -7,50 +7,15 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use crate::process_startet_hendelse::{er_startet_eu_eoes_ikke_bosatt, opprett_oppgave_for_startet_hendelse};
 use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Avvist;
-use rdkafka::message::OwnedMessage;
-use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
-pub async fn process_hendelselogg_message(
-    kafka_message: &OwnedMessage,
-    app_config: &ApplicationConfig,
-    tx: &mut Transaction<'_, Postgres>,
-) -> anyhow::Result<()> {
-    let payload = kafka_message.payload().unwrap_or(&[]);
-    let json: Value = match serde_json::from_slice(payload) {
-        Ok(value) => value,
-        Err(_) => {
-            tracing::warn!(
-                "Klarte ikke å deserialisere Kafka-melding fra hendelselogg som JSON, hopper over"
-            );
-            return Ok(());
-        }
-    };
-    let hendelse_type = json["hendelseType"].as_str().unwrap_or_default();
-    let opplysninger: Vec<&str> = match json["opplysninger"].as_array() {
-        Some(arr) => arr.iter().filter_map(|value| value.as_str()).collect(),
-        None => Vec::new(),
-    };
-
-    if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
-        opprett_oppgave_for_avvist_hendelse(json, app_config, tx).await?;
-    } else if hendelse_type == interne_hendelser::STARTET_HENDELSE_TYPE
-        && er_startet_eu_eoes_ikke_bosatt(&opplysninger)
-    {
-        opprett_oppgave_for_startet_hendelse(json, tx).await?;
-    }
-
-    Ok(())
-}
-
-async fn opprett_oppgave_for_avvist_hendelse(
+pub(super) async fn opprett_oppgave_for_avvist_hendelse(
     json: Value,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
@@ -124,21 +89,26 @@ async fn opprett_oppgave_for_avvist_hendelse(
     Ok(())
 }
 
-fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
+pub(super) fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
     hendelse_type == interne_hendelser::AVVIST_HENDELSE_TYPE
         && opplysninger.contains(&Opplysning::ErUnder18Aar.to_string().as_str())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::config::read_application_config;
-    use crate::db::oppgave_functions::bytt_oppgave_status;
+    use crate::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
+    use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave_status::OppgaveStatus;
+    use crate::domain::oppgave_type::OppgaveType;
+    use crate::hendelselogg::process_hendelselogg_message;
     use anyhow::Result;
     use chrono::Utc;
+    use interne_hendelser::vo::Opplysning;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+    use OppgaveStatus::Ferdigbehandlet;
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
@@ -273,7 +243,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.status, Ignorert);
+        assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -311,7 +281,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.status, Ignorert);
+        assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         tx.commit().await?;
 
         let app_config = read_application_config()?;

@@ -14,7 +14,7 @@ use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::Ferdigbehandlet;
 
-pub async fn opprett_oppgave_for_startet_hendelse(
+pub(super) async fn opprett_oppgave_for_startet_hendelse(
     json: Value,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
@@ -67,7 +67,7 @@ pub async fn opprett_oppgave_for_startet_hendelse(
     Ok(())
 }
 
-pub fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &[&str]) -> bool {
+pub(super) fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &[&str]) -> bool {
     let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt.to_string().as_str());
     let utflyttet =
         opplysninger.contains(&Opplysning::SisteFlyttingVarUtAvNorge.to_string().as_str());
@@ -82,7 +82,7 @@ mod tests {
     use super::*;
     use crate::config::read_application_config;
     use crate::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
-    use crate::process_hendelselogg_message::process_hendelselogg_message;
+    use crate::hendelselogg::process_hendelselogg_message;
     use anyhow::Result;
     use chrono::Utc;
     use paw_rust_base::convenience_functions::contains_all;
