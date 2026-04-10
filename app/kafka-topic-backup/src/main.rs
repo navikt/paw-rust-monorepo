@@ -61,7 +61,6 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         pg_pool.clone(),
         kafka_config,
         &config.topics_as_str_slice(),
-        hwm_version,
     )?;
     let kafka_task = spawn_kafka_consumer_task(
         consumer,
