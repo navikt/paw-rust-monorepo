@@ -57,4 +57,14 @@ impl Regelsett {
             .ved_treff(opplysninger.to_vec())
             .map_err(|p| vec![p])
     }
+
+    pub fn evaluer_liste<'a, T>(
+        &self,
+        opplysninger: &'a [(T, Vec<Opplysning>)],
+    ) -> Vec<(&'a T, Result<GrunnlagForGodkjenning, Vec<Problem>>)> {
+        opplysninger
+            .iter()
+            .map(|(a, opplysning)| (a, self.evaluer(opplysning)))
+            .collect()
+    }
 }

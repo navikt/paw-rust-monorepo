@@ -2,6 +2,7 @@ mod consumer_function;
 mod db_read_ops;
 mod db_write_ops;
 mod kafka;
+mod kontroler_pdl_info;
 mod oppdater_pdl_data;
 mod pdl;
 mod pdl_oppdatering_task;
