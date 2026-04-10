@@ -52,7 +52,7 @@ pub(super) async fn opprett_oppgave_for_avvist_hendelse(
         }
 
         let oppgave_row = to_oppgave_row(
-            avvist_hendelse,
+            &avvist_hendelse,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         );
@@ -68,7 +68,7 @@ pub(super) async fn opprett_oppgave_for_avvist_hendelse(
         )
         .await?;
     } else {
-        let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18, Ignorert);
+        let oppgave_row = to_oppgave_row(&avvist_hendelse, OppgaveType::AvvistUnder18, Ignorert);
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {

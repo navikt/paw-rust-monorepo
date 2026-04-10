@@ -4,12 +4,14 @@ pub mod automatisk_id_merge_ikke_mulig;
 pub mod avsluttet;
 pub mod avvist;
 pub mod avvist_stopp_av_periode;
+mod hendelse;
 pub mod identitetsnummer_sammenslaatt;
 pub mod opplysninger_om_arbeidssoeker_mottatt;
 pub mod startet;
 pub mod vo;
 
 pub use aarsak::Aarsak;
+pub use hendelse::Hendelse;
 pub use arbeidssoeker_id_flettet_inn::{
     ARBEIDSSOEKER_ID_FLETTET_INN, ArbeidssoekerIdFlettetInn, Kilde,
 };

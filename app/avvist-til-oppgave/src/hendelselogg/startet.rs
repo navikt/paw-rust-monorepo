@@ -2,7 +2,7 @@ use crate::db::oppgave_functions::{
     hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
-use crate::db::oppgave_row::startet_to_oppgave_row;
+use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
@@ -47,8 +47,8 @@ pub(super) async fn opprett_oppgave_for_startet_hendelse(
         return Ok(());
     }
 
-    let oppgave_row = startet_to_oppgave_row(
-        startet_hendelse,
+    let oppgave_row = to_oppgave_row(
+        &startet_hendelse,
         OppgaveType::StartetEuEoesIkkeBosatt,
         OppgaveStatus::Ubehandlet,
     );

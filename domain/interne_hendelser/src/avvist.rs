@@ -24,3 +24,21 @@ impl Avvist {
         AVVIST_HENDELSE_TYPE
     }
 }
+
+impl crate::Hendelse for Avvist {
+    fn hendelse_id(&self) -> Uuid {
+        self.hendelse_id
+    }
+    fn id(&self) -> i64 {
+        self.id
+    }
+    fn identitetsnummer(&self) -> &str {
+        &self.identitetsnummer
+    }
+    fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+    fn opplysninger(&self) -> &HashSet<Opplysning> {
+        &self.opplysninger
+    }
+}

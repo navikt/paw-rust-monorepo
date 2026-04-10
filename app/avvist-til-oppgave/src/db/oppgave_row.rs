@@ -1,8 +1,7 @@
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
-use interne_hendelser::Avvist;
-use interne_hendelser::Startet;
+use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -30,12 +29,12 @@ pub struct InsertOppgaveRow {
 }
 
 pub fn to_oppgave_row(
-    avvist: Avvist,
+    hendelse: &impl Hendelse,
     oppgave_type: OppgaveType,
     oppgave_status: OppgaveStatus,
 ) -> InsertOppgaveRow {
-    let opplysninger: Vec<String> = avvist
-        .opplysninger
+    let opplysninger: Vec<String> = hendelse
+        .opplysninger()
         .iter()
         .map(|opplysning| opplysning.to_string())
         .collect();
@@ -43,38 +42,18 @@ pub fn to_oppgave_row(
     InsertOppgaveRow {
         type_: oppgave_type.to_string(),
         status: oppgave_status.to_string(),
-        melding_id: avvist.hendelse_id,
+        melding_id: hendelse.hendelse_id(),
         opplysninger,
-        arbeidssoeker_id: avvist.id,
-        identitetsnummer: avvist.identitetsnummer,
-        tidspunkt: avvist.metadata.tidspunkt,
-    }
-}
-
-pub fn startet_to_oppgave_row(
-    startet: Startet,
-    oppgave_type: OppgaveType,
-    oppgave_status: OppgaveStatus,
-) -> InsertOppgaveRow {
-    let opplysninger: Vec<String> = startet
-        .opplysninger
-        .iter()
-        .map(|opplysning| opplysning.to_string())
-        .collect();
-
-    InsertOppgaveRow {
-        type_: oppgave_type.to_string(),
-        status: oppgave_status.to_string(),
-        melding_id: startet.hendelse_id,
-        opplysninger,
-        arbeidssoeker_id: startet.id,
-        identitetsnummer: startet.identitetsnummer,
-        tidspunkt: startet.metadata.tidspunkt,
+        arbeidssoeker_id: hendelse.id(),
+        identitetsnummer: hendelse.identitetsnummer().to_string(),
+        tidspunkt: hendelse.metadata().tidspunkt,
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use interne_hendelser::Avvist;
+    use interne_hendelser::Startet;
     use interne_hendelser::vo::{Bruker, BrukerType, Metadata, Opplysning};
     use paw_rust_base::convenience_functions::contains_all;
     use std::collections::HashSet;
@@ -111,7 +90,7 @@ mod tests {
         };
 
         let oppgave_row = to_oppgave_row(
-            avvist_hendelse.clone(),
+            &avvist_hendelse,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         );
@@ -166,8 +145,8 @@ mod tests {
             opplysninger: opplysninger.clone(),
         };
 
-        let oppgave_row = startet_to_oppgave_row(
-            startet_hendelse.clone(),
+        let oppgave_row = to_oppgave_row(
+            &startet_hendelse,
             OppgaveType::StartetEuEoesIkkeBosatt,
             OppgaveStatus::Ubehandlet,
         );
