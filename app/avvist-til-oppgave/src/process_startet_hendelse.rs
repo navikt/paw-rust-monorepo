@@ -1,4 +1,3 @@
-use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{
     hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
 };
@@ -13,15 +12,12 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Startet;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use OppgaveStatus::{Ferdigbehandlet, Ignorert};
+use OppgaveStatus::Ferdigbehandlet;
 
 pub async fn opprett_oppgave_for_startet_hendelse(
     json: Value,
-    app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
-
     let startet_hendelse: Startet =
         serde_json::from_value(json).context("Kunne ikke deserialisere startet hendelse")?;
 
@@ -30,64 +26,43 @@ pub async fn opprett_oppgave_for_startet_hendelse(
         return Ok(());
     }
 
-    if startet_hendelse.metadata.tidspunkt >= opprett_oppgaver_fra_tidspunkt {
-        let arbeidssoeker_id = startet_hendelse.id;
-        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
-        if let Some(oppgave) = &eksisterende_oppgave
-            && oppgave.status != Ferdigbehandlet
-            && oppgave.status != Ignorert
-        {
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
-                    status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
-                    melding:
-                        "Arbeidssøkeren har allerede en aktiv oppgave for startet registrering"
-                            .to_string(),
-                    tidspunkt: Utc::now(),
-                },
-                tx,
-            )
-            .await?;
-            return Ok(());
-        }
-
-        let oppgave_row = startet_to_oppgave_row(
-            startet_hendelse,
-            OppgaveType::StartetEuEoesIkkeBosatt,
-            OppgaveStatus::Ubehandlet,
-        );
-        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+    let arbeidssoeker_id = startet_hendelse.id;
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
+    if let Some(oppgave) = &eksisterende_oppgave
+        && oppgave.status != Ferdigbehandlet
+        && oppgave.status != OppgaveStatus::Ignorert
+    {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
-                status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-                melding: "Oppretter oppgave for startet hendelse (EU/EØS ikke-bosatt)"
-                    .to_string(),
-                tidspunkt: oppgave_row.tidspunkt,
+                oppgave_id: oppgave.id,
+                status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
+                melding:
+                    "Arbeidssøkeren har allerede en aktiv oppgave for startet registrering"
+                        .to_string(),
+                tidspunkt: Utc::now(),
             },
             tx,
         )
         .await?;
-    } else {
-        let oppgave_row =
-            startet_to_oppgave_row(startet_hendelse, OppgaveType::StartetEuEoesIkkeBosatt, Ignorert);
-        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
-                status: HendelseLoggStatus::OppgaveIgnorert.to_string(),
-                melding: format!(
-                    "Oppretter oppgave for startet hendelse med status {} fordi hendelse er eldre enn {}",
-                    Ignorert,
-                    opprett_oppgaver_fra_tidspunkt
-                ),
-                tidspunkt: oppgave_row.tidspunkt,
-            },
-            tx,
-        )
-        .await?;
+        return Ok(());
     }
+
+    let oppgave_row = startet_to_oppgave_row(
+        startet_hendelse,
+        OppgaveType::StartetEuEoesIkkeBosatt,
+        OppgaveStatus::Ubehandlet,
+    );
+    let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+    insert_oppgave_hendelse_logg(
+        &InsertOppgaveHendelseLoggRow {
+            oppgave_id,
+            status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
+            melding: "Oppretter oppgave for startet hendelse (EU/EØS ikke-bosatt)".to_string(),
+            tidspunkt: oppgave_row.tidspunkt,
+        },
+        tx,
+    )
+    .await?;
 
     Ok(())
 }
@@ -310,36 +285,6 @@ mod tests {
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.hendelse_logg.len(), 2);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_gammel_startet_hendelse_gir_ignorert_oppgave() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
-        sqlx::migrate!("./migrations").run(&pg_pool).await?;
-
-        let mut app_config = read_application_config()?;
-        app_config.opprett_oppgaver_fra_tidspunkt =
-            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")
-                .unwrap()
-                .with_timezone(&Utc)
-                .into();
-
-        let message = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.status, Ignorert);
-        assert_eq!(oppgave.hendelse_logg.len(), 1);
-        assert_eq!(
-            oppgave.hendelse_logg[0].status,
-            HendelseLoggStatus::OppgaveIgnorert
-        );
 
         Ok(())
     }

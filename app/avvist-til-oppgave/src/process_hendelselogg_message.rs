@@ -44,7 +44,7 @@ pub async fn process_hendelselogg_message(
     } else if hendelse_type == interne_hendelser::STARTET_HENDELSE_TYPE
         && er_startet_eu_eoes_ikke_bosatt(&opplysninger)
     {
-        opprett_oppgave_for_startet_hendelse(json, app_config, tx).await?;
+        opprett_oppgave_for_startet_hendelse(json, tx).await?;
     }
 
     Ok(())
