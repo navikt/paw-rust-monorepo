@@ -17,12 +17,11 @@ use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
-pub async fn opprett_oppgave_for_avvist_hendelse(
+pub async fn process_hendelselogg_message(
     kafka_message: &OwnedMessage,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
     let payload = kafka_message.payload().unwrap_or(&[]);
     let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
@@ -39,9 +38,19 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
         None => Vec::new(),
     };
 
-    if !er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
-        return Ok(());
+    if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
+        opprett_oppgave_for_avvist_hendelse(json, app_config, tx).await?;
     }
+
+    Ok(())
+}
+
+async fn opprett_oppgave_for_avvist_hendelse(
+    json: Value,
+    app_config: &ApplicationConfig,
+    tx: &mut Transaction<'_, Postgres>,
+) -> anyhow::Result<()> {
+    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
 
     let avvist_hendelse: Avvist =
         serde_json::from_value(json).context("Kunne ikke deserialisere avvist hendelse")?;
@@ -185,23 +194,23 @@ mod tests {
 
         // Skal ignorere irrelevante hendelser
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&irrelevant_message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&irrelevant_message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         // Skal ignorere avvist hendelse fra veileder
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&avvist_fra_veileder_message, &app_config, &mut tx)
+        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, &mut tx)
             .await?;
         tx.commit().await?;
 
         // Skal opprette oppgave for avvist hendelse
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&avvist_message_1, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&avvist_message_1, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         // Duplikat melding skal kun føre til en entry i status logg
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&avvist_message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&avvist_message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -254,7 +263,7 @@ mod tests {
         );
 
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -292,7 +301,7 @@ mod tests {
         );
 
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -313,7 +322,7 @@ mod tests {
         );
 
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -350,7 +359,7 @@ mod tests {
 
         // Opprett første oppgave
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&message_1, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         // Sett oppgaven til Ferdigbehandlet
@@ -377,7 +386,7 @@ mod tests {
         );
 
         let mut tx = pg_pool.begin().await?;
-        opprett_oppgave_for_avvist_hendelse(&message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         // Verifiser at ny oppgave ble opprettet (hent_nyeste_oppgave henter den nyeste)
