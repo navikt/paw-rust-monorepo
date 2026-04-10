@@ -8,6 +8,7 @@ mod metrics;
 mod opprett_oppgave_task;
 mod process_hendelselogg_message;
 mod process_oppgavehendelse_message;
+mod process_startet_hendelse;
 
 use crate::config::read_application_config;
 use crate::config::read_database_config;

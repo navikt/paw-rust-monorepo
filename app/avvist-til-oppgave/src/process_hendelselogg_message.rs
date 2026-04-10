@@ -7,6 +7,7 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use crate::process_startet_hendelse::{er_startet_eu_eoes_ikke_bosatt, opprett_oppgave_for_startet_hendelse};
 use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::vo::{BrukerType, Opplysning};
@@ -40,6 +41,10 @@ pub async fn process_hendelselogg_message(
 
     if er_avvist_hendelse_under_18(hendelse_type, &opplysninger) {
         opprett_oppgave_for_avvist_hendelse(json, app_config, tx).await?;
+    } else if hendelse_type == interne_hendelser::STARTET_HENDELSE_TYPE
+        && er_startet_eu_eoes_ikke_bosatt(&opplysninger)
+    {
+        opprett_oppgave_for_startet_hendelse(json, app_config, tx).await?;
     }
 
     Ok(())
