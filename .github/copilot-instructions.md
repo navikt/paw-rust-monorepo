@@ -1,51 +1,73 @@
-This i a monorepo containing Team Paw rust apps.
+# Workflow
+Make one atomic change at a time. Every commit must be deployable — build and all tests must pass before committing.
+1. Make a single logical change (one refactor, one feature, one fix)
+2. Run `git pull --rebase` to incorporate any upstream changes
+3. Run `cargo build` and `cargo test` for the affected module(s)
+4. Verify build and tests pass
+5. Commit with a descriptive message before moving to the next change
 
-We use rust edition 2024.
+Do not batch multiple unrelated changes into one commit. Ask before proceeding to the next change if it is non-trivial.
 
-Key point:
+Commit messages must be imperative, short, concise, and descriptive. Breaking changes and important changes must appear first in the message. Write in Norwegian, but keep technical terms in English (e.g. Client, Database, Stream, Consumer, Topic). Example: "Fjern KafkaMessage, bruk OwnedMessage direkte".
 
+Never push to any branch — committing locally is the limit. The user handles all pushes and pull requests.
+
+# Testing
+- ✅ Test new behavior and business logic
+- ✅ If in doubt, review existing test coverage and fill any gaps before committing
+- ❌ Do not add new tests for pure refactoring — existing tests passing is enough
+- ❌ Do not test library behavior (e.g., HWM logic in paw_rdkafka_hwm) — test app logic only
+
+# Dependencies
+Keep dependencies to a minimum and prefer already added dependencies. Stick to well-known, trusted dependencies when adding.
+Keep the code simple and avoid in-code comments. Generate specific errors using thiserror.
+
+# Build and Test
+"cargo build -p MODULE" to build a specific module, e.g. "cargo build -p utgang".
+"cargo test -p MODULE" to test a specific module, e.g. "cargo test -p utgang".
+Use "cargo ACTION --workspace" for the entire workspace.
+
+# Repository Overview
+This is a monorepo containing Team Paw rust apps. We use rust edition 2024.
+
+Key points:
 - Async: Tokio
-- http server: axum
-- http client: reqwest
-- logging: tracing crate
-- tracingcing destinations:
-  - json log stdout
-  - Opentelemetry over gRrpc (NAIS endpoint)
+- HTTP server: axum
+- HTTP client: reqwest
+- Logging: tracing crate
+  - JSON log stdout
+  - OpenTelemetry over gRPC (NAIS endpoint)
 - Prefer static dispatch over dynamic
-
-
-
 
 ## Cargo.toml
 This file holds all the dependencies for the workspace.
 
 ## app
-The app folder contain the application. Applications are deployed to Nav kubernetes cluser, NAIS.
+The app folder contains the applications. Applications are deployed to Nav kubernetes cluster, NAIS.
 
-### Avvist-til-oppgave
-This app reads events from kafka, stores data in postgres and creates task using a json api.
+### avvist-til-oppgave
+Reads events from Kafka, stores data in Postgres, and creates tasks using a JSON API.
 
 ### kafka-topic-backup
-This app stores a backup of kafka-messages to postgres.
+Stores a backup of Kafka messages to Postgres.
 
 ### Test app
-Simple app for testing concepts and ideas
+Simple app for testing concepts and ideas.
 
-### Utgang
-App for tracking users no longer qualified to be registered as "arbeidssøkere". Read the internal hendelselogg (json) as weell as the periode topic which uses Avro encoding for values. Schema is found here: https://github.com/navikt/paw-arbeidssokerregisteret-api/blob/main/main-avro-schema/src/main/resources/periode-v1.avdl
+### utgang
+App for tracking users no longer qualified to be registered as "arbeidssøkere". Reads the internal hendelselogg (JSON) as well as the periode topic which uses Avro encoding for values. Schema: https://github.com/navikt/paw-arbeidssokerregisteret-api/blob/main/main-avro-schema/src/main/resources/periode-v1.avdl
 
 ## lib
-Contains shared libs. Currently too many, we need to consolidate. No dependencies on app creates.
+Contains shared libs. No dependencies on app crates.
 
 ### axum_health
-Simple lib for axum based endpoints for NAIS: isReady, isAlive, hasStarted and metrics. Depends on health_and_monitoring.
-
+Simple lib for axum based endpoints for NAIS: isReady, isAlive, hasStarted, and metrics. Depends on health_and_monitoring.
 
 ### azure_m2m_client
-Deprecated we should use the texas_client for all auth operations.
+Deprecated — use texas_client for all auth operations.
 
 ### health_and_monitoring
-Basic structs and logic for app monitoring. Is used by axum_health.
+Basic structs and logic for app monitoring. Used by axum_health.
 
 ### paw_app_config
 Basic helper functions for handling configs.
@@ -57,40 +79,32 @@ Very basic functions used by most libs and apps.
 Helper functions for dealing with rdkafka.
 
 ### paw_rdkafka_hwm
-Structs and functions for creating hwm based consumers. Using sqlx to handle hwm. Also includes metrics and tracing for the consumer.
+Structs and functions for creating HWM-based consumers. Uses sqlx to handle HWM. Also includes metrics and tracing for the consumer.
 
 ### paw_sqlx
-Basic helper struct and functions for sqlx integration.
+Basic helper structs and functions for sqlx integration.
 
 ### paw_test
-Simple test stuff.
+Simple test utilities.
 
 ### texas_client
 Client lib for using the Nais Texas service to handle token operations:
- * machine to machine tokens
- * exchange on behalf of
- * token validation
+- Machine to machine tokens
+- Exchange on behalf of
+- Token validation
 
 ## domain
-Domain specific structs. Should be very little logic here. Also no deps to other project crates.
+Domain-specific structs. Should contain very little logic. No deps on other project crates.
 
 ### interne_hendelser
-Structs for all events types in the internal event log for Arbeidssoekerregisteret. Also includes serialization and deserialization support. The internal eventlog is a kafka topic using Json and 64 bit int as Key.
+Structs for all event types in the internal event log for Arbeidssøkerregisteret. Includes serialization and deserialization support. The internal event log is a Kafka topic using JSON and 64-bit int as key.
 
-###  pdl_graphql
-Autogenerated structs for the PDL domain (based on graphql schema)
+### pdl_graphql
+Autogenerated structs for the PDL domain (based on GraphQL schema).
 
 ### regler_inngang
 Business rules that govern who can register as arbeidssøkere.
 
-# Build and Test
-"cargo build -p MODULE" to build a specific module, e.g. "cargo build -p utgang".
-"cargo test -p MODULE" to test a specific module, e.g. "cargo test -p utgang".
-Use "cargo ACTION --workspace" for the entire workspace.
-
-# dependencies
-Keep dependencies to a minimum and prefer already added dependencies. Stick to well known, trusted dependencies when adding.
-Keep the code simple and avoid in code comments. Generate specific errors using thiserror.
 ---
 name: rust
 description: Writing idiomatic Rust code and handling common Rust issues — error handling, async, ownership, and patterns
@@ -200,7 +214,7 @@ tokio::spawn(async move {
 ## Common Patterns
 
 ```rust
-// Clone when you need owned data in async context, but check who shoudl really owen the data, don't just clone.
+// Clone when you need owned data in async context, but check who should really own the data, don't just clone.
 let owned = some_ref.to_owned();
 let cloned = some_string.clone();
 
