@@ -14,7 +14,7 @@ use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::Ferdigbehandlet;
 
-pub(super) async fn opprett_oppgave_for_startet_hendelse(
+pub async fn opprett_oppgave_for_startet_hendelse(
     json: Value,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
@@ -67,14 +67,12 @@ pub(super) async fn opprett_oppgave_for_startet_hendelse(
     Ok(())
 }
 
-pub(super) fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &[&str]) -> bool {
+pub fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &[&str]) -> bool {
     let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt.to_string().as_str());
-    let utflyttet =
-        opplysninger.contains(&Opplysning::SisteFlyttingVarUtAvNorge.to_string().as_str());
     let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger.to_string().as_str());
     let norsk = opplysninger.contains(&Opplysning::ErNorskStatsborger.to_string().as_str());
 
-    (ikke_bosatt || utflyttet) && eu_eoes && !norsk
+    ikke_bosatt && eu_eoes && !norsk
 }
 
 #[cfg(test)]
@@ -97,19 +95,6 @@ mod tests {
             "ER_EU_EOES_STATSBORGER"
         ]));
 
-        // Har SisteFlyttingVarUtAvNorge + ErEuEoesStatsborger, ikke norsk
-        assert!(er_startet_eu_eoes_ikke_bosatt(&[
-            "SISTE_FLYTTING_VAR_UT_AV_NORGE",
-            "ER_EU_EOES_STATSBORGER"
-        ]));
-
-        // Har begge bosatt-varianter + EU/EØS
-        assert!(er_startet_eu_eoes_ikke_bosatt(&[
-            "IKKE_BOSATT",
-            "SISTE_FLYTTING_VAR_UT_AV_NORGE",
-            "ER_EU_EOES_STATSBORGER"
-        ]));
-
         // Mangler EU/EØS
         assert!(!er_startet_eu_eoes_ikke_bosatt(&["IKKE_BOSATT"]));
 
@@ -120,8 +105,14 @@ mod tests {
             "ER_NORSK_STATSBORGER"
         ]));
 
-        // Verken ikke-bosatt eller utflyttet
+        // Ikke IkkeBosatt, kun EU/EØS
         assert!(!er_startet_eu_eoes_ikke_bosatt(&[
+            "ER_EU_EOES_STATSBORGER"
+        ]));
+
+        // SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&[
+            "SISTE_FLYTTING_VAR_UT_AV_NORGE",
             "ER_EU_EOES_STATSBORGER"
         ]));
 
@@ -226,7 +217,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_startet_hendelse_med_utflyttet_oppretter_oppgave() -> Result<()> {
+    async fn test_startet_hendelse_med_kun_utflyttet_ignoreres() -> Result<()> {
         let app_config = read_application_config()?;
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
@@ -238,9 +229,11 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(43, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.type_, OppgaveType::StartetEuEoesIkkeBosatt);
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        let oppgave = hent_nyeste_oppgave(43, &mut tx).await?;
+        assert!(
+            oppgave.is_none(),
+            "SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium — skal ikke opprette oppgave"
+        );
 
         Ok(())
     }

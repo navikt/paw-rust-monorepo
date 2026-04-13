@@ -15,7 +15,7 @@ use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
-pub(super) async fn opprett_oppgave_for_avvist_hendelse(
+pub async fn opprett_oppgave_for_avvist_hendelse(
     json: Value,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
@@ -89,7 +89,7 @@ pub(super) async fn opprett_oppgave_for_avvist_hendelse(
     Ok(())
 }
 
-pub(super) fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
+pub fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
     hendelse_type == interne_hendelser::AVVIST_HENDELSE_TYPE
         && opplysninger.contains(&Opplysning::ErUnder18Aar.to_string().as_str())
 }
