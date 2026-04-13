@@ -1,8 +1,8 @@
 use crate::fakta::UtledeFakta;
 use crate::fakta::person_fakta::UtledePersonFakta;
 use crate::modell::feil::EvalueringFeil;
-use crate::regelsett_v1::regelsett_v1;
 use crate::regelsett_v2::regelsett_v2;
+use crate::regelsett_v3::regelsett_v3;
 use crate::regler::regelsett::Regelsett;
 use crate::regler::resultat::GrunnlagForGodkjenning;
 use anyhow::Result;
@@ -17,14 +17,14 @@ impl Regelmotor {
     fn inngang() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
-            regelsett: regelsett_v1(),
+            regelsett: regelsett_v2(),
         }
     }
 
     fn utgang() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
-            regelsett: regelsett_v2(),
+            regelsett: regelsett_v3(),
         }
     }
 
