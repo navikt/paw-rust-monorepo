@@ -4,9 +4,21 @@ use crate::regler::regel_id::RegelId;
 use crate::regler::regelsett::Regelsett;
 use interne_hendelser::vo::Opplysning;
 
-/// inngang differences from utgang:
-/// - `EuEoesStatsborgerOver18Aar` additionally requires `!IkkeBosatt`.
-/// - Includes the `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule (Arena compatibility).
+/// Regelsett versjon 1.
+///
+/// Alltid avvist: person ikke funnet, død, savnet eller opphørt identitet.
+///
+/// Grunnlag for godkjenning:
+/// - Forhåndsgodkjent av ansatt.
+/// - Over 18 år og bosatt etter folkeregisterloven.
+/// - EU/EØS-statsborger over 18 år, ikke norsk, og ikke registrert som ikke-bosatt.
+///
+/// Mulig grunnlag for avvisning:
+/// - Under 18 år eller ukjent alder.
+/// - EU/EØS-statsborger med status «ikke bosatt» (Arena-kompatibilitetsregel).
+/// - Ikke bosatt i Norge etter folkeregisterloven (norsk eller tredjelandsborger).
+///
+/// Standardregel (fallback): avvises som ikke bosatt.
 pub fn regelsett_v1() -> Regelsett {
     Regelsett {
         regler: vec![

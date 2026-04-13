@@ -5,6 +5,7 @@ pub enum Betingelse {
     Har(Opplysning),
     HarIkke(Opplysning),
     ErNorskEllerTredjelandsborger,
+    ErTredjelandsborger,
 }
 
 impl Betingelse {
@@ -15,6 +16,10 @@ impl Betingelse {
             Betingelse::ErNorskEllerTredjelandsborger => {
                 opplysninger.contains(&Opplysning::ErNorskStatsborger)
                     || !opplysninger.contains(&Opplysning::ErEuEoesStatsborger)
+            }
+            Betingelse::ErTredjelandsborger => {
+                !opplysninger.contains(&Opplysning::ErNorskStatsborger)
+                    && !opplysninger.contains(&Opplysning::ErEuEoesStatsborger)
             }
         }
     }

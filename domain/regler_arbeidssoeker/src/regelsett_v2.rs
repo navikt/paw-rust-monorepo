@@ -4,9 +4,12 @@ use crate::regler::regel_id::RegelId;
 use crate::regler::regelsett::Regelsett;
 use interne_hendelser::vo::Opplysning;
 
-/// utgang differences from inngang:
-/// - `EuEoesStatsborgerOver18Aar` does NOT require `!IkkeBosatt`.
-/// - The `EuEoesStatsborgerMenHarStatusIkkeBosatt` rule is removed.
+/// Regelsett versjon 2.
+///
+/// Endringer fra v1:
+/// - `EuEoesStatsborgerOver18Aar`: betingelsen «ikke bosatt» er fjernet — EU/EØS-borgere
+///   over 18 år godkjennes nå uavhengig av bosettingsstatus.
+/// - Regelen `EuEoesStatsborgerMenHarStatusIkkeBosatt` er fjernet.
 pub fn regelsett_v2() -> Regelsett {
     Regelsett {
         regler: vec![
