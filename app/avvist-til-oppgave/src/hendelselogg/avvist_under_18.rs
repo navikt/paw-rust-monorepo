@@ -7,14 +7,13 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 use anyhow::Context;
 use chrono::Utc;
-use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Avvist;
+use interne_hendelser::vo::{BrukerType, Opplysning};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use std::collections::HashSet;
-use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
 pub async fn opprett_oppgave_for_avvist_hendelse(
     json: Value,
@@ -31,8 +30,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
         return Ok(());
     }
 
-    if !er_avvist_hendelse_under_18(&avvist_hendelse.opplysninger) {
-        tracing::info!("Ignorerer avvist hendelse — mangler ErUnder18Aar opplysning");
+    if !(&avvist_hendelse.opplysninger).contains(&Opplysning::ErUnder18Aar) {
         return Ok(());
     }
 
@@ -95,10 +93,6 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     Ok(())
 }
 
-fn er_avvist_hendelse_under_18(opplysninger: &HashSet<Opplysning>) -> bool {
-    opplysninger.contains(&Opplysning::ErUnder18Aar)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::config::read_application_config;
@@ -107,13 +101,13 @@ mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
     use crate::hendelselogg::process_hendelselogg_message;
+    use OppgaveStatus::Ferdigbehandlet;
     use anyhow::Result;
     use chrono::Utc;
     use interne_hendelser::vo::Opplysning;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
-    use OppgaveStatus::Ferdigbehandlet;
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
@@ -179,8 +173,7 @@ mod tests {
 
         // Skal ignorere avvist hendelse fra veileder
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, &mut tx)
-            .await?;
+        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         // Skal opprette oppgave for avvist hendelse
