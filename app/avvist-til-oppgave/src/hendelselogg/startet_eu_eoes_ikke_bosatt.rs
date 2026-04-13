@@ -12,6 +12,7 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Startet;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
+use std::collections::HashSet;
 use OppgaveStatus::Ferdigbehandlet;
 
 pub async fn opprett_oppgave_for_startet_hendelse(
@@ -23,6 +24,11 @@ pub async fn opprett_oppgave_for_startet_hendelse(
 
     if startet_hendelse.metadata.utfoert_av.bruker_type != BrukerType::Sluttbruker {
         tracing::info!("Ignorerer startet-hendelse fordi den ikke er innsendt av sluttbruker");
+        return Ok(());
+    }
+
+    if !er_startet_eu_eoes_ikke_bosatt(&startet_hendelse.opplysninger) {
+        tracing::info!("Ignorerer startet hendelse — kriteriene for EU/EØS ikke-bosatt er ikke oppfylt");
         return Ok(());
     }
 
@@ -67,10 +73,10 @@ pub async fn opprett_oppgave_for_startet_hendelse(
     Ok(())
 }
 
-pub fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &[&str]) -> bool {
-    let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt.to_string().as_str());
-    let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger.to_string().as_str());
-    let norsk = opplysninger.contains(&Opplysning::ErNorskStatsborger.to_string().as_str());
+fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &HashSet<Opplysning>) -> bool {
+    let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt);
+    let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
+    let norsk = opplysninger.contains(&Opplysning::ErNorskStatsborger);
 
     ikke_bosatt && eu_eoes && !norsk
 }
@@ -89,35 +95,39 @@ mod tests {
 
     #[test]
     fn test_er_startet_eu_eoes_ikke_bosatt() {
+        use std::collections::HashSet;
+
         // Har IkkeBosatt + ErEuEoesStatsborger, ikke norsk
-        assert!(er_startet_eu_eoes_ikke_bosatt(&[
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER"
-        ]));
+        assert!(er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+            Opplysning::IkkeBosatt,
+            Opplysning::ErEuEoesStatsborger
+        ])));
 
         // Mangler EU/EØS
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&["IKKE_BOSATT"]));
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+            Opplysning::IkkeBosatt
+        ])));
 
         // Er norsk statsborger — skal filtreres bort
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&[
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER",
-            "ER_NORSK_STATSBORGER"
-        ]));
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+            Opplysning::IkkeBosatt,
+            Opplysning::ErEuEoesStatsborger,
+            Opplysning::ErNorskStatsborger
+        ])));
 
-        // Ikke IkkeBosatt, kun EU/EØS
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&[
-            "ER_EU_EOES_STATSBORGER"
-        ]));
+        // Kun EU/EØS, mangler ikke-bosatt
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+            Opplysning::ErEuEoesStatsborger
+        ])));
 
-        // SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&[
-            "SISTE_FLYTTING_VAR_UT_AV_NORGE",
-            "ER_EU_EOES_STATSBORGER"
-        ]));
+        // SisteFlyttingVarUtAvNorge er ikke et gyldig kriterium
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+            Opplysning::SisteFlyttingVarUtAvNorge,
+            Opplysning::ErEuEoesStatsborger
+        ])));
 
         // Tomt
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&[]));
+        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::new()));
     }
 
     #[tokio::test]

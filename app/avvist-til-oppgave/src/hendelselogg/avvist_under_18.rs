@@ -13,6 +13,7 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Avvist;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
+use std::collections::HashSet;
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
 pub async fn opprett_oppgave_for_avvist_hendelse(
@@ -27,6 +28,11 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
 
     if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
         tracing::info!("Ignorerer hendelse fordi den er innsendt av veileder");
+        return Ok(());
+    }
+
+    if !er_avvist_hendelse_under_18(&avvist_hendelse.opplysninger) {
+        tracing::info!("Ignorerer avvist hendelse — mangler ErUnder18Aar opplysning");
         return Ok(());
     }
 
@@ -89,9 +95,8 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
     Ok(())
 }
 
-pub fn er_avvist_hendelse_under_18(hendelse_type: &str, opplysninger: &[&str]) -> bool {
-    hendelse_type == interne_hendelser::AVVIST_HENDELSE_TYPE
-        && opplysninger.contains(&Opplysning::ErUnder18Aar.to_string().as_str())
+fn er_avvist_hendelse_under_18(opplysninger: &HashSet<Opplysning>) -> bool {
+    opplysninger.contains(&Opplysning::ErUnder18Aar)
 }
 
 #[cfg(test)]
@@ -394,8 +399,20 @@ mod tests {
 
     //language=JSON
     const STARTET_HENDELSE: &str = r#"{
+        "hendelseId": "00000000-0000-0000-0000-000000000001",
+        "id": 99,
+        "identitetsnummer": "99999999999",
+        "metadata": {
+            "tidspunkt": 1630404930.000000000,
+            "utfoertAv": {
+                "type": "SLUTTBRUKER",
+                "id": "99999999999"
+            },
+            "kilde": "Testkilde",
+            "aarsak": "Test"
+        },
         "hendelseType": "intern.v1.startet",
-        "opplysninger": ["TULL", "TØYS"]
+        "opplysninger": ["BOSATT_ETTER_FREG_LOVEN", "ER_OVER_18_AAR"]
     }"#;
 
     //language=JSON
