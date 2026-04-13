@@ -85,218 +85,170 @@ pub fn regelsett_v4() -> Regelsett {
 mod tests {
     use super::*;
     use interne_hendelser::vo::Opplysning::*;
+    use std::collections::HashSet;
 
-    fn avviste_regel_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
-        match regelsett_v4().evaluer(opplysninger) {
-            Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
-            Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
-        }
+    struct Evaluering<'a>(&'a [Opplysning]);
+
+    fn gitt(opplysninger: &[Opplysning]) -> Evaluering<'_> {
+        Evaluering(opplysninger)
     }
 
-    fn er_godkjent(opplysninger: &[Opplysning]) -> bool {
-        regelsett_v4().evaluer(opplysninger).is_ok()
+    impl Evaluering<'_> {
+        fn skal_godkjennes(self) {
+            assert!(
+                regelsett_v4().evaluer(self.0).is_ok(),
+                "Forventet godkjenning, men fikk avvisning"
+            );
+        }
+
+        fn skal_avvises_med(self, forventet: &[RegelId]) {
+            let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
+                Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
+                Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
+            };
+            let forventet: HashSet<_> = forventet.iter().cloned().collect();
+            assert_eq!(ids, forventet);
+        }
     }
 
     // --- Alltid avvist ---
 
     #[test]
     fn person_ikke_funnet_avvises() {
-        let ids = avviste_regel_ider(&[PersonIkkeFunnet]);
-        assert_eq!(ids, vec![RegelId::IkkeFunnet]);
+        gitt(&[PersonIkkeFunnet]).skal_avvises_med(&[RegelId::IkkeFunnet]);
     }
 
     #[test]
     fn doed_person_avvises() {
-        let ids = avviste_regel_ider(&[Doed, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar]);
-        assert_eq!(ids, vec![RegelId::Doed]);
+        gitt(&[Doed, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Doed]);
     }
 
     #[test]
     fn savnet_person_avvises() {
-        let ids =
-            avviste_regel_ider(&[Savnet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar]);
-        assert_eq!(ids, vec![RegelId::Savnet]);
+        gitt(&[Savnet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Savnet]);
     }
 
     #[test]
     fn opphoert_identitet_avvises() {
-        let ids = avviste_regel_ider(&[
-            OpphoertIdentitet,
-            ErNorskStatsborger,
-            ErEuEoesStatsborger,
-            ErOver18Aar,
-        ]);
-        assert_eq!(ids, vec![RegelId::Opphoert]);
+        gitt(&[OpphoertIdentitet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Opphoert]);
     }
 
     #[test]
     fn forhaandsgodkjenning_overstyrer_ikke_doed() {
-        let ids = avviste_regel_ider(&[
-            Doed,
-            ForhaandsgodkjentAvAnsatt,
-            BosattEtterFregLoven,
-            ErOver18Aar,
-        ]);
-        assert_eq!(ids, vec![RegelId::Doed]);
+        gitt(&[Doed, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Doed]);
     }
 
     #[test]
     fn forhaandsgodkjenning_overstyrer_ikke_savnet() {
-        let ids = avviste_regel_ider(&[
-            Savnet,
-            ForhaandsgodkjentAvAnsatt,
-            BosattEtterFregLoven,
-            ErOver18Aar,
-        ]);
-        assert_eq!(ids, vec![RegelId::Savnet]);
+        gitt(&[Savnet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Savnet]);
     }
 
     #[test]
     fn forhaandsgodkjenning_overstyrer_ikke_opphoert() {
-        let ids = avviste_regel_ider(&[
-            OpphoertIdentitet,
-            ForhaandsgodkjentAvAnsatt,
-            BosattEtterFregLoven,
-            ErOver18Aar,
-        ]);
-        assert_eq!(ids, vec![RegelId::Opphoert]);
+        gitt(&[OpphoertIdentitet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar])
+            .skal_avvises_med(&[RegelId::Opphoert]);
     }
 
     // --- Under 18 år ---
 
     #[test]
     fn eu_eoes_under_18_bosatt_avvises_kun_for_alder() {
-        let ids = avviste_regel_ider(&[
-            ErUnder18Aar,
-            BosattEtterFregLoven,
-            ErNorskStatsborger,
-            ErEuEoesStatsborger,
-        ]);
-        assert_eq!(ids, vec![RegelId::Under18Aar]);
+        gitt(&[ErUnder18Aar, BosattEtterFregLoven, ErNorskStatsborger, ErEuEoesStatsborger])
+            .skal_avvises_med(&[RegelId::Under18Aar]);
     }
 
     #[test]
     fn under_18_tredjelandsborger_uten_bosatt_avvises_for_alder_og_bosatt() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar]);
-        ids.sort_by_key(|id| format!("{id:?}"));
-        let mut expected = vec![
+        gitt(&[ErUnder18Aar]).skal_avvises_med(&[
             RegelId::Under18Aar,
             RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-        ];
-        expected.sort_by_key(|id| format!("{id:?}"));
-        assert_eq!(ids, expected);
+        ]);
     }
 
     #[test]
     fn under_18_eu_eoes_uten_bosatt_avvises_kun_for_alder() {
-        // Tredjelandsborger-regelen gjelder ikke EU/EØS — kun aldersregelen trigger
-        let ids = avviste_regel_ider(&[ErUnder18Aar, ErEuEoesStatsborger]);
-        assert_eq!(ids, vec![RegelId::Under18Aar]);
+        gitt(&[ErUnder18Aar, ErEuEoesStatsborger]).skal_avvises_med(&[RegelId::Under18Aar]);
     }
 
     #[test]
     fn under_18_norsk_uten_bosatt_avvises_kun_for_alder() {
-        // v3: norske statsborgere avvises ikke for bosettingsstatus
-        let ids = avviste_regel_ider(&[ErUnder18Aar, ErNorskStatsborger, ErEuEoesStatsborger]);
-        assert_eq!(ids, vec![RegelId::Under18Aar]);
+        gitt(&[ErUnder18Aar, ErNorskStatsborger, ErEuEoesStatsborger])
+            .skal_avvises_med(&[RegelId::Under18Aar]);
     }
 
     #[test]
     fn under_18_forhaandsgodkjent_godkjennes() {
-        assert!(er_godkjent(&[ErUnder18Aar, ForhaandsgodkjentAvAnsatt]));
+        gitt(&[ErUnder18Aar, ForhaandsgodkjentAvAnsatt]).skal_godkjennes();
     }
 
     #[test]
     fn under_18_forhaandsgodkjent_doed_avvises() {
-        let mut ids = avviste_regel_ider(&[
-            Doed,
-            ForhaandsgodkjentAvAnsatt,
-            ErUnder18Aar,
-            BosattEtterFregLoven,
-        ]);
-        ids.sort_by_key(|id| format!("{id:?}"));
-        let mut expected = vec![RegelId::Doed, RegelId::Under18Aar];
-        expected.sort_by_key(|id| format!("{id:?}"));
-        assert_eq!(ids, expected);
+        gitt(&[Doed, ForhaandsgodkjentAvAnsatt, ErUnder18Aar, BosattEtterFregLoven])
+            .skal_avvises_med(&[RegelId::Doed, RegelId::Under18Aar]);
     }
 
     // --- Ukjent alder ---
 
     #[test]
     fn ukjent_alder_tredjelandsborger_avvises_for_alder_og_bosatt() {
-        let mut ids = avviste_regel_ider(&[UkjentFoedselsaar, UkjentFoedselsdato]);
-        ids.sort_by_key(|id| format!("{id:?}"));
-        let mut expected = vec![
+        gitt(&[UkjentFoedselsaar, UkjentFoedselsdato]).skal_avvises_med(&[
             RegelId::UkjentAlder,
             RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-        ];
-        expected.sort_by_key(|id| format!("{id:?}"));
-        assert_eq!(ids, expected);
+        ]);
     }
 
     #[test]
     fn ukjent_alder_eu_eoes_avvises_kun_for_alder() {
-        let ids = avviste_regel_ider(&[UkjentFoedselsaar, UkjentFoedselsdato, ErEuEoesStatsborger]);
-        assert_eq!(ids, vec![RegelId::UkjentAlder]);
+        gitt(&[UkjentFoedselsaar, UkjentFoedselsdato, ErEuEoesStatsborger])
+            .skal_avvises_med(&[RegelId::UkjentAlder]);
     }
 
     // --- Over 18, godkjennes ---
 
     #[test]
     fn over_18_bosatt_godkjennes() {
-        assert!(er_godkjent(&[ErOver18Aar, BosattEtterFregLoven]));
+        gitt(&[ErOver18Aar, BosattEtterFregLoven]).skal_godkjennes();
     }
 
     #[test]
     fn over_18_eu_eoes_uten_bosatt_godkjennes() {
-        assert!(er_godkjent(&[ErOver18Aar, ErEuEoesStatsborger]));
+        gitt(&[ErOver18Aar, ErEuEoesStatsborger]).skal_godkjennes();
     }
 
     #[test]
     fn over_18_norsk_uten_bosatt_godkjennes() {
-        // v3: norske statsborgere behandles som andre EU/EØS — godkjennes over 18 uavhengig av bosettingsstatus
-        assert!(er_godkjent(&[
-            ErOver18Aar,
-            ErNorskStatsborger,
-            ErEuEoesStatsborger
-        ]));
+        gitt(&[ErOver18Aar, ErNorskStatsborger, ErEuEoesStatsborger]).skal_godkjennes();
     }
 
     #[test]
     fn over_18_forhaandsgodkjent_uten_bosatt_godkjennes() {
-        assert!(er_godkjent(&[ErOver18Aar, ForhaandsgodkjentAvAnsatt]));
+        gitt(&[ErOver18Aar, ForhaandsgodkjentAvAnsatt]).skal_godkjennes();
     }
 
     // --- Over 18, avvises ---
 
     #[test]
     fn over_18_tredjelandsborger_uten_bosatt_avvises() {
-        let ids = avviste_regel_ider(&[ErOver18Aar]);
-        assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
-        );
+        gitt(&[ErOver18Aar])
+            .skal_avvises_med(&[RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]);
     }
 
     #[test]
     fn over_18_gbr_statsborger_uten_bosatt_avvises() {
-        // GBR er tredjelandsborger i v3 (ikke EU/EØS, ikke norsk)
-        let ids = avviste_regel_ider(&[ErOver18Aar, ErGbrStatsborger]);
-        assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
-        );
+        gitt(&[ErOver18Aar, ErGbrStatsborger])
+            .skal_avvises_med(&[RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]);
     }
 
     // --- Standardregel ---
 
     #[test]
     fn norsk_eu_eoes_uten_aldersinfo_avvises_via_standardregel() {
-        // Ingen aldersregel treffer → standardregel aktiveres
-        let ids = avviste_regel_ider(&[ErNorskStatsborger, ErEuEoesStatsborger]);
-        assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
-        );
+        gitt(&[ErNorskStatsborger, ErEuEoesStatsborger])
+            .skal_avvises_med(&[RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]);
     }
 }
