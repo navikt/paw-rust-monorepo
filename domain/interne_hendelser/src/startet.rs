@@ -3,6 +3,7 @@ use uuid::Uuid;
 use std::collections::HashSet;
 
 use crate::vo::{Metadata, Opplysning};
+use crate::Hendelse;
 
 pub const STARTET_HENDELSE_TYPE: &str = "intern.v1.startet";
 
@@ -23,7 +24,7 @@ impl Startet {
     }
 }
 
-impl crate::Hendelse for Startet {
+impl Hendelse for Startet {
     fn hendelse_id(&self) -> Uuid {
         self.hendelse_id
     }

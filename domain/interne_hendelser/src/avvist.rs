@@ -3,6 +3,7 @@ use uuid::Uuid;
 use std::collections::HashSet;
 
 use crate::vo::{Metadata, Opplysning};
+use crate::Hendelse;
 
 pub const AVVIST_HENDELSE_TYPE: &str = "intern.v1.avvist";
 
@@ -25,7 +26,7 @@ impl Avvist {
     }
 }
 
-impl crate::Hendelse for Avvist {
+impl Hendelse for Avvist {
     fn hendelse_id(&self) -> Uuid {
         self.hendelse_id
     }
