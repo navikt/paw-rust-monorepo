@@ -8,6 +8,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
+use Opplysning::ErUnder18Aar;
 use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::Avvist;
@@ -30,7 +31,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
         return Ok(());
     }
 
-    if !(&avvist_hendelse.opplysninger).contains(&Opplysning::ErUnder18Aar) {
+    if !(&avvist_hendelse.opplysninger).contains(&ErUnder18Aar) {
         return Ok(());
     }
 
@@ -105,9 +106,11 @@ mod tests {
     use anyhow::Result;
     use chrono::Utc;
     use interne_hendelser::vo::Opplysning;
+    use interne_hendelser::vo::Opplysning::ErUnder18Aar;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+    use Opplysning::BosattEtterFregLoven;
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
@@ -199,8 +202,8 @@ mod tests {
             contains_all(
                 &oppgave.opplysninger,
                 &[
-                    Opplysning::ErUnder18Aar.to_string(),
-                    Opplysning::BosattEtterFregLoven.to_string()
+                    ErUnder18Aar.to_string(),
+                    BosattEtterFregLoven.to_string()
                 ]
             ),
             "Mangler forventede opplysninger: {:?}",
@@ -219,8 +222,7 @@ mod tests {
 
         let mut app_config = read_application_config()?;
         app_config.opprett_oppgaver_fra_tidspunkt =
-            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")
-                .unwrap()
+            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")?
                 .with_timezone(&Utc)
                 .into();
 
