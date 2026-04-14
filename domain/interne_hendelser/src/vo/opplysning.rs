@@ -71,8 +71,6 @@ mod tests {
         ];
 
         let json_data = serde_json::to_string(&data).unwrap();
-        println!("{}", json_data);
-        println!("{}", expected_json_data);
 
         assert_eq!(json_data, expected_json_data);
     }

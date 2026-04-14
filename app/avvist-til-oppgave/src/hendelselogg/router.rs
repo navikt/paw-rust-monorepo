@@ -28,7 +28,7 @@ pub async fn process_hendelselogg_message(
             opprett_oppgave_for_avvist_hendelse(hendelse_json, app_config, tx).await?;
         }
         interne_hendelser::STARTET_HENDELSE_TYPE => {
-            opprett_oppgave_for_startet_hendelse(hendelse_json, tx).await?;
+            //opprett_oppgave_for_startet_hendelse(hendelse_json, tx).await?;
         }
         _ => {}
     }

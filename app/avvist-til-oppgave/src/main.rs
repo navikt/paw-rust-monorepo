@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
         },
         result = metrikk_task => match result {
             Ok(()) => { tracing::warn!("Metrikk task stoppet uventet"); Ok(()) }
-            Err(join_error) => { tracing::warn!(error = %join_error, "Metrikk task paniced"); Ok(()) }
+            Err(join_error) => { tracing::warn!(error = %join_error, "Metrikk task panicked"); Ok(()) }
         },
     };
 

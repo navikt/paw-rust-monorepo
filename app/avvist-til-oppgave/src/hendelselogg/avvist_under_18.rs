@@ -31,7 +31,7 @@ pub async fn opprett_oppgave_for_avvist_hendelse(
         return Ok(());
     }
 
-    if !(&avvist_hendelse.opplysninger).contains(&ErUnder18Aar) {
+    if !avvist_hendelse.opplysninger.contains(&ErUnder18Aar) {
         return Ok(());
     }
 

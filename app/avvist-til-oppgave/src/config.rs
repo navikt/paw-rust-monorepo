@@ -101,25 +101,21 @@ mod tests {
 
     #[test]
     fn test_read_application_config() {
-        let config = read_application_config().unwrap();
-        println!("{:?}", config);
+        read_application_config().unwrap();
     }
 
     #[test]
     fn test_read_database_config() {
-        let config = read_database_config().unwrap();
-        println!("{:?}", config);
+        read_database_config().unwrap();
     }
 
     #[test]
     fn test_read_kafka_config() {
-        let config = read_kafka_config().unwrap();
-        println!("{:?}", config);
+        read_kafka_config().unwrap();
     }
 
     #[test]
     fn test_read_oppgave_client_config() {
-        let config = read_oppgave_client_config().unwrap();
-        println!("{:?}", config);
+        read_oppgave_client_config().unwrap();
     }
 }
