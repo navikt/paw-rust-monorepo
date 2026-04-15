@@ -46,6 +46,10 @@ Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell
 const BESKRIVELSE_KONTROLLER_OPPHOLD: &str =
     "Kontroller oppholdsstatus for EU/EØS-borger som ikke er registrert bosatt i Norge.";
 
+const KONTAKT_BRUKER: &str = "KONT_BRUK";
+const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
+const GENERELL: &str = "GEN";
+
 pub fn create_oppgave_request(
     identitetsnummer: String,
     oppgave_type: &OppgaveType,
@@ -61,8 +65,8 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
-        oppgavetype: "KONT_BRUK".to_string(),
-        tema: "GEN".to_string(),
+        oppgavetype: KONTAKT_BRUKER.to_string(),
+        tema: GENERELL.to_string(),
         beskrivelse: Some(BESKRIVELSE_AVVIST_UNDER_18.to_string()),
         ..Default::default()
     }
@@ -73,8 +77,8 @@ fn kontroller_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
-        oppgavetype: "KONT_BRUK".to_string(),
-        tema: "GEN".to_string(),
+        oppgavetype: VURDER_KONSEKVENS_FOR_YTELSE.to_string(),
+        tema: GENERELL.to_string(),
         beskrivelse: Some(BESKRIVELSE_KONTROLLER_OPPHOLD.to_string()),
         ..Default::default()
     }
@@ -125,8 +129,8 @@ mod tests {
         let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::AvvistUnder18);
 
         assert_eq!(request.personident, Some(identitetsnummer));
-        assert_eq!(request.oppgavetype, "KONT_BRUK");
-        assert_eq!(request.tema, "GEN");
+        assert_eq!(request.oppgavetype, KONTAKT_BRUKER);
+        assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
         assert!(request.beskrivelse.is_some());
         assert!(request.orgnr.is_none());
@@ -140,8 +144,8 @@ mod tests {
             create_oppgave_request(identitetsnummer.clone(), &OppgaveType::KontrollerOpphold);
 
         assert_eq!(request.personident, Some(identitetsnummer));
-        assert_eq!(request.oppgavetype, "KONT_BRUK");
-        assert_eq!(request.tema, "GEN");
+        assert_eq!(request.oppgavetype, VURDER_KONSEKVENS_FOR_YTELSE);
+        assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
         assert!(request.beskrivelse.is_some());
         assert!(request.orgnr.is_none());
