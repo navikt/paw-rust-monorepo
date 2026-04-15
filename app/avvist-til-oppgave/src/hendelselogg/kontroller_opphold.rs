@@ -15,7 +15,7 @@ use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
 use OppgaveStatus::Ferdigbehandlet;
 
-pub async fn opprett_oppgave_for_startet_hendelse(
+pub async fn opprett_oppgave_kontroller_opphold(
     json: Value,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
@@ -27,7 +27,7 @@ pub async fn opprett_oppgave_for_startet_hendelse(
         return Ok(());
     }
 
-    if !er_startet_eu_eoes_ikke_bosatt(&startet_hendelse.opplysninger) {
+    if !er_kontroller_opphold(&startet_hendelse.opplysninger) {
         tracing::info!("Ignorerer startet hendelse — kriteriene for EU/EØS ikke-bosatt er ikke oppfylt");
         return Ok(());
     }
@@ -55,7 +55,7 @@ pub async fn opprett_oppgave_for_startet_hendelse(
 
     let oppgave_row = to_oppgave_row(
         &startet_hendelse,
-        OppgaveType::StartetEuEoesIkkeBosatt,
+        OppgaveType::KontrollerOpphold,
         OppgaveStatus::Ubehandlet,
     );
     let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
@@ -73,7 +73,7 @@ pub async fn opprett_oppgave_for_startet_hendelse(
     Ok(())
 }
 
-fn er_startet_eu_eoes_ikke_bosatt(opplysninger: &HashSet<Opplysning>) -> bool {
+fn er_kontroller_opphold(opplysninger: &HashSet<Opplysning>) -> bool {
     let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt);
     let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
     let norsk = opplysninger.contains(&Opplysning::ErNorskStatsborger);
@@ -94,40 +94,40 @@ mod tests {
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 
     #[test]
-    fn test_er_startet_eu_eoes_ikke_bosatt() {
+    fn test_er_kontroller_opphold() {
         use std::collections::HashSet;
 
         // Har IkkeBosatt + ErEuEoesStatsborger, ikke norsk
-        assert!(er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+        assert!(er_kontroller_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // Mangler EU/EØS
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+        assert!(!er_kontroller_opphold(&HashSet::from([
             Opplysning::IkkeBosatt
         ])));
 
         // Er norsk statsborger — skal filtreres bort
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+        assert!(!er_kontroller_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger,
             Opplysning::ErNorskStatsborger
         ])));
 
         // Kun EU/EØS, mangler ikke-bosatt
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+        assert!(!er_kontroller_opphold(&HashSet::from([
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // SisteFlyttingVarUtAvNorge er ikke et gyldig kriterium
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::from([
+        assert!(!er_kontroller_opphold(&HashSet::from([
             Opplysning::SisteFlyttingVarUtAvNorge,
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // Tomt
-        assert!(!er_startet_eu_eoes_ikke_bosatt(&HashSet::new()));
+        assert!(!er_kontroller_opphold(&HashSet::new()));
     }
 
     #[tokio::test]
@@ -203,7 +203,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.type_, OppgaveType::StartetEuEoesIkkeBosatt);
+        assert_eq!(oppgave.type_, OppgaveType::KontrollerOpphold);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
         assert_eq!(oppgave.arbeidssoeker_id, 42);

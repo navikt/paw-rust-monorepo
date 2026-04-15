@@ -1,5 +1,5 @@
-use super::avvist_under_18::opprett_oppgave_for_avvist_hendelse;
-use super::startet_eu_eoes_ikke_bosatt::opprett_oppgave_for_startet_hendelse;
+use super::avvist_under_18::opprett_oppgave_avvist_under_18;
+use super::kontroller_opphold::opprett_oppgave_kontroller_opphold;
 use crate::config::ApplicationConfig;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -25,10 +25,10 @@ pub async fn process_hendelselogg_message(
 
     match hendelse_type {
         interne_hendelser::AVVIST_HENDELSE_TYPE => {
-            opprett_oppgave_for_avvist_hendelse(hendelse_json, app_config, tx).await?;
+            opprett_oppgave_avvist_under_18(hendelse_json, app_config, tx).await?;
         }
         interne_hendelser::STARTET_HENDELSE_TYPE => {
-            //opprett_oppgave_for_startet_hendelse(hendelse_json, tx).await?;
+            //opprett_oppgave_kontroller_opphold(hendelse_json, tx).await?;
         }
         _ => {}
     }

@@ -10,8 +10,8 @@ use thiserror::Error;
 pub enum OppgaveType {
     #[strum(serialize = "AVVIST_UNDER_18")]
     AvvistUnder18,
-    #[strum(serialize = "STARTET_EU_EOES_IKKE_BOSATT")]
-    StartetEuEoesIkkeBosatt,
+    #[strum(serialize = "KONTROLLER_OPPHOLD")]
+    KontrollerOpphold,
 }
 
 fn oppgave_type_not_found(type_: &str) -> OppgaveTypeParseError {
@@ -36,8 +36,8 @@ mod tests {
             Ok(OppgaveType::AvvistUnder18)
         );
         assert_eq!(
-            OppgaveType::from_str("STARTET_EU_EOES_IKKE_BOSATT"),
-            Ok(OppgaveType::StartetEuEoesIkkeBosatt)
+            OppgaveType::from_str("KONTROLLER_OPPHOLD"),
+            Ok(OppgaveType::KontrollerOpphold)
         );
         let ukjent_type = "UkjentType";
         assert!(OppgaveType::from_str(ukjent_type).is_err());

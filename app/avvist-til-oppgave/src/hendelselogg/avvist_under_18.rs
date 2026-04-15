@@ -16,7 +16,7 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 
-pub async fn opprett_oppgave_for_avvist_hendelse(
+pub async fn opprett_oppgave_avvist_under_18(
     json: Value,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
