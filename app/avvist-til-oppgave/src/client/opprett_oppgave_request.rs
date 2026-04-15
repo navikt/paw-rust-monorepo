@@ -43,8 +43,8 @@ Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøke
 
 Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
 
-const BESKRIVELSE_KONTROLLER_OPPHOLD: &str =
-    "Kontroller oppholdsstatus for EU/EØS-borger som ikke er registrert bosatt i Norge.";
+const BESKRIVELSE_VURDER_OPPHOLD: &str =
+    "Vurder oppholdsstatus for EU/EØS-borger som ikke er registrert bosatt i Norge.";
 
 const KONTAKT_BRUKER: &str = "KONT_BRUK";
 const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
@@ -56,7 +56,7 @@ pub fn create_oppgave_request(
 ) -> OpprettOppgaveRequest {
     match oppgave_type {
         OppgaveType::AvvistUnder18 => avvist_under_18(identitetsnummer),
-        OppgaveType::KontrollerOpphold => kontroller_opphold(identitetsnummer),
+        OppgaveType::VurderOpphold => vurder_opphold(identitetsnummer),
     }
 }
 
@@ -72,14 +72,14 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
     }
 }
 
-fn kontroller_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
+fn vurder_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
         oppgavetype: VURDER_KONSEKVENS_FOR_YTELSE.to_string(),
         tema: GENERELL.to_string(),
-        beskrivelse: Some(BESKRIVELSE_KONTROLLER_OPPHOLD.to_string()),
+        beskrivelse: Some(BESKRIVELSE_VURDER_OPPHOLD.to_string()),
         ..Default::default()
     }
 }
@@ -138,10 +138,10 @@ mod tests {
     }
 
     #[test]
-    fn test_kontroller_opphold_request() {
+    fn test_vurder_opphold_request() {
         let identitetsnummer = "12345678902".to_string();
         let request =
-            create_oppgave_request(identitetsnummer.clone(), &OppgaveType::KontrollerOpphold);
+            create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOpphold);
 
         assert_eq!(request.personident, Some(identitetsnummer));
         assert_eq!(request.oppgavetype, VURDER_KONSEKVENS_FOR_YTELSE);

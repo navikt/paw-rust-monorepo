@@ -147,12 +147,12 @@ mod tests {
 
         let oppgave_row = to_oppgave_row(
             &startet_hendelse,
-            OppgaveType::KontrollerOpphold,
+            OppgaveType::VurderOpphold,
             OppgaveStatus::Ubehandlet,
         );
 
         assert_eq!(oppgave_row.melding_id, startet_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.type_, "KONTROLLER_OPPHOLD");
+        assert_eq!(oppgave_row.type_, "VURDER_OPPHOLD");
         assert!(
             contains_all(
                 &oppgave_row.opplysninger,
