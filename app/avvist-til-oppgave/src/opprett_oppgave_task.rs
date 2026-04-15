@@ -90,7 +90,8 @@ async fn prosesser_oppgave(
 
     warning_ved_gjentatte_feil(oppgave);
 
-    let opprett_oppgave_request = create_oppgave_request(oppgave.identitetsnummer.clone());
+    let opprett_oppgave_request =
+        create_oppgave_request(oppgave.identitetsnummer.clone(), &oppgave.type_);
     let response = oppgave_client
         .opprett_oppgave(&opprett_oppgave_request)
         .await;

@@ -1,3 +1,4 @@
+use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -36,22 +37,45 @@ pub struct OpprettOppgaveRequest {
     pub uuid: Option<String>,
 }
 
-const OPPGAVE_BESKRIVELSE: &str = r#"Personen har forsøkt å registrere seg som arbeidssøker, men er sperret fra å gjøre dette da personen er under 18 år.
+const BESKRIVELSE_AVVIST_UNDER_18: &str = r#"Personen har forsøkt å registrere seg som arbeidssøker, men er sperret fra å gjøre dette da personen er under 18 år.
 For mindreårige arbeidssøkere trengs det samtykke fra begge foresatte for å kunne registrere seg.
 Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøker, øvrige tiltak og tjenester".
 
 Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
 
-pub fn create_oppgave_request(identitetsnummer: String) -> OpprettOppgaveRequest {
-    const KONTAKT_BRUKER: &str = "KONT_BRUK";
-    const GENERELL: &str = "GEN";
+const BESKRIVELSE_KONTROLLER_OPPHOLD: &str =
+    "Kontroller oppholdsstatus for EU/EØS-borger som ikke er registrert bosatt i Norge.";
+
+pub fn create_oppgave_request(
+    identitetsnummer: String,
+    oppgave_type: &OppgaveType,
+) -> OpprettOppgaveRequest {
+    match oppgave_type {
+        OppgaveType::AvvistUnder18 => avvist_under_18(identitetsnummer),
+        OppgaveType::KontrollerOpphold => kontroller_opphold(identitetsnummer),
+    }
+}
+
+fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
-        oppgavetype: KONTAKT_BRUKER.to_string(),
         prioritet: PrioritetV1::Norm,
-        tema: GENERELL.to_string(),
-        beskrivelse: Some(OPPGAVE_BESKRIVELSE.to_string()),
+        oppgavetype: "KONT_BRUK".to_string(),
+        tema: "GEN".to_string(),
+        beskrivelse: Some(BESKRIVELSE_AVVIST_UNDER_18.to_string()),
+        ..Default::default()
+    }
+}
+
+fn kontroller_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
+    OpprettOppgaveRequest {
+        personident: Some(identitetsnummer),
+        aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
+        prioritet: PrioritetV1::Norm,
+        oppgavetype: "KONT_BRUK".to_string(),
+        tema: "GEN".to_string(),
+        beskrivelse: Some(BESKRIVELSE_KONTROLLER_OPPHOLD.to_string()),
         ..Default::default()
     }
 }
@@ -93,17 +117,33 @@ pub enum PrioritetV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::oppgave_type::OppgaveType;
 
     #[test]
-    fn test_to_oppgave_request() {
+    fn test_avvist_under_18_request() {
         let identitetsnummer = "12345678901".to_string();
-
-        let request = create_oppgave_request(identitetsnummer.clone());
+        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::AvvistUnder18);
 
         assert_eq!(request.personident, Some(identitetsnummer));
         assert_eq!(request.oppgavetype, "KONT_BRUK");
         assert_eq!(request.tema, "GEN");
         assert_eq!(request.prioritet, PrioritetV1::Norm);
+        assert!(request.beskrivelse.is_some());
+        assert!(request.orgnr.is_none());
+        assert!(request.tildelt_enhetsnr.is_none());
+    }
+
+    #[test]
+    fn test_kontroller_opphold_request() {
+        let identitetsnummer = "12345678902".to_string();
+        let request =
+            create_oppgave_request(identitetsnummer.clone(), &OppgaveType::KontrollerOpphold);
+
+        assert_eq!(request.personident, Some(identitetsnummer));
+        assert_eq!(request.oppgavetype, "KONT_BRUK");
+        assert_eq!(request.tema, "GEN");
+        assert_eq!(request.prioritet, PrioritetV1::Norm);
+        assert!(request.beskrivelse.is_some());
         assert!(request.orgnr.is_none());
         assert!(request.tildelt_enhetsnr.is_none());
     }
