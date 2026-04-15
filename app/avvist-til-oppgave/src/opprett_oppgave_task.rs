@@ -36,13 +36,13 @@ async fn kjør_processing_loop(
 ) -> Result<()> {
     let opprett_oppgaver_task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
     let opprett_oppgaver_task_batch_size = *app_config.opprett_oppgaver_task_batch_size;
-    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
+    let opprett_avvist_under_18_oppgaver_fra_tidspunkt = *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
     let task_interval = Duration::from_mins(opprett_oppgaver_task_interval_minutes);
     let mut interval = interval(task_interval);
     loop {
         interval.tick().await;
         if let Err(e) = prosesser_ubehandlede_oppgaver(
-            opprett_oppgaver_fra_tidspunkt,
+            opprett_avvist_under_18_oppgaver_fra_tidspunkt,
             opprett_oppgaver_task_batch_size,
             oppgave_api_client.clone(),
             db_pool.clone(),

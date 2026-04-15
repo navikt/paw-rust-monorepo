@@ -16,7 +16,7 @@ use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 
 pub async fn oppdater_ferdigstilte_oppgaver(
     kafka_message: &OwnedMessage,
-    opprett_oppgaver_fra_tidspunkt: DateTime<Utc>,
+    opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
     let payload = kafka_message.payload().unwrap_or(&[]);
@@ -46,7 +46,7 @@ pub async fn oppdater_ferdigstilte_oppgaver(
 
     // Tidspunktet fra oppgave-appen er i Oslo-tid (TZ="Europe/Oslo" i Dockerfile)
     let hendelse_tidspunkt = oslo_tid_til_utc(oppgave_hendelse.hendelse.tidspunkt);
-    if hendelse_tidspunkt < opprett_oppgaver_fra_tidspunkt {
+    if hendelse_tidspunkt < opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         return Ok(());
     }
 

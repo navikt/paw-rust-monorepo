@@ -21,7 +21,7 @@ pub async fn opprett_oppgave_avvist_under_18(
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let opprett_oppgaver_fra_tidspunkt = *app_config.opprett_oppgaver_fra_tidspunkt;
+    let opprett_avvist_under_18_oppgaver_fra_tidspunkt = *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
 
     let avvist_hendelse: Avvist =
         serde_json::from_value(json).context("Kunne ikke deserialisere avvist hendelse")?;
@@ -35,7 +35,7 @@ pub async fn opprett_oppgave_avvist_under_18(
         return Ok(());
     }
 
-    if avvist_hendelse.metadata.tidspunkt >= opprett_oppgaver_fra_tidspunkt {
+    if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         let arbeidssoeker_id = avvist_hendelse.id;
         let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
         if let Some(oppgave) = &eksisterende_oppgave
@@ -82,7 +82,7 @@ pub async fn opprett_oppgave_avvist_under_18(
                 melding: format!(
                     "Oppretter oppgave for avvist hendelse med status {} fordi hendelse er eldre enn {}",
                     Ignorert,
-                    opprett_oppgaver_fra_tidspunkt
+                    opprett_avvist_under_18_oppgaver_fra_tidspunkt
                 ),
                 tidspunkt: oppgave_row.tidspunkt,
             },
@@ -221,7 +221,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut app_config = read_application_config()?;
-        app_config.opprett_oppgaver_fra_tidspunkt =
+        app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
             chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")?
                 .with_timezone(&Utc)
                 .into();
@@ -259,7 +259,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut app_config = read_application_config()?;
-        app_config.opprett_oppgaver_fra_tidspunkt =
+        app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
             chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")?
                 .with_timezone(&Utc)
                 .into();
