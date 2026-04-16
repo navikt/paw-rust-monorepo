@@ -188,6 +188,7 @@ mod tests {
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
+    use crate::domain::oppgave_type::OppgaveType;
     use async_trait::async_trait;
     use mockito::{Matcher, Server};
     use paw_test::setup_test_db::setup_test_db;
@@ -296,7 +297,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         // Oppgave 1: vellykket
-        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
+        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
@@ -309,7 +310,7 @@ mod tests {
         );
 
         // Oppgave 2: feilet — tilbake til Ubehandlet med feil-logg
-        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx)
+        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave_2.status, Ubehandlet);
@@ -322,7 +323,7 @@ mod tests {
         );
 
         // Oppgave 3: vellykket
-        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, &mut tx)
+        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave_3.status, Opprettet);

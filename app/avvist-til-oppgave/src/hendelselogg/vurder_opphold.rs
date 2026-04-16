@@ -35,7 +35,7 @@ pub async fn opprett_vurder_opphold_oppgave(
     }
 
     let arbeidssoeker_id = startet_hendelse.id;
-    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::VurderOpphold, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet
     {
@@ -141,7 +141,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for irrelevante hendelser"
@@ -163,7 +163,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelse fra veileder"
@@ -185,7 +185,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelse fra system"
@@ -208,7 +208,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
         assert_eq!(oppgave.type_, OppgaveType::VurderOpphold);
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
@@ -246,7 +246,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(43, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(43, OppgaveType::VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium — skal ikke opprette oppgave"
@@ -268,7 +268,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(44, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(44, OppgaveType::VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Norsk statsborger skal ikke opprette oppgave"
@@ -296,7 +296,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(oppgave.hendelse_logg.len(), 2);
 
@@ -317,7 +317,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
         bytt_oppgave_status(
             oppgave.id,
             OppgaveStatus::Ubehandlet,
@@ -333,7 +333,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,

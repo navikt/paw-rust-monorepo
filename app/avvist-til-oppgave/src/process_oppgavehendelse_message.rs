@@ -108,6 +108,7 @@ mod tests {
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave_type::OppgaveType;
     use anyhow::Result;
     use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -179,7 +180,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
@@ -200,7 +201,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_1, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
@@ -234,7 +235,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_2, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id_2, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);

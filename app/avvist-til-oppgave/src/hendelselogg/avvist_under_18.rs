@@ -37,7 +37,7 @@ pub async fn opprett_avvist_under_18_oppgave(
 
     if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         let arbeidssoeker_id = avvist_hendelse.id;
-        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
+        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, tx).await?;
         if let Some(oppgave) = &eksisterende_oppgave
             && oppgave.status != Ferdigbehandlet
             && oppgave.status != Ignorert
@@ -191,7 +191,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = 12345;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, &mut tx)
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
 
@@ -242,7 +242,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(
@@ -280,7 +280,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         tx.commit().await?;
 
@@ -301,7 +301,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -339,7 +339,7 @@ mod tests {
 
         // Sett oppgaven til Ferdigbehandlet
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
         bytt_oppgave_status(
             oppgave.id,
             OppgaveStatus::Ubehandlet,
@@ -366,7 +366,7 @@ mod tests {
 
         // Verifiser at ny oppgave ble opprettet (hent_nyeste_oppgave henter den nyeste)
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
