@@ -1,4 +1,5 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
+use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge_vec, GaugeVec};
@@ -38,17 +39,20 @@ async fn hent_avvergede_duplikater_per_dag(
     let vis_siste_dager: i64 = 30;
     let rader = sqlx::query_as::<_, AvvergedeDuplikaterPerDag>(
         r#"
-        SELECT TO_CHAR(DATE(tidspunkt), 'YYYY-MM-DD') AS dato, COUNT(*) AS antall
-        FROM oppgave_hendelse_logg
-        WHERE status = $1
-          AND tidspunkt >= $2
-        GROUP BY DATE(tidspunkt)
-        ORDER BY DATE(tidspunkt) DESC
-        LIMIT $3
+        SELECT TO_CHAR(DATE(ohl.tidspunkt), 'YYYY-MM-DD') AS dato, COUNT(*) AS antall
+        FROM oppgave_hendelse_logg ohl
+        JOIN oppgaver o ON o.id = ohl.oppgave_id
+        WHERE ohl.status = $1
+          AND ohl.tidspunkt >= $2
+          AND o.type = $3
+        GROUP BY DATE(ohl.tidspunkt)
+        ORDER BY DATE(ohl.tidspunkt) DESC
+        LIMIT $4
         "#,
     )
     .bind(OppgaveFinnesAllerede.to_string())
     .bind(fra_tidspunkt)
+    .bind(OppgaveType::AvvistUnder18.to_string())
     .bind(vis_siste_dager)
     .fetch_all(&mut **transaction)
     .await?;
@@ -63,6 +67,7 @@ mod tests {
     use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
     use anyhow::Result;
     use chrono::{Duration, TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -73,18 +78,23 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let oppgave_id = insert_oppgave(&InsertOppgaveRow::default(), &mut tx).await?;
+        let avvist_oppgave_id = insert_oppgave(
+            &InsertOppgaveRow {
+                type_: AvvistUnder18.to_string(),
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
         let første_dag = Utc.with_ymd_and_hms(2026, 3, 15, 10, 0, 0).unwrap();
         let andre_dag = første_dag + Duration::days(1);
         let tidspunkt_før_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
-        // forste_dag_med_duplikat: to duplikater (verifiserer at telleren blir 2, ikke 1)
-        // andre_dag_med_duplikat: ett duplikat
-        // tidspunkt_foer_cutoff: skal ikke telles
+        // første_dag: to duplikater, andre_dag: ett duplikat, før cutoff: skal ikke telles
         for tidspunkt in [første_dag, første_dag, andre_dag, tidspunkt_før_cutoff] {
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
-                    oppgave_id,
+                    oppgave_id: avvist_oppgave_id,
                     status: OppgaveFinnesAllerede.to_string(),
                     melding: String::new(),
                     tidspunkt,
@@ -96,7 +106,7 @@ mod tests {
         // Annen status — skal ikke telles
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
+                oppgave_id: avvist_oppgave_id,
                 status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
                 melding: String::new(),
                 tidspunkt: første_dag,
@@ -104,20 +114,42 @@ mod tests {
             &mut tx,
         )
         .await?;
+
+        // VurderOpphold med duplikat — skal IKKE telles
+        let vurder_oppgave_id = insert_oppgave(
+            &InsertOppgaveRow {
+                type_: VurderOpphold.to_string(),
+                identitetsnummer: "12345678902".to_string(),
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: vurder_oppgave_id,
+                status: OppgaveFinnesAllerede.to_string(),
+                melding: String::new(),
+                tidspunkt: første_dag,
+            },
+            &mut tx,
+        )
+        .await?;
+
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let rader = hent_avvergede_duplikater_per_dag(cutoff, &mut tx).await?;
 
-        assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff");
+        assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff — VurderOpphold ekskludert");
         let avvergede_duplikater_forste_dag = rader
             .iter()
-            .find(|avverget_duplikat| avverget_duplikat.dato == "2026-03-15")
+            .find(|r| r.dato == "2026-03-15")
             .unwrap();
         let avvergede_duplikater_andre_dag = rader
             .iter()
-            .find(|avverget_duplikat| avverget_duplikat.dato == "2026-03-16")
+            .find(|r| r.dato == "2026-03-16")
             .unwrap();
         assert_eq!(avvergede_duplikater_forste_dag.antall, 2);
         assert_eq!(avvergede_duplikater_andre_dag.antall, 1);

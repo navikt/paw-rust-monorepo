@@ -1,4 +1,5 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
+use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
@@ -27,13 +28,16 @@ async fn hent_antall_duplikater_avverget(
         //language=PostgreSQL
         r#"
         SELECT COUNT(*)
-        FROM oppgave_hendelse_logg
-        WHERE status = $1
-          AND tidspunkt >= $2
+        FROM oppgave_hendelse_logg ohl
+        JOIN oppgaver o ON o.id = ohl.oppgave_id
+        WHERE ohl.status = $1
+          AND ohl.tidspunkt >= $2
+          AND o.type = $3
         "#,
     )
     .bind(OppgaveFinnesAllerede.to_string())
     .bind(fra_tidspunkt)
+    .bind(OppgaveType::AvvistUnder18.to_string())
     .fetch_one(&mut **transaction)
     .await?;
 
@@ -47,6 +51,7 @@ mod tests {
     use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
     use anyhow::Result;
     use chrono::{Duration, TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -58,13 +63,20 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let oppgave_id = insert_oppgave(&InsertOppgaveRow::default(), &mut tx).await?;
         let etter_cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap() + Duration::days(1);
         let foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
+        let avvist_oppgave_id = insert_oppgave(
+            &InsertOppgaveRow {
+                type_: AvvistUnder18.to_string(),
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
+                oppgave_id: avvist_oppgave_id,
                 status: OppgaveFinnesAllerede.to_string(),
                 melding: String::new(),
                 tidspunkt: etter_cutoff,
@@ -74,7 +86,7 @@ mod tests {
         .await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
+                oppgave_id: avvist_oppgave_id,
                 status: OppgaveFinnesAllerede.to_string(),
                 melding: String::new(),
                 tidspunkt: foer_cutoff,
@@ -84,7 +96,7 @@ mod tests {
         .await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
+                oppgave_id: avvist_oppgave_id,
                 status: OppgaveOpprettet.to_string(),
                 melding: String::new(),
                 tidspunkt: etter_cutoff,
@@ -92,6 +104,28 @@ mod tests {
             &mut tx,
         )
         .await?;
+
+        // VurderOpphold med duplikat — skal IKKE telles
+        let vurder_oppgave_id = insert_oppgave(
+            &InsertOppgaveRow {
+                type_: VurderOpphold.to_string(),
+                identitetsnummer: "12345678902".to_string(),
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: vurder_oppgave_id,
+                status: OppgaveFinnesAllerede.to_string(),
+                melding: String::new(),
+                tidspunkt: etter_cutoff,
+            },
+            &mut tx,
+        )
+        .await?;
+
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -100,7 +134,7 @@ mod tests {
 
         assert_eq!(
             antall, 1,
-            "Skal kun telle OPPGAVE_FINNES_ALLEREDE etter cutoff"
+            "Skal kun telle OPPGAVE_FINNES_ALLEREDE for AVVIST_UNDER_18 etter cutoff"
         );
 
         Ok(())
