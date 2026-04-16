@@ -44,7 +44,7 @@ Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøke
 Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
 
 const BESKRIVELSE_VURDER_OPPHOLD: &str =
-    "Vurder oppholdsstatus for EU/EØS-borger som ikke er registrert bosatt i Norge.";
+    "Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.";
 
 const KONTAKT_BRUKER: &str = "KONT_BRUK";
 const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
@@ -140,8 +140,7 @@ mod tests {
     #[test]
     fn test_vurder_opphold_request() {
         let identitetsnummer = "12345678902".to_string();
-        let request =
-            create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOpphold);
+        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOpphold);
 
         assert_eq!(request.personident, Some(identitetsnummer));
         assert_eq!(request.oppgavetype, VURDER_KONSEKVENS_FOR_YTELSE);
