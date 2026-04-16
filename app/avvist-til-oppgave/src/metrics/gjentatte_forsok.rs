@@ -1,4 +1,5 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllerede;
+use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prometheus::{register_gauge, Gauge};
@@ -34,12 +35,14 @@ async fn hent_gjentatte_forsok_gjennomsnitt(
                 ON ohl.oppgave_id = o.id
                 AND ohl.status = $1
             WHERE o.tidspunkt >= $2
+              AND o.type = $3
             GROUP BY o.identitetsnummer
         ) AS antall_forsok_per_person
         "#,
     )
     .bind(OppgaveFinnesAllerede.to_string())
     .bind(fra_tidspunkt)
+    .bind(OppgaveType::AvvistUnder18.to_string())
     .fetch_one(&mut **transaction)
     .await?;
 
@@ -53,6 +56,7 @@ mod tests {
     use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -66,9 +70,10 @@ mod tests {
         let tidspunkt_etter_cutoff = Utc.with_ymd_and_hms(2026, 3, 15, 10, 0, 0).unwrap();
         let tidspunkt_foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
-        // Person 1: to ekstra forsøk etter cutoff
+        // Person 1: to ekstra forsøk etter cutoff (AvvistUnder18)
         let oppgave_id_1 = insert_oppgave(
             &InsertOppgaveRow {
+                type_: AvvistUnder18.to_string(),
                 identitetsnummer: "12345678901".to_string(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()
@@ -89,9 +94,10 @@ mod tests {
             .await?;
         }
 
-        // Person 2: null ekstra forsøk (bare oppgave opprettet)
+        // Person 2: null ekstra forsøk (AvvistUnder18)
         let oppgave_id_2 = insert_oppgave(
             &InsertOppgaveRow {
+                type_: AvvistUnder18.to_string(),
                 identitetsnummer: "12345678902".to_string(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()
@@ -110,9 +116,34 @@ mod tests {
         )
         .await?;
 
-        // Person 3: oppgave før cutoff — skal ikke telles
+        // Person 3: VurderOpphold med forsøk — skal IKKE telles
+        let oppgave_id_vurder = insert_oppgave(
+            &InsertOppgaveRow {
+                type_: VurderOpphold.to_string(),
+                identitetsnummer: "12345678905".to_string(),
+                tidspunkt: tidspunkt_etter_cutoff,
+                ..Default::default()
+            },
+            &mut tx,
+        )
+        .await?;
+        for _ in 0..5 {
+            insert_oppgave_hendelse_logg(
+                &InsertOppgaveHendelseLoggRow {
+                    oppgave_id: oppgave_id_vurder,
+                    status: OppgaveFinnesAllerede.to_string(),
+                    melding: String::new(),
+                    tidspunkt: tidspunkt_etter_cutoff,
+                },
+                &mut tx,
+            )
+            .await?;
+        }
+
+        // Person 4: oppgave før cutoff — skal ikke telles
         let oppgave_id_3 = insert_oppgave(
             &InsertOppgaveRow {
+                type_: AvvistUnder18.to_string(),
                 identitetsnummer: "12345678903".to_string(),
                 tidspunkt: tidspunkt_foer_cutoff,
                 ..Default::default()
@@ -137,7 +168,7 @@ mod tests {
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(cutoff, &mut tx).await?;
 
-        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0
+        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0 (VurderOpphold ignorert)
         assert_eq!(gjennomsnitt, 1.0);
 
         Ok(())
