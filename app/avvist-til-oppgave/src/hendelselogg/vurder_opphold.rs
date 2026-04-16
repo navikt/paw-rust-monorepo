@@ -6,14 +6,14 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use OppgaveStatus::Ferdigbehandlet;
 use anyhow::Context;
 use chrono::Utc;
-use interne_hendelser::vo::{BrukerType, Opplysning};
 use interne_hendelser::Startet;
+use interne_hendelser::vo::{BrukerType, Opplysning};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
-use OppgaveStatus::Ferdigbehandlet;
 
 pub async fn opprett_vurder_opphold_oppgave(
     json: Value,
@@ -28,7 +28,9 @@ pub async fn opprett_vurder_opphold_oppgave(
     }
 
     if !vurder_opphold(&startet_hendelse.opplysninger) {
-        tracing::info!("Ignorerer startet hendelse — kriteriene for vurdering av opphold ikke oppfylt");
+        tracing::info!(
+            "Ignorerer startet hendelse — kriteriene for vurdering av opphold ikke oppfylt"
+        );
         return Ok(());
     }
 
@@ -36,15 +38,13 @@ pub async fn opprett_vurder_opphold_oppgave(
     let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet
-        && oppgave.status != OppgaveStatus::Ignorert
     {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.id,
                 status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
-                melding:
-                    "Arbeidssøkeren har allerede en aktiv oppgave for startet registrering"
-                        .to_string(),
+                melding: "Arbeidssøkeren har allerede en aktiv oppgave for startet registrering"
+                    .to_string(),
                 tidspunkt: Utc::now(),
             },
             tx,
@@ -63,7 +63,7 @@ pub async fn opprett_vurder_opphold_oppgave(
         &InsertOppgaveHendelseLoggRow {
             oppgave_id,
             status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-            melding: "Oppretter oppgave for startet hendelse (EU/EØS ikke-bosatt)".to_string(),
+            melding: "Oppretter vurder opphold oppgave".to_string(),
             tidspunkt: oppgave_row.tidspunkt,
         },
         tx,
@@ -92,11 +92,10 @@ mod tests {
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+    use std::collections::HashSet;
 
     #[test]
     fn test_er_vurder_opphold() {
-        use std::collections::HashSet;
-
         // Har IkkeBosatt + ErEuEoesStatsborger, ikke norsk
         assert!(vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
@@ -104,9 +103,7 @@ mod tests {
         ])));
 
         // Mangler EU/EØS
-        assert!(!vurder_opphold(&HashSet::from([
-            Opplysning::IkkeBosatt
-        ])));
+        assert!(!vurder_opphold(&HashSet::from([Opplysning::IkkeBosatt])));
 
         // Er norsk statsborger — skal filtreres bort
         assert!(!vurder_opphold(&HashSet::from([
@@ -145,7 +142,10 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
-        assert!(oppgave.is_none(), "Skal ikke opprette oppgave for irrelevante hendelser");
+        assert!(
+            oppgave.is_none(),
+            "Skal ikke opprette oppgave for irrelevante hendelser"
+        );
 
         Ok(())
     }
@@ -164,7 +164,10 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
-        assert!(oppgave.is_none(), "Skal ikke opprette oppgave for hendelse fra veileder");
+        assert!(
+            oppgave.is_none(),
+            "Skal ikke opprette oppgave for hendelse fra veileder"
+        );
 
         Ok(())
     }
@@ -183,7 +186,10 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?;
-        assert!(oppgave.is_none(), "Skal ikke opprette oppgave for hendelse fra system");
+        assert!(
+            oppgave.is_none(),
+            "Skal ikke opprette oppgave for hendelse fra system"
+        );
 
         Ok(())
     }
@@ -263,7 +269,10 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(44, &mut tx).await?;
-        assert!(oppgave.is_none(), "Norsk statsborger skal ikke opprette oppgave");
+        assert!(
+            oppgave.is_none(),
+            "Norsk statsborger skal ikke opprette oppgave"
+        );
 
         Ok(())
     }
@@ -309,8 +318,13 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, &mut tx).await?.unwrap();
-        bytt_oppgave_status(oppgave.id, OppgaveStatus::Ubehandlet, Ferdigbehandlet, &mut tx)
-            .await?;
+        bytt_oppgave_status(
+            oppgave.id,
+            OppgaveStatus::Ubehandlet,
+            Ferdigbehandlet,
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let message_2 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
