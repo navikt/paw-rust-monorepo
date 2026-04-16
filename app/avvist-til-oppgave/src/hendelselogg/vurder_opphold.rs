@@ -15,7 +15,7 @@ use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
 use OppgaveStatus::Ferdigbehandlet;
 
-pub async fn opprett_oppgave_vurder_opphold(
+pub async fn opprett_vurder_opphold_oppgave(
     json: Value,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
@@ -27,8 +27,8 @@ pub async fn opprett_oppgave_vurder_opphold(
         return Ok(());
     }
 
-    if !er_vurder_opphold(&startet_hendelse.opplysninger) {
-        tracing::info!("Ignorerer startet hendelse — kriteriene for EU/EØS ikke-bosatt er ikke oppfylt");
+    if !vurder_opphold(&startet_hendelse.opplysninger) {
+        tracing::info!("Ignorerer startet hendelse — kriteriene for vurdering av opphold ikke oppfylt");
         return Ok(());
     }
 
@@ -73,7 +73,7 @@ pub async fn opprett_oppgave_vurder_opphold(
     Ok(())
 }
 
-fn er_vurder_opphold(opplysninger: &HashSet<Opplysning>) -> bool {
+fn vurder_opphold(opplysninger: &HashSet<Opplysning>) -> bool {
     let ikke_bosatt = opplysninger.contains(&Opplysning::IkkeBosatt);
     let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
     let norsk = opplysninger.contains(&Opplysning::ErNorskStatsborger);
@@ -98,36 +98,36 @@ mod tests {
         use std::collections::HashSet;
 
         // Har IkkeBosatt + ErEuEoesStatsborger, ikke norsk
-        assert!(er_vurder_opphold(&HashSet::from([
+        assert!(vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // Mangler EU/EØS
-        assert!(!er_vurder_opphold(&HashSet::from([
+        assert!(!vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt
         ])));
 
         // Er norsk statsborger — skal filtreres bort
-        assert!(!er_vurder_opphold(&HashSet::from([
+        assert!(!vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger,
             Opplysning::ErNorskStatsborger
         ])));
 
         // Kun EU/EØS, mangler ikke-bosatt
-        assert!(!er_vurder_opphold(&HashSet::from([
+        assert!(!vurder_opphold(&HashSet::from([
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // SisteFlyttingVarUtAvNorge er ikke et gyldig kriterium
-        assert!(!er_vurder_opphold(&HashSet::from([
+        assert!(!vurder_opphold(&HashSet::from([
             Opplysning::SisteFlyttingVarUtAvNorge,
             Opplysning::ErEuEoesStatsborger
         ])));
 
         // Tomt
-        assert!(!er_vurder_opphold(&HashSet::new()));
+        assert!(!vurder_opphold(&HashSet::new()));
     }
 
     #[tokio::test]
