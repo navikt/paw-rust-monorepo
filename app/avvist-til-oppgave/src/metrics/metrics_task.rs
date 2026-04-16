@@ -3,7 +3,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use sqlx::PgPool;
 use std::time::Duration;
 use tokio::task::JoinHandle;
-use crate::metrics::{avvergede_duplikate_oppgaver, avvergede_duplikater_per_dag, ekstern_oppgave_feilregistrert, gjentatte_forsok, oppgave_statuser, saksbehandlingstid};
+use crate::metrics::{avvist_under_18, ekstern_oppgave_feilregistrert, oppgave_statuser, saksbehandlingstid};
 
 const METRIKK_TASK_INTERVALL: Duration = Duration::from_secs(300);
 
@@ -22,9 +22,9 @@ async fn oppdater_metrikker(pg_pool: &PgPool) -> Result<()> {
     let fra_tidspunkt = metrics_cutoff();
     let mut transaction = pg_pool.begin().await?;
     oppgave_statuser::oppdater(&mut transaction).await?;
-    avvergede_duplikate_oppgaver::oppdater(fra_tidspunkt, &mut transaction).await?;
-    avvergede_duplikater_per_dag::oppdater(fra_tidspunkt, &mut transaction).await?;
-    gjentatte_forsok::oppdater(fra_tidspunkt, &mut transaction).await?;
+    avvist_under_18::avvergede_duplikate_oppgaver::oppdater(fra_tidspunkt, &mut transaction).await?;
+    avvist_under_18::avvergede_duplikater_per_dag::oppdater(fra_tidspunkt, &mut transaction).await?;
+    avvist_under_18::gjentatte_forsok::oppdater(fra_tidspunkt, &mut transaction).await?;
     saksbehandlingstid::oppdater(fra_tidspunkt, &mut transaction).await?;
     ekstern_oppgave_feilregistrert::oppdater(&mut transaction).await?;
     transaction.commit().await?;
