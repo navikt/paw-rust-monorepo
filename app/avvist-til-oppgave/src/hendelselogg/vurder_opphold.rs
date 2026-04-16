@@ -6,7 +6,8 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use OppgaveStatus::Ferdigbehandlet;
+use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
+use OppgaveType::VurderOpphold;
 use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::Startet;
@@ -35,7 +36,7 @@ pub async fn opprett_vurder_opphold_oppgave(
     }
 
     let arbeidssoeker_id = startet_hendelse.id;
-    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::VurderOpphold, tx).await?;
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, VurderOpphold, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet
     {
@@ -43,8 +44,7 @@ pub async fn opprett_vurder_opphold_oppgave(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave.id,
                 status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
-                melding: "Arbeidssøkeren har allerede en aktiv oppgave for startet registrering"
-                    .to_string(),
+                melding: "Arbeidssøkeren har allerede en aktiv vurder opphold oppgave".to_string(),
                 tidspunkt: Utc::now(),
             },
             tx,
@@ -53,11 +53,7 @@ pub async fn opprett_vurder_opphold_oppgave(
         return Ok(());
     }
 
-    let oppgave_row = to_oppgave_row(
-        &startet_hendelse,
-        OppgaveType::VurderOpphold,
-        OppgaveStatus::Ubehandlet,
-    );
+    let oppgave_row = to_oppgave_row(&startet_hendelse, VurderOpphold, Ubehandlet);
     let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
     insert_oppgave_hendelse_logg(
         &InsertOppgaveHendelseLoggRow {
@@ -141,7 +137,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for irrelevante hendelser"
@@ -163,7 +159,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelse fra veileder"
@@ -185,7 +181,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelse fra system"
@@ -208,9 +204,11 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.type_, OppgaveType::VurderOpphold);
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+            .await?
+            .unwrap();
+        assert_eq!(oppgave.type_, VurderOpphold);
+        assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.identitetsnummer, "12345678901");
         assert_eq!(oppgave.arbeidssoeker_id, 42);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
@@ -246,7 +244,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(43, OppgaveType::VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(43, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium — skal ikke opprette oppgave"
@@ -268,7 +266,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(44, OppgaveType::VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(44, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Norsk statsborger skal ikke opprette oppgave"
@@ -296,8 +294,10 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+            .await?
+            .unwrap();
+        assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.hendelse_logg.len(), 2);
 
         Ok(())
@@ -317,14 +317,10 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
-        bytt_oppgave_status(
-            oppgave.id,
-            OppgaveStatus::Ubehandlet,
-            Ferdigbehandlet,
-            &mut tx,
-        )
-        .await?;
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+            .await?
+            .unwrap();
+        bytt_oppgave_status(oppgave.id, Ubehandlet, Ferdigbehandlet, &mut tx).await?;
         tx.commit().await?;
 
         let message_2 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
@@ -333,8 +329,10 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, OppgaveType::VurderOpphold, &mut tx).await?.unwrap();
-        assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
+        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+            .await?
+            .unwrap();
+        assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
             HendelseLoggStatus::OppgaveOpprettet

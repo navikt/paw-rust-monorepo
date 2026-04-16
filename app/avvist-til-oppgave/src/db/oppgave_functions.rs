@@ -431,7 +431,7 @@ mod tests {
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.ekstern_oppgave_id.unwrap(), ekstern_oppgave_id);
 
