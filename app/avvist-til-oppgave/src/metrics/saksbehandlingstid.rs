@@ -9,11 +9,11 @@ use std::sync::LazyLock;
 
 static SAKSBEHANDLINGSTID: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "avvist_til_oppgave_saksbehandlingstid_sekunder",
+        "veileder_oppgave_saksbehandlingstid_sekunder",
         "Gjennomsnittlig saksbehandlingstid per uke og type i sekunder (fra EksternOppgaveOpprettet til EksternOppgaveFerdigstilt)",
         &["uke", "type"]
     )
-    .expect("Failed to register avvist_til_oppgave_saksbehandlingstid_sekunder gauge")
+    .expect("Failed to register veileder_oppgave_saksbehandlingstid_sekunder gauge")
 });
 
 pub async fn oppdater(

@@ -7,11 +7,11 @@ use std::sync::LazyLock;
 
 static AVVERGEDE_DUPLIKATER_PER_DAG: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "avvist_til_oppgave_avvergede_duplikater_per_dag",
+        "veileder_oppgave_avvergede_duplikater_per_dag",
         "Antall duplikate oppgaver avverget per dag (OPPGAVE_FINNES_ALLEREDE)",
         &["dato"]
     )
-    .expect("Failed to register avvist_til_oppgave_avvergede_duplikater_per_dag gauge")
+    .expect("Failed to register veileder_oppgave_avvergede_duplikater_per_dag gauge")
 });
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

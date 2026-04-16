@@ -6,10 +6,10 @@ use std::sync::LazyLock;
 
 static EKSTERN_OPPGAVE_FEILREGISTRERT: LazyLock<Gauge> = LazyLock::new(|| {
     register_gauge!(
-        "avvist_til_oppgave_ekstern_oppgave_feilregistrert_total",
+        "veileder_oppgave_ekstern_oppgave_feilregistrert_total",
         "Totalt antall oppgaver som har blitt feilregistrert i eksternt Oppgave API"
     )
-    .expect("Failed to register avvist_til_oppgave_ekstern_oppgave_feilregistrert_total gauge")
+    .expect("Failed to register veileder_oppgave_ekstern_oppgave_feilregistrert_total gauge")
 });
 
 pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

@@ -8,11 +8,11 @@ use strum::IntoEnumIterator;
 
 static OPPGAVER_PER_STATUS: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "avvist_til_oppgave_oppgaver_total",
+        "veileder_oppgave_oppgaver_total",
         "Antall oppgaver per status og type",
         &["status", "type"]
     )
-    .expect("Failed to register avvist_til_oppgave_oppgaver_total gauge")
+    .expect("Failed to register veileder_oppgave_oppgaver_total gauge")
 });
 
 pub async fn oppdater(transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

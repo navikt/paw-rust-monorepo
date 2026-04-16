@@ -7,10 +7,10 @@ use std::sync::LazyLock;
 
 static DUPLIKATE_OPPGAVER_AVVERGET: LazyLock<Gauge> = LazyLock::new(|| {
     register_gauge!(
-        "avvist_til_oppgave_forhindrede_duplikater_total",
+        "veileder_oppgave_forhindrede_duplikater_total",
         "Antall ganger en arbeidssøker ble avvist på nytt mens en aktiv oppgave allerede fantes (OPPGAVE_FINNES_ALLEREDE)"
     )
-    .expect("Failed to register avvist_til_oppgave_forhindrede_duplikater_total gauge")
+    .expect("Failed to register veileder_oppgave_forhindrede_duplikater_total gauge")
 });
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

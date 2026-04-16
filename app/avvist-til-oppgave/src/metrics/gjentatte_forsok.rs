@@ -8,10 +8,10 @@ use std::sync::LazyLock;
 
 static GJENTATTE_FORSOK_GJENNOMSNITT: LazyLock<Gauge> = LazyLock::new(|| {
     register_gauge!(
-        "avvist_til_oppgave_gjentatte_forsok_gjennomsnitt",
+        "veileder_oppgave_gjentatte_forsok_gjennomsnitt",
         "Gjennomsnittlig antall ekstra registreringsforsøk per arbeidssøker under 18 etter første avvisning"
     )
-    .expect("Failed to register avvist_til_oppgave_gjentatte_forsok_gjennomsnitt gauge")
+    .expect("Failed to register veileder_oppgave_gjentatte_forsok_gjennomsnitt gauge")
 });
 
 pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

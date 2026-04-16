@@ -5,11 +5,11 @@ use strum::IntoEnumIterator;
 
 static EKSTERN_OPPRETTELSE_FEILET: LazyLock<CounterVec> = LazyLock::new(|| {
     let counter = register_counter_vec!(
-        "avvist_til_oppgave_ekstern_oppgave_opprettelse_feil_total",
+        "veileder_oppgave_ekstern_oppgave_opprettelse_feil_total",
         "Antall feil ved opprettelse av oppgave mot eksternt Oppgave API",
         &["feil_type"]
     )
-    .expect("Failed to register avvist_til_oppgave_ekstern_oppgave_opprettelse_feil_total counter");
+    .expect("Failed to register veileder_oppgave_ekstern_oppgave_opprettelse_feil_total counter");
     for variant in OppgaveApiErrorDiscriminants::iter() {
         counter.with_label_values(&[&variant.to_string()]);
     }
