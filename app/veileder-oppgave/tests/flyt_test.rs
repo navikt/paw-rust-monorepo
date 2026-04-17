@@ -11,10 +11,19 @@ use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 use std::collections::HashSet;
 use veileder_oppgave::config::read_application_config;
 use veileder_oppgave::db::oppgave_functions::hent_nyeste_oppgave;
+use veileder_oppgave::domain::hendelse_logg_entry::HendelseLoggEntry;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
 use veileder_oppgave::domain::oppgave_type::OppgaveType;
 use veileder_oppgave::hendelselogg::process_hendelselogg_message;
+
+const UNDER_18_ARBEIDSSOEKER_ID: i64 = 100;
+const UNDER_18_IDENT: &str = "10000000001";
+const OVER_18_ARBEIDSSOEKER_ID: i64 = 200;
+const OVER_18_IDENT: &str = "20000000002";
+const HISTORISK_UNDER_18_ARBEIDSSOEKER_ID: i64 = 300;
+const HISTORISK_UNDER_18_IDENT: &str = "30000000003";
+const VEILEDER_IDENT: &str = "Z991459";
 
 #[tokio::test]
 async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
@@ -28,45 +37,45 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     let etter_vannskille = rfc3339("2024-09-01T00:00:00Z");
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
 
-    let a_avvist: Avvist = AvvistBuilder {
-        arbeidssoeker_id: 100,
-        identitetsnummer: "10000000001".to_string(),
+    let under_18_avvist: Avvist = AvvistBuilder {
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
         ..Default::default()
     }
     .build();
-    let a_startet_vurder_opphold: Startet = StartetBuilder {
-        arbeidssoeker_id: 100,
-        identitetsnummer: "10000000001".to_string(),
-        utfoert_av_id: "10000000001".to_string(),
+    let under_18_startet_vurder_opphold: Startet = StartetBuilder {
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: UNDER_18_IDENT.to_string(),
+        utfoert_av_id: UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([IkkeBosatt, ErEuEoesStatsborger]),
         ..Default::default()
     }
     .build();
-    let b_startet_uten_relevante_opplysninger: Startet = StartetBuilder {
-        arbeidssoeker_id: 200,
-        identitetsnummer: "20000000002".to_string(),
-        utfoert_av_id: "20000000002".to_string(),
+    let over_18_startet_uten_relevante_opplysninger: Startet = StartetBuilder {
+        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: OVER_18_IDENT.to_string(),
+        utfoert_av_id: OVER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([BosattEtterFregLoven, ErOver18Aar]),
         ..Default::default()
     }
     .build();
-    let b_avvist_fra_veileder: Avvist = AvvistBuilder {
-        arbeidssoeker_id: 200,
-        identitetsnummer: "20000000002".to_string(),
+    let over_18_avvist_av_veileder: Avvist = AvvistBuilder {
+        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: OVER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         bruker_type: BrukerType::Veileder,
-        utfoert_av_id: "Z991459".to_string(),
+        utfoert_av_id: VEILEDER_IDENT.to_string(),
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
         ..Default::default()
     }
     .build();
-    let c_avvist_under_18_foer_vannskille: Avvist = AvvistBuilder {
-        arbeidssoeker_id: 300,
-        identitetsnummer: "30000000003".to_string(),
+    let historisk_under_18_avvist: Avvist = AvvistBuilder {
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
         tidspunkt: foer_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
         ..Default::default()
@@ -74,12 +83,12 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     .build();
 
     let meldinger = [
-        lag_melding(&a_avvist.as_json(), 0),
-        lag_melding(&a_startet_vurder_opphold.as_json(), 1),
-        lag_melding(&a_avvist.as_json(), 2),
-        lag_melding(&b_startet_uten_relevante_opplysninger.as_json(), 3),
-        lag_melding(&b_avvist_fra_veileder.as_json(), 4),
-        lag_melding(&c_avvist_under_18_foer_vannskille.as_json(), 5),
+        lag_melding(0, &under_18_avvist.as_json()),
+        lag_melding(1, &under_18_startet_vurder_opphold.as_json()),
+        lag_melding(2, &under_18_avvist.as_json()),
+        lag_melding(3, &over_18_startet_uten_relevante_opplysninger.as_json()),
+        lag_melding(4, &over_18_avvist_av_veileder.as_json()),
+        lag_melding(5, &historisk_under_18_avvist.as_json()),
     ];
 
     for melding in &meldinger {
@@ -90,44 +99,73 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     let mut tx = pg_pool.begin().await?;
 
-    let a_avvist_oppgave = hent_nyeste_oppgave(100, OppgaveType::AvvistUnder18, &mut tx)
-        .await?
-        .expect("A skal ha en AvvistUnder18-oppgave");
-    assert_eq!(a_avvist_oppgave.status, OppgaveStatus::Ubehandlet);
-    assert_eq!(a_avvist_oppgave.type_, OppgaveType::AvvistUnder18);
-    assert_eq!(
-        a_avvist_oppgave.hendelse_logg.len(),
-        2,
-        "A's AvvistUnder18 skal ha Opprettet + FinnesAllerede"
+    let under_18_avvist_oppgave = hent_nyeste_oppgave(
+        UNDER_18_ARBEIDSSOEKER_ID,
+        OppgaveType::AvvistUnder18,
+        &mut tx,
+    )
+    .await?
+    .expect("Under 18 skal ha en AvvistUnder18-oppgave");
+    assert_eq!(under_18_avvist_oppgave.status, OppgaveStatus::Ubehandlet);
+    assert_eq!(under_18_avvist_oppgave.type_, OppgaveType::AvvistUnder18);
+    assert_hendelse_logg_inneholder(
+        &under_18_avvist_oppgave.hendelse_logg,
+        &[
+            HendelseLoggStatus::OppgaveOpprettet,
+            HendelseLoggStatus::OppgaveFinnesAllerede,
+        ],
     );
-    let statuser: Vec<_> = a_avvist_oppgave
-        .hendelse_logg
-        .iter()
-        .map(|h| &h.status)
-        .collect();
-    assert!(statuser.contains(&&HendelseLoggStatus::OppgaveOpprettet));
-    assert!(statuser.contains(&&HendelseLoggStatus::OppgaveFinnesAllerede));
 
-    let a_vurder = hent_nyeste_oppgave(100, OppgaveType::VurderOpphold, &mut tx)
-        .await?
-        .expect("A skal ha en VurderOpphold-oppgave uavhengig av AvvistUnder18");
-    assert_eq!(a_vurder.status, OppgaveStatus::Ubehandlet);
-    assert_eq!(a_vurder.type_, OppgaveType::VurderOpphold);
+    let under_18_vurder_opphold_oppgave = hent_nyeste_oppgave(
+        UNDER_18_ARBEIDSSOEKER_ID,
+        OppgaveType::VurderOpphold,
+        &mut tx,
+    )
+    .await?
+    .expect("Under 18 skal ha en VurderOpphold-oppgave uavhengig av AvvistUnder18");
+    assert_eq!(
+        under_18_vurder_opphold_oppgave.status,
+        OppgaveStatus::Ubehandlet
+    );
+    assert_eq!(
+        under_18_vurder_opphold_oppgave.type_,
+        OppgaveType::VurderOpphold
+    );
 
-    let b_avvist = hent_nyeste_oppgave(200, OppgaveType::AvvistUnder18, &mut tx).await?;
-    assert!(b_avvist.is_none(), "B skal ikke ha AvvistUnder18-oppgave");
-    let b_vurder = hent_nyeste_oppgave(200, OppgaveType::VurderOpphold, &mut tx).await?;
-    assert!(b_vurder.is_none(), "B skal ikke ha VurderOpphold-oppgave");
+    let over_18_avvist_oppgave = hent_nyeste_oppgave(
+        OVER_18_ARBEIDSSOEKER_ID,
+        OppgaveType::AvvistUnder18,
+        &mut tx,
+    )
+    .await?;
+    assert!(
+        over_18_avvist_oppgave.is_none(),
+        "Over 18 skal ikke ha AvvistUnder18-oppgave"
+    );
+    let over_18_vurder_opphold_oppgave = hent_nyeste_oppgave(
+        OVER_18_ARBEIDSSOEKER_ID,
+        OppgaveType::VurderOpphold,
+        &mut tx,
+    )
+    .await?;
+    assert!(
+        over_18_vurder_opphold_oppgave.is_none(),
+        "Over 18 skal ikke ha VurderOpphold-oppgave"
+    );
 
-    let c_avvist = hent_nyeste_oppgave(300, OppgaveType::AvvistUnder18, &mut tx)
-        .await?
-        .expect("C skal ha en Ignorert-oppgave for hendelse før vannskille");
-    assert_eq!(c_avvist.status, OppgaveStatus::Ignorert);
+    let historisk_under_18_oppgave = hent_nyeste_oppgave(
+        HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        OppgaveType::AvvistUnder18,
+        &mut tx,
+    )
+    .await?
+    .expect("Historisk under 18 skal ha en Ignorert-oppgave for hendelse før vannskille");
+    assert_eq!(historisk_under_18_oppgave.status, OppgaveStatus::Ignorert);
 
     Ok(())
 }
 
-fn lag_melding(json: &str, offset: i64) -> OwnedMessage {
+fn lag_melding(offset: i64, json: &str) -> OwnedMessage {
     OwnedMessage::new(
         Some(json.as_bytes().to_vec()),
         None,
@@ -137,4 +175,16 @@ fn lag_melding(json: &str, offset: i64) -> OwnedMessage {
         offset,
         Some(OwnedHeaders::new()),
     )
+}
+
+fn assert_hendelse_logg_inneholder(
+    hendelse_logg: &[HendelseLoggEntry],
+    forventede_statuser: &[HendelseLoggStatus],
+) {
+    let mut faktiske: Vec<HendelseLoggStatus> =
+        hendelse_logg.iter().map(|h| h.status.clone()).collect();
+    let mut forventede = forventede_statuser.to_vec();
+    faktiske.sort_by_key(|s| s.to_string());
+    forventede.sort_by_key(|s| s.to_string());
+    assert_eq!(faktiske, forventede);
 }
