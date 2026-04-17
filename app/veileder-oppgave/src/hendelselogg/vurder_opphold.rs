@@ -12,6 +12,7 @@ use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::{BrukerType, Opplysning};
+use paw_rust_base::env::{RuntimeEnv, runtime_env};
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
@@ -33,6 +34,15 @@ pub async fn opprett_vurder_opphold_oppgave(
             "Ignorerer startet hendelse — kriteriene for vurdering av opphold ikke oppfylt"
         );
         return Ok(());
+    }
+
+    // TODO: Midlertidig tripwire — fjernes etter helga :tm:
+    if runtime_env() == RuntimeEnv::ProdGcp {
+        panic!(
+            "Uventet startet hendelse som innfrir vurder_opphold oppgave kriteriene. HendelseId={}. \
+             Dette skal egentlig ikke skje. Consumer stoppet med vilje.",
+            startet_hendelse.hendelse_id
+        );
     }
 
     let arbeidssoeker_id = startet_hendelse.id;
