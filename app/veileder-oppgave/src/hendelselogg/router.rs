@@ -28,7 +28,7 @@ pub async fn process_hendelselogg_message(
             opprett_avvist_under_18_oppgave(hendelse_json, app_config, tx).await?;
         }
         interne_hendelser::STARTET_HENDELSE_TYPE => {
-            //opprett_vurder_opphold_oppgave(hendelse_json, tx).await?;
+            opprett_vurder_opphold_oppgave(hendelse_json, tx).await?;
         }
         _ => {}
     }

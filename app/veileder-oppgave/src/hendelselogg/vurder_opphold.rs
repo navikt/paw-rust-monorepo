@@ -191,7 +191,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Startet-flyt er midlertidig deaktivert i router.rs"]
     async fn test_startet_hendelse_oppretter_oppgave() -> Result<()> {
         let app_config = read_application_config()?;
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -276,7 +275,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Startet-flyt er midlertidig deaktivert i router.rs"]
     async fn test_duplikat_hendelse_gir_logg_entry() -> Result<()> {
         let app_config = read_application_config()?;
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -304,7 +302,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Startet-flyt er midlertidig deaktivert i router.rs"]
     async fn test_ny_registrering_etter_ferdigbehandlet_startet_oppgave() -> Result<()> {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
