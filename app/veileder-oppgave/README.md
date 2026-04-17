@@ -1,4 +1,4 @@
-# Avvist-til-oppgave
+# Veileder-oppgave
 
 Arbeidssøkere under 18 år avvises automatisk ved registrering. Appen lytter på slike avvisninger og oppretter oppgaver i [Oppgave API](https://github.com/navikt/oppgave) ([Swagger](https://oppgave.intern.dev.nav.no/)) så en NAV-veileder kan følge opp.
 
@@ -32,7 +32,7 @@ flowchart LR
     K2(["oppgavehandtering.oppgavehendelse-v1"])
   end
 
-  APP["avvist-til-oppgave"]
+  APP["veileder-oppgave"]
   DB[("PostgreSQL\noppgaver\noppgave_hendelse_logg\nhwm")]
   TEXAS["Texas\n(M2M-token)"]
   OPPGAVE["Oppgave API\nPOST /api/v1/oppgaver"]
@@ -103,6 +103,6 @@ Appen krever Kafka og PostgreSQL. Start avhengigheter med docker-compose:
 ```sh
 docker compose -f docker/postgres/docker-compose.yaml up -d
 docker compose -f docker/kafka/docker-compose.yaml up -d
-cargo run -p avvist-til-oppgave
+cargo run -p veileder-oppgave
 ```
 

@@ -45,7 +45,7 @@ This file holds all the dependencies for the workspace.
 ## app
 The app folder contains the applications. Applications are deployed to Nav kubernetes cluster, NAIS.
 
-### avvist-til-oppgave
+### veileder-oppgave
 Reads events from Kafka, stores data in Postgres, and creates tasks using a JSON API.
 
 ### kafka-topic-backup
