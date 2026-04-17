@@ -71,10 +71,10 @@ pub async fn opprett_vurder_opphold_oppgave(
 
 fn vurder_opphold(opplysninger: &HashSet<Opplysning>) -> bool {
     let utflyttet = opplysninger.contains(&Opplysning::IkkeBosatt);
-    let eu_eoes = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
+    let eu_eoes_statsborger = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
     let ikke_norsk_statsborger = !opplysninger.contains(&Opplysning::ErNorskStatsborger);
 
-    utflyttet && eu_eoes && ikke_norsk_statsborger
+    utflyttet && eu_eoes_statsborger && ikke_norsk_statsborger
 }
 
 #[cfg(test)]
