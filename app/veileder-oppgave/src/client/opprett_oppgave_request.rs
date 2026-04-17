@@ -69,16 +69,17 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
     }
 }
 
-const BESKRIVELSE_VURDER_OPPHOLD: &str =
-    "Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.";
-const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
+const BESKRIVELSE_VURDER_OPPHOLD: &str = r#"Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.
+
+Vi trenger bekreftelse på at personen tilfredstiller kravene for å være registrert arbeidssøker. Dersom vedkommende ikke har rett til dette, skal arbeidssøkerperioden avsluttes."#;
+const VURDER_HENVENDELSE: &str = "VURD_HENV";
 
 fn vurder_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
-        oppgavetype: VURDER_KONSEKVENS_FOR_YTELSE.to_string(),
+        oppgavetype: VURDER_HENVENDELSE.to_string(),
         tema: GENERELL.to_string(),
         beskrivelse: Some(BESKRIVELSE_VURDER_OPPHOLD.to_string()),
         ..Default::default()
@@ -144,7 +145,7 @@ mod tests {
         let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOpphold);
 
         assert_eq!(request.personident, Some(identitetsnummer));
-        assert_eq!(request.oppgavetype, VURDER_KONSEKVENS_FOR_YTELSE);
+        assert_eq!(request.oppgavetype, VURDER_HENVENDELSE);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
         assert!(request.beskrivelse.is_some());

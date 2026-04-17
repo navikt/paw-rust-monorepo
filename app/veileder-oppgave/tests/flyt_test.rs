@@ -9,18 +9,6 @@ use chrono::Utc;
 use paw_test::setup_test_db::setup_test_db;
 use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 
-fn lag_melding(json: &str, offset: i64) -> OwnedMessage {
-    OwnedMessage::new(
-        Some(json.as_bytes().to_vec()),
-        None,
-        "test-topic".to_string(),
-        Timestamp::CreateTime(Utc::now().timestamp_micros()),
-        0,
-        offset,
-        Some(OwnedHeaders::new()),
-    )
-}
-
 #[tokio::test]
 async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     let (pg_pool, _db_container) = setup_test_db().await?;
@@ -80,6 +68,18 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     assert_eq!(c_avvist.status, OppgaveStatus::Ignorert);
 
     Ok(())
+}
+
+fn lag_melding(json: &str, offset: i64) -> OwnedMessage {
+    OwnedMessage::new(
+        Some(json.as_bytes().to_vec()),
+        None,
+        "test-topic".to_string(),
+        Timestamp::CreateTime(Utc::now().timestamp_micros()),
+        0,
+        offset,
+        Some(OwnedHeaders::new()),
+    )
 }
 
 //language=JSON
