@@ -107,9 +107,9 @@ mod tests {
 
     fn startet_vurder_opphold_builder() -> StartetBuilder {
         StartetBuilder {
-            id: ARB_ID,
+            arbeidssoeker_id: ARB_ID,
             identitetsnummer: IDENT.to_string(),
-            bruker_id: IDENT.to_string(),
+            utfoert_av_id: IDENT.to_string(),
             opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
             ..Default::default()
         }
@@ -148,9 +148,9 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let hendelse: Startet = StartetBuilder {
-            id: ARB_ID,
+            arbeidssoeker_id: ARB_ID,
             identitetsnummer: IDENT.to_string(),
-            bruker_id: IDENT.to_string(),
+            utfoert_av_id: IDENT.to_string(),
             opplysninger: HashSet::from([
                 Opplysning::BosattEtterFregLoven,
                 Opplysning::ErOver18Aar,
@@ -183,13 +183,13 @@ mod tests {
         let hendelser: [Startet; 2] = [
             StartetBuilder {
                 bruker_type: BrukerType::Veileder,
-                bruker_id: "Z991459".to_string(),
+                utfoert_av_id: "Z991459".to_string(),
                 ..startet_vurder_opphold_builder()
             }
             .build(),
             StartetBuilder {
                 bruker_type: BrukerType::System,
-                bruker_id: "Testsystem".to_string(),
+                utfoert_av_id: "Testsystem".to_string(),
                 ..startet_vurder_opphold_builder()
             }
             .build(),

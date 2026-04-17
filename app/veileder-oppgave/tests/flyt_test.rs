@@ -29,7 +29,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
 
     let a_avvist: Avvist = AvvistBuilder {
-        id: 100,
+        arbeidssoeker_id: 100,
         identitetsnummer: "10000000001".to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -37,35 +37,35 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     }
     .build();
     let a_startet_vurder_opphold: Startet = StartetBuilder {
-        id: 100,
+        arbeidssoeker_id: 100,
         identitetsnummer: "10000000001".to_string(),
-        bruker_id: "10000000001".to_string(),
+        utfoert_av_id: "10000000001".to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([IkkeBosatt, ErEuEoesStatsborger]),
         ..Default::default()
     }
     .build();
     let b_startet_uten_relevante_opplysninger: Startet = StartetBuilder {
-        id: 200,
+        arbeidssoeker_id: 200,
         identitetsnummer: "20000000002".to_string(),
-        bruker_id: "20000000002".to_string(),
+        utfoert_av_id: "20000000002".to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([BosattEtterFregLoven, ErOver18Aar]),
         ..Default::default()
     }
     .build();
     let b_avvist_fra_veileder: Avvist = AvvistBuilder {
-        id: 200,
+        arbeidssoeker_id: 200,
         identitetsnummer: "20000000002".to_string(),
         tidspunkt: etter_vannskille,
         bruker_type: BrukerType::Veileder,
-        bruker_id: "Z991459".to_string(),
+        utfoert_av_id: "Z991459".to_string(),
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
         ..Default::default()
     }
     .build();
     let c_avvist_under_18_foer_vannskille: Avvist = AvvistBuilder {
-        id: 300,
+        arbeidssoeker_id: 300,
         identitetsnummer: "30000000003".to_string(),
         tidspunkt: foer_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),

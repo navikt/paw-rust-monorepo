@@ -22,11 +22,11 @@ fn default_ident() -> String {
 
 pub struct StartetBuilder {
     pub hendelse_id: Uuid,
-    pub id: i64,
+    pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
     pub bruker_type: BrukerType,
-    pub bruker_id: String,
+    pub utfoert_av_id: String,
     pub opplysninger: HashSet<Opplysning>,
 }
 
@@ -35,11 +35,11 @@ impl Default for StartetBuilder {
         let ident = default_ident();
         Self {
             hendelse_id: Uuid::new_v4(),
-            id: 1,
+            arbeidssoeker_id: 1,
             identitetsnummer: ident.clone(),
             tidspunkt: default_tidspunkt(),
             bruker_type: BrukerType::Sluttbruker,
-            bruker_id: ident,
+            utfoert_av_id: ident,
             opplysninger: HashSet::new(),
         }
     }
@@ -49,13 +49,13 @@ impl StartetBuilder {
     pub fn build(&self) -> Startet {
         Startet {
             hendelse_id: self.hendelse_id,
-            id: self.id,
+            id: self.arbeidssoeker_id,
             identitetsnummer: self.identitetsnummer.clone(),
             metadata: Metadata {
                 tidspunkt: self.tidspunkt,
                 utfoert_av: Bruker {
                     bruker_type: self.bruker_type.clone(),
-                    id: self.bruker_id.clone(),
+                    id: self.utfoert_av_id.clone(),
                     sikkerhetsnivaa: None,
                 },
                 kilde: "Testkilde".to_string(),
@@ -87,11 +87,11 @@ impl AsJson for Avvist {
 
 pub struct AvvistBuilder {
     pub hendelse_id: Uuid,
-    pub id: i64,
+    pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
     pub bruker_type: BrukerType,
-    pub bruker_id: String,
+    pub utfoert_av_id: String,
     pub opplysninger: HashSet<Opplysning>,
     pub handling: Option<String>,
 }
@@ -101,11 +101,11 @@ impl Default for AvvistBuilder {
         let ident = default_ident();
         Self {
             hendelse_id: Uuid::new_v4(),
-            id: 1,
+            arbeidssoeker_id: 1,
             identitetsnummer: ident.clone(),
             tidspunkt: default_tidspunkt(),
             bruker_type: BrukerType::System,
-            bruker_id: "Testsystem".to_string(),
+            utfoert_av_id: "Testsystem".to_string(),
             opplysninger: HashSet::new(),
             handling: None,
         }
@@ -116,13 +116,13 @@ impl AvvistBuilder {
     pub fn build(&self) -> Avvist {
         Avvist {
             hendelse_id: self.hendelse_id,
-            id: self.id,
+            id: self.arbeidssoeker_id,
             identitetsnummer: self.identitetsnummer.clone(),
             metadata: Metadata {
                 tidspunkt: self.tidspunkt,
                 utfoert_av: Bruker {
                     bruker_type: self.bruker_type.clone(),
-                    id: self.bruker_id.clone(),
+                    id: self.utfoert_av_id.clone(),
                     sikkerhetsnivaa: None,
                 },
                 kilde: "Testkilde".to_string(),

@@ -121,7 +121,7 @@ mod tests {
 
     fn avvist_under_18_builder() -> AvvistBuilder {
         AvvistBuilder {
-            id: ARB_ID,
+            arbeidssoeker_id: ARB_ID,
             identitetsnummer: IDENT.to_string(),
             opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
             ..Default::default()
@@ -151,9 +151,9 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let irrelevant_hendelse: Startet = StartetBuilder {
-            id: 99,
+            arbeidssoeker_id: 99,
             identitetsnummer: "99999999999".to_string(),
-            bruker_id: "99999999999".to_string(),
+            utfoert_av_id: "99999999999".to_string(),
             opplysninger: HashSet::from([BosattEtterFregLoven, Opplysning::ErOver18Aar]),
             ..Default::default()
         }
@@ -161,7 +161,7 @@ mod tests {
 
         let avvist_fra_veileder: Avvist = AvvistBuilder {
             bruker_type: BrukerType::Veileder,
-            bruker_id: "Z991459".to_string(),
+            utfoert_av_id: "Z991459".to_string(),
             ..avvist_under_18_builder()
         }
         .build();
