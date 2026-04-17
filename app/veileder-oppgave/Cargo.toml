@@ -6,6 +6,10 @@ edition.workspace = true
 [features]
 nais = ["paw_app_config/nais"]
 
+[lib]
+name = "veileder_oppgave"
+path = "src/lib.rs"
+
 [dependencies]
 interne_hendelser = { path = "../../domain/interne_hendelser" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
