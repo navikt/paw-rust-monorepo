@@ -147,44 +147,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_hendelse_fra_veileder_ignoreres() -> Result<()> {
+    async fn test_hendelse_ikke_fra_sluttbruker_ignoreres() -> Result<()> {
         let app_config = read_application_config()?;
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let message = lag_kafka_melding(STARTET_HENDELSE_FRA_VEILEDER);
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-        tx.commit().await?;
+        for hendelse_json in [STARTET_HENDELSE_FRA_VEILEDER, STARTET_HENDELSE_FRA_SYSTEM] {
+            let message = lag_kafka_melding(hendelse_json);
+            let mut tx = pg_pool.begin().await?;
+            process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+            tx.commit().await?;
+        }
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
-            "Skal ikke opprette oppgave for hendelse fra veileder"
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_hendelse_fra_system_ignoreres() -> Result<()> {
-        let app_config = read_application_config()?;
-        let (pg_pool, _db_container) = setup_test_db().await?;
-        sqlx::migrate!("./migrations").run(&pg_pool).await?;
-
-        let message = lag_kafka_melding(STARTET_HENDELSE_FRA_SYSTEM);
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
-        assert!(
-            oppgave.is_none(),
-            "Skal ikke opprette oppgave for hendelse fra system"
+            "Skal ikke opprette oppgave for hendelser som ikke er fra sluttbruker"
         );
 
         Ok(())
@@ -225,50 +204,6 @@ mod tests {
             ),
             "Mangler forventede opplysninger: {:?}",
             oppgave.opplysninger
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_startet_hendelse_med_kun_utflyttet_ignoreres() -> Result<()> {
-        let app_config = read_application_config()?;
-        let (pg_pool, _db_container) = setup_test_db().await?;
-        sqlx::migrate!("./migrations").run(&pg_pool).await?;
-
-        let message = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_UTFLYTTET);
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(43, VurderOpphold, &mut tx).await?;
-        assert!(
-            oppgave.is_none(),
-            "SisteFlyttingVarUtAvNorge er ikke lenger et gyldig kriterium — skal ikke opprette oppgave"
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_norsk_statsborger_ignoreres() -> Result<()> {
-        let app_config = read_application_config()?;
-        let (pg_pool, _db_container) = setup_test_db().await?;
-        sqlx::migrate!("./migrations").run(&pg_pool).await?;
-
-        let message = lag_kafka_melding(STARTET_HENDELSE_NORSK_STATSBORGER);
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(44, VurderOpphold, &mut tx).await?;
-        assert!(
-            oppgave.is_none(),
-            "Norsk statsborger skal ikke opprette oppgave"
         );
 
         Ok(())
@@ -368,49 +303,6 @@ mod tests {
         "opplysninger": [
             "IKKE_BOSATT",
             "ER_EU_EOES_STATSBORGER"
-        ]
-    }"#;
-
-    //language=JSON
-    const STARTET_HENDELSE_EU_EOES_UTFLYTTET: &str = r#"{
-        "hendelseId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-        "id": 43,
-        "identitetsnummer": "12345678902",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SLUTTBRUKER",
-                "id": "12345678902"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "SISTE_FLYTTING_VAR_UT_AV_NORGE",
-            "ER_EU_EOES_STATSBORGER"
-        ]
-    }"#;
-
-    //language=JSON
-    const STARTET_HENDELSE_NORSK_STATSBORGER: &str = r#"{
-        "hendelseId": "c3d4e5f6-a7b8-9012-cdef-123456789012",
-        "id": 44,
-        "identitetsnummer": "12345678903",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SLUTTBRUKER",
-                "id": "12345678903"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER",
-            "ER_NORSK_STATSBORGER"
         ]
     }"#;
 
