@@ -9,11 +9,11 @@ use std::future::Future;
 use std::pin::Pin;
 use tracing::Instrument;
 
-pub struct AvvistTilOppgaveMessageProcessor {
+pub struct VeilederOppgaveMessageProcessor {
     pub app_config: ApplicationConfig,
 }
 
-impl MessageProcessor for AvvistTilOppgaveMessageProcessor {
+impl MessageProcessor for VeilederOppgaveMessageProcessor {
     fn process_message<'a>(
         &'a self,
         tx: &'a mut Transaction<'_, Postgres>,

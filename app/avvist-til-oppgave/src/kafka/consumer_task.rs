@@ -1,4 +1,4 @@
-use crate::message_processor::AvvistTilOppgaveMessageProcessor;
+use crate::message_processor::VeilederOppgaveMessageProcessor;
 use anyhow::Result;
 use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
 use paw_rdkafka_hwm::hwm_rebalance_handler::HwmRebalanceHandler;
@@ -11,7 +11,7 @@ pub fn spawn_kafka_consumer_task(
     consumer: StreamConsumer<HwmRebalanceHandler>,
     hwm_version: i16,
     pg_pool: PgPool,
-    processor: AvvistTilOppgaveMessageProcessor,
+    processor: VeilederOppgaveMessageProcessor,
 ) -> JoinHandle<Result<()>> {
     tokio::spawn(async move {
         loop {

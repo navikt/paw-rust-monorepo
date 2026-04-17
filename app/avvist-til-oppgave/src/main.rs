@@ -15,7 +15,7 @@ use crate::config::read_kafka_config;
 use crate::config::read_oppgave_client_config;
 use crate::config::read_token_client_config;
 use crate::kafka::consumer_task::spawn_kafka_consumer_task;
-use crate::message_processor::AvvistTilOppgaveMessageProcessor;
+use crate::message_processor::VeilederOppgaveMessageProcessor;
 use crate::metrics::metrics_task::spawn_metrics_task;
 use crate::opprett_oppgave_task::spawn_oppgave_task;
 use anyhow::Result;
@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
         consumer,
         hwm_version,
         pg_pool.clone(),
-        AvvistTilOppgaveMessageProcessor {
+        VeilederOppgaveMessageProcessor {
             app_config: app_config.clone(),
         },
     );
