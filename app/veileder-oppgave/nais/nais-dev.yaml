@@ -68,4 +68,5 @@ spec:
       - type: POSTGRES_18
         tier: db-f1-micro
         databases:
+          # Het opprinnelig avvist-til-oppgave. Ikke verdt en DB-migrering å rename.
           - name: avvisttiloppgave

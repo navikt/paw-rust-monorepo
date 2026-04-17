@@ -66,4 +66,5 @@ spec:
       - type: POSTGRES_18
         tier: db-custom-1-3840
         databases:
+          # Het opprinnelig avvist-til-oppgave. Ikke verdt en DB-migrering å rename.
           - name: avvisttiloppgave
