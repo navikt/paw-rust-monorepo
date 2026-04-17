@@ -37,19 +37,6 @@ pub struct OpprettOppgaveRequest {
     pub uuid: Option<String>,
 }
 
-const BESKRIVELSE_AVVIST_UNDER_18: &str = r#"Personen har forsøkt å registrere seg som arbeidssøker, men er sperret fra å gjøre dette da personen er under 18 år.
-For mindreårige arbeidssøkere trengs det samtykke fra begge foresatte for å kunne registrere seg.
-Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøker, øvrige tiltak og tjenester".
-
-Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
-
-const BESKRIVELSE_VURDER_OPPHOLD: &str =
-    "Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.";
-
-const KONTAKT_BRUKER: &str = "KONT_BRUK";
-const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
-const GENERELL: &str = "GEN";
-
 pub fn create_oppgave_request(
     identitetsnummer: String,
     oppgave_type: &OppgaveType,
@@ -59,6 +46,16 @@ pub fn create_oppgave_request(
         OppgaveType::VurderOpphold => vurder_opphold(identitetsnummer),
     }
 }
+
+const GENERELL: &str = "GEN";
+
+const BESKRIVELSE_AVVIST_UNDER_18: &str = r#"Personen har forsøkt å registrere seg som arbeidssøker, men er sperret fra å gjøre dette da personen er under 18 år.
+For mindreårige arbeidssøkere trengs det samtykke fra begge foresatte for å kunne registrere seg.
+Se "Samtykke fra foresatte til unge under 18 år - registrering som arbeidssøker, øvrige tiltak og tjenester".
+
+Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell registrering i modia."#;
+
+const KONTAKT_BRUKER: &str = "KONT_BRUK";
 
 fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
@@ -71,6 +68,10 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
         ..Default::default()
     }
 }
+
+const BESKRIVELSE_VURDER_OPPHOLD: &str =
+    "Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.";
+const VURDER_KONSEKVENS_FOR_YTELSE: &str = "VUR_KONS_YTE";
 
 fn vurder_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
