@@ -102,22 +102,8 @@ mod tests {
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
     use std::collections::HashSet;
 
-    const ARB_ID: i64 = 42;
-    const IDENT: &str = "12345678901";
-
-    fn startet_vurder_opphold_builder() -> StartetBuilder {
-        StartetBuilder {
-            arbeidssoeker_id: ARB_ID,
-            identitetsnummer: IDENT.to_string(),
-            utfoert_av_id: IDENT.to_string(),
-            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
-            ..Default::default()
-        }
-    }
-
-    fn startet_vurder_opphold() -> Startet {
-        startet_vurder_opphold_builder().build()
-    }
+    const ARBEIDSSOEKER_ID: i64 = 42;
+    const IDENTITETSNUMMER: &str = "12345678901";
 
     #[test]
     fn test_er_vurder_opphold() {
@@ -148,9 +134,9 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let hendelse: Startet = StartetBuilder {
-            arbeidssoeker_id: ARB_ID,
-            identitetsnummer: IDENT.to_string(),
-            utfoert_av_id: IDENT.to_string(),
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            utfoert_av_id: IDENTITETSNUMMER.to_string(),
             opplysninger: HashSet::from([
                 Opplysning::BosattEtterFregLoven,
                 Opplysning::ErOver18Aar,
@@ -165,7 +151,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for irrelevante hendelser"
@@ -180,20 +166,26 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let hendelser: [Startet; 2] = [
-            StartetBuilder {
-                bruker_type: BrukerType::Veileder,
-                utfoert_av_id: "Z991459".to_string(),
-                ..startet_vurder_opphold_builder()
-            }
-            .build(),
-            StartetBuilder {
-                bruker_type: BrukerType::System,
-                utfoert_av_id: "Testsystem".to_string(),
-                ..startet_vurder_opphold_builder()
-            }
-            .build(),
-        ];
+        let fra_veileder: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            bruker_type: BrukerType::Veileder,
+            utfoert_av_id: "Z991459".to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+        .build();
+        let fra_system: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            bruker_type: BrukerType::System,
+            utfoert_av_id: "Testsystem".to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+        .build();
+
+        let hendelser: [Startet; 2] = [fra_veileder, fra_system];
 
         for hendelse in hendelser {
             let message = lag_kafka_melding(&hendelse.as_json());
@@ -203,7 +195,7 @@ mod tests {
         }
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelser som ikke er fra sluttbruker"
@@ -218,20 +210,28 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
+        let hendelse: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            utfoert_av_id: IDENTITETSNUMMER.to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&hendelse.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.type_, VurderOpphold);
         assert_eq!(oppgave.status, Ubehandlet);
-        assert_eq!(oppgave.identitetsnummer, IDENT);
-        assert_eq!(oppgave.arbeidssoeker_id, ARB_ID);
+        assert_eq!(oppgave.identitetsnummer, IDENTITETSNUMMER);
+        assert_eq!(oppgave.arbeidssoeker_id, ARBEIDSSOEKER_ID);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -259,14 +259,25 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         for _ in 0..2 {
-            let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
+            let hendelse: Startet = StartetBuilder {
+                arbeidssoeker_id: ARBEIDSSOEKER_ID,
+                identitetsnummer: IDENTITETSNUMMER.to_string(),
+                utfoert_av_id: IDENTITETSNUMMER.to_string(),
+                opplysninger: HashSet::from([
+                    Opplysning::IkkeBosatt,
+                    Opplysning::ErEuEoesStatsborger,
+                ]),
+                ..Default::default()
+            }
+            .build();
+            let message = lag_kafka_melding(&hendelse.as_json());
             let mut tx = pg_pool.begin().await?;
             process_hendelselogg_message(&message, &app_config, &mut tx).await?;
             tx.commit().await?;
         }
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
@@ -282,25 +293,41 @@ mod tests {
 
         let app_config = read_application_config()?;
 
-        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
+        let hendelse_1: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            utfoert_av_id: IDENTITETSNUMMER.to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&hendelse_1.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         bytt_oppgave_status(oppgave.id, Ubehandlet, Ferdigbehandlet, &mut tx).await?;
         tx.commit().await?;
 
-        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
+        let hendelse_2: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            utfoert_av_id: IDENTITETSNUMMER.to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&hendelse_2.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ubehandlet);

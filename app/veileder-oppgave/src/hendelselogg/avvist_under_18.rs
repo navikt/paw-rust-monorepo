@@ -119,19 +119,6 @@ mod tests {
     const ARB_ID: i64 = 12345;
     const IDENT: &str = "12345678901";
 
-    fn avvist_under_18_builder() -> AvvistBuilder {
-        AvvistBuilder {
-            arbeidssoeker_id: ARB_ID,
-            identitetsnummer: IDENT.to_string(),
-            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
-            ..Default::default()
-        }
-    }
-
-    fn avvist_under_18() -> Avvist {
-        avvist_under_18_builder().build()
-    }
-
     fn lag_kafka_melding(json: &str, offset: i64) -> OwnedMessage {
         OwnedMessage::new(
             Some(json.as_bytes().to_vec()),
@@ -160,17 +147,28 @@ mod tests {
         .build();
 
         let avvist_fra_veileder: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
             bruker_type: BrukerType::Veileder,
             utfoert_av_id: "Z991459".to_string(),
-            ..avvist_under_18_builder()
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+
+        let avvist_under_18: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
         }
         .build();
 
         let meldinger = [
             lag_kafka_melding(&irrelevant_hendelse.as_json(), 0),
             lag_kafka_melding(&avvist_fra_veileder.as_json(), 1),
-            lag_kafka_melding(&avvist_under_18().as_json(), 2),
-            lag_kafka_melding(&avvist_under_18().as_json(), 3),
+            lag_kafka_melding(&avvist_under_18.as_json(), 2),
+            lag_kafka_melding(&avvist_under_18.as_json(), 3),
         ];
 
         for msg in meldinger {
@@ -210,7 +208,14 @@ mod tests {
         app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
             rfc3339("2030-01-01T00:00:00Z").into();
 
-        let message = lag_kafka_melding(&avvist_under_18().as_json(), 0);
+        let avvist: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&avvist.as_json(), 0);
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
@@ -239,7 +244,14 @@ mod tests {
         app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
             rfc3339("2030-01-01T00:00:00Z").into();
 
-        let message = lag_kafka_melding(&avvist_under_18().as_json(), 0);
+        let avvist: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&avvist.as_json(), 0);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -252,7 +264,14 @@ mod tests {
         tx.commit().await?;
 
         let app_config = read_application_config()?;
-        let message_2 = lag_kafka_melding(&avvist_under_18().as_json(), 1);
+        let avvist_2: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+        let message_2 = lag_kafka_melding(&avvist_2.as_json(), 1);
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
@@ -278,7 +297,14 @@ mod tests {
 
         let app_config = read_application_config()?;
 
-        let message_1 = lag_kafka_melding(&avvist_under_18().as_json(), 0);
+        let avvist_1: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+        let message_1 = lag_kafka_melding(&avvist_1.as_json(), 0);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -296,7 +322,14 @@ mod tests {
         .await?;
         tx.commit().await?;
 
-        let message_2 = lag_kafka_melding(&avvist_under_18().as_json(), 1);
+        let avvist_2: Avvist = AvvistBuilder {
+            arbeidssoeker_id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
+        let message_2 = lag_kafka_melding(&avvist_2.as_json(), 1);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
