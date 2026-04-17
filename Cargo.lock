@@ -2361,6 +2361,10 @@ name = "paw_test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
+ "interne_hendelser",
+ "serde",
+ "serde_json",
  "sqlx",
  "testcontainers",
  "testcontainers-modules",
