@@ -16,7 +16,6 @@ paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 paw_rdkafka = { path = "../../lib/paw_rdkafka" }
 texas_client = { path = "../../lib/texas_client" }
-axum = { workspace = true }
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
