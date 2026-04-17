@@ -95,41 +95,49 @@ mod tests {
     use crate::hendelselogg::process_hendelselogg_message;
     use anyhow::Result;
     use chrono::Utc;
+    use interne_hendelser::Startet;
     use paw_rust_base::convenience_functions::contains_all;
+    use paw_test::hendelse_builder::{AsJson, StartetBuilder};
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
     use std::collections::HashSet;
 
+    const ARB_ID: i64 = 42;
+    const IDENT: &str = "12345678901";
+
+    fn startet_vurder_opphold_builder() -> StartetBuilder {
+        StartetBuilder {
+            id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            bruker_id: IDENT.to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
+        }
+    }
+
+    fn startet_vurder_opphold() -> Startet {
+        startet_vurder_opphold_builder().build()
+    }
+
     #[test]
     fn test_er_vurder_opphold() {
-        // Har IkkeBosatt + ErEuEoesStatsborger, ikke norsk
         assert!(vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger
         ])));
-
-        // Mangler EU/EØS
         assert!(!vurder_opphold(&HashSet::from([Opplysning::IkkeBosatt])));
-
-        // Er norsk statsborger — skal filtreres bort
         assert!(!vurder_opphold(&HashSet::from([
             Opplysning::IkkeBosatt,
             Opplysning::ErEuEoesStatsborger,
             Opplysning::ErNorskStatsborger
         ])));
-
-        // Kun EU/EØS, mangler ikke-bosatt
         assert!(!vurder_opphold(&HashSet::from([
             Opplysning::ErEuEoesStatsborger
         ])));
-
-        // SisteFlyttingVarUtAvNorge er ikke et gyldig kriterium
         assert!(!vurder_opphold(&HashSet::from([
             Opplysning::SisteFlyttingVarUtAvNorge,
             Opplysning::ErEuEoesStatsborger
         ])));
-
-        // Tomt
         assert!(!vurder_opphold(&HashSet::new()));
     }
 
@@ -139,15 +147,25 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        // Startet hendelse uten relevante opplysninger
-        let message = lag_kafka_melding(STARTET_HENDELSE_UTEN_RELEVANTE_OPPLYSNINGER);
+        let hendelse: Startet = StartetBuilder {
+            id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            bruker_id: IDENT.to_string(),
+            opplysninger: HashSet::from([
+                Opplysning::BosattEtterFregLoven,
+                Opplysning::ErOver18Aar,
+            ]),
+            ..Default::default()
+        }
+        .build();
+        let message = lag_kafka_melding(&hendelse.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for irrelevante hendelser"
@@ -162,15 +180,30 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        for hendelse_json in [STARTET_HENDELSE_FRA_VEILEDER, STARTET_HENDELSE_FRA_SYSTEM] {
-            let message = lag_kafka_melding(hendelse_json);
+        let hendelser: [Startet; 2] = [
+            StartetBuilder {
+                bruker_type: BrukerType::Veileder,
+                bruker_id: "Z991459".to_string(),
+                ..startet_vurder_opphold_builder()
+            }
+            .build(),
+            StartetBuilder {
+                bruker_type: BrukerType::System,
+                bruker_id: "Testsystem".to_string(),
+                ..startet_vurder_opphold_builder()
+            }
+            .build(),
+        ];
+
+        for hendelse in hendelser {
+            let message = lag_kafka_melding(&hendelse.as_json());
             let mut tx = pg_pool.begin().await?;
             process_hendelselogg_message(&message, &app_config, &mut tx).await?;
             tx.commit().await?;
         }
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx).await?;
         assert!(
             oppgave.is_none(),
             "Skal ikke opprette oppgave for hendelser som ikke er fra sluttbruker"
@@ -185,20 +218,20 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let message = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
+        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.type_, VurderOpphold);
         assert_eq!(oppgave.status, Ubehandlet);
-        assert_eq!(oppgave.identitetsnummer, "12345678901");
-        assert_eq!(oppgave.arbeidssoeker_id, 42);
+        assert_eq!(oppgave.identitetsnummer, IDENT);
+        assert_eq!(oppgave.arbeidssoeker_id, ARB_ID);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -225,19 +258,15 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let message_1 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
-        let message_2 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
+        for _ in 0..2 {
+            let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
+            let mut tx = pg_pool.begin().await?;
+            process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+            tx.commit().await?;
+        }
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
@@ -253,25 +282,25 @@ mod tests {
 
         let app_config = read_application_config()?;
 
-        let message_1 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
+        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         bytt_oppgave_status(oppgave.id, Ubehandlet, Ferdigbehandlet, &mut tx).await?;
         tx.commit().await?;
 
-        let message_2 = lag_kafka_melding(STARTET_HENDELSE_EU_EOES_IKKE_BOSATT);
+        let message = lag_kafka_melding(&startet_vurder_opphold().as_json());
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(42, VurderOpphold, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARB_ID, VurderOpphold, &mut tx)
             .await?
             .unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
@@ -294,88 +323,4 @@ mod tests {
             Some(OwnedHeaders::new()),
         )
     }
-
-    //language=JSON
-    const STARTET_HENDELSE_EU_EOES_IKKE_BOSATT: &str = r#"{
-        "hendelseId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "id": 42,
-        "identitetsnummer": "12345678901",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SLUTTBRUKER",
-                "id": "12345678901"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER"
-        ]
-    }"#;
-
-    //language=JSON
-    const STARTET_HENDELSE_FRA_VEILEDER: &str = r#"{
-        "hendelseId": "d4e5f6a7-b8c9-0123-defa-234567890123",
-        "id": 42,
-        "identitetsnummer": "12345678901",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "VEILEDER",
-                "id": "Z991459"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER"
-        ]
-    }"#;
-
-    //language=JSON
-    const STARTET_HENDELSE_FRA_SYSTEM: &str = r#"{
-        "hendelseId": "d4e5f6a7-b8c9-0123-defa-234567890124",
-        "id": 42,
-        "identitetsnummer": "12345678901",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SYSTEM",
-                "id": "testsystem"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "IKKE_BOSATT",
-            "ER_EU_EOES_STATSBORGER"
-        ]
-    }"#;
-
-    //language=JSON
-    const STARTET_HENDELSE_UTEN_RELEVANTE_OPPLYSNINGER: &str = r#"{
-        "hendelseId": "e5f6a7b8-c9d0-1234-efab-345678901234",
-        "id": 42,
-        "identitetsnummer": "12345678901",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SLUTTBRUKER",
-                "id": "12345678901"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": [
-            "BOSATT_ETTER_FREG_LOVEN",
-            "ER_OVER_18_AAR"
-        ]
-    }"#;
 }

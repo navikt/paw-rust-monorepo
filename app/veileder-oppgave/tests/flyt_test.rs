@@ -1,13 +1,20 @@
+use anyhow::Result;
+use chrono::Utc;
+use interne_hendelser::vo::BrukerType;
+use interne_hendelser::vo::Opplysning::{
+    BosattEtterFregLoven, ErEuEoesStatsborger, ErOver18Aar, ErUnder18Aar, IkkeBosatt,
+};
+use interne_hendelser::{Avvist, Startet};
+use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
+use paw_test::setup_test_db::setup_test_db;
+use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
+use std::collections::HashSet;
 use veileder_oppgave::config::read_application_config;
 use veileder_oppgave::db::oppgave_functions::hent_nyeste_oppgave;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
 use veileder_oppgave::domain::oppgave_type::OppgaveType;
 use veileder_oppgave::hendelselogg::process_hendelselogg_message;
-use anyhow::Result;
-use chrono::Utc;
-use paw_test::setup_test_db::setup_test_db;
-use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 
 #[tokio::test]
 async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
@@ -16,17 +23,63 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     let mut app_config = read_application_config()?;
     app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
-        chrono::DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")?
-            .with_timezone(&Utc)
-            .into();
+        rfc3339("2021-01-01T00:00:00Z").into();
+
+    let etter_vannskille = rfc3339("2024-09-01T00:00:00Z");
+    let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
+
+    let a_avvist: Avvist = AvvistBuilder {
+        id: 100,
+        identitetsnummer: "10000000001".to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
+    let a_startet_vurder_opphold: Startet = StartetBuilder {
+        id: 100,
+        identitetsnummer: "10000000001".to_string(),
+        bruker_id: "10000000001".to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([IkkeBosatt, ErEuEoesStatsborger]),
+        ..Default::default()
+    }
+    .build();
+    let b_startet_uten_relevante_opplysninger: Startet = StartetBuilder {
+        id: 200,
+        identitetsnummer: "20000000002".to_string(),
+        bruker_id: "20000000002".to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([BosattEtterFregLoven, ErOver18Aar]),
+        ..Default::default()
+    }
+    .build();
+    let b_avvist_fra_veileder: Avvist = AvvistBuilder {
+        id: 200,
+        identitetsnummer: "20000000002".to_string(),
+        tidspunkt: etter_vannskille,
+        bruker_type: BrukerType::Veileder,
+        bruker_id: "Z991459".to_string(),
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
+    let c_avvist_under_18_foer_vannskille: Avvist = AvvistBuilder {
+        id: 300,
+        identitetsnummer: "30000000003".to_string(),
+        tidspunkt: foer_vannskille,
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
 
     let meldinger = [
-        lag_melding(A_AVVIST_UNDER_18, 0),
-        lag_melding(A_STARTET_VURDER_OPPHOLD, 1),
-        lag_melding(A_AVVIST_UNDER_18, 2),
-        lag_melding(B_STARTET_UTEN_RELEVANTE_OPPLYSNINGER, 3),
-        lag_melding(B_AVVIST_FRA_VEILEDER, 4),
-        lag_melding(C_AVVIST_UNDER_18_FOER_VANNSKILLE, 5),
+        lag_melding(&a_avvist.as_json(), 0),
+        lag_melding(&a_startet_vurder_opphold.as_json(), 1),
+        lag_melding(&a_avvist.as_json(), 2),
+        lag_melding(&b_startet_uten_relevante_opplysninger.as_json(), 3),
+        lag_melding(&b_avvist_fra_veileder.as_json(), 4),
+        lag_melding(&c_avvist_under_18_foer_vannskille.as_json(), 5),
     ];
 
     for melding in &meldinger {
@@ -37,17 +90,21 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     let mut tx = pg_pool.begin().await?;
 
-    let a_avvist = hent_nyeste_oppgave(100, OppgaveType::AvvistUnder18, &mut tx)
+    let a_avvist_oppgave = hent_nyeste_oppgave(100, OppgaveType::AvvistUnder18, &mut tx)
         .await?
         .expect("A skal ha en AvvistUnder18-oppgave");
-    assert_eq!(a_avvist.status, OppgaveStatus::Ubehandlet);
-    assert_eq!(a_avvist.type_, OppgaveType::AvvistUnder18);
+    assert_eq!(a_avvist_oppgave.status, OppgaveStatus::Ubehandlet);
+    assert_eq!(a_avvist_oppgave.type_, OppgaveType::AvvistUnder18);
     assert_eq!(
-        a_avvist.hendelse_logg.len(),
+        a_avvist_oppgave.hendelse_logg.len(),
         2,
         "A's AvvistUnder18 skal ha Opprettet + FinnesAllerede"
     );
-    let statuser: Vec<_> = a_avvist.hendelse_logg.iter().map(|h| &h.status).collect();
+    let statuser: Vec<_> = a_avvist_oppgave
+        .hendelse_logg
+        .iter()
+        .map(|h| &h.status)
+        .collect();
     assert!(statuser.contains(&&HendelseLoggStatus::OppgaveOpprettet));
     assert!(statuser.contains(&&HendelseLoggStatus::OppgaveFinnesAllerede));
 
@@ -81,78 +138,3 @@ fn lag_melding(json: &str, offset: i64) -> OwnedMessage {
         Some(OwnedHeaders::new()),
     )
 }
-
-//language=JSON
-const A_AVVIST_UNDER_18: &str = r#"{
-    "hendelseId": "11111111-1111-1111-1111-111111111111",
-    "id": 100,
-    "identitetsnummer": "10000000001",
-    "metadata": {
-        "tidspunkt": 1725148800.000000000,
-        "utfoertAv": { "type": "SYSTEM", "id": "Testsystem" },
-        "kilde": "Testkilde",
-        "aarsak": "Er under 18 år"
-    },
-    "hendelseType": "intern.v1.avvist",
-    "opplysninger": ["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
-}"#;
-
-//language=JSON
-const A_STARTET_VURDER_OPPHOLD: &str = r#"{
-    "hendelseId": "22222222-2222-2222-2222-222222222222",
-    "id": 100,
-    "identitetsnummer": "10000000001",
-    "metadata": {
-        "tidspunkt": 1725148800.000000000,
-        "utfoertAv": { "type": "SLUTTBRUKER", "id": "10000000001" },
-        "kilde": "Testkilde",
-        "aarsak": "Test"
-    },
-    "hendelseType": "intern.v1.startet",
-    "opplysninger": ["IKKE_BOSATT", "ER_EU_EOES_STATSBORGER"]
-}"#;
-
-//language=JSON
-const B_STARTET_UTEN_RELEVANTE_OPPLYSNINGER: &str = r#"{
-    "hendelseId": "33333333-3333-3333-3333-333333333333",
-    "id": 200,
-    "identitetsnummer": "20000000002",
-    "metadata": {
-        "tidspunkt": 1725148800.000000000,
-        "utfoertAv": { "type": "SLUTTBRUKER", "id": "20000000002" },
-        "kilde": "Testkilde",
-        "aarsak": "Test"
-    },
-    "hendelseType": "intern.v1.startet",
-    "opplysninger": ["BOSATT_ETTER_FREG_LOVEN", "ER_OVER_18_AAR"]
-}"#;
-
-//language=JSON
-const B_AVVIST_FRA_VEILEDER: &str = r#"{
-    "hendelseId": "44444444-4444-4444-4444-444444444444",
-    "id": 200,
-    "identitetsnummer": "20000000002",
-    "metadata": {
-        "tidspunkt": 1725148800.000000000,
-        "utfoertAv": { "type": "VEILEDER", "id": "Z991459" },
-        "kilde": "Testkilde",
-        "aarsak": "Er under 18 år"
-    },
-    "hendelseType": "intern.v1.avvist",
-    "opplysninger": ["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
-}"#;
-
-//language=JSON
-const C_AVVIST_UNDER_18_FOER_VANNSKILLE: &str = r#"{
-    "hendelseId": "55555555-5555-5555-5555-555555555555",
-    "id": 300,
-    "identitetsnummer": "30000000003",
-    "metadata": {
-        "tidspunkt": 1577836800.000000000,
-        "utfoertAv": { "type": "SYSTEM", "id": "Testsystem" },
-        "kilde": "Testkilde",
-        "aarsak": "Er under 18 år"
-    },
-    "hendelseType": "intern.v1.avvist",
-    "opplysninger": ["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
-}"#;

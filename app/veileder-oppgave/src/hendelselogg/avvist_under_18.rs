@@ -94,6 +94,7 @@ pub async fn opprett_avvist_under_18_oppgave(
     Ok(())
 }
 
+
 #[cfg(test)]
 mod tests {
     use crate::config::read_application_config;
@@ -103,95 +104,83 @@ mod tests {
     use crate::domain::oppgave_type::OppgaveType;
     use crate::hendelselogg::process_hendelselogg_message;
     use OppgaveStatus::Ferdigbehandlet;
+    use Opplysning::BosattEtterFregLoven;
     use anyhow::Result;
     use chrono::Utc;
-    use interne_hendelser::vo::Opplysning;
     use interne_hendelser::vo::Opplysning::ErUnder18Aar;
+    use interne_hendelser::vo::{BrukerType, Opplysning};
+    use interne_hendelser::{Avvist, Startet};
     use paw_rust_base::convenience_functions::contains_all;
+    use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
     use paw_test::setup_test_db::setup_test_db;
     use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
-    use Opplysning::BosattEtterFregLoven;
+    use std::collections::HashSet;
+
+    const ARB_ID: i64 = 12345;
+    const IDENT: &str = "12345678901";
+
+    fn avvist_under_18_builder() -> AvvistBuilder {
+        AvvistBuilder {
+            id: ARB_ID,
+            identitetsnummer: IDENT.to_string(),
+            opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+            ..Default::default()
+        }
+    }
+
+    fn avvist_under_18() -> Avvist {
+        avvist_under_18_builder().build()
+    }
+
+    fn lag_kafka_melding(json: &str, offset: i64) -> OwnedMessage {
+        OwnedMessage::new(
+            Some(json.as_bytes().to_vec()),
+            None,
+            "test-topic".to_string(),
+            Timestamp::CreateTime(Utc::now().timestamp_micros()),
+            0,
+            offset,
+            Some(OwnedHeaders::new()),
+        )
+    }
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
-        let test_data = TestData::default();
-        let start_hendelse = test_data.start_hendelse_string.as_bytes().to_vec();
-        let avvist_hendelse_1 = test_data.avvist_hendelse_string.as_bytes().to_vec();
-        let avvist_hendelse_2 = test_data.avvist_hendelse_string.as_bytes().to_vec();
-        let avvist_hendelse_fra_veileder = test_data
-            .avvist_hendelse_fra_veileder_string
-            .as_bytes()
-            .to_vec();
-
         let app_config = read_application_config()?;
-        let topic = "test-topic";
-
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let irrelevant_message = OwnedMessage::new(
-            Some(start_hendelse),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            0,
-            Some(OwnedHeaders::new()),
-        );
+        let irrelevant_hendelse: Startet = StartetBuilder {
+            id: 99,
+            identitetsnummer: "99999999999".to_string(),
+            bruker_id: "99999999999".to_string(),
+            opplysninger: HashSet::from([BosattEtterFregLoven, Opplysning::ErOver18Aar]),
+            ..Default::default()
+        }
+        .build();
 
-        let avvist_fra_veileder_message = OwnedMessage::new(
-            Some(avvist_hendelse_fra_veileder),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            1,
-            Some(OwnedHeaders::new()),
-        );
+        let avvist_fra_veileder: Avvist = AvvistBuilder {
+            bruker_type: BrukerType::Veileder,
+            bruker_id: "Z991459".to_string(),
+            ..avvist_under_18_builder()
+        }
+        .build();
 
-        let avvist_message_1 = OwnedMessage::new(
-            Some(avvist_hendelse_1),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            2,
-            Some(OwnedHeaders::new()),
-        );
+        let meldinger = [
+            lag_kafka_melding(&irrelevant_hendelse.as_json(), 0),
+            lag_kafka_melding(&avvist_fra_veileder.as_json(), 1),
+            lag_kafka_melding(&avvist_under_18().as_json(), 2),
+            lag_kafka_melding(&avvist_under_18().as_json(), 3),
+        ];
 
-        let avvist_message_2 = OwnedMessage::new(
-            Some(avvist_hendelse_2),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            3,
-            Some(OwnedHeaders::new()),
-        );
-
-        // Skal ignorere irrelevante hendelser
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&irrelevant_message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        // Skal ignorere avvist hendelse fra veileder
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&avvist_fra_veileder_message, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        // Skal opprette oppgave for avvist hendelse
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&avvist_message_1, &app_config, &mut tx).await?;
-        tx.commit().await?;
-
-        // Duplikat melding skal kun føre til en entry i status logg
-        let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&avvist_message_2, &app_config, &mut tx).await?;
-        tx.commit().await?;
+        for msg in meldinger {
+            let mut tx = pg_pool.begin().await?;
+            process_hendelselogg_message(&msg, &app_config, &mut tx).await?;
+            tx.commit().await?;
+        }
 
         let mut tx = pg_pool.begin().await?;
-        let arbeidssoeker_id = 12345;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, &mut tx)
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .unwrap();
 
@@ -201,16 +190,13 @@ mod tests {
         assert!(
             contains_all(
                 &oppgave.opplysninger,
-                &[
-                    ErUnder18Aar.to_string(),
-                    BosattEtterFregLoven.to_string()
-                ]
+                &[ErUnder18Aar.to_string(), BosattEtterFregLoven.to_string()]
             ),
             "Mangler forventede opplysninger: {:?}",
             oppgave.opplysninger
         );
-        assert_eq!(oppgave.arbeidssoeker_id, arbeidssoeker_id);
-        assert_eq!(oppgave.identitetsnummer, "12345678901");
+        assert_eq!(oppgave.arbeidssoeker_id, ARB_ID);
+        assert_eq!(oppgave.identitetsnummer, IDENT);
 
         Ok(())
     }
@@ -222,27 +208,18 @@ mod tests {
 
         let mut app_config = read_application_config()?;
         app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
-            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")?
-                .with_timezone(&Utc)
-                .into();
+            rfc3339("2030-01-01T00:00:00Z").into();
 
-        let avvist_hendelse = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
-        let message = OwnedMessage::new(
-            Some(avvist_hendelse),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            0,
-            Some(OwnedHeaders::new()),
-        );
+        let message = lag_kafka_melding(&avvist_under_18().as_json(), 0);
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         assert_eq!(oppgave.hendelse_logg.len(), 1);
         assert_eq!(
@@ -260,48 +237,31 @@ mod tests {
 
         let mut app_config = read_application_config()?;
         app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt =
-            chrono::DateTime::parse_from_rfc3339("2030-01-01T00:00:00Z")?
-                .with_timezone(&Utc)
-                .into();
+            rfc3339("2030-01-01T00:00:00Z").into();
 
-        let avvist_hendelse = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
-        let message = OwnedMessage::new(
-            Some(avvist_hendelse),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            0,
-            Some(OwnedHeaders::new()),
-        );
-
+        let message = lag_kafka_melding(&avvist_under_18().as_json(), 0);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ignorert);
         tx.commit().await?;
 
         let app_config = read_application_config()?;
-        let avvist_hendelse_2 = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
-        let message_2 = OwnedMessage::new(
-            Some(avvist_hendelse_2),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            1,
-            Some(OwnedHeaders::new()),
-        );
+        let message_2 = lag_kafka_melding(&avvist_under_18().as_json(), 1);
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -317,29 +277,16 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let app_config = read_application_config()?;
-        let topic = "test-topic";
 
-        let avvist_hendelse_1 = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
-        let avvist_hendelse_2 = AVVIST_HENDELSE_JSON.as_bytes().to_vec();
-
-        let message_1 = OwnedMessage::new(
-            Some(avvist_hendelse_1),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            0,
-            Some(OwnedHeaders::new()),
-        );
-
-        // Opprett første oppgave
+        let message_1 = lag_kafka_melding(&avvist_under_18().as_json(), 0);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
         tx.commit().await?;
 
-        // Sett oppgaven til Ferdigbehandlet
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         bytt_oppgave_status(
             oppgave.id,
             OppgaveStatus::Ubehandlet,
@@ -349,24 +296,15 @@ mod tests {
         .await?;
         tx.commit().await?;
 
-        // Send ny avvist hendelse for samme arbeidssøker — skal opprette ny oppgave
-        let message_2 = OwnedMessage::new(
-            Some(avvist_hendelse_2),
-            None,
-            topic.to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            1,
-            Some(OwnedHeaders::new()),
-        );
-
+        let message_2 = lag_kafka_melding(&avvist_under_18().as_json(), 1);
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
 
-        // Verifiser at ny oppgave ble opprettet (hent_nyeste_oppgave henter den nyeste)
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(12345, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(ARB_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, OppgaveStatus::Ubehandlet);
         assert_eq!(
             oppgave.hendelse_logg[0].status,
@@ -375,83 +313,4 @@ mod tests {
 
         Ok(())
     }
-
-    pub struct TestData {
-        pub start_hendelse_string: &'static str,
-        pub avvist_hendelse_string: &'static str,
-        pub avvist_hendelse_fra_veileder_string: &'static str,
-    }
-
-    impl Default for TestData {
-        fn default() -> Self {
-            TestData {
-                start_hendelse_string: STARTET_HENDELSE,
-                avvist_hendelse_string: AVVIST_HENDELSE_JSON,
-                avvist_hendelse_fra_veileder_string: AVVIST_HENDELSE_FRA_VEILEDER_JSON,
-            }
-        }
-    }
-
-    //language=JSON
-    const STARTET_HENDELSE: &str = r#"{
-        "hendelseId": "00000000-0000-0000-0000-000000000001",
-        "id": 99,
-        "identitetsnummer": "99999999999",
-        "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-                "type": "SLUTTBRUKER",
-                "id": "99999999999"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Test"
-        },
-        "hendelseType": "intern.v1.startet",
-        "opplysninger": ["BOSATT_ETTER_FREG_LOVEN", "ER_OVER_18_AAR"]
-    }"#;
-
-    //language=JSON
-    const AVVIST_HENDELSE_JSON: &str = r#"
-        {
-          "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
-          "id": 12345,
-          "identitetsnummer": "12345678901",
-          "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-              "type": "SYSTEM",
-              "id": "Testsystem"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Er under 18 år"
-          },
-          "hendelseType": "intern.v1.avvist",
-          "opplysninger": [
-            "ER_UNDER_18_AAR",
-            "BOSATT_ETTER_FREG_LOVEN"
-          ]
-        }
-    "#;
-    //language=JSON
-    const AVVIST_HENDELSE_FRA_VEILEDER_JSON: &str = r#"
-        {
-          "hendelseId": "723d5d09-83c7-4f83-97fd-35f7c9c5c798",
-          "id": 12345,
-          "identitetsnummer": "12345678901",
-          "metadata": {
-            "tidspunkt": 1630404930.000000000,
-            "utfoertAv": {
-              "type": "VEILEDER",
-              "id": "Testsystem"
-            },
-            "kilde": "Testkilde",
-            "aarsak": "Er under 18 år"
-          },
-          "hendelseType": "intern.v1.avvist",
-          "opplysninger": [
-            "ER_UNDER_18_AAR",
-            "BOSATT_ETTER_FREG_LOVEN"
-          ]
-        }
-    "#;
 }
