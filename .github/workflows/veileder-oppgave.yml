@@ -1,15 +1,15 @@
-name: Avvist til oppgave - build and deploy
+name: Veileder oppgave - build and deploy
 on:
   push:
     branches:
       - main
     paths:
-      - 'app/avvist-til-oppgave/**'
+      - 'app/veileder-oppgave/**'
       - 'Cargo.lock'
       - 'lib/**'
       - 'Dockerfile'
 env:
-  APP_NAME: avvist-til-oppgave
+  APP_NAME: veileder-oppgave
 jobs:
   test:
     name: Test

@@ -15,7 +15,7 @@ members = [
     "lib/paw_test",
     "app/test-app",
     "app/kafka-topic-backup",
-    "app/avvist-til-oppgave",
+    "app/veileder-oppgave",
     "app/utgang",
 ]
 

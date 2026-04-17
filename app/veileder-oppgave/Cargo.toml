@@ -1,5 +1,5 @@
 [package]
-name = "avvist-til-oppgave"
+name = "veileder-oppgave"
 version = "0.1.0"
 edition.workspace = true
 
