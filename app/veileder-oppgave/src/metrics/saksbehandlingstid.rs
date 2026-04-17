@@ -217,18 +217,26 @@ mod tests {
             &mut tx,
         )
         .await?;
-        for tidspunkt in [opprettet_retry_forste, opprettet_retry_andre] {
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave_id_3,
-                    status: EksternOppgaveOpprettet.to_string(),
-                    melding: String::new(),
-                    tidspunkt,
-                },
-                &mut tx,
-            )
-            .await?;
-        }
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: oppgave_id_3,
+                status: EksternOppgaveOpprettet.to_string(),
+                melding: String::new(),
+                tidspunkt: opprettet_retry_forste,
+            },
+            &mut tx,
+        )
+        .await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: oppgave_id_3,
+                status: EksternOppgaveOpprettet.to_string(),
+                melding: String::new(),
+                tidspunkt: opprettet_retry_andre,
+            },
+            &mut tx,
+        )
+        .await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
                 oppgave_id: oppgave_id_3,

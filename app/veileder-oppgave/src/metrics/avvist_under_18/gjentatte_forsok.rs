@@ -81,18 +81,26 @@ mod tests {
             &mut tx,
         )
         .await?;
-        for _ in 0..2 {
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave_id_1,
-                    status: OppgaveFinnesAllerede.to_string(),
-                    melding: String::new(),
-                    tidspunkt: tidspunkt_etter_cutoff,
-                },
-                &mut tx,
-            )
-            .await?;
-        }
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: oppgave_id_1,
+                status: OppgaveFinnesAllerede.to_string(),
+                melding: String::new(),
+                tidspunkt: tidspunkt_etter_cutoff,
+            },
+            &mut tx,
+        )
+        .await?;
+        insert_oppgave_hendelse_logg(
+            &InsertOppgaveHendelseLoggRow {
+                oppgave_id: oppgave_id_1,
+                status: OppgaveFinnesAllerede.to_string(),
+                melding: String::new(),
+                tidspunkt: tidspunkt_etter_cutoff,
+            },
+            &mut tx,
+        )
+        .await?;
 
         // Person 2: null ekstra forsøk (AvvistUnder18)
         let oppgave_id_2 = insert_oppgave(

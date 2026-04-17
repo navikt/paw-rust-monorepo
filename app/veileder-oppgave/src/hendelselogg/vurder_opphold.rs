@@ -185,14 +185,15 @@ mod tests {
         }
         .build();
 
-        let hendelser: [Startet; 2] = [fra_veileder, fra_system];
+        let fra_veileder_message = lag_kafka_melding(&fra_veileder.as_json());
+        let mut tx = pg_pool.begin().await?;
+        process_hendelselogg_message(&fra_veileder_message, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
-        for hendelse in hendelser {
-            let message = lag_kafka_melding(&hendelse.as_json());
-            let mut tx = pg_pool.begin().await?;
-            process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-            tx.commit().await?;
-        }
+        let fra_system_message = lag_kafka_melding(&fra_system.as_json());
+        let mut tx = pg_pool.begin().await?;
+        process_hendelselogg_message(&fra_system_message, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx).await?;
@@ -258,23 +259,23 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        for _ in 0..2 {
-            let hendelse: Startet = StartetBuilder {
-                arbeidssoeker_id: ARBEIDSSOEKER_ID,
-                identitetsnummer: IDENTITETSNUMMER.to_string(),
-                utfoert_av_id: IDENTITETSNUMMER.to_string(),
-                opplysninger: HashSet::from([
-                    Opplysning::IkkeBosatt,
-                    Opplysning::ErEuEoesStatsborger,
-                ]),
-                ..Default::default()
-            }
-            .build();
-            let message = lag_kafka_melding(&hendelse.as_json());
-            let mut tx = pg_pool.begin().await?;
-            process_hendelselogg_message(&message, &app_config, &mut tx).await?;
-            tx.commit().await?;
+        let hendelse: Startet = StartetBuilder {
+            arbeidssoeker_id: ARBEIDSSOEKER_ID,
+            identitetsnummer: IDENTITETSNUMMER.to_string(),
+            utfoert_av_id: IDENTITETSNUMMER.to_string(),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
+            ..Default::default()
         }
+        .build();
+        let message = lag_kafka_melding(&hendelse.as_json());
+
+        let mut tx = pg_pool.begin().await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        tx.commit().await?;
+
+        let mut tx = pg_pool.begin().await?;
+        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
         let oppgave = hent_nyeste_oppgave(ARBEIDSSOEKER_ID, VurderOpphold, &mut tx)
