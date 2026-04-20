@@ -54,7 +54,7 @@ async fn kjør_processing_loop(
     }
 }
 
-async fn prosesser_ubehandlede_oppgaver(
+pub async fn prosesser_ubehandlede_oppgaver(
     fra_tidspunkt: DateTime<Utc>,
     batch_size: i64,
     oppgave_api_client: Arc<OppgaveApiClient>,
