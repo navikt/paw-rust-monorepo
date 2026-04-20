@@ -83,25 +83,12 @@ pub enum OppgaveApiError {
 mod tests {
     use super::*;
     use crate::client::opprett_oppgave_request::PrioritetV1;
+    use crate::test_utils::{MockTokenClient, test_client_config};
     use anyhow::Result;
-    use async_trait::async_trait;
     use chrono::Utc;
     use mockito::Server;
     use serde_json::json;
     use std::sync::Arc;
-    use texas_client::response::TokenResponse;
-
-    struct MockTokenClient;
-    #[async_trait]
-    impl M2MTokenClient for MockTokenClient {
-        async fn get_token(&self, _target: String) -> Result<TokenResponse> {
-            Ok(TokenResponse {
-                access_token: "dummy-token".to_string(),
-                expires_in: 3600,
-                token_type: "Bearer".to_string(),
-            })
-        }
-    }
 
     #[tokio::test]
     async fn test_opprett_oppgave_vellykket() {
@@ -129,7 +116,7 @@ mod tests {
             .await;
 
         let token_client = Arc::new(MockTokenClient);
-        let config = OppgaveClientConfig::test_config(server.url());
+        let config = test_client_config(server.url());
         let client = OppgaveApiClient::new(config, token_client);
 
         let request = OpprettOppgaveRequest {
@@ -146,14 +133,5 @@ mod tests {
         assert_eq!(oppgave.tildelt_enhetsnr, "4863");
 
         oppgave_mock_api.assert_async().await;
-    }
-
-    impl OppgaveClientConfig {
-        pub fn test_config(base_url: String) -> Self {
-            Self {
-                base_url: base_url.into(),
-                scope: "test-scope".to_string().into(),
-            }
-        }
     }
 }

@@ -182,21 +182,18 @@ fn warning_ved_gjentatte_feil(oppgave: &Oppgave) {
 mod tests {
     use super::*;
     use crate::client::oppgave_client::OPPGAVER_PATH;
-    use crate::config::OppgaveClientConfig;
     use crate::db::oppgave_functions::{
         hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, insert_oppgave,
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use crate::domain::oppgave_type::OppgaveType;
-    use async_trait::async_trait;
+    use crate::test_utils::{MockTokenClient, test_client_config};
     use mockito::{Matcher, Server};
     use paw_test::setup_test_db::setup_test_db;
     use serde_json::json;
     use std::sync::Arc;
     use std::time::Duration;
-    use texas_client::response::TokenResponse;
-    use texas_client::token_client::M2MTokenClient;
     use tokio::time::sleep;
 
     #[tokio::test]
@@ -241,7 +238,7 @@ mod tests {
             .await;
 
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            OppgaveClientConfig::test_config(server.url()),
+            test_client_config(server.url()),
             Arc::new(MockTokenClient),
         ));
 
@@ -342,7 +339,7 @@ mod tests {
     async fn prosesser_tom_batch() -> Result<()> {
         let server = Server::new_async().await;
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            OppgaveClientConfig::test_config(server.url()),
+            test_client_config(server.url()),
             Arc::new(MockTokenClient),
         ));
         let (pg_pool, _db_container) = setup_test_db().await?;
@@ -371,7 +368,7 @@ mod tests {
             .await;
 
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            OppgaveClientConfig::test_config(server.url()),
+            test_client_config(server.url()),
             Arc::new(MockTokenClient),
         ));
 
@@ -430,17 +427,5 @@ mod tests {
         oppgave_mock.assert_async().await;
 
         Ok(())
-    }
-
-    struct MockTokenClient;
-    #[async_trait]
-    impl M2MTokenClient for MockTokenClient {
-        async fn get_token(&self, _target: String) -> Result<TokenResponse> {
-            Ok(TokenResponse {
-                access_token: "dummy-token".to_string(),
-                expires_in: 3600,
-                token_type: "Bearer".to_string(),
-            })
-        }
     }
 }

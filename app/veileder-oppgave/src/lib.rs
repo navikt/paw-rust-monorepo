@@ -8,3 +8,6 @@ pub mod opprett_oppgave_task;
 pub mod process_oppgavehendelse_message;
 
 mod metrics;
+
+#[cfg(test)]
+mod test_utils;

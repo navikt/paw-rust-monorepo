@@ -9,6 +9,9 @@ mod metrics;
 mod opprett_oppgave_task;
 mod process_oppgavehendelse_message;
 
+#[cfg(test)]
+mod test_utils;
+
 use crate::config::read_application_config;
 use crate::config::read_database_config;
 use crate::config::read_kafka_config;

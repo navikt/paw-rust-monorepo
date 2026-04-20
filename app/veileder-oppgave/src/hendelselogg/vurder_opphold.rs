@@ -93,13 +93,12 @@ mod tests {
     use crate::config::read_application_config;
     use crate::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
     use crate::hendelselogg::process_hendelselogg_message;
+    use crate::test_utils::lag_kafka_melding;
     use anyhow::Result;
-    use chrono::Utc;
     use interne_hendelser::Startet;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::hendelse_builder::{AsJson, StartetBuilder};
     use paw_test::setup_test_db::setup_test_db;
-    use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
     use std::collections::HashSet;
 
     const ARBEIDSSOEKER_ID: i64 = 42;
@@ -144,7 +143,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&hendelse.as_json());
+        let message = lag_kafka_melding(0, &hendelse.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
@@ -185,12 +184,12 @@ mod tests {
         }
         .build();
 
-        let fra_veileder_message = lag_kafka_melding(&fra_veileder.as_json());
+        let fra_veileder_message = lag_kafka_melding(0, &fra_veileder.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&fra_veileder_message, &app_config, &mut tx).await?;
         tx.commit().await?;
 
-        let fra_system_message = lag_kafka_melding(&fra_system.as_json());
+        let fra_system_message = lag_kafka_melding(0, &fra_system.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&fra_system_message, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -219,7 +218,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&hendelse.as_json());
+        let message = lag_kafka_melding(0, &hendelse.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
@@ -267,7 +266,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&hendelse.as_json());
+        let message = lag_kafka_melding(0, &hendelse.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
@@ -302,7 +301,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&hendelse_1.as_json());
+        let message = lag_kafka_melding(0, &hendelse_1.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -322,7 +321,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&hendelse_2.as_json());
+        let message = lag_kafka_melding(0, &hendelse_2.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -338,17 +337,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    fn lag_kafka_melding(json: &str) -> OwnedMessage {
-        OwnedMessage::new(
-            Some(json.as_bytes().to_vec()),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            0,
-            Some(OwnedHeaders::new()),
-        )
     }
 }

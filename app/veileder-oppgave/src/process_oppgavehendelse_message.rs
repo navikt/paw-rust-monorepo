@@ -109,10 +109,10 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use crate::domain::oppgave_type::OppgaveType;
+    use crate::test_utils::lag_kafka_melding;
     use anyhow::Result;
     use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
-    use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
     use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 
     const FRA_TIDSPUNKT: DateTime<Utc> = DateTime::UNIX_EPOCH;
@@ -124,7 +124,7 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let ugyldig_message = lag_kafka_melding(b"dette er ikke json".to_vec());
+        let ugyldig_message = lag_kafka_melding(1, "dette er ikke json");
         let mut tx = pg_pool.begin().await?;
         assert!(
             oppdater_ferdigstilte_oppgaver(&ugyldig_message, FRA_TIDSPUNKT, &mut tx)
@@ -133,7 +133,7 @@ mod tests {
         );
         tx.commit().await?;
 
-        let irrelevant_message = lag_kafka_melding(OPPGAVE_OPPRETTET_JSON.as_bytes().to_vec());
+        let irrelevant_message = lag_kafka_melding(1, OPPGAVE_OPPRETTET_JSON);
         let mut tx = pg_pool.begin().await?;
         assert!(
             oppdater_ferdigstilte_oppgaver(&irrelevant_message, FRA_TIDSPUNKT, &mut tx)
@@ -142,7 +142,7 @@ mod tests {
         );
         tx.commit().await?;
 
-        let ukjent_message = lag_kafka_melding(OPPGAVE_FERDIGSTILT_JSON.as_bytes().to_vec());
+        let ukjent_message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
         let mut tx = pg_pool.begin().await?;
         assert!(
             oppdater_ferdigstilte_oppgaver(&ukjent_message, FRA_TIDSPUNKT, &mut tx)
@@ -174,7 +174,7 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let message = lag_kafka_melding(OPPGAVE_FERDIGSTILT_JSON.as_bytes().to_vec());
+        let message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
         let mut tx = pg_pool.begin().await?;
         oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
@@ -195,7 +195,7 @@ mod tests {
         tx.commit().await?;
 
         // Duplikat ferdigstilling skal ikke legge til ny hendelseslogg
-        let message = lag_kafka_melding(OPPGAVE_FERDIGSTILT_JSON.as_bytes().to_vec());
+        let message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
         let mut tx = pg_pool.begin().await?;
         oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
@@ -229,7 +229,7 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let message = lag_kafka_melding(OPPGAVE_FEILREGISTRERT_JSON.as_bytes().to_vec());
+        let message = lag_kafka_melding(1, OPPGAVE_FEILREGISTRERT_JSON);
         let mut tx = pg_pool.begin().await?;
         oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
@@ -249,18 +249,6 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    fn lag_kafka_melding(payload: Vec<u8>) -> OwnedMessage {
-        OwnedMessage::new(
-            Some(payload),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            1,
-            Some(OwnedHeaders::new()),
-        )
     }
 
     //language=JSON

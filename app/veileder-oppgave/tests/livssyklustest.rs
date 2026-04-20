@@ -63,8 +63,8 @@ async fn test_livssyklus_happy_path() -> Result<()> {
 
     let avvist_under_18_ekstern_id: i64 = 700_001;
     let vurder_opphold_ekstern_id: i64 = 700_002;
-    test_context.send_hendelselogg(&avvist_under_18.as_json(), 0).await?;
-    test_context.send_hendelselogg(&startet_vurder_opphold.as_json(), 1).await?;
+    test_context.send_hendelselogg(0, &avvist_under_18.as_json()).await?;
+    test_context.send_hendelselogg(1, &startet_vurder_opphold.as_json()).await?;
 
     test_context.assert_oppgave_status(
         UNDER_18_ARBEIDSSOEKER_ID,
@@ -136,7 +136,7 @@ async fn test_livssyklus_happy_path() -> Result<()> {
 
 #[tokio::test]
 async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
-    let ctx = TestContext::ny().await?;
+    let test_context = TestContext::ny().await?;
 
     let etter_vannskille = rfc3339("2024-09-01T00:00:00Z");
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
@@ -195,17 +195,17 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         (5, historisk_under_18_avvist.as_json()),
     ];
     for (offset, json) in &meldinger {
-        ctx.send_hendelselogg(json, *offset).await?;
+        test_context.send_hendelselogg(*offset, json).await?;
     }
 
-    ctx
+    test_context
         .assert_oppgave_status(
             UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
         .await?;
-    ctx
+    test_context
         .assert_hendelse_logg(
             UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
@@ -216,7 +216,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         )
         .await?;
 
-    ctx
+    test_context
         .assert_oppgave_status(
             UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::VurderOpphold,
@@ -224,7 +224,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         )
         .await?;
 
-    let mut tx = ctx.pg_pool.begin().await?;
+    let mut tx = test_context.pg_pool.begin().await?;
     assert!(
         hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, &mut tx)
             .await?
@@ -239,7 +239,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     );
     tx.commit().await?;
 
-    ctx
+    test_context
         .assert_oppgave_status(
             HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
@@ -282,7 +282,7 @@ impl TestContext {
         })
     }
 
-    async fn send_hendelselogg(&self, json: &str, offset: i64) -> Result<()> {
+    async fn send_hendelselogg(&self, offset: i64, json: &str) -> Result<()> {
         let melding = lag_melding(offset, json);
         let mut tx = self.pg_pool.begin().await?;
         process_hendelselogg_message(&melding, &self.app_config, &mut tx).await?;

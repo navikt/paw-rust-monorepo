@@ -103,33 +103,20 @@ mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
     use crate::hendelselogg::process_hendelselogg_message;
+    use crate::test_utils::lag_kafka_melding;
     use OppgaveStatus::Ferdigbehandlet;
     use Opplysning::BosattEtterFregLoven;
     use anyhow::Result;
-    use chrono::Utc;
     use interne_hendelser::vo::Opplysning::ErUnder18Aar;
     use interne_hendelser::vo::{BrukerType, Opplysning};
     use interne_hendelser::{Avvist, Startet};
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
     use paw_test::setup_test_db::setup_test_db;
-    use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
     use std::collections::HashSet;
 
     const ARB_ID: i64 = 12345;
     const IDENT: &str = "12345678901";
-
-    fn lag_kafka_melding(json: &str, offset: i64) -> OwnedMessage {
-        OwnedMessage::new(
-            Some(json.as_bytes().to_vec()),
-            None,
-            "test-topic".to_string(),
-            Timestamp::CreateTime(Utc::now().timestamp_micros()),
-            0,
-            offset,
-            Some(OwnedHeaders::new()),
-        )
-    }
 
     #[tokio::test]
     async fn test_process_hendelse() -> Result<()> {
@@ -165,10 +152,10 @@ mod tests {
         .build();
 
         let meldinger = [
-            lag_kafka_melding(&irrelevant_hendelse.as_json(), 0),
-            lag_kafka_melding(&avvist_fra_veileder.as_json(), 1),
-            lag_kafka_melding(&avvist_under_18.as_json(), 2),
-            lag_kafka_melding(&avvist_under_18.as_json(), 3),
+            lag_kafka_melding(0, &irrelevant_hendelse.as_json()),
+            lag_kafka_melding(1, &avvist_fra_veileder.as_json()),
+            lag_kafka_melding(2, &avvist_under_18.as_json()),
+            lag_kafka_melding(3, &avvist_under_18.as_json()),
         ];
 
         for msg in meldinger {
@@ -215,7 +202,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&avvist.as_json(), 0);
+        let message = lag_kafka_melding(0, &avvist.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
@@ -251,7 +238,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(&avvist.as_json(), 0);
+        let message = lag_kafka_melding(0, &avvist.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -271,7 +258,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_2 = lag_kafka_melding(&avvist_2.as_json(), 1);
+        let message_2 = lag_kafka_melding(1, &avvist_2.as_json());
 
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
@@ -304,7 +291,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_1 = lag_kafka_melding(&avvist_1.as_json(), 0);
+        let message_1 = lag_kafka_melding(0, &avvist_1.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
         tx.commit().await?;
@@ -329,7 +316,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_2 = lag_kafka_melding(&avvist_2.as_json(), 1);
+        let message_2 = lag_kafka_melding(1, &avvist_2.as_json());
         let mut tx = pg_pool.begin().await?;
         process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
         tx.commit().await?;
