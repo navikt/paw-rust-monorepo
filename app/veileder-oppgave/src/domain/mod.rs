@@ -4,3 +4,4 @@ pub mod oppgave;
 pub mod hendelse_logg_entry;
 pub mod hendelse_logg_status;
 pub mod oppgave_hendelse;
+pub mod kriterier;
