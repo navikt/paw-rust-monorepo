@@ -6,28 +6,19 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
-use OppgaveType::VurderOpphold;
 use chrono::Utc;
 use interne_hendelser::Startet;
-use interne_hendelser::vo::{BrukerType, Opplysning};
-use paw_rust_base::env::{RuntimeEnv, runtime_env};
+use paw_rust_base::env::{runtime_env, RuntimeEnv};
 use sqlx::{Postgres, Transaction};
-use std::collections::HashSet;
+use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
+use OppgaveType::VurderOpphold;
+use crate::domain::kriterier::vurder_opphold;
 
 pub async fn opprett_vurder_opphold_oppgave(
     startet_hendelse: &Startet,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    if startet_hendelse.metadata.utfoert_av.bruker_type != BrukerType::Sluttbruker {
-        tracing::info!("Ignorerer startet-hendelse fordi den ikke er innsendt av sluttbruker");
-        return Ok(());
-    }
-
-    if !vurder_opphold(&startet_hendelse.opplysninger) {
-        tracing::info!(
-            "Ignorerer startet hendelse — kriteriene for vurdering av opphold ikke oppfylt"
-        );
+    if !vurder_opphold::KRITERIER.oppfylt_av(startet_hendelse) {
         return Ok(());
     }
 
@@ -74,22 +65,15 @@ pub async fn opprett_vurder_opphold_oppgave(
     Ok(())
 }
 
-fn vurder_opphold(opplysninger: &HashSet<Opplysning>) -> bool {
-    let utflyttet = opplysninger.contains(&Opplysning::IkkeBosatt);
-    let eu_eoes_statsborger = opplysninger.contains(&Opplysning::ErEuEoesStatsborger);
-    let ikke_norsk_statsborger = !opplysninger.contains(&Opplysning::ErNorskStatsborger);
-
-    utflyttet && eu_eoes_statsborger && ikke_norsk_statsborger
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::read_application_config;
     use crate::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
     use crate::hendelselogg::process_hendelselogg_message;
-    
+
     use anyhow::Result;
+    use interne_hendelser::vo::{BrukerType, Opplysning};
     use interne_hendelser::Startet;
     use paw_rust_base::convenience_functions::contains_all;
     use paw_test::hendelse_builder::{AsJson, StartetBuilder};
@@ -98,28 +82,6 @@ mod tests {
 
     const ARBEIDSSOEKER_ID: i64 = 42;
     const IDENTITETSNUMMER: &str = "12345678901";
-
-    #[test]
-    fn test_er_vurder_opphold() {
-        assert!(vurder_opphold(&HashSet::from([
-            Opplysning::IkkeBosatt,
-            Opplysning::ErEuEoesStatsborger
-        ])));
-        assert!(!vurder_opphold(&HashSet::from([Opplysning::IkkeBosatt])));
-        assert!(!vurder_opphold(&HashSet::from([
-            Opplysning::IkkeBosatt,
-            Opplysning::ErEuEoesStatsborger,
-            Opplysning::ErNorskStatsborger
-        ])));
-        assert!(!vurder_opphold(&HashSet::from([
-            Opplysning::ErEuEoesStatsborger
-        ])));
-        assert!(!vurder_opphold(&HashSet::from([
-            Opplysning::SisteFlyttingVarUtAvNorge,
-            Opplysning::ErEuEoesStatsborger
-        ])));
-        assert!(!vurder_opphold(&HashSet::new()));
-    }
 
     #[tokio::test]
     async fn test_irrelevante_hendelser_ignoreres() -> Result<()> {

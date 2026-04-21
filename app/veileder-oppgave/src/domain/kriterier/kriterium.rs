@@ -18,7 +18,7 @@ impl<H: Hendelse + 'static> Kriterier<H> {
         Self { kriterier }
     }
 
-    pub fn sjekk(&self, hendelse: &H) -> bool {
+    pub fn oppfylt_av(&self, hendelse: &H) -> bool {
         self.kriterier.iter().all(|kriterium| {
             let oppfylt = (kriterium.sjekk)(hendelse);
             if !oppfylt {
@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn alle_oppfylt_gir_true() {
-        assert!(TO_KRITERIER.sjekk(
+        assert!(TO_KRITERIER.oppfylt_av(
             &AvvistBuilder {
                 arbeidssoeker_id: 42,
                 ..Default::default()
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn ett_kriterium_ikke_oppfylt_gir_false() {
-        assert!(!TO_KRITERIER.sjekk(
+        assert!(!TO_KRITERIER.oppfylt_av(
             &AvvistBuilder {
                 arbeidssoeker_id: 99,
                 ..Default::default()

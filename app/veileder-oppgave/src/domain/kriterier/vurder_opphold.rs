@@ -35,7 +35,7 @@ mod tests {
             ..Default::default()
         }
             .build();
-        assert!(KRITERIER.sjekk(&hendelse));
+        assert!(KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -45,7 +45,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -55,7 +55,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -65,7 +65,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -88,7 +88,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -101,7 +101,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -115,7 +115,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -139,6 +139,6 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.sjekk(&hendelse));
+        assert!(!KRITERIER.oppfylt_av(&hendelse));
     }
 }

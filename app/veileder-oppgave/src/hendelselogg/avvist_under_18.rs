@@ -5,28 +5,23 @@ use crate::db::oppgave_functions::{
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+use crate::domain::kriterier::avvist_under_18;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use OppgaveStatus::{Ferdigbehandlet, Ignorert};
-use Opplysning::ErUnder18Aar;
 use chrono::Utc;
 use interne_hendelser::Avvist;
-use interne_hendelser::vo::{BrukerType, Opplysning};
 use sqlx::{Postgres, Transaction};
+use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 
 pub async fn opprett_avvist_under_18_oppgave(
     avvist_hendelse: &Avvist,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let opprett_avvist_under_18_oppgaver_fra_tidspunkt = *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
+    let opprett_avvist_under_18_oppgaver_fra_tidspunkt =
+        *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
 
-    if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
-        tracing::info!("Ignorerer hendelse fordi den er innsendt av veileder");
-        return Ok(());
-    }
-
-    if !avvist_hendelse.opplysninger.contains(&ErUnder18Aar) {
+    if !avvist_under_18::KRITERIER.oppfylt_av(avvist_hendelse) {
         return Ok(());
     }
 
@@ -89,7 +84,6 @@ pub async fn opprett_avvist_under_18_oppgave(
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::config::read_application_config;
@@ -98,17 +92,17 @@ mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
     use crate::hendelselogg::process_hendelselogg_message;
-    
-    use OppgaveStatus::Ferdigbehandlet;
-    use Opplysning::BosattEtterFregLoven;
+
     use anyhow::Result;
     use interne_hendelser::vo::Opplysning::ErUnder18Aar;
     use interne_hendelser::vo::{BrukerType, Opplysning};
     use interne_hendelser::{Avvist, Startet};
     use paw_rust_base::convenience_functions::contains_all;
-    use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
+    use paw_test::hendelse_builder::{rfc3339, AsJson, AvvistBuilder, StartetBuilder};
     use paw_test::setup_test_db::setup_test_db;
     use std::collections::HashSet;
+    use OppgaveStatus::Ferdigbehandlet;
+    use Opplysning::BosattEtterFregLoven;
 
     const ARB_ID: i64 = 12345;
     const IDENT: &str = "12345678901";
