@@ -28,7 +28,7 @@ impl Regelmotor {
         }
     }
 
-    pub fn evaluer(&self, person: &Person) -> Result<GrunnlagForGodkjenning> {
+    pub fn evaluer(&self, person: &Person) -> Result<Vec<GrunnlagForGodkjenning>> {
         let fakta = self.utlede_fakta.utlede_fakta(person)?;
         match self.regelsett.evaluer(&fakta) {
             Ok(grunnlag) => Ok(grunnlag),
@@ -122,7 +122,7 @@ mod tests {
         match regler_inngang.evaluer(&person) {
             Ok(grunnlag) => assert_eq!(
                 grunnlag,
-                GrunnlagForGodkjenning {
+                vec![GrunnlagForGodkjenning {
                     regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
                     opplysninger: vec![
                         ErOver18Aar,
@@ -134,7 +134,7 @@ mod tests {
                         HarGyldigOppholdstillatelse,
                         IngenFlytteInformasjon
                     ],
-                }
+                }]
             ),
             Err(error) => panic!("Forventet grunnlag for godkjenning, fikk: {:?}", error),
         }
