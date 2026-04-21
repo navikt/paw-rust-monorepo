@@ -22,13 +22,19 @@ impl MessageProcessor for VeilederOppgaveMessageProcessor {
         Box::pin(
             async move {
                 let topic = msg.topic();
+                let payload = msg.payload().unwrap_or(&[]);
                 let hendelseslogg_topic = &self.app_config.topic_hendelseslogg;
                 let oppgavehendelse_topic = &self.app_config.topic_oppgavehendelse;
 
                 if topic == hendelseslogg_topic.as_str() {
-                    process_hendelselogg_message(msg, &self.app_config, tx).await?;
+                    process_hendelselogg_message(payload, &self.app_config, tx).await?;
                 } else if topic == oppgavehendelse_topic.as_str() {
-                    oppdater_ferdigstilte_oppgaver(msg, *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt, tx).await?;
+                    oppdater_ferdigstilte_oppgaver(
+                        payload,
+                        *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt,
+                        tx,
+                    )
+                    .await?;
                 } else {
                     tracing::warn!("Mottok melding fra uventet topic: {}", topic);
                 }

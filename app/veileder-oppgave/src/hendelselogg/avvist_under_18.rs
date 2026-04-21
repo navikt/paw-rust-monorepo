@@ -9,22 +9,17 @@ use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
 use Opplysning::ErUnder18Aar;
-use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::Avvist;
 use interne_hendelser::vo::{BrukerType, Opplysning};
-use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 
 pub async fn opprett_avvist_under_18_oppgave(
-    json: Value,
+    avvist_hendelse: &Avvist,
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
     let opprett_avvist_under_18_oppgaver_fra_tidspunkt = *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
-
-    let avvist_hendelse: Avvist =
-        serde_json::from_value(json).context("Kunne ikke deserialisere avvist hendelse")?;
 
     if avvist_hendelse.metadata.utfoert_av.bruker_type == BrukerType::Veileder {
         tracing::info!("Ignorerer hendelse fordi den er innsendt av veileder");
@@ -57,7 +52,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         }
 
         let oppgave_row = to_oppgave_row(
-            &avvist_hendelse,
+            avvist_hendelse,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         );
@@ -73,7 +68,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         )
         .await?;
     } else {
-        let oppgave_row = to_oppgave_row(&avvist_hendelse, OppgaveType::AvvistUnder18, Ignorert);
+        let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18, Ignorert);
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
@@ -103,7 +98,7 @@ mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
     use crate::hendelselogg::process_hendelselogg_message;
-    use crate::test_utils::lag_kafka_melding;
+    
     use OppgaveStatus::Ferdigbehandlet;
     use Opplysning::BosattEtterFregLoven;
     use anyhow::Result;
@@ -152,15 +147,15 @@ mod tests {
         .build();
 
         let meldinger = [
-            lag_kafka_melding(0, &irrelevant_hendelse.as_json()),
-            lag_kafka_melding(1, &avvist_fra_veileder.as_json()),
-            lag_kafka_melding(2, &avvist_under_18.as_json()),
-            lag_kafka_melding(3, &avvist_under_18.as_json()),
+            irrelevant_hendelse.as_json(),
+            avvist_fra_veileder.as_json(),
+            avvist_under_18.as_json(),
+            avvist_under_18.as_json(),
         ];
 
         for msg in meldinger {
             let mut tx = pg_pool.begin().await?;
-            process_hendelselogg_message(&msg, &app_config, &mut tx).await?;
+            process_hendelselogg_message(msg.as_bytes(), &app_config, &mut tx).await?;
             tx.commit().await?;
         }
 
@@ -202,10 +197,10 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &avvist.as_json());
+        let message = avvist.as_json();
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -238,9 +233,9 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &avvist.as_json());
+        let message = avvist.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -258,10 +253,10 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_2 = lag_kafka_melding(1, &avvist_2.as_json());
+        let message_2 = avvist_2.as_json();
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message_2.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -291,9 +286,9 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_1 = lag_kafka_melding(0, &avvist_1.as_json());
+        let message_1 = avvist_1.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_1, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message_1.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -316,9 +311,9 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message_2 = lag_kafka_melding(1, &avvist_2.as_json());
+        let message_2 = avvist_2.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message_2, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message_2.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

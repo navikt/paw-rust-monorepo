@@ -7,19 +7,16 @@ use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetyp
 use crate::domain::oppgave_status::OppgaveStatus;
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use rdkafka::message::OwnedMessage;
-use rdkafka::Message;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use OppgaveHendelsetype::{OppgaveFeilregistrert, OppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 
 pub async fn oppdater_ferdigstilte_oppgaver(
-    kafka_message: &OwnedMessage,
+    payload: &[u8],
     opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let payload = kafka_message.payload().unwrap_or(&[]);
     let json: Value = match serde_json::from_slice(payload) {
         Ok(value) => value,
         Err(_) => {
@@ -109,7 +106,7 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use crate::domain::oppgave_type::OppgaveType;
-    use crate::test_utils::lag_kafka_melding;
+    
     use anyhow::Result;
     use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -124,28 +121,28 @@ mod tests {
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
-        let ugyldig_message = lag_kafka_melding(1, "dette er ikke json");
+        let ugyldig_message = "dette er ikke json".as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(&ugyldig_message, FRA_TIDSPUNKT, &mut tx)
+            oppdater_ferdigstilte_oppgaver(ugyldig_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
         tx.commit().await?;
 
-        let irrelevant_message = lag_kafka_melding(1, OPPGAVE_OPPRETTET_JSON);
+        let irrelevant_message = OPPGAVE_OPPRETTET_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(&irrelevant_message, FRA_TIDSPUNKT, &mut tx)
+            oppdater_ferdigstilte_oppgaver(irrelevant_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
         tx.commit().await?;
 
-        let ukjent_message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
+        let ukjent_message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(&ukjent_message, FRA_TIDSPUNKT, &mut tx)
+            oppdater_ferdigstilte_oppgaver(ukjent_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
@@ -174,9 +171,9 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
+        let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
+        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -195,9 +192,9 @@ mod tests {
         tx.commit().await?;
 
         // Duplikat ferdigstilling skal ikke legge til ny hendelseslogg
-        let message = lag_kafka_melding(1, OPPGAVE_FERDIGSTILT_JSON);
+        let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
+        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -229,9 +226,9 @@ mod tests {
             .await?;
         tx.commit().await?;
 
-        let message = lag_kafka_melding(1, OPPGAVE_FEILREGISTRERT_JSON);
+        let message = OPPGAVE_FEILREGISTRERT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(&message, FRA_TIDSPUNKT, &mut tx).await?;
+        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

@@ -8,22 +8,17 @@ use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use OppgaveType::VurderOpphold;
-use anyhow::Context;
 use chrono::Utc;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 use paw_rust_base::env::{RuntimeEnv, runtime_env};
-use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashSet;
 
 pub async fn opprett_vurder_opphold_oppgave(
-    json: Value,
+    startet_hendelse: &Startet,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let startet_hendelse: Startet =
-        serde_json::from_value(json).context("Kunne ikke deserialisere startet hendelse")?;
-
     if startet_hendelse.metadata.utfoert_av.bruker_type != BrukerType::Sluttbruker {
         tracing::info!("Ignorerer startet-hendelse fordi den ikke er innsendt av sluttbruker");
         return Ok(());
@@ -63,7 +58,7 @@ pub async fn opprett_vurder_opphold_oppgave(
         return Ok(());
     }
 
-    let oppgave_row = to_oppgave_row(&startet_hendelse, VurderOpphold, Ubehandlet);
+    let oppgave_row = to_oppgave_row(startet_hendelse, VurderOpphold, Ubehandlet);
     let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
     insert_oppgave_hendelse_logg(
         &InsertOppgaveHendelseLoggRow {
@@ -93,7 +88,7 @@ mod tests {
     use crate::config::read_application_config;
     use crate::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
     use crate::hendelselogg::process_hendelselogg_message;
-    use crate::test_utils::lag_kafka_melding;
+    
     use anyhow::Result;
     use interne_hendelser::Startet;
     use paw_rust_base::convenience_functions::contains_all;
@@ -143,10 +138,10 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &hendelse.as_json());
+        let message = hendelse.as_json();
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -184,14 +179,14 @@ mod tests {
         }
         .build();
 
-        let fra_veileder_message = lag_kafka_melding(0, &fra_veileder.as_json());
+        let fra_veileder_message = fra_veileder.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&fra_veileder_message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(fra_veileder_message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
-        let fra_system_message = lag_kafka_melding(0, &fra_system.as_json());
+        let fra_system_message = fra_system.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&fra_system_message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(fra_system_message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -218,10 +213,10 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &hendelse.as_json());
+        let message = hendelse.as_json();
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -266,14 +261,14 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &hendelse.as_json());
+        let message = hendelse.as_json();
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -301,9 +296,9 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &hendelse_1.as_json());
+        let message = hendelse_1.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -321,9 +316,9 @@ mod tests {
             ..Default::default()
         }
         .build();
-        let message = lag_kafka_melding(0, &hendelse_2.as_json());
+        let message = hendelse_2.as_json();
         let mut tx = pg_pool.begin().await?;
-        process_hendelselogg_message(&message, &app_config, &mut tx).await?;
+        process_hendelselogg_message(message.as_bytes(), &app_config, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

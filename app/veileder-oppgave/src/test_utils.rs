@@ -1,8 +1,6 @@
 use crate::config::OppgaveClientConfig;
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Utc;
-use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 use texas_client::response::TokenResponse;
 use texas_client::token_client::M2MTokenClient;
 
@@ -17,18 +15,6 @@ impl M2MTokenClient for MockTokenClient {
             token_type: "Bearer".to_string(),
         })
     }
-}
-
-pub(crate) fn lag_kafka_melding(offset: i64, json: &str) -> OwnedMessage {
-    OwnedMessage::new(
-        Some(json.as_bytes().to_vec()),
-        None,
-        "test-topic".to_string(),
-        Timestamp::CreateTime(Utc::now().timestamp_micros()),
-        0,
-        offset,
-        Some(OwnedHeaders::new()),
-    )
 }
 
 pub(crate) fn test_client_config(base_url: String) -> OppgaveClientConfig {

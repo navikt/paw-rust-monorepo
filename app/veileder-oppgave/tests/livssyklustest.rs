@@ -1,6 +1,5 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use chrono::Utc;
 use interne_hendelser::vo::BrukerType;
 use interne_hendelser::vo::Opplysning::{
     BosattEtterFregLoven, ErEuEoesStatsborger, ErOver18Aar, ErUnder18Aar, IkkeBosatt,
@@ -9,7 +8,6 @@ use interne_hendelser::{Avvist, Startet};
 use mockito::{Matcher, Server, ServerGuard};
 use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
 use paw_test::setup_test_db::{TestDbGuard, setup_test_db};
-use rdkafka::message::{OwnedHeaders, OwnedMessage, Timestamp};
 use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
@@ -63,8 +61,8 @@ async fn test_livssyklus_happy_path() -> Result<()> {
 
     let avvist_under_18_ekstern_id: i64 = 700_001;
     let vurder_opphold_ekstern_id: i64 = 700_002;
-    test_context.send_hendelselogg(0, &avvist_under_18.as_json()).await?;
-    test_context.send_hendelselogg(1, &startet_vurder_opphold.as_json()).await?;
+    test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
+    test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
 
     test_context.assert_oppgave_status(
         UNDER_18_ARBEIDSSOEKER_ID,
@@ -194,8 +192,8 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         (4, over_18_avvist_av_veileder.as_json()),
         (5, historisk_under_18_avvist.as_json()),
     ];
-    for (offset, json) in &meldinger {
-        test_context.send_hendelselogg(*offset, json).await?;
+    for (_offset, json) in &meldinger {
+        test_context.send_hendelselogg(json).await?;
     }
 
     test_context
@@ -282,19 +280,17 @@ impl TestContext {
         })
     }
 
-    async fn send_hendelselogg(&self, offset: i64, json: &str) -> Result<()> {
-        let melding = lag_melding(offset, json);
+    async fn send_hendelselogg(&self, json: &str) -> Result<()> {
         let mut tx = self.pg_pool.begin().await?;
-        process_hendelselogg_message(&melding, &self.app_config, &mut tx).await?;
+        process_hendelselogg_message(json.as_bytes(), &self.app_config, &mut tx).await?;
         tx.commit().await?;
         Ok(())
     }
 
     async fn send_oppgavehendelse(&self, json: &str) -> Result<()> {
-        let melding = lag_melding(0, json);
         let mut tx = self.pg_pool.begin().await?;
         oppdater_ferdigstilte_oppgaver(
-            &melding,
+            json.as_bytes(),
             *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt,
             &mut tx,
         )
@@ -370,18 +366,6 @@ impl TestContext {
         assert_hendelse_logg_inneholder(&oppgave.hendelse_logg, forventede_statuser);
         Ok(())
     }
-}
-
-fn lag_melding(offset: i64, json: &str) -> OwnedMessage {
-    OwnedMessage::new(
-        Some(json.as_bytes().to_vec()),
-        None,
-        "test-topic".to_string(),
-        Timestamp::CreateTime(Utc::now().timestamp_micros()),
-        0,
-        offset,
-        Some(OwnedHeaders::new()),
-    )
 }
 
 fn assert_hendelse_logg_inneholder(
