@@ -289,12 +289,7 @@ impl TestContext {
 
     async fn send_oppgavehendelse(&self, json: &str) -> Result<()> {
         let mut tx = self.pg_pool.begin().await?;
-        ferdigstill_oppgave(
-            json.as_bytes(),
-            *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt,
-            &mut tx,
-        )
-        .await?;
+        ferdigstill_oppgave(json.as_bytes(), &mut tx).await?;
         tx.commit().await?;
         Ok(())
     }

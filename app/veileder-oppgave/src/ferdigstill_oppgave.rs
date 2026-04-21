@@ -5,18 +5,17 @@ use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use crate::domain::oppgave_status::OppgaveStatus;
-use OppgaveHendelsetype::{OppgaveFeilregistrert, OppgaveFerdigstilt};
+use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use sqlx::{Postgres, Transaction};
 
 pub async fn ferdigstill_oppgave(
-    payload: &[u8],
-    opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
+    kafka_message_payload: &[u8],
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let melding: OppgaveHendelseMelding = match serde_json::from_slice(payload) {
-        Ok(m) => m,
+    let melding: OppgaveHendelseMelding = match serde_json::from_slice(kafka_message_payload) {
+        Ok(melding) => melding,
         Err(_) => {
             tracing::warn!(
                 "Klarte ikke å deserialisere Kafka-melding fra oppgavehendelse, hopper over"
@@ -26,17 +25,11 @@ pub async fn ferdigstill_oppgave(
     };
 
     let logg_status = match melding.hendelse.hendelsestype {
-        OppgaveFerdigstilt => HendelseLoggStatus::EksternOppgaveFerdigstilt,
-        OppgaveFeilregistrert => HendelseLoggStatus::EksternOppgaveFeilregistrert,
-        OppgaveHendelsetype::OppgaveOpprettet | OppgaveHendelsetype::OppgaveEndret => {
-            return Ok(());
-        }
+        OppgaveHendelsetype::OppgaveFerdigstilt => EksternOppgaveFerdigstilt,
+        OppgaveHendelsetype::OppgaveFeilregistrert => EksternOppgaveFeilregistrert,
+        OppgaveHendelsetype::OppgaveOpprettet => return Ok(()),
+        OppgaveHendelsetype::OppgaveEndret => return Ok(()),
     };
-
-    let hendelse_tidspunkt = oslo_tid_til_utc(melding.hendelse.tidspunkt);
-    if hendelse_tidspunkt < opprett_avvist_under_18_oppgaver_fra_tidspunkt {
-        return Ok(());
-    }
 
     let ekstern_oppgave_id = melding.oppgave.oppgave_id;
     let oppgave = match finn_oppgave_for_ekstern_id(ekstern_oppgave_id, tx).await? {
@@ -66,20 +59,6 @@ pub async fn ferdigstill_oppgave(
     Ok(())
 }
 
-fn oslo_tid_til_utc(tidspunkt: chrono::NaiveDateTime) -> DateTime<Utc> {
-    tidspunkt
-        .and_local_timezone(chrono_tz::Europe::Oslo)
-        .earliest()
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|| {
-            tracing::warn!(
-                "Kunne ikke konvertere tidspunkt {:?} til Oslo-tid, faller tilbake til UTC",
-                tidspunkt
-            );
-            tidspunkt.and_utc()
-        })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,10 +71,8 @@ mod tests {
 
     use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
-    use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
 
-    const FRA_TIDSPUNKT: DateTime<Utc> = DateTime::UNIX_EPOCH;
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
     const EKSTERN_OPPGAVE_ID_FEILREGISTRERT: i64 = 66666;
 
@@ -106,17 +83,13 @@ mod tests {
 
         let ugyldig_message = "dette er ikke json".as_bytes();
         let mut tx = pg_pool.begin().await?;
-        assert!(
-            ferdigstill_oppgave(ugyldig_message, FRA_TIDSPUNKT, &mut tx)
-                .await
-                .is_ok()
-        );
+        assert!(ferdigstill_oppgave(ugyldig_message, &mut tx).await.is_ok());
         tx.commit().await?;
 
         let irrelevant_message = OPPGAVE_OPPRETTET_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            ferdigstill_oppgave(irrelevant_message, FRA_TIDSPUNKT, &mut tx)
+            ferdigstill_oppgave(irrelevant_message, &mut tx)
                 .await
                 .is_ok()
         );
@@ -124,11 +97,7 @@ mod tests {
 
         let ukjent_message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        assert!(
-            ferdigstill_oppgave(ukjent_message, FRA_TIDSPUNKT, &mut tx)
-                .await
-                .is_ok()
-        );
+        assert!(ferdigstill_oppgave(ukjent_message, &mut tx).await.is_ok());
 
         Ok(())
     }
@@ -156,7 +125,7 @@ mod tests {
 
         let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -177,7 +146,7 @@ mod tests {
         // Duplikat ferdigstilling skal ikke legge til ny hendelseslogg
         let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -211,7 +180,7 @@ mod tests {
 
         let message = OPPGAVE_FEILREGISTRERT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
