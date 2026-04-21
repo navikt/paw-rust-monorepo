@@ -17,9 +17,7 @@ pub async fn ferdigstill_oppgave(
     let melding: OppgaveHendelseMelding = match serde_json::from_slice(kafka_message_payload) {
         Ok(melding) => melding,
         Err(_) => {
-            tracing::warn!(
-                "Klarte ikke å deserialisere Kafka-melding fra oppgavehendelse, hopper over"
-            );
+            tracing::warn!("Feilet deserialisering av oppgavehendelse, hopper over");
             return Ok(());
         }
     };
