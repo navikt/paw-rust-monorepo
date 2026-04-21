@@ -2351,6 +2351,7 @@ name = "paw_test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "interne_hendelser",
  "serde",
@@ -2358,6 +2359,7 @@ dependencies = [
  "sqlx",
  "testcontainers",
  "testcontainers-modules",
+ "texas_client",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
