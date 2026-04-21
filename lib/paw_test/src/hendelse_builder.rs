@@ -104,8 +104,8 @@ impl Default for AvvistBuilder {
             arbeidssoeker_id: 1,
             identitetsnummer: ident.clone(),
             tidspunkt: default_tidspunkt(),
-            bruker_type: BrukerType::System,
-            utfoert_av_id: "Testsystem".to_string(),
+            bruker_type: BrukerType::Sluttbruker,
+            utfoert_av_id: ident,
             opplysninger: HashSet::new(),
             handling: None,
         }
