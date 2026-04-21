@@ -5,7 +5,7 @@ pub mod domain;
 pub mod hendelselogg;
 pub mod message_processor;
 pub mod opprett_ekstern_oppgave_task;
-pub mod process_oppgavehendelse_message;
+pub mod ferdigstill_oppgave;
 
 mod metrics;
 

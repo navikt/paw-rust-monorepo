@@ -23,7 +23,7 @@ use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
 use veileder_oppgave::domain::oppgave_type::OppgaveType;
 use veileder_oppgave::hendelselogg::process_hendelselogg_message;
 use veileder_oppgave::opprett_ekstern_oppgave_task::prosesser_ubehandlede_oppgaver;
-use veileder_oppgave::process_oppgavehendelse_message::oppdater_ferdigstilte_oppgaver;
+use veileder_oppgave::ferdigstill_oppgave::ferdigstill_oppgave;
 
 const UNDER_18_ARBEIDSSOEKER_ID: i64 = 100;
 const UNDER_18_IDENT: &str = "10000000001";
@@ -289,7 +289,7 @@ impl TestContext {
 
     async fn send_oppgavehendelse(&self, json: &str) -> Result<()> {
         let mut tx = self.pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(
+        ferdigstill_oppgave(
             json.as_bytes(),
             *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt,
             &mut tx,

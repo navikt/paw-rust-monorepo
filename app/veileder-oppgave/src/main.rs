@@ -7,7 +7,7 @@ mod kafka;
 mod message_processor;
 mod metrics;
 mod opprett_ekstern_oppgave_task;
-mod process_oppgavehendelse_message;
+mod ferdigstill_oppgave;
 
 #[cfg(test)]
 mod test_utils;

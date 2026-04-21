@@ -1,6 +1,6 @@
 use crate::config::ApplicationConfig;
 use crate::hendelselogg::process_hendelselogg_message;
-use crate::process_oppgavehendelse_message::oppdater_ferdigstilte_oppgaver;
+use crate::ferdigstill_oppgave::ferdigstill_oppgave;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -29,7 +29,7 @@ impl MessageProcessor for VeilederOppgaveMessageProcessor {
                 if topic == hendelseslogg_topic.as_str() {
                     process_hendelselogg_message(payload, &self.app_config, tx).await?;
                 } else if topic == oppgavehendelse_topic.as_str() {
-                    oppdater_ferdigstilte_oppgaver(
+                    ferdigstill_oppgave(
                         payload,
                         *self.app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt,
                         tx,

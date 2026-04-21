@@ -5,60 +5,43 @@ use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use crate::domain::oppgave_status::OppgaveStatus;
-use anyhow::Context;
-use chrono::{DateTime, Utc};
-use serde_json::Value;
-use sqlx::{Postgres, Transaction};
 use OppgaveHendelsetype::{OppgaveFeilregistrert, OppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
+use chrono::{DateTime, Utc};
+use sqlx::{Postgres, Transaction};
 
-pub async fn oppdater_ferdigstilte_oppgaver(
+pub async fn ferdigstill_oppgave(
     payload: &[u8],
     opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let json: Value = match serde_json::from_slice(payload) {
-        Ok(value) => value,
+    let melding: OppgaveHendelseMelding = match serde_json::from_slice(payload) {
+        Ok(m) => m,
         Err(_) => {
             tracing::warn!(
-                "Klarte ikke å deserialisere Kafka-melding fra oppgavehendelse som JSON, hopper over"
+                "Klarte ikke å deserialisere Kafka-melding fra oppgavehendelse, hopper over"
             );
             return Ok(());
         }
     };
 
-    let hendelsestype = json["hendelse"]["hendelsestype"]
-        .as_str()
-        .unwrap_or_default()
-        .to_string();
+    let logg_status = match melding.hendelse.hendelsestype {
+        OppgaveFerdigstilt => HendelseLoggStatus::EksternOppgaveFerdigstilt,
+        OppgaveFeilregistrert => HendelseLoggStatus::EksternOppgaveFeilregistrert,
+        OppgaveHendelsetype::OppgaveOpprettet | OppgaveHendelsetype::OppgaveEndret => {
+            return Ok(());
+        }
+    };
 
-    if hendelsestype != OppgaveFerdigstilt.to_string()
-        && hendelsestype != OppgaveFeilregistrert.to_string()
-    {
-        return Ok(());
-    }
-
-    let oppgave_hendelse: OppgaveHendelseMelding =
-        serde_json::from_value(json).context("Kunne ikke deserialisere oppgavehendelse")?;
-
-    // Tidspunktet fra oppgave-appen er i Oslo-tid (TZ="Europe/Oslo" i Dockerfile)
-    let hendelse_tidspunkt = oslo_tid_til_utc(oppgave_hendelse.hendelse.tidspunkt);
+    let hendelse_tidspunkt = oslo_tid_til_utc(melding.hendelse.tidspunkt);
     if hendelse_tidspunkt < opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         return Ok(());
     }
 
-    let ekstern_oppgave_id = oppgave_hendelse.oppgave.oppgave_id;
+    let ekstern_oppgave_id = melding.oppgave.oppgave_id;
     let oppgave = match finn_oppgave_for_ekstern_id(ekstern_oppgave_id, tx).await? {
         None => return Ok(()),
         Some(oppgave) => oppgave,
-    };
-
-    let logg_status = match oppgave_hendelse.hendelse.hendelsestype {
-        OppgaveFerdigstilt => HendelseLoggStatus::EksternOppgaveFerdigstilt,
-        OppgaveFeilregistrert => HendelseLoggStatus::EksternOppgaveFeilregistrert,
-        OppgaveHendelsetype::OppgaveOpprettet | OppgaveHendelsetype::OppgaveEndret => {
-            unreachable!("Filtrert bort av hendelsestype-sjekken over")
-        }
     };
 
     if bytt_oppgave_status(oppgave.id, Opprettet, Ferdigbehandlet, tx).await? {
@@ -68,7 +51,7 @@ pub async fn oppdater_ferdigstilte_oppgaver(
             melding: format!(
                 "Ekstern oppgave {} ble {}",
                 ekstern_oppgave_id,
-                hendelsestype.to_lowercase()
+                melding.hendelse.hendelsestype.to_string().to_lowercase()
             ),
             tidspunkt: Utc::now(),
         };
@@ -76,7 +59,7 @@ pub async fn oppdater_ferdigstilte_oppgaver(
         tracing::info!(
             "Oppgave {} oppdatert til Ferdigbehandlet etter melding om ekstern {}",
             oppgave.id,
-            hendelsestype.to_lowercase()
+            melding.hendelse.hendelsestype.to_string().to_lowercase()
         );
     }
 
@@ -106,11 +89,11 @@ mod tests {
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
     use crate::domain::oppgave_type::OppgaveType;
-    
+
+    use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
     use chrono::{DateTime, Utc};
     use paw_test::setup_test_db::setup_test_db;
-    use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 
     const FRA_TIDSPUNKT: DateTime<Utc> = DateTime::UNIX_EPOCH;
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
@@ -124,7 +107,7 @@ mod tests {
         let ugyldig_message = "dette er ikke json".as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(ugyldig_message, FRA_TIDSPUNKT, &mut tx)
+            ferdigstill_oppgave(ugyldig_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
@@ -133,7 +116,7 @@ mod tests {
         let irrelevant_message = OPPGAVE_OPPRETTET_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(irrelevant_message, FRA_TIDSPUNKT, &mut tx)
+            ferdigstill_oppgave(irrelevant_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
@@ -142,7 +125,7 @@ mod tests {
         let ukjent_message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
         assert!(
-            oppdater_ferdigstilte_oppgaver(ukjent_message, FRA_TIDSPUNKT, &mut tx)
+            ferdigstill_oppgave(ukjent_message, FRA_TIDSPUNKT, &mut tx)
                 .await
                 .is_ok()
         );
@@ -173,7 +156,7 @@ mod tests {
 
         let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -194,7 +177,7 @@ mod tests {
         // Duplikat ferdigstilling skal ikke legge til ny hendelseslogg
         let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -228,7 +211,7 @@ mod tests {
 
         let message = OPPGAVE_FEILREGISTRERT_JSON.as_bytes();
         let mut tx = pg_pool.begin().await?;
-        oppdater_ferdigstilte_oppgaver(message, FRA_TIDSPUNKT, &mut tx).await?;
+        ferdigstill_oppgave(message, FRA_TIDSPUNKT, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
