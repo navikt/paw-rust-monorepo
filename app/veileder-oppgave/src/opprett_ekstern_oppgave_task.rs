@@ -21,7 +21,7 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 
-pub fn spawn_oppgave_task(
+pub fn spawn_ekstern_oppgave_task(
     db_pool: PgPool,
     oppgave_api_client: Arc<OppgaveApiClient>,
     app_config: ApplicationConfig,

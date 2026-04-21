@@ -6,7 +6,7 @@ mod hendelselogg;
 mod kafka;
 mod message_processor;
 mod metrics;
-mod opprett_oppgave_task;
+mod opprett_ekstern_oppgave_task;
 mod process_oppgavehendelse_message;
 
 #[cfg(test)]
@@ -20,7 +20,7 @@ use crate::config::read_token_client_config;
 use crate::kafka::consumer_task::spawn_kafka_consumer_task;
 use crate::message_processor::VeilederOppgaveMessageProcessor;
 use crate::metrics::metrics_task::spawn_metrics_task;
-use crate::opprett_oppgave_task::spawn_oppgave_task;
+use crate::opprett_ekstern_oppgave_task::spawn_ekstern_oppgave_task;
 use anyhow::Result;
 use axum_health::spawn_health_server;
 use client::oppgave_client::OppgaveApiClient;
@@ -69,8 +69,8 @@ async fn main() -> Result<()> {
     let oppgave_client_config = read_oppgave_client_config()?;
     let oppgave_api_client = Arc::new(OppgaveApiClient::new(oppgave_client_config, token_client));
 
-    let opprett_oppgave_task =
-        spawn_oppgave_task(pg_pool.clone(), oppgave_api_client, app_config.clone());
+    let opprett_ekstern_oppgave_task =
+        spawn_ekstern_oppgave_task(pg_pool.clone(), oppgave_api_client, app_config.clone());
 
     let kafka_consumer_task = spawn_kafka_consumer_task(
         consumer,
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
             Ok(Err(e)) => Err(e),
             Err(_) => Err(ServerError::ThreadSpawn.into()),
         },
-        result = opprett_oppgave_task => match result {
+        result = opprett_ekstern_oppgave_task => match result {
             Ok(Ok(())) => { tracing::info!("Opprett oppgave task stopped"); Ok(()) }
             Ok(Err(e)) => Err(e),
             Err(_) => Err(ServerError::ThreadSpawn.into()),

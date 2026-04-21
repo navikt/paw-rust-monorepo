@@ -24,7 +24,7 @@ use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
 use veileder_oppgave::domain::oppgave_type::OppgaveType;
 use veileder_oppgave::hendelselogg::process_hendelselogg_message;
-use veileder_oppgave::opprett_oppgave_task::prosesser_ubehandlede_oppgaver;
+use veileder_oppgave::opprett_ekstern_oppgave_task::prosesser_ubehandlede_oppgaver;
 use veileder_oppgave::process_oppgavehendelse_message::oppdater_ferdigstilte_oppgaver;
 
 const UNDER_18_ARBEIDSSOEKER_ID: i64 = 100;
