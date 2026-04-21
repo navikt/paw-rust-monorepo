@@ -10,6 +10,17 @@ list:
 list-app app:
     tree --gitignore app/{{ app }}
 
+# List all public functions across all lib crates (uses rustdoc JSON — nightly required)
+lib-api:
+    #!/usr/bin/env bash
+    for dir in lib/*/; do
+        pkg=$(basename "$dir")
+        cargo +nightly rustdoc -q -p "$pkg" -- -Z unstable-options --output-format json 2>/dev/null
+        json="target/doc/${pkg}.json"
+        [ -f "$json" ] || continue
+        python3 .just/lib_api.py "$pkg" "$json"
+    done
+
 # Show available apps (discovered from app/ directory)
 apps:
     @ls -1 app/
