@@ -16,7 +16,7 @@ use texas_client::response::TokenResponse;
 use texas_client::token_client::M2MTokenClient;
 use veileder_oppgave::client::oppgave_client::{OPPGAVER_PATH, OppgaveApiClient};
 use veileder_oppgave::config::{ApplicationConfig, OppgaveClientConfig, read_application_config};
-use veileder_oppgave::db::oppgave_functions::hent_nyeste_oppgave;
+use veileder_oppgave::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
 use veileder_oppgave::domain::hendelse_logg_entry::HendelseLoggEntry;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
@@ -188,9 +188,10 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         (0, under_18_avvist.as_json()),
         (1, under_18_startet_vurder_opphold.as_json()),
         (2, under_18_avvist.as_json()),
-        (3, over_18_startet_uten_relevante_opplysninger.as_json()),
-        (4, over_18_avvist_av_veileder.as_json()),
-        (5, historisk_under_18_avvist.as_json()),
+        (3, under_18_startet_vurder_opphold.as_json()),
+        (4, over_18_startet_uten_relevante_opplysninger.as_json()),
+        (5, over_18_avvist_av_veileder.as_json()),
+        (6, historisk_under_18_avvist.as_json()),
     ];
     for (_offset, json) in &meldinger {
         test_context.send_hendelselogg(json).await?;
@@ -221,6 +222,16 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
             OppgaveStatus::Ubehandlet,
         )
         .await?;
+    test_context
+        .assert_hendelse_logg(
+            UNDER_18_ARBEIDSSOEKER_ID,
+            OppgaveType::VurderOpphold,
+            &[
+                HendelseLoggStatus::OppgaveOpprettet,
+                HendelseLoggStatus::OppgaveFinnesAllerede,
+            ],
+        )
+        .await?;
 
     let mut tx = test_context.pg_pool.begin().await?;
     assert!(
@@ -242,6 +253,102 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
             HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ignorert,
+        )
+        .await?;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() -> Result<()> {
+    let test_context = TestContext::ny().await?;
+    let etter_vannskille = rfc3339("2024-09-01T00:00:00Z");
+
+    // 1) Ferdigbehandlet → ny avvist gir ny Ubehandlet oppgave
+    let avvist_under_18: Avvist = AvvistBuilder {
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: UNDER_18_IDENT.to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
+
+    test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
+    test_context
+        .sett_status(UNDER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, OppgaveStatus::Ferdigbehandlet)
+        .await?;
+    test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
+    test_context
+        .assert_oppgave_status(
+            UNDER_18_ARBEIDSSOEKER_ID,
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ubehandlet,
+        )
+        .await?;
+
+    // 2) Ignorert (før vannskille) → ny avvist (etter vannskille) gir ny Ubehandlet oppgave
+    let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
+    let historisk_avvist: Avvist = AvvistBuilder {
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
+        tidspunkt: foer_vannskille,
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
+    let ny_avvist: Avvist = AvvistBuilder {
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
+        ..Default::default()
+    }
+    .build();
+
+    test_context.send_hendelselogg(&historisk_avvist.as_json()).await?;
+    test_context
+        .assert_oppgave_status(
+            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ignorert,
+        )
+        .await?;
+
+    test_context.send_hendelselogg(&ny_avvist.as_json()).await?;
+    test_context
+        .assert_oppgave_status(
+            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+            OppgaveType::AvvistUnder18,
+            OppgaveStatus::Ubehandlet,
+        )
+        .await?;
+
+    // 3) Ferdigbehandlet vurder_opphold → ny startet gir ny Ubehandlet oppgave
+    let startet_vurder_opphold: Startet = StartetBuilder {
+        arbeidssoeker_id: VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        identitetsnummer: VURDER_OPPHOLD_IDENT.to_string(),
+        utfoert_av_id: VURDER_OPPHOLD_IDENT.to_string(),
+        tidspunkt: etter_vannskille,
+        opplysninger: HashSet::from([IkkeBosatt, ErEuEoesStatsborger]),
+        ..Default::default()
+    }
+    .build();
+
+    test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
+    test_context
+        .sett_status(
+            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+            OppgaveType::VurderOpphold,
+            OppgaveStatus::Ferdigbehandlet,
+        )
+        .await?;
+    test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
+    test_context
+        .assert_oppgave_status(
+            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+            OppgaveType::VurderOpphold,
+            OppgaveStatus::Ubehandlet,
         )
         .await?;
 
@@ -344,6 +451,21 @@ impl TestContext {
             });
         tx.commit().await?;
         assert_eq!(oppgave.status, forventet);
+        Ok(())
+    }
+
+    async fn sett_status(
+        &self,
+        arbeidssoeker_id: i64,
+        oppgave_type: OppgaveType,
+        ny_status: OppgaveStatus,
+    ) -> Result<()> {
+        let mut tx = self.pg_pool.begin().await?;
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, &mut tx)
+            .await?
+            .expect("Forventet eksisterende oppgave");
+        bytt_oppgave_status(oppgave.id, oppgave.status, ny_status, &mut tx).await?;
+        tx.commit().await?;
         Ok(())
     }
 
