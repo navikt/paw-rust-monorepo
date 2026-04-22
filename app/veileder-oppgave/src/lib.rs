@@ -8,6 +8,3 @@ pub mod opprett_ekstern_oppgave_task;
 pub mod ferdigstill_oppgave;
 
 mod metrics;
-
-#[cfg(test)]
-mod test_utils;

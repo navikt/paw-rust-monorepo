@@ -83,10 +83,9 @@ pub enum OppgaveApiError {
 mod tests {
     use super::*;
     use crate::client::opprett_oppgave_request::PrioritetV1;
-    use crate::test_utils::{MockTokenClient, test_client_config};
-    use anyhow::Result;
     use chrono::Utc;
     use mockito::Server;
+    use paw_test::stub_token_client::StubTokenClient;
     use serde_json::json;
     use std::sync::Arc;
 
@@ -115,8 +114,12 @@ mod tests {
             .create_async()
             .await;
 
-        let token_client = Arc::new(MockTokenClient);
-        let config = test_client_config(server.url());
+        let token_client = Arc::new(StubTokenClient);
+        let base_url = server.url();
+        let config = OppgaveClientConfig {
+            base_url: base_url.into(),
+            scope: "test-scope".to_string().into(),
+        };
         let client = OppgaveApiClient::new(config, token_client);
 
         let request = OpprettOppgaveRequest {
@@ -135,3 +138,4 @@ mod tests {
         oppgave_mock_api.assert_async().await;
     }
 }
+

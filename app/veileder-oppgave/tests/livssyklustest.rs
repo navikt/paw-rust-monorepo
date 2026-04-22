@@ -1,5 +1,4 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use interne_hendelser::vo::BrukerType;
 use interne_hendelser::vo::Opplysning::{
     BosattEtterFregLoven, ErEuEoesStatsborger, ErOver18Aar, ErUnder18Aar, IkkeBosatt,
@@ -8,12 +7,11 @@ use interne_hendelser::{Avvist, Startet};
 use mockito::{Matcher, Server, ServerGuard};
 use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
 use paw_test::setup_test_db::{TestDbGuard, setup_test_db};
+use paw_test::stub_token_client::StubTokenClient;
 use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
-use texas_client::response::TokenResponse;
-use texas_client::token_client::M2MTokenClient;
 use veileder_oppgave::client::oppgave_client::{OPPGAVER_PATH, OppgaveApiClient};
 use veileder_oppgave::config::{ApplicationConfig, OppgaveClientConfig, read_application_config};
 use veileder_oppgave::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
@@ -375,7 +373,7 @@ impl TestContext {
         let server = Server::new_async().await;
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
             ny_test_oppgave_client_config(server.url()),
-            Arc::new(MockTokenClient),
+            Arc::new(StubTokenClient),
         ));
 
         Ok(Self {
@@ -517,19 +515,6 @@ fn bygg_oppgave_ferdigstilt_json(ekstern_oppgave_id: i64) -> String {
         }
     })
     .to_string()
-}
-
-struct MockTokenClient;
-
-#[async_trait]
-impl M2MTokenClient for MockTokenClient {
-    async fn get_token(&self, _target: String) -> Result<TokenResponse> {
-        Ok(TokenResponse {
-            access_token: "dummy-token".to_string(),
-            expires_in: 3600,
-            token_type: "Bearer".to_string(),
-        })
-    }
 }
 
 fn ny_test_oppgave_client_config(base_url: String) -> OppgaveClientConfig {

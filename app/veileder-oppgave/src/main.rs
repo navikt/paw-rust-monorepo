@@ -9,9 +9,6 @@ mod metrics;
 mod opprett_ekstern_oppgave_task;
 mod ferdigstill_oppgave;
 
-#[cfg(test)]
-mod test_utils;
-
 use crate::config::read_application_config;
 use crate::config::read_database_config;
 use crate::config::read_kafka_config;

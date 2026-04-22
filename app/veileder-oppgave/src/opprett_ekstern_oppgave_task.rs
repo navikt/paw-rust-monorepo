@@ -26,7 +26,11 @@ pub fn spawn_ekstern_oppgave_task(
     oppgave_api_client: Arc<OppgaveApiClient>,
     app_config: ApplicationConfig,
 ) -> JoinHandle<Result<()>> {
-    tokio::spawn(kjør_processing_loop(db_pool, oppgave_api_client, app_config))
+    tokio::spawn(kjør_processing_loop(
+        db_pool,
+        oppgave_api_client,
+        app_config,
+    ))
 }
 
 async fn kjør_processing_loop(
@@ -36,7 +40,8 @@ async fn kjør_processing_loop(
 ) -> Result<()> {
     let opprett_oppgaver_task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
     let opprett_oppgaver_task_batch_size = *app_config.opprett_oppgaver_task_batch_size;
-    let opprett_avvist_under_18_oppgaver_fra_tidspunkt = *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
+    let opprett_avvist_under_18_oppgaver_fra_tidspunkt =
+        *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
     let task_interval = Duration::from_mins(opprett_oppgaver_task_interval_minutes);
     let mut interval = interval(task_interval);
     loop {
@@ -182,22 +187,23 @@ fn warning_ved_gjentatte_feil(oppgave: &Oppgave) {
 mod tests {
     use super::*;
     use crate::client::oppgave_client::OPPGAVER_PATH;
+    use crate::config::OppgaveClientConfig;
     use crate::db::oppgave_functions::{
         hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, insert_oppgave,
     };
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use crate::domain::oppgave_type::OppgaveType;
-    use crate::test_utils::{MockTokenClient, test_client_config};
     use mockito::{Matcher, Server};
     use paw_test::setup_test_db::setup_test_db;
+    use paw_test::stub_token_client::StubTokenClient;
     use serde_json::json;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::sleep;
 
     #[tokio::test]
-    async fn prosesser_tre_oppgaver_to_ok_en_feil() -> Result<()> {
+    async fn en_feilet_oppgave_stopper_ikke_batchen() -> Result<()> {
         let identitetsnummer_1 = "12345678901";
         let identitetsnummer_2 = "12345678902";
         let identitetsnummer_3 = "12345678903";
@@ -237,13 +243,26 @@ mod tests {
             .create_async()
             .await;
 
+        let base_url = server.url();
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            test_client_config(server.url()),
-            Arc::new(MockTokenClient),
+            OppgaveClientConfig {
+                base_url: base_url.into(),
+                scope: "test-scope".to_string().into(),
+            },
+            Arc::new(StubTokenClient),
         ));
 
         let (pg_pool, _db_container) = setup_test_db().await?;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
+
+        // Tom batch: ingen oppgaver, ingen HTTP-kall forventet
+        prosesser_ubehandlede_oppgaver(
+            DateTime::UNIX_EPOCH,
+            3,
+            Arc::clone(&oppgave_api_client),
+            pg_pool.clone(),
+        )
+        .await?;
 
         // Sett inn 3 oppgaver
         let mut tx = pg_pool.begin().await?;
@@ -294,9 +313,10 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         // Oppgave 1: vellykket
-        let oppgave_1 = hent_nyeste_oppgave(arbeidssoeker_id_1, OppgaveType::AvvistUnder18, &mut tx)
-            .await?
-            .unwrap();
+        let oppgave_1 =
+            hent_nyeste_oppgave(arbeidssoeker_id_1, OppgaveType::AvvistUnder18, &mut tx)
+                .await?
+                .unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
         assert_eq!(oppgave_1.ekstern_oppgave_id, Some(100));
         assert!(
@@ -307,9 +327,10 @@ mod tests {
         );
 
         // Oppgave 2: feilet — tilbake til Ubehandlet med feil-logg
-        let oppgave_2 = hent_nyeste_oppgave(arbeidssoeker_id_2, OppgaveType::AvvistUnder18, &mut tx)
-            .await?
-            .unwrap();
+        let oppgave_2 =
+            hent_nyeste_oppgave(arbeidssoeker_id_2, OppgaveType::AvvistUnder18, &mut tx)
+                .await?
+                .unwrap();
         assert_eq!(oppgave_2.status, Ubehandlet);
         assert!(oppgave_2.ekstern_oppgave_id.is_none());
         assert!(
@@ -320,9 +341,10 @@ mod tests {
         );
 
         // Oppgave 3: vellykket
-        let oppgave_3 = hent_nyeste_oppgave(arbeidssoeker_id_3, OppgaveType::AvvistUnder18, &mut tx)
-            .await?
-            .unwrap();
+        let oppgave_3 =
+            hent_nyeste_oppgave(arbeidssoeker_id_3, OppgaveType::AvvistUnder18, &mut tx)
+                .await?
+                .unwrap();
         assert_eq!(oppgave_3.status, Opprettet);
         assert_eq!(oppgave_3.ekstern_oppgave_id, Some(200));
         assert!(
@@ -332,22 +354,6 @@ mod tests {
                 .any(|logg| logg.status == EksternOppgaveOpprettet)
         );
 
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn prosesser_tom_batch() -> Result<()> {
-        let server = Server::new_async().await;
-        let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            test_client_config(server.url()),
-            Arc::new(MockTokenClient),
-        ));
-        let (pg_pool, _db_container) = setup_test_db().await?;
-        sqlx::migrate!("./migrations").run(&pg_pool).await?;
-        let fra_dato = DateTime::UNIX_EPOCH;
-        let result =
-            prosesser_ubehandlede_oppgaver(fra_dato, 10, oppgave_api_client, pg_pool.clone()).await;
-        assert!(result.is_ok());
         Ok(())
     }
 
@@ -367,9 +373,13 @@ mod tests {
             .create_async()
             .await;
 
+        let base_url = server.url();
         let oppgave_api_client = Arc::new(OppgaveApiClient::new(
-            test_client_config(server.url()),
-            Arc::new(MockTokenClient),
+            OppgaveClientConfig {
+                base_url: base_url.into(),
+                scope: "test-scope".to_string().into(),
+            },
+            Arc::new(StubTokenClient),
         ));
 
         let (pg_pool, _db_container) = setup_test_db().await?;
