@@ -9,6 +9,8 @@ pub struct Regelsett {
     pub standard_regel: Regel,
 }
 
+pub type EvalueringsResultat = Result<Vec<GrunnlagForGodkjenning>, Vec<Problem>>;
+
 impl Regelsett {
     /// Evaluates the rule set against the given opplysninger.
     ///
@@ -61,7 +63,7 @@ impl Regelsett {
     pub fn evaluer_liste<'a, T>(
         &self,
         opplysninger: &'a [(T, Vec<Opplysning>)],
-    ) -> Vec<(&'a T, Result<Vec<GrunnlagForGodkjenning>, Vec<Problem>>)> {
+    ) -> Vec<(&'a T, EvalueringsResultat)> {
         opplysninger
             .iter()
             .map(|(a, opplysning)| (a, self.evaluer(opplysning)))
