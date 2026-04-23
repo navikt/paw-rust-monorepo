@@ -1,5 +1,5 @@
 use crate::config::ApplicationConfig;
-use crate::hendelselogg::process_hendelselogg_message;
+use crate::opprettelse::process_hendelselogg_message;
 use crate::ferdigstill_oppgave::ferdigstill_oppgave;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;

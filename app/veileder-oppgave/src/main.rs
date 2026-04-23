@@ -2,7 +2,7 @@ mod client;
 mod config;
 mod db;
 mod domain;
-mod hendelselogg;
+mod opprettelse;
 mod kafka;
 mod message_processor;
 mod metrics;
