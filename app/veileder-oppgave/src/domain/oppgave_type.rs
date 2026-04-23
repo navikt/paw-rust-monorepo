@@ -1,7 +1,7 @@
 use strum::{Display, EnumIter, EnumString};
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, EnumString, Display, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString, Display, EnumIter)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = oppgave_type_not_found,

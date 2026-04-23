@@ -1,3 +1,4 @@
+use crate::domain::oppgave_type::OppgaveType;
 use interne_hendelser::Hendelse;
 
 pub struct Kriterium<H> {
@@ -5,17 +6,21 @@ pub struct Kriterium<H> {
     pub sjekk: fn(&H) -> bool,
 }
 
-pub struct Kriterier<H: Hendelse + 'static> {
+pub struct OppgaveKriterier<H: Hendelse + 'static> {
+    pub oppgave_type: OppgaveType,
     kriterier: &'static [Kriterium<H>],
 }
 
-impl<H: Hendelse + 'static> Kriterier<H> {
-    pub const fn new(kriterier: &'static [Kriterium<H>]) -> Self {
+impl<H: Hendelse + 'static> OppgaveKriterier<H> {
+    pub const fn new(
+        oppgave_type: OppgaveType,
+        kriterier: &'static [Kriterium<H>],
+    ) -> Self {
         assert!(
             !kriterier.is_empty(),
-            "Kriterier må inneholde minst ett kriterium"
+            "OppgaveKriterier må inneholde minst ett kriterium"
         );
-        Self { kriterier }
+        Self { oppgave_type, kriterier }
     }
 
     pub fn oppfylt_av(&self, hendelse: &H) -> bool {
@@ -39,21 +44,24 @@ mod tests {
     use interne_hendelser::Avvist;
     use paw_test::hendelse_builder::AvvistBuilder;
 
-    const TO_KRITERIER: Kriterier<Avvist> = Kriterier::new(&[
-        Kriterium {
-            navn: "alltid_sann",
-            sjekk: |_| true,
-        },
-        Kriterium {
-            navn: "har_arbeidssoeker_id_42",
-            sjekk: |hendelse| hendelse.id == 42,
-        },
-    ]);
+    const TO_KRITERIER: OppgaveKriterier<Avvist> = OppgaveKriterier::new(
+        OppgaveType::AvvistUnder18,
+        &[
+            Kriterium {
+                navn: "alltid_sann",
+                sjekk: |_| true,
+            },
+            Kriterium {
+                navn: "har_arbeidssoeker_id_42",
+                sjekk: |hendelse| hendelse.id == 42,
+            },
+        ],
+    );
 
     #[test]
-    #[should_panic(expected = "Kriterier må inneholde minst ett kriterium")]
+    #[should_panic(expected = "OppgaveKriterier må inneholde minst ett kriterium")]
     fn tom_liste_panicer() {
-        Kriterier::<Avvist>::new(&[]);
+        OppgaveKriterier::<Avvist>::new(OppgaveType::AvvistUnder18, &[]);
     }
 
     #[test]

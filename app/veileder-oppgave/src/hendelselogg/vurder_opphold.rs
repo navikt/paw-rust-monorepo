@@ -4,15 +4,13 @@ use crate::db::oppgave_functions::{
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+use crate::domain::kriterier::vurder_opphold;
 use crate::domain::oppgave_status::OppgaveStatus;
-use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use interne_hendelser::Startet;
 use paw_rust_base::env::{runtime_env, RuntimeEnv};
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
-use OppgaveType::VurderOpphold;
-use crate::domain::kriterier::vurder_opphold;
 
 pub async fn opprett_vurder_opphold_oppgave(
     startet_hendelse: &Startet,
@@ -31,8 +29,9 @@ pub async fn opprett_vurder_opphold_oppgave(
         );
     }
 
+    let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
     let arbeidssoeker_id = startet_hendelse.id;
-    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, VurderOpphold, tx).await?;
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet
     {
@@ -49,7 +48,7 @@ pub async fn opprett_vurder_opphold_oppgave(
         return Ok(());
     }
 
-    let oppgave_row = to_oppgave_row(startet_hendelse, VurderOpphold, Ubehandlet);
+    let oppgave_row = to_oppgave_row(startet_hendelse, oppgave_type, Ubehandlet);
     let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
     insert_oppgave_hendelse_logg(
         &InsertOppgaveHendelseLoggRow {

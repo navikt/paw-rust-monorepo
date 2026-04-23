@@ -1,25 +1,29 @@
+use crate::domain::kriterier::kriterium::{OppgaveKriterier, Kriterium};
+use crate::domain::oppgave_type::OppgaveType;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::{BrukerType, Opplysning};
-use crate::domain::kriterier::kriterium::{Kriterier, Kriterium};
 
-pub const KRITERIER: Kriterier<Startet> = Kriterier::new(&[
-    Kriterium {
-        navn: "innsendt_av_sluttbruker",
-        sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
-    },
-    Kriterium {
-        navn: "utflyttet",
-        sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::IkkeBosatt),
-    },
-    Kriterium {
-        navn: "eu_eoes_statsborger",
-        sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::ErEuEoesStatsborger),
-    },
-    Kriterium {
-        navn: "ikke_norsk_statsborger",
-        sjekk: |hendelse| !hendelse.opplysninger.contains(&Opplysning::ErNorskStatsborger),
-    },
-]);
+pub const KRITERIER: OppgaveKriterier<Startet> = OppgaveKriterier::new(
+    OppgaveType::VurderOpphold,
+    &[
+        Kriterium {
+            navn: "innsendt_av_sluttbruker",
+            sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
+        },
+        Kriterium {
+            navn: "utflyttet",
+            sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::IkkeBosatt),
+        },
+        Kriterium {
+            navn: "eu_eoes_statsborger",
+            sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::ErEuEoesStatsborger),
+        },
+        Kriterium {
+            navn: "ikke_norsk_statsborger",
+            sjekk: |hendelse| !hendelse.opplysninger.contains(&Opplysning::ErNorskStatsborger),
+        },
+    ],
+);
 
 #[cfg(test)]
 mod tests {

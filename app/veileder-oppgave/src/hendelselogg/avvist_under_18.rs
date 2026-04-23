@@ -25,9 +25,11 @@ pub async fn opprett_avvist_under_18_oppgave(
         return Ok(());
     }
 
+    let oppgave_type: OppgaveType = avvist_under_18::KRITERIER.oppgave_type;
+
     if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         let arbeidssoeker_id = avvist_hendelse.id;
-        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, tx).await?;
+        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
         if let Some(oppgave) = &eksisterende_oppgave
             && oppgave.status != Ferdigbehandlet
             && oppgave.status != Ignorert
@@ -48,7 +50,7 @@ pub async fn opprett_avvist_under_18_oppgave(
 
         let oppgave_row = to_oppgave_row(
             avvist_hendelse,
-            OppgaveType::AvvistUnder18,
+            oppgave_type,
             OppgaveStatus::Ubehandlet,
         );
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
@@ -63,7 +65,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         )
         .await?;
     } else {
-        let oppgave_row = to_oppgave_row(avvist_hendelse, OppgaveType::AvvistUnder18, Ignorert);
+        let oppgave_row = to_oppgave_row(avvist_hendelse, oppgave_type, Ignorert);
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
