@@ -16,7 +16,7 @@ pub async fn opprett_vurder_opphold_oppgave(
     startet_hendelse: &Startet,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    if !vurder_opphold::KRITERIER.oppfylt_av(startet_hendelse) {
+    if vurder_opphold::KRITERIER.ikke_oppfylt_av(startet_hendelse) {
         return Ok(());
     }
 

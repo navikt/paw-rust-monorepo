@@ -21,7 +21,7 @@ pub async fn opprett_avvist_under_18_oppgave(
     let opprett_avvist_under_18_oppgaver_fra_tidspunkt =
         *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
 
-    if !avvist_under_18::KRITERIER.oppfylt_av(avvist_hendelse) {
+    if avvist_under_18::KRITERIER.ikke_oppfylt_av(avvist_hendelse) {
         return Ok(());
     }
 

@@ -36,6 +36,10 @@ impl<H: Hendelse + 'static> OppgaveKriterier<H> {
             oppfylt
         })
     }
+
+    pub fn ikke_oppfylt_av(&self, hendelse: &H) -> bool {
+        !self.oppfylt_av(hendelse)
+    }
 }
 
 #[cfg(test)]
