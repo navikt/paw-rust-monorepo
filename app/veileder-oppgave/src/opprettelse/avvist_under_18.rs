@@ -8,11 +8,11 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::avvist_under_18;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
-use crate::metrics::kriterier_oppfylt;
 use chrono::Utc;
 use interne_hendelser::Avvist;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
+use crate::metrics;
 
 pub async fn opprett_avvist_under_18_oppgave(
     avvist_hendelse: &Avvist,
@@ -27,7 +27,7 @@ pub async fn opprett_avvist_under_18_oppgave(
     }
 
     let oppgave_type: OppgaveType = avvist_under_18::KRITERIER.oppgave_type;
-    kriterier_oppfylt::inkrement(oppgave_type);
+    metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
         let arbeidssoeker_id = avvist_hendelse.id;

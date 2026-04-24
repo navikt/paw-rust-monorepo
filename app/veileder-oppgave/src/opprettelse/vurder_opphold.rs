@@ -6,11 +6,11 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::vurder_opphold;
 use crate::domain::oppgave_status::OppgaveStatus;
-use crate::metrics::kriterier_oppfylt;
 use chrono::Utc;
 use interne_hendelser::Startet;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
+use crate::metrics;
 
 pub async fn opprett_vurder_opphold_oppgave(
     startet_hendelse: &Startet,
@@ -21,7 +21,7 @@ pub async fn opprett_vurder_opphold_oppgave(
     }
 
     let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
-    kriterier_oppfylt::inkrement(oppgave_type);
+    metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     let arbeidssoeker_id = startet_hendelse.id;
     let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
