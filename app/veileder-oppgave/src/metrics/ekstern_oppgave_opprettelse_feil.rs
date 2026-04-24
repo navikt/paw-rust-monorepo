@@ -16,7 +16,7 @@ static EKSTERN_OPPRETTELSE_FEILET: LazyLock<CounterVec> = LazyLock::new(|| {
     counter
 });
 
-pub fn init_ekstern_oppgave_opprettelse_feil_counter() {
+pub fn init() {
     LazyLock::force(&EKSTERN_OPPRETTELSE_FEILET);
 }
 

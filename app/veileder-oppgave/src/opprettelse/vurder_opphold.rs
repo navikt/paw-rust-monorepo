@@ -6,6 +6,7 @@ use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::vurder_opphold;
 use crate::domain::oppgave_status::OppgaveStatus;
+use crate::metrics::kriterier_oppfylt;
 use chrono::Utc;
 use interne_hendelser::Startet;
 use paw_rust_base::env::{runtime_env, RuntimeEnv};
@@ -20,6 +21,9 @@ pub async fn opprett_vurder_opphold_oppgave(
         return Ok(());
     }
 
+    let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
+    kriterier_oppfylt::inkrement(oppgave_type);
+
     // TODO: Midlertidig tripwire — fjernes etter helga :tm:
     if runtime_env() == RuntimeEnv::ProdGcp {
         panic!(
@@ -29,7 +33,6 @@ pub async fn opprett_vurder_opphold_oppgave(
         );
     }
 
-    let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
     let arbeidssoeker_id = startet_hendelse.id;
     let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave

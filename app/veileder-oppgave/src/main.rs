@@ -2,12 +2,12 @@ mod client;
 mod config;
 mod db;
 mod domain;
-mod opprettelse;
+mod ferdigstill_oppgave;
 mod kafka;
 mod message_processor;
 mod metrics;
 mod opprett_ekstern_oppgave_task;
-mod ferdigstill_oppgave;
+mod opprettelse;
 
 use crate::config::read_application_config;
 use crate::config::read_database_config;
@@ -30,14 +30,13 @@ use paw_sqlx::error::DatabaseError;
 use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use std::time::Duration;
-use metrics::ekstern_oppgave_opprettelse_feil::init_ekstern_oppgave_opprettelse_feil_counter;
 use texas_client::token_client::create_token_client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
-    init_ekstern_oppgave_opprettelse_feil_counter();
+    metrics::init();
     tracing::info!("Application started");
     let appstate = Arc::new(AppState::new());
     let app_config = read_application_config()?;
