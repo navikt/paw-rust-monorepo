@@ -1,6 +1,6 @@
 mod consumer_function;
-mod db_read_ops;
-mod db_write_ops;
+mod dao;
+mod domain;
 mod kafka;
 mod kontroler_pdl_info;
 mod oppdater_pdl_data;

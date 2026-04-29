@@ -1,9 +1,7 @@
-use std::{collections::HashMap, num::NonZeroU16};
+use std::num::NonZeroU16;
 
 use anyhow::Result;
-use interne_hendelser::vo::Opplysning;
 use regler_arbeidssoeker::regler::regelsett::{EvalueringsResultat, Regelsett};
-use utgang::{db_read_ops::hent_klar_for_kontroll, vo::klar_for_kontroll_rad::KlarForKontrollRad};
 
 pub struct KontrolerKlarForKontroll {
     batch_size: NonZeroU16,
@@ -28,49 +26,6 @@ impl KontrolerKlarForKontroll {
     }
 
     pub async fn kontroler_klar_for_kontroll(&self) -> Result<()> {
-        let mut tx = self.pg_pool.begin().await?;
-        let klar_for_kontroll: Vec<(usize, KlarForKontrollRad)> =
-            hent_klar_for_kontroll(&mut tx, &self.batch_size)
-                .await?
-                .into_iter()
-                .enumerate()
-                .collect();
-        let param_list: Vec<((usize, InfoType), Vec<Opplysning>)> = klar_for_kontroll
-            .iter()
-            .flat_map(|(index, rad)| {
-                let forrige = rad
-                    .forrige_pdl_opplysninger
-                    .as_ref()
-                    .map(|opplysninger| ((*index, InfoType::Forrige), opplysninger.clone()));
-                let startet = rad
-                    .startet_opplysninger
-                    .as_ref()
-                    .map(|opplysninger| ((*index, InfoType::Initiell), opplysninger.clone()));
-                [
-                    Some(((*index, InfoType::Gjeldende), rad.opplysninger.clone())),
-                    forrige,
-                    startet,
-                ]
-                .into_iter()
-                .flatten()
-            })
-            .collect();
-        let resultater: HashMap<(usize, InfoType), EvalueringsResultat> = self
-            .regelsett
-            .evaluer_liste(&param_list)
-            .into_iter()
-            .map(|(k, v)| (*k, v))
-            .collect();
-        let resultat: Vec<_> = klar_for_kontroll
-            .iter()
-            .map(|(index, _rad)| {
-                let gjeldende_resultat = resultater.get(&(*index, InfoType::Gjeldende)).cloned();
-                let forrige_resultat = resultater.get(&(*index, InfoType::Forrige)).cloned();
-                let initiell_resultat = resultater.get(&(*index, InfoType::Initiell)).cloned();
-                sjekk_status(gjeldende_resultat, forrige_resultat, initiell_resultat)
-            })
-            .collect();
-        drop(resultat);
         Ok(())
     }
 }
@@ -113,8 +68,8 @@ pub fn sjekk_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use regler_arbeidssoeker::regler::regel_id::RegelId;
+    use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
 
     fn godkjent() -> EvalueringsResultat {
         Ok(vec![GrunnlagForGodkjenning {
@@ -161,12 +116,3 @@ mod tests {
         assert!(matches!(result, Err(SjekkFeil::ManglerInitiell)));
     }
 }
-
-
-
-
-
-
-
-
-

@@ -1,4 +1,3 @@
-use crate::db_write_ops::{avslutt_periode, opprett_aktiv_periode, skrive_startet_hendelse};
 use crate::kafka::periode_processor::PeriodeProcessor;
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
 use crate::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
@@ -75,28 +74,8 @@ async fn haandter_periode_record(
         .deserialize_message(msg)
         .await?;
     match periode.avsluttet {
-        None => {
-            let res = opprett_aktiv_periode(tx, &periode).await?;
-            if !res {
-                warn!(
-                    "Ignorer aktive periode melding: topic={}, partition={}, offset={}",
-                    msg.topic(),
-                    msg.partition(),
-                    msg.offset()
-                );
-            } else {
-                tracing::info!("Ny periode med id {} opprettet i databasen", periode.id);
-            }
-        }
-        Some(avsluttet) => {
-            avslutt_periode(
-                tx,
-                &periode.id,
-                &avsluttet.tidspunkt,
-                &avsluttet.utfoert_av.bruker_type,
-            )
-            .await?;
-        }
+        None => {}
+        Some(avsluttet) => {}
     }
     Ok(())
 }
@@ -125,7 +104,6 @@ async fn haandter_hendelse(
                 startet.hendelse_id,
                 record_key
             );
-            skrive_startet_hendelse(tx, &startet, record_key).await?;
         }
         _ => {
             tracing::info!("Mottok en annen hendelse som ikke skal lagres");

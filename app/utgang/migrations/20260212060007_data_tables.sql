@@ -1,25 +1,22 @@
-create table periode (
-    id                          UUID primary key,
-    periode_aktiv               boolean not null,
-    periode_startet_timestamp   TIMESTAMP(3) not null,
-    periode_startet_brukertype  VARCHAR not null,
-    periode_avsluttet_timestamp   TIMESTAMP(3) default null,
-    periode_avsluttet_brukertype  VARCHAR default null,
-    sist_oppdatert_timestamp    TIMESTAMP(3) not null,
-    sist_oppdatert_status       VARCHAR not null
+create table utgang_hendelser_logg (
+  id              BIGSERIAL PRIMARY KEY,
+  timestamp       TIMESTAMP(3) NOT NULL,
+  type            VARCHAR NOT NULL,
+  periode_id      UUID NOT NULL,
+  brukertype      VARCHAR NOT NULL,
+  opplysninger    VARCHAR[]
 );
 
-create table periode_metadata (
-    periode_id          UUID primary key,
-    identitetsnummer    VARCHAR not null,
-    arbeidssoeker_id    BIGINT not null,
-    kafka_key           BIGINT not null
+create index utgang_hendelser_logg_periode_id_idx on utgang_hendelser_logg (periode_id, timestamp);
+
+
+create table perioder (
+  id                  UUID PRIMARY KEY,
+  arbeidssoeker_id    BIGINT,
+  trenger_kontroll    BOOLEAN NOT NULL,
+  sist_oppdatert      TIMESTAMP(3) NOT NULL
 );
 
-create table opplysninger (
-    id              BIGSERIAL PRIMARY KEY,
-    periode_id      UUID NOT NULL REFERENCES periode_metadata(periode_id) ON DELETE CASCADE,
-    kilde           VARCHAR NOT NULL,
-    tidspunkt       TIMESTAMP(3) NOT NULL,
-    opplysninger    VARCHAR[] NOT NULL
-);
+create index perioder_trenger_kontroll_idx on perioder (trenger_kontroll);
+create index perioder_sist_oppdatert_idx on perioder (sist_oppdatert);
+
