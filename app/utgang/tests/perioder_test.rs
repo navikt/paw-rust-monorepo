@@ -3,7 +3,8 @@ use paw_test::setup_test_db::setup_test_db;
 use std::num::NonZeroU32;
 use utgang::dao::perioder::{
     hent_perioder, hent_perioder_eldre_enn, hent_perioder_som_trenger_kontroll,
-    oppdater_sist_oppdatert, oppdater_trenger_kontroll, skriv_perioder, PeriodeRad,
+    oppdater_sist_oppdatert, oppdater_stoppet, oppdater_trenger_kontroll, skriv_perioder,
+    PeriodeRad,
 };
 use utgang::domain::arbeidssoeker_id::ArbeidssoekerId;
 use utgang::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
@@ -24,12 +25,14 @@ fn lag_periode(
     id: ArbeidssoekerperiodeId,
     arbeidssoeker_id: Option<i64>,
     trenger_kontroll: bool,
+    stoppet: bool,
     sist_oppdatert: chrono::DateTime<Utc>,
 ) -> PeriodeRad {
     PeriodeRad {
         id,
         arbeidssoeker_id: arbeidssoeker_id.map(ArbeidssoekerId),
         trenger_kontroll,
+        stoppet,
         sist_oppdatert,
     }
 }
@@ -53,7 +56,7 @@ async fn skriv_og_hent_roundtrip_bevarer_alle_felter() {
     let sist_oppdatert = Utc::now().with_nanosecond_truncated();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(42), false, sist_oppdatert)])
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(42), false, false, sist_oppdatert)])
         .await
         .expect("skriv_perioder feilet");
     tx.commit().await.unwrap();
@@ -69,6 +72,7 @@ async fn skriv_og_hent_roundtrip_bevarer_alle_felter() {
     assert_eq!(rad.id, id);
     assert_eq!(rad.arbeidssoeker_id.as_ref().map(|a| a.0), Some(42));
     assert!(!rad.trenger_kontroll);
+    assert!(!rad.stoppet);
     assert_eq!(rad.sist_oppdatert, sist_oppdatert);
 }
 
@@ -79,7 +83,7 @@ async fn skriv_og_hent_roundtrip_uten_arbeidssoeker_id() {
     let id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), None, true, Utc::now())])
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), None, true, false, Utc::now())])
         .await
         .expect("skriv_perioder feilet");
     tx.commit().await.unwrap();
@@ -103,13 +107,13 @@ async fn skriv_perioder_upsert_oppdaterer_eksisterende() {
     let oppdatert = (opprinnelig + Duration::minutes(5)).with_nanosecond_truncated();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(1), false, opprinnelig)])
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(1), false, false, opprinnelig)])
         .await
         .unwrap();
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(2), true, oppdatert)])
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), Some(2), true, false, oppdatert)])
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -137,8 +141,8 @@ async fn hent_perioder_returnerer_kun_forespurte_ider() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(id_a.clone(), None, false, now),
-            lag_periode(id_b.clone(), None, false, now),
+            lag_periode(id_a.clone(), None, false, false, now),
+            lag_periode(id_b.clone(), None, false, false, now),
         ],
     )
     .await
@@ -176,8 +180,8 @@ async fn hent_perioder_eldre_enn_returnerer_kun_rader_foer_grense() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(gammel.clone(), None, false, grense - Duration::minutes(10)),
-            lag_periode(ny.clone(), None, false, grense + Duration::minutes(10)),
+            lag_periode(gammel.clone(), None, false, false, grense - Duration::minutes(10)),
+            lag_periode(ny.clone(), None, false, false, grense + Duration::minutes(10)),
         ],
     )
     .await
@@ -207,8 +211,8 @@ async fn hent_perioder_eldre_enn_ignorerer_rader_med_trenger_kontroll_true() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(gammel_uten_kontroll.clone(), None, false, tidspunkt),
-            lag_periode(gammel_med_kontroll.clone(), None, true, tidspunkt),
+            lag_periode(gammel_uten_kontroll.clone(), None, false, false, tidspunkt),
+            lag_periode(gammel_med_kontroll.clone(), None, true, false, tidspunkt),
         ],
     )
     .await
@@ -237,8 +241,8 @@ async fn hent_perioder_eldre_enn_returnerer_i_stigende_rekkefølge() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(sen.clone(), None, false, grense - Duration::minutes(1)),
-            lag_periode(tidlig.clone(), None, false, grense - Duration::minutes(10)),
+            lag_periode(sen.clone(), None, false, false, grense - Duration::minutes(1)),
+            lag_periode(tidlig.clone(), None, false, false, grense - Duration::minutes(10)),
         ],
     )
     .await
@@ -266,9 +270,9 @@ async fn hent_perioder_eldre_enn_respekterer_limit() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, tidspunkt),
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, tidspunkt),
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, tidspunkt),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, false, tidspunkt),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, false, tidspunkt),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, false, false, tidspunkt),
         ],
     )
     .await
@@ -296,8 +300,8 @@ async fn hent_perioder_som_trenger_kontroll_returnerer_kun_true_rader() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(med.clone(), None, true, now),
-            lag_periode(uten.clone(), None, false, now),
+            lag_periode(med.clone(), None, true, false, now),
+            lag_periode(uten.clone(), None, false, false, now),
         ],
     )
     .await
@@ -324,9 +328,9 @@ async fn hent_perioder_som_trenger_kontroll_respekterer_limit() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, now),
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, now),
-            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, now),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, false, now),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, false, now),
+            lag_periode(ArbeidssoekerperiodeId::from(Uuid::new_v4()), None, true, false, now),
         ],
     )
     .await
@@ -354,8 +358,8 @@ async fn oppdater_trenger_kontroll_oppdaterer_kun_angitte_ider() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(id_a.clone(), None, false, now),
-            lag_periode(id_b.clone(), None, false, now),
+            lag_periode(id_a.clone(), None, false, false, now),
+            lag_periode(id_b.clone(), None, false, false, now),
         ],
     )
     .await
@@ -393,8 +397,8 @@ async fn oppdater_sist_oppdatert_oppdaterer_kun_angitte_ider() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(id_a.clone(), None, false, opprinnelig),
-            lag_periode(id_b.clone(), None, false, opprinnelig),
+            lag_periode(id_a.clone(), None, false, false, opprinnelig),
+            lag_periode(id_b.clone(), None, false, false, opprinnelig),
         ],
     )
     .await
@@ -417,4 +421,108 @@ async fn oppdater_sist_oppdatert_oppdaterer_kun_angitte_ider() {
     let rad_b = rader.iter().find(|r| r.id == id_b).unwrap();
     assert_eq!(rad_a.sist_oppdatert, ny_tid, "id_a skal ha ny tid");
     assert_eq!(rad_b.sist_oppdatert, opprinnelig, "id_b skal ikke være endret");
+}
+
+#[tokio::test]
+async fn oppdater_stoppet_setter_flagg_og_ekskluderer_fra_hent() {
+    let pool = setup().await;
+
+    let id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let now = Utc::now();
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), None, false, false, now)])
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    oppdater_stoppet(&mut tx, &[id.clone()]).await.unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let rader = hent_perioder(&mut tx, &[id.clone()]).await.unwrap();
+    tx.commit().await.unwrap();
+
+    assert!(rader.is_empty(), "stoppet periode skal ikke returneres av hent_perioder");
+}
+
+#[tokio::test]
+async fn stoppet_periode_ekskluderes_fra_eldre_enn() {
+    let pool = setup().await;
+
+    let id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let grense = Utc::now();
+    let tidspunkt = grense - Duration::minutes(10);
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), None, false, true, tidspunkt)])
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(10).unwrap())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    assert!(rader.is_empty(), "stoppet periode skal ikke returneres av hent_perioder_eldre_enn");
+}
+
+#[tokio::test]
+async fn stoppet_periode_ekskluderes_fra_trenger_kontroll() {
+    let pool = setup().await;
+
+    let id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let now = Utc::now();
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_perioder(&mut tx, vec![lag_periode(id.clone(), None, true, true, now)])
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let rader = hent_perioder_som_trenger_kontroll(&mut tx, NonZeroU32::new(10).unwrap())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    assert!(
+        rader.is_empty(),
+        "stoppet periode skal ikke returneres selv om trenger_kontroll=true"
+    );
+}
+
+#[tokio::test]
+async fn oppdater_stoppet_pavirker_kun_angitte_ider() {
+    let pool = setup().await;
+
+    let id_a = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let id_b = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let now = Utc::now();
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_perioder(
+        &mut tx,
+        vec![
+            lag_periode(id_a.clone(), None, false, false, now),
+            lag_periode(id_b.clone(), None, false, false, now),
+        ],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    oppdater_stoppet(&mut tx, &[id_a.clone()]).await.unwrap();
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let rader = hent_perioder(&mut tx, &[id_b.clone()]).await.unwrap();
+    tx.commit().await.unwrap();
+
+    assert_eq!(rader.len(), 1, "id_b er ikke stoppet og skal fremdeles returneres");
+    assert_eq!(rader[0].id, id_b);
 }

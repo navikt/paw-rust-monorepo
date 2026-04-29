@@ -14,9 +14,11 @@ create table perioder (
   id                  UUID PRIMARY KEY,
   arbeidssoeker_id    BIGINT,
   trenger_kontroll    BOOLEAN NOT NULL,
+  stoppet             BOOLEAN NOT NULL DEFAULT false,
   sist_oppdatert      TIMESTAMP(3) NOT NULL
 );
 
 create index perioder_trenger_kontroll_idx on perioder (trenger_kontroll);
 create index perioder_sist_oppdatert_idx on perioder (sist_oppdatert);
+create index perioder_stoppet_idx on perioder (stoppet);
 
