@@ -59,7 +59,8 @@ jobs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
   deploy-dev:
-    if: github.ref == 'refs/heads/main'
+    #if: github.ref == 'refs/heads/main'
+    if: false
     name: Deploy to dev-gcp
     needs: [test, build]
     permissions:
