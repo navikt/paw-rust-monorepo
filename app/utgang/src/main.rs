@@ -6,7 +6,6 @@ mod kontroler_pdl_info;
 mod oppdater_pdl_data;
 mod pdl;
 mod pdl_oppdatering_task;
-mod vo;
 
 use crate::consumer_function::UtgangMessageProcessor;
 use crate::kafka::kafka_consumer::create_kafka_consumer;
