@@ -7,4 +7,4 @@ pub mod metrics_task;
 pub mod oppgave_statuser;
 pub mod saksbehandlingstid;
 
-pub use init_metrics::init;
+pub use init_metrics::init_metrics;

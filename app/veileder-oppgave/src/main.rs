@@ -1,26 +1,5 @@
-mod client;
-mod config;
-mod db;
-mod domain;
-mod ferdigstill_oppgave;
-mod kafka;
-mod message_processor;
-mod metrics;
-mod opprett_ekstern_oppgave_task;
-mod opprettelse;
-
-use crate::config::read_application_config;
-use crate::config::read_database_config;
-use crate::config::read_kafka_config;
-use crate::config::read_oppgave_client_config;
-use crate::config::read_token_client_config;
-use crate::kafka::consumer_task::spawn_kafka_consumer_task;
-use crate::message_processor::VeilederOppgaveMessageProcessor;
-use crate::metrics::metrics_task::spawn_metrics_task;
-use crate::opprett_ekstern_oppgave_task::spawn_ekstern_oppgave_task;
 use anyhow::Result;
 use axum_health::spawn_health_server;
-use client::oppgave_client::OppgaveApiClient;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::error::KafkaError;
@@ -31,12 +10,23 @@ use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
 use std::time::Duration;
 use texas_client::token_client::create_token_client;
+use veileder_oppgave::client::oppgave_client::OppgaveApiClient;
+use veileder_oppgave::config::{
+    read_application_config, read_database_config, read_kafka_config, read_oppgave_client_config,
+    read_token_client_config,
+};
+use veileder_oppgave::kafka::consumer::create as create_kafka_consumer;
+use veileder_oppgave::kafka::consumer_task::spawn_kafka_consumer_task;
+use veileder_oppgave::message_processor::VeilederOppgaveMessageProcessor;
+use veileder_oppgave::metrics::init_metrics;
+use veileder_oppgave::metrics::metrics_task::spawn_metrics_task;
+use veileder_oppgave::opprett_ekstern_oppgave_task::spawn_ekstern_oppgave_task;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
-    metrics::init();
+    init_metrics();
     tracing::info!("Application started");
     let appstate = Arc::new(AppState::new());
     let app_config = read_application_config()?;
@@ -52,9 +42,8 @@ async fn main() -> Result<()> {
     let hwm_version = *kafka_config.hwm_version;
     let topics = app_config.topics_as_str();
 
-    let consumer =
-        kafka::consumer::create(appstate.clone(), pg_pool.clone(), kafka_config, &topics)
-            .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
+    let consumer = create_kafka_consumer(appstate.clone(), pg_pool.clone(), kafka_config, &topics)
+        .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
 
     let reqwest_client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
