@@ -42,7 +42,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.oppfylt_av(&hendelse));
+        assert!(KRITERIER.ikke_oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -54,7 +54,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.oppfylt_av(&hendelse));
+        assert!(KRITERIER.ikke_oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.oppfylt_av(&hendelse));
+        assert!(KRITERIER.ikke_oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.oppfylt_av(&hendelse));
+        assert!(KRITERIER.ikke_oppfylt_av(&hendelse));
     }
 
     #[test]
@@ -90,6 +90,6 @@ mod tests {
             ..Default::default()
         }
         .build();
-        assert!(!KRITERIER.oppfylt_av(&hendelse));
+        assert!(KRITERIER.ikke_oppfylt_av(&hendelse));
     }
 }
