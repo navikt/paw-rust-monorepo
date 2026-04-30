@@ -1,19 +1,12 @@
-mod consumer_function;
-mod dao;
-mod domain;
-mod kafka;
-mod kontroler_pdl_info;
-mod oppdater_pdl_data;
-mod pdl;
-mod pdl_oppdatering_task;
 
-use crate::consumer_function::UtgangMessageProcessor;
-use crate::kafka::kafka_consumer::create_kafka_consumer;
-use crate::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
-use crate::oppdater_pdl_data::PdlDataOppdatering;
-use crate::pdl::pdl_config::PDLClientConfig;
-use crate::pdl::pdl_query::PDLClient;
-use crate::pdl_oppdatering_task::start_pdl_oppdatering_task;
+use utgang::consumer_function::UtgangMessageProcessor;
+use utgang::kafka::kafka_consumer::create_kafka_consumer;
+use utgang::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
+use utgang::oppdater_pdl_data::PdlDataOppdatering;
+use utgang::pdl::pdl_config::PDLClientConfig;
+use utgang::pdl::pdl_query::PDLClient;
+use utgang::pdl_oppdatering_task::start_pdl_oppdatering_task;
+use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 use anyhow::Result;
 use chrono::TimeDelta;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
@@ -32,10 +25,7 @@ use tokio::{
     task::{JoinError, JoinHandle},
 };
 
-pub const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
-pub const ARBEIDSSOKERPERIODER_TOPIC: &str = "paw.arbeidssokerperioder-v1";
-
-pub const PDL_BATCH_SIZE: NonZeroU16 =
+const PDL_BATCH_SIZE: NonZeroU16 =
     NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
 
 #[tokio::main]

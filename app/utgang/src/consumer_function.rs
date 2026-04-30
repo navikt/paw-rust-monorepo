@@ -1,3 +1,6 @@
+use crate::dao::perioder::{PeriodeRad, skriv_perioder};
+use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
+use crate::dao::utgang_hendelser_logg::skriv_hendelser;
 use crate::kafka::periode_processor::PeriodeProcessor;
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
 use crate::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
@@ -73,10 +76,10 @@ async fn haandter_periode_record(
         .periode_processor
         .deserialize_message(msg)
         .await?;
-    match periode.avsluttet {
-        None => {}
-        Some(avsluttet) => {}
-    }
+    let periode_rad: PeriodeRad = (&periode).into();
+    let intern_utgang_hendelse: InternUtgangHendelse<Input> = periode.into();
+    skriv_perioder(tx, vec![periode_rad]).await?;
+    skriv_hendelser(tx, vec![intern_utgang_hendelse]).await?;
     Ok(())
 }
 
@@ -104,6 +107,10 @@ async fn haandter_hendelse(
                 startet.hendelse_id,
                 record_key
             );
+            let periode_rad: PeriodeRad = (&startet).into();
+            let intern_utgang_hendelse: InternUtgangHendelse<Input> = startet.into();
+            skriv_perioder(tx, vec![periode_rad]).await?;
+            skriv_hendelser(tx, vec![intern_utgang_hendelse]).await?;
         }
         _ => {
             tracing::info!("Mottok en annen hendelse som ikke skal lagres");
