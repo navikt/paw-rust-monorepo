@@ -1,7 +1,7 @@
 use crate::dao::perioder::{PeriodeRad, skriv_perioder};
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
 use crate::dao::utgang_hendelser_logg::skriv_hendelser;
-use crate::kafka::periode_processor::PeriodeProcessor;
+use crate::kafka::periode_processor::{PeriodeProcessor, PeriodeProcessorError};
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
 use crate::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 use anyhow::Result;
@@ -38,23 +38,20 @@ impl MessageProcessor for UtgangMessageProcessor {
         Box::pin(
             async move {
                 let topic = msg.topic();
-                let key = msg
-                    .key()
-                    .and_then(|bytes| {
-                        if bytes.len() == 8 {
-                            Some(i64::from_be_bytes(bytes.try_into().unwrap()))
-                        } else {
-                            None
+                match (topic, msg.payload()) {
+                    (t, None) => {
+                        return Err(PeriodeProcessorError::NoPayload {
+                            topic: t.to_string(),
+                            partition: msg.partition(),
+                            offset: msg.offset(),
                         }
-                    })
-                    .ok_or_else(|| ProcessorError::from("Message key is missing or invalid"))?;
-
-                match topic {
-                    t if t == HENDELSELOGG_TOPIC => {
-                        haandter_hendelse(tx, key, msg).await?;
+                        .into());
                     }
-                    t if t == ARBEIDSSOKERPERIODER_TOPIC => {
-                        haandter_periode_record(self, tx, msg).await?;
+                    (t, Some(p)) if t == HENDELSELOGG_TOPIC => {
+                        haandter_hendelse(tx, p).await?;
+                    }
+                    (t, Some(p)) if t == ARBEIDSSOKERPERIODER_TOPIC => {
+                        haandter_periode_record(self, tx, p).await?;
                     }
                     _ => {
                         warn!("Received message for unknown topic: {}", topic);
@@ -70,11 +67,11 @@ impl MessageProcessor for UtgangMessageProcessor {
 async fn haandter_periode_record(
     utgang_message_processor: &UtgangMessageProcessor,
     tx: &mut Transaction<'_, Postgres>,
-    msg: &OwnedMessage,
+    payload: &[u8],
 ) -> Result<(), ProcessorError> {
     let periode = utgang_message_processor
         .periode_processor
-        .deserialize_message(msg)
+        .deserialize_message(payload)
         .await?;
     let periode_rad: PeriodeRad = (&periode).into();
     let intern_utgang_hendelse: InternUtgangHendelse<Input> = periode.into();
@@ -85,27 +82,18 @@ async fn haandter_periode_record(
 
 async fn haandter_hendelse(
     tx: &mut Transaction<'_, Postgres>,
-    record_key: i64,
-    msg: &OwnedMessage,
+    payload: &[u8],
 ) -> Result<(), ProcessorError> {
-    // Get the payload as bytes
-    let payload = msg
-        .payload()
-        .ok_or_else(|| ProcessorError::from("Message has no payload"))?;
-
-    // Convert bytes to UTF-8 string
     let payload_str = std::str::from_utf8(payload)
         .map_err(|e| ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e)))?;
 
-    // Deserialize JSON string to InterneHendelser
     let hendelse: InterneHendelser = serde_json::from_str(payload_str)
         .map_err(|e| ProcessorError::from(format!("Failed to deserialize event: {}", e)))?;
     match hendelse {
         InterneHendelser::Startet(startet) => {
             tracing::info!(
-                "Mottok startet hendelse med hendelse_id: {}, record_key: {}",
-                startet.hendelse_id,
-                record_key
+                "Mottok startet hendelse med hendelse_id: {}",
+                startet.hendelse_id
             );
             let periode_rad: PeriodeRad = (&startet).into();
             let intern_utgang_hendelse: InternUtgangHendelse<Input> = startet.into();
