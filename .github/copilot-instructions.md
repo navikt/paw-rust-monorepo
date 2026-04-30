@@ -1,10 +1,11 @@
 # Workflow
 Make one atomic change at a time. Every commit must be deployable — build and all tests must pass before committing.
-1. Make a single logical change (one refactor, one feature, one fix)
-2. Run `git pull --rebase` to incorporate any upstream changes
-3. Run `cargo build` and `cargo test` for the affected module(s)
-4. Verify build and tests pass
-5. Commit with a descriptive message before moving to the next change
+1. Always view a file before editing, it could have changed.
+2. Make a single logical change (one refactor, one feature, one fix)
+3. Run `git pull --rebase` to incorporate any upstream changes
+4. Run `cargo build` and `cargo test` for the affected module(s)
+5. Verify build and tests pass
+6. Commit with a descriptive message before moving to the next change
 
 Do not batch multiple unrelated changes into one commit. Ask before proceeding to the next change if it is non-trivial.
 
