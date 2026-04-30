@@ -6,8 +6,8 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use paw_test::setup_test_db::setup_test_db;
 use utgang::dao::utgang_hendelse::{Input, InternUtgangHendelse};
 use utgang::dao::utgang_hendelser_logg::{hent_hendelser, skriv_hendelser};
-use utgang::domain::Opplysninger::Opplysninger;
 use utgang::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
+use utgang::domain::opplysninger::Opplysninger;
 use utgang::domain::utgang_hendelse_type::UtgangHendelseType;
 use uuid::Uuid;
 

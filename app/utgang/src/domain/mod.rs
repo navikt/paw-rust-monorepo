@@ -1,6 +1,6 @@
-pub(crate) mod Identitetsnummer;
-pub mod Opplysninger;
 pub mod arbeidssoeker_id;
 pub mod arbeidssoekerperiode_id;
-pub(crate) mod utgang_hendelser;
+pub(crate) mod identitetsnummer;
+pub mod opplysninger;
 pub mod utgang_hendelse_type;
+pub(crate) mod utgang_hendelser;

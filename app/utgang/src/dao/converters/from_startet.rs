@@ -6,8 +6,8 @@ use crate::{
         utgang_hendelse::{Input, InternUtgangHendelse},
     },
     domain::{
-        Opplysninger::Opplysninger, arbeidssoeker_id::ArbeidssoekerId,
-        arbeidssoekerperiode_id::ArbeidssoekerperiodeId, utgang_hendelse_type::UtgangHendelseType,
+        arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
+        opplysninger::Opplysninger, utgang_hendelse_type::UtgangHendelseType,
     },
 };
 

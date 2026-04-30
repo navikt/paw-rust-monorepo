@@ -1,8 +1,8 @@
 use interne_hendelser::vo::BrukerType;
 
 use crate::domain::{
-    Identitetsnummer::Identitetsnummer, Opplysninger::Opplysninger,
-    arbeidssoeker_id::ArbeidssoekerId,
+    arbeidssoeker_id::ArbeidssoekerId, identitetsnummer::Identitetsnummer,
+    opplysninger::Opplysninger,
 };
 
 pub(crate) enum UtgangHendelser {

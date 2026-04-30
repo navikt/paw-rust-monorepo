@@ -7,7 +7,7 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::domain::{
-    Opplysninger::Opplysninger, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
+    arbeidssoekerperiode_id::ArbeidssoekerperiodeId, opplysninger::Opplysninger,
     utgang_hendelse_type::UtgangHendelseType,
 };
 
