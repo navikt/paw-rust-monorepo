@@ -79,18 +79,16 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for InternUtgangHendelse<Outpu
         let brukertype_str: String = row.try_get("brukertype")?;
         let opplysninger_str: Option<Vec<String>> = row.try_get("opplysninger")?;
 
-        let hendelsetype = UtgangHendelseType::from_str(&type_str).map_err(|e| {
-            sqlx::Error::ColumnDecode {
+        let hendelsetype =
+            UtgangHendelseType::from_str(&type_str).map_err(|e| sqlx::Error::ColumnDecode {
                 index: "type".into(),
                 source: Box::new(e),
-            }
-        })?;
-        let brukertype = BrukerType::from_str(&brukertype_str).map_err(|e| {
-            sqlx::Error::ColumnDecode {
+            })?;
+        let brukertype =
+            BrukerType::from_str(&brukertype_str).map_err(|e| sqlx::Error::ColumnDecode {
                 index: "brukertype".into(),
                 source: Box::new(e),
-            }
-        })?;
+            })?;
         let opplysninger = opplysninger_str
             .map(|strings| {
                 strings

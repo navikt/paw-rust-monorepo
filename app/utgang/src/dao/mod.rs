@@ -1,4 +1,4 @@
-pub mod mottatt_periode;
+pub mod converters;
 pub mod perioder;
 pub mod utgang_hendelse;
 pub mod utgang_hendelser_logg;
