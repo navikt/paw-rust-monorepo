@@ -24,15 +24,15 @@ use veileder_oppgave::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 use veileder_oppgave::opprettelse::process_hendelselogg_message;
 use veileder_oppgave::opprett_ekstern_oppgave_task::prosesser_ubehandlede_oppgaver;
 
-const UNDER_18_ARBEIDSSOEKER_ID: i64 = 100;
+const UNDER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(100);
 const UNDER_18_IDENT: &str = "10000000001";
-const OVER_18_ARBEIDSSOEKER_ID: i64 = 200;
+const OVER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(200);
 const OVER_18_IDENT: &str = "20000000002";
-const HISTORISK_UNDER_18_ARBEIDSSOEKER_ID: i64 = 300;
+const HISTORISK_UNDER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(300);
 const HISTORISK_UNDER_18_IDENT: &str = "30000000003";
 const VEILEDER_IDENT: &str = "Z991459";
 
-const VURDER_OPPHOLD_ARBEIDSSOEKER_ID: i64 = 400;
+const VURDER_OPPHOLD_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(400);
 const VURDER_OPPHOLD_IDENT: &str = "40000000004";
 
 #[tokio::test]
@@ -41,7 +41,7 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     let tidspunkt = rfc3339("2024-09-01T12:00:00Z");
 
     let avvist_under_18: Avvist = AvvistBuilder {
-        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: UNDER_18_IDENT.to_string(),
         tidspunkt,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -49,7 +49,7 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     }
     .build();
     let startet_vurder_opphold: Startet = StartetBuilder {
-        arbeidssoeker_id: VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: VURDER_OPPHOLD_ARBEIDSSOEKER_ID.0,
         identitetsnummer: VURDER_OPPHOLD_IDENT.to_string(),
         utfoert_av_id: VURDER_OPPHOLD_IDENT.to_string(),
         tidspunkt,
@@ -64,13 +64,13 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
 
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+        UNDER_18_ARBEIDSSOEKER_ID,
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Ubehandlet,
     )
     .await?;
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
         OppgaveType::VurderOpphold,
         OppgaveStatus::Ubehandlet,
     )
@@ -81,13 +81,13 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     test_context.kjor_opprett_oppgave_task().await?;
 
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+        UNDER_18_ARBEIDSSOEKER_ID,
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Opprettet,
     )
     .await?;
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
         OppgaveType::VurderOpphold,
         OppgaveStatus::Opprettet,
     )
@@ -104,25 +104,25 @@ async fn test_livssyklus_happy_path() -> Result<()> {
         HendelseLoggStatus::EksternOppgaveFerdigstilt,
     ];
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+        UNDER_18_ARBEIDSSOEKER_ID,
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Ferdigbehandlet,
     )
     .await?;
     test_context.assert_hendelse_logg(
-        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+        UNDER_18_ARBEIDSSOEKER_ID,
         OppgaveType::AvvistUnder18,
         forventet_logg,
     )
     .await?;
     test_context.assert_oppgave_status(
-        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
         OppgaveType::VurderOpphold,
         OppgaveStatus::Ferdigbehandlet,
     )
     .await?;
     test_context.assert_hendelse_logg(
-        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
         OppgaveType::VurderOpphold,
         forventet_logg,
     )
@@ -139,7 +139,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
 
     let under_18_avvist: Avvist = AvvistBuilder {
-        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -147,7 +147,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     }
     .build();
     let under_18_startet_vurder_opphold: Startet = StartetBuilder {
-        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: UNDER_18_IDENT.to_string(),
         utfoert_av_id: UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
@@ -156,7 +156,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     }
     .build();
     let over_18_startet_uten_relevante_opplysninger: Startet = StartetBuilder {
-        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: OVER_18_IDENT.to_string(),
         utfoert_av_id: OVER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
@@ -165,7 +165,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     }
     .build();
     let over_18_avvist_av_veileder: Avvist = AvvistBuilder {
-        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: OVER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: OVER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         bruker_type: BrukerType::Veileder,
@@ -175,7 +175,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
     }
     .build();
     let historisk_under_18_avvist: Avvist = AvvistBuilder {
-        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
         tidspunkt: foer_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -198,14 +198,14 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+            UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
         .await?;
     test_context
         .assert_hendelse_logg(
-            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+            UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             &[
                 HendelseLoggStatus::OppgaveOpprettet,
@@ -216,14 +216,14 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+            UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ubehandlet,
         )
         .await?;
     test_context
         .assert_hendelse_logg(
-            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+            UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::VurderOpphold,
             &[
                 HendelseLoggStatus::OppgaveOpprettet,
@@ -234,13 +234,13 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     let mut tx = test_context.pg_pool.begin().await?;
     assert!(
-        hent_nyeste_oppgave(ArbeidssøkerId::from(OVER_18_ARBEIDSSOEKER_ID), OppgaveType::AvvistUnder18, &mut tx)
+        hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .is_none(),
         "Over 18 skal ikke ha AvvistUnder18-oppgave"
     );
     assert!(
-        hent_nyeste_oppgave(ArbeidssøkerId::from(OVER_18_ARBEIDSSOEKER_ID), OppgaveType::VurderOpphold, &mut tx)
+        hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::VurderOpphold, &mut tx)
             .await?
             .is_none(),
         "Over 18 skal ikke ha VurderOpphold-oppgave"
@@ -249,7 +249,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
+            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ignorert,
         )
@@ -265,7 +265,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
 
     // 1) Ferdigbehandlet → ny avvist gir ny Ubehandlet oppgave
     let avvist_under_18: Avvist = AvvistBuilder {
-        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -275,12 +275,12 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
 
     test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
     test_context
-        .sett_status(ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID), OppgaveType::AvvistUnder18, OppgaveStatus::Ferdigbehandlet)
+        .sett_status(UNDER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, OppgaveStatus::Ferdigbehandlet)
         .await?;
     test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
+            UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
@@ -289,7 +289,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     // 2) Ignorert (før vannskille) → ny avvist (etter vannskille) gir ny Ubehandlet oppgave
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
     let historisk_avvist: Avvist = AvvistBuilder {
-        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
         tidspunkt: foer_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -297,7 +297,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     }
     .build();
     let ny_avvist: Avvist = AvvistBuilder {
-        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID.0,
         identitetsnummer: HISTORISK_UNDER_18_IDENT.to_string(),
         tidspunkt: etter_vannskille,
         opplysninger: HashSet::from([ErUnder18Aar, BosattEtterFregLoven]),
@@ -308,7 +308,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&historisk_avvist.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
+            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ignorert,
         )
@@ -317,7 +317,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&ny_avvist.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
+            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
@@ -325,7 +325,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
 
     // 3) Ferdigbehandlet vurder_opphold → ny startet gir ny Ubehandlet oppgave
     let startet_vurder_opphold: Startet = StartetBuilder {
-        arbeidssoeker_id: VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        arbeidssoeker_id: VURDER_OPPHOLD_ARBEIDSSOEKER_ID.0,
         identitetsnummer: VURDER_OPPHOLD_IDENT.to_string(),
         utfoert_av_id: VURDER_OPPHOLD_IDENT.to_string(),
         tidspunkt: etter_vannskille,
@@ -337,7 +337,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
     test_context
         .sett_status(
-            ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ferdigbehandlet,
         )
@@ -345,7 +345,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
+            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ubehandlet,
         )
