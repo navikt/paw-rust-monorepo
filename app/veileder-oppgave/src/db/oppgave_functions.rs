@@ -21,10 +21,10 @@ pub async fn hent_nyeste_oppgave(
         Some(row) => row,
     };
 
-    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
-
+    let oppgave_id = OppgaveId::from(oppgave_row.id);
+    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::new(
-        OppgaveId::from(oppgave_row.id),
+        oppgave_id,
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
@@ -95,10 +95,10 @@ pub async fn finn_oppgave_for_ekstern_id(
         Some(row) => row,
     };
 
-    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
-
+    let oppgave_id = OppgaveId::from(oppgave_row.id);
+    let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::new(
-        OppgaveId::from(oppgave_row.id),
+        oppgave_id,
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
@@ -113,7 +113,7 @@ pub async fn finn_oppgave_for_ekstern_id(
 }
 
 async fn hent_hendelse_logg(
-    oppgave_id: i64,
+    oppgave_id: OppgaveId,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<HendelseLoggEntry>> {
     let rows = sqlx::query_as::<_, OppgaveHendelseLoggRow>(
@@ -126,7 +126,7 @@ async fn hent_hendelse_logg(
         ORDER BY tidspunkt DESC
         "#,
     )
-    .bind(oppgave_id)
+    .bind(i64::from(oppgave_id))
     .fetch_all(&mut **transaction)
     .await?;
 
