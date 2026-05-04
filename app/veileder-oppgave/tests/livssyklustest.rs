@@ -19,9 +19,9 @@ use veileder_oppgave::domain::hendelse_logg_entry::HendelseLoggEntry;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
 use veileder_oppgave::domain::oppgave_type::OppgaveType;
+use veileder_oppgave::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 use veileder_oppgave::opprettelse::process_hendelselogg_message;
 use veileder_oppgave::opprett_ekstern_oppgave_task::prosesser_ubehandlede_oppgaver;
-use veileder_oppgave::ferdigstill_oppgave::ferdigstill_oppgave;
 
 const UNDER_18_ARBEIDSSOEKER_ID: i64 = 100;
 const UNDER_18_IDENT: &str = "10000000001";

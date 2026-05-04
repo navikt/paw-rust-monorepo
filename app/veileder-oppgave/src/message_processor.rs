@@ -1,6 +1,5 @@
 use crate::config::ApplicationConfig;
 use crate::opprettelse::process_hendelselogg_message;
-use crate::ferdigstill_oppgave::ferdigstill_oppgave;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -8,6 +7,7 @@ use sqlx::{Postgres, Transaction};
 use std::future::Future;
 use std::pin::Pin;
 use tracing::Instrument;
+use crate::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 
 pub struct VeilederOppgaveMessageProcessor {
     pub app_config: ApplicationConfig,

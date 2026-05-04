@@ -3,13 +3,13 @@ use crate::db::oppgave_functions::{
 };
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
-use crate::domain::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use crate::domain::oppgave_status::OppgaveStatus;
 use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 use chrono::Utc;
 use sqlx::{Postgres, Transaction};
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
+use crate::ferdigstilling::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 
 pub async fn ferdigstill_oppgave(
     kafka_message_payload: &[u8],
