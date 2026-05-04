@@ -15,6 +15,7 @@ use std::sync::Arc;
 use veileder_oppgave::client::oppgave_client::{OPPGAVER_PATH, OppgaveApiClient};
 use veileder_oppgave::config::{ApplicationConfig, OppgaveClientConfig, read_application_config};
 use veileder_oppgave::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
+use veileder_oppgave::domain::arbeidssoeker_id::ArbeidssøkerId;
 use veileder_oppgave::domain::hendelse_logg_entry::HendelseLoggEntry;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
@@ -63,13 +64,13 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
 
     test_context.assert_oppgave_status(
-        UNDER_18_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Ubehandlet,
     )
     .await?;
     test_context.assert_oppgave_status(
-        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
         OppgaveType::VurderOpphold,
         OppgaveStatus::Ubehandlet,
     )
@@ -80,13 +81,13 @@ async fn test_livssyklus_happy_path() -> Result<()> {
     test_context.kjor_opprett_oppgave_task().await?;
 
     test_context.assert_oppgave_status(
-        UNDER_18_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Opprettet,
     )
     .await?;
     test_context.assert_oppgave_status(
-        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
         OppgaveType::VurderOpphold,
         OppgaveStatus::Opprettet,
     )
@@ -103,25 +104,25 @@ async fn test_livssyklus_happy_path() -> Result<()> {
         HendelseLoggStatus::EksternOppgaveFerdigstilt,
     ];
     test_context.assert_oppgave_status(
-        UNDER_18_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
         OppgaveType::AvvistUnder18,
         OppgaveStatus::Ferdigbehandlet,
     )
     .await?;
     test_context.assert_hendelse_logg(
-        UNDER_18_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
         OppgaveType::AvvistUnder18,
         forventet_logg,
     )
     .await?;
     test_context.assert_oppgave_status(
-        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
         OppgaveType::VurderOpphold,
         OppgaveStatus::Ferdigbehandlet,
     )
     .await?;
     test_context.assert_hendelse_logg(
-        VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+        ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
         OppgaveType::VurderOpphold,
         forventet_logg,
     )
@@ -197,14 +198,14 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
         .await?;
     test_context
         .assert_hendelse_logg(
-            UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             &[
                 HendelseLoggStatus::OppgaveOpprettet,
@@ -215,14 +216,14 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ubehandlet,
         )
         .await?;
     test_context
         .assert_hendelse_logg(
-            UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::VurderOpphold,
             &[
                 HendelseLoggStatus::OppgaveOpprettet,
@@ -233,13 +234,13 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     let mut tx = test_context.pg_pool.begin().await?;
     assert!(
-        hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, &mut tx)
+        hent_nyeste_oppgave(ArbeidssøkerId::from(OVER_18_ARBEIDSSOEKER_ID), OppgaveType::AvvistUnder18, &mut tx)
             .await?
             .is_none(),
         "Over 18 skal ikke ha AvvistUnder18-oppgave"
     );
     assert!(
-        hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::VurderOpphold, &mut tx)
+        hent_nyeste_oppgave(ArbeidssøkerId::from(OVER_18_ARBEIDSSOEKER_ID), OppgaveType::VurderOpphold, &mut tx)
             .await?
             .is_none(),
         "Over 18 skal ikke ha VurderOpphold-oppgave"
@@ -248,7 +249,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
 
     test_context
         .assert_oppgave_status(
-            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ignorert,
         )
@@ -274,12 +275,12 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
 
     test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
     test_context
-        .sett_status(UNDER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, OppgaveStatus::Ferdigbehandlet)
+        .sett_status(ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID), OppgaveType::AvvistUnder18, OppgaveStatus::Ferdigbehandlet)
         .await?;
     test_context.send_hendelselogg(&avvist_under_18.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
@@ -307,7 +308,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&historisk_avvist.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ignorert,
         )
@@ -316,7 +317,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&ny_avvist.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID),
             OppgaveType::AvvistUnder18,
             OppgaveStatus::Ubehandlet,
         )
@@ -336,7 +337,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
     test_context
         .sett_status(
-            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ferdigbehandlet,
         )
@@ -344,7 +345,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     test_context.send_hendelselogg(&startet_vurder_opphold.as_json()).await?;
     test_context
         .assert_oppgave_status(
-            VURDER_OPPHOLD_ARBEIDSSOEKER_ID,
+            ArbeidssøkerId::from(VURDER_OPPHOLD_ARBEIDSSOEKER_ID),
             OppgaveType::VurderOpphold,
             OppgaveStatus::Ubehandlet,
         )
@@ -434,7 +435,7 @@ impl TestContext {
 
     async fn assert_oppgave_status(
         &self,
-        arbeidssoeker_id: i64,
+        arbeidssoeker_id: ArbeidssøkerId,
         oppgave_type: OppgaveType,
         forventet: OppgaveStatus,
     ) -> Result<()> {
@@ -454,7 +455,7 @@ impl TestContext {
 
     async fn sett_status(
         &self,
-        arbeidssoeker_id: i64,
+        arbeidssoeker_id: ArbeidssøkerId,
         oppgave_type: OppgaveType,
         ny_status: OppgaveStatus,
     ) -> Result<()> {
@@ -469,7 +470,7 @@ impl TestContext {
 
     async fn assert_hendelse_logg(
         &self,
-        arbeidssoeker_id: i64,
+        arbeidssoeker_id: ArbeidssøkerId,
         oppgave_type: OppgaveType,
         forventede_statuser: &[HendelseLoggStatus],
     ) -> Result<()> {

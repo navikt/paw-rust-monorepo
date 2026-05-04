@@ -10,6 +10,7 @@ use chrono::Utc;
 use interne_hendelser::Startet;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
+use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 use crate::metrics;
 
 pub async fn opprett_vurder_opphold_oppgave(
@@ -23,7 +24,7 @@ pub async fn opprett_vurder_opphold_oppgave(
     let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
     metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
-    let arbeidssoeker_id = startet_hendelse.id;
+    let arbeidssoeker_id = ArbeidssøkerId::from(startet_hendelse.id);
     let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet

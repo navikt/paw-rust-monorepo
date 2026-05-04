@@ -68,6 +68,7 @@ mod tests {
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
+    use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 
     #[tokio::test]
     async fn test_hent_antall_oppgaver_per_status_og_type() -> Result<()> {
@@ -79,7 +80,7 @@ mod tests {
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
                 status: Ubehandlet.to_string(),
-                arbeidssoeker_id: 1,
+                arbeidssoeker_id: ArbeidssøkerId(1),
                 ..Default::default()
             },
             &mut tx,
@@ -89,7 +90,7 @@ mod tests {
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
                 status: Ubehandlet.to_string(),
-                arbeidssoeker_id: 2,
+                arbeidssoeker_id: ArbeidssøkerId(2),
                 ..Default::default()
             },
             &mut tx,
@@ -99,7 +100,7 @@ mod tests {
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
                 status: Ferdigbehandlet.to_string(),
-                arbeidssoeker_id: 3,
+                arbeidssoeker_id: ArbeidssøkerId(3),
                 ..Default::default()
             },
             &mut tx,
@@ -109,7 +110,7 @@ mod tests {
             &InsertOppgaveRow {
                 type_: VurderOpphold.to_string(),
                 status: Ubehandlet.to_string(),
-                arbeidssoeker_id: 4,
+                arbeidssoeker_id: ArbeidssøkerId(4),
                 ..Default::default()
             },
             &mut tx,

@@ -71,6 +71,7 @@ mod tests {
     use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
+    use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
@@ -108,7 +109,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         // --- Ferdigstilt ---
-        let arbeidssoeker_id_1 = 12345;
+        let arbeidssoeker_id_1 = ArbeidssøkerId(12345);
         let mut tx = pg_pool.begin().await?;
         let oppgave_id = insert_oppgave(
             &InsertOppgaveRow {
@@ -163,7 +164,7 @@ mod tests {
         tx.commit().await?;
 
         // --- Feilregistrert ---
-        let arbeidssoeker_id_2 = 67890;
+        let arbeidssoeker_id_2 = ArbeidssøkerId(67890);
         let mut tx = pg_pool.begin().await?;
         let oppgave_id = insert_oppgave(
             &InsertOppgaveRow {

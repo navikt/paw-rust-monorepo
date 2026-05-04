@@ -202,6 +202,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::sleep;
+    use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]
@@ -269,7 +270,7 @@ mod tests {
         // Sett inn 3 oppgaver
         let mut tx = pg_pool.begin().await?;
 
-        let arbeidssoeker_id_1 = 12345;
+        let arbeidssoeker_id_1 = ArbeidssøkerId(12345);
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_1,
@@ -281,7 +282,7 @@ mod tests {
         )
         .await?;
 
-        let arbeidssoeker_id_2 = 12346;
+        let arbeidssoeker_id_2 = ArbeidssøkerId(12346);
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_2,
@@ -293,7 +294,7 @@ mod tests {
         )
         .await?;
 
-        let arbeidssoeker_id_3 = 12347;
+        let arbeidssoeker_id_3 = ArbeidssøkerId(12347);
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_3,
@@ -388,7 +389,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut tx = pg_pool.begin().await?;
-        let arbeidssoeker_id = 12345;
+        let arbeidssoeker_id = ArbeidssøkerId(12345);
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id,

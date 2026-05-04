@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
+use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveRow {
@@ -23,7 +24,7 @@ pub struct InsertOppgaveRow {
     pub status: String,
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
-    pub arbeidssoeker_id: i64,
+    pub arbeidssoeker_id: ArbeidssøkerId,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
 }
@@ -44,7 +45,7 @@ pub fn to_oppgave_row(
         status: oppgave_status.to_string(),
         melding_id: hendelse.hendelse_id(),
         opplysninger,
-        arbeidssoeker_id: hendelse.id(),
+        arbeidssoeker_id: ArbeidssøkerId::from(hendelse.id()),
         identitetsnummer: hendelse.identitetsnummer().to_string(),
         tidspunkt: hendelse.metadata().tidspunkt,
     }
@@ -112,7 +113,7 @@ mod tests {
             oppgave_row.identitetsnummer,
             avvist_hendelse.identitetsnummer
         );
-        assert_eq!(oppgave_row.arbeidssoeker_id, avvist_hendelse.id);
+        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
     }
 
@@ -168,7 +169,7 @@ mod tests {
             oppgave_row.identitetsnummer,
             startet_hendelse.identitetsnummer
         );
-        assert_eq!(oppgave_row.arbeidssoeker_id, startet_hendelse.id);
+        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(startet_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
     }
 }

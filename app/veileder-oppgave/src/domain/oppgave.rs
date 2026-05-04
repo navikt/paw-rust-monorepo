@@ -1,5 +1,6 @@
 use thiserror::Error;
 use chrono::{DateTime, Utc};
+use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_id::OppgaveId;
@@ -12,7 +13,7 @@ pub struct Oppgave {
     pub type_: OppgaveType,
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
-    pub arbeidssoeker_id: i64,
+    pub arbeidssoeker_id: ArbeidssøkerId,
     pub identitetsnummer: String,
     pub ekstern_oppgave_id: Option<EksternOppgaveId>,
     pub tidspunkt: DateTime<Utc>,
@@ -25,7 +26,7 @@ impl Oppgave {
         type_: String,
         status: String,
         opplysninger: Vec<String>,
-        arbeidssoeker_id: i64,
+        arbeidssoeker_id: ArbeidssøkerId,
         identitetsnummer: String,
         ekstern_oppgave_id: Option<EksternOppgaveId>,
         tidspunkt: DateTime<Utc>,
@@ -65,11 +66,11 @@ mod tests {
     fn ny_opg_med_ugyldig_type_kaster_type_parse_error() {
         let ugyldig_type = "Hubba bubba";
         let result = Oppgave::new(
-            OppgaveId::from(1),
+            OppgaveId(1),
             ugyldig_type.to_string(),
             OppgaveStatus::Ubehandlet.to_string(),
             vec![],
-            12345,
+            ArbeidssøkerId(12345),
             "12345678901".to_string(),
             None,
             Utc::now(),
@@ -92,13 +93,13 @@ mod tests {
     fn ny_opg_med_ugyldig_status_kaster_type_parse_error() {
         let ugyldig_status = "Bubba hubba";
         let result = Oppgave::new(
-            OppgaveId::from(1),
+            OppgaveId(1),
             OppgaveType::AvvistUnder18.to_string(),
             ugyldig_status.to_string(),
             vec![],
-            12345,
+            ArbeidssøkerId(12345),
             "12345678901".to_string(),
-            Some(EksternOppgaveId::from(12341)),
+            Some(EksternOppgaveId(12341)),
             Utc::now(),
             vec![],
         );

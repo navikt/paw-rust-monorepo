@@ -12,6 +12,7 @@ use chrono::Utc;
 use interne_hendelser::Avvist;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
+use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 use crate::metrics;
 
 pub async fn opprett_avvist_under_18_oppgave(
@@ -30,7 +31,7 @@ pub async fn opprett_avvist_under_18_oppgave(
     metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
-        let arbeidssoeker_id = avvist_hendelse.id;
+        let arbeidssoeker_id = ArbeidssøkerId::from(avvist_hendelse.id);
         let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
         if let Some(oppgave) = &eksisterende_oppgave
             && oppgave.status != Ferdigbehandlet
