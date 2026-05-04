@@ -121,7 +121,7 @@ async fn prosesser_oppgave(
             inkrement_ekstern_oppgave_opprettelse_feil(&error);
             if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
                 tracing::error!(
-                    oppgave_id = oppgave.id,
+                    oppgave_id = %oppgave.id,
                     "Oppgave sitter fast i status Opprettet uten ekstern_id — manuell gjennomgang nødvendig"
                 );
                 return Err(anyhow::anyhow!(
@@ -176,7 +176,7 @@ fn warning_ved_gjentatte_feil(oppgave: &Oppgave) {
 
     if antall_tidligere_feil >= 5 {
         tracing::warn!(
-            oppgave_id = oppgave.id,
+            oppgave_id = %oppgave.id,
             antall_feil = antall_tidligere_feil,
             "Oppgave har feilet gjentatte ganger mot Oppgave API — mulig kork"
         );

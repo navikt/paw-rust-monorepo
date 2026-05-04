@@ -8,7 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
-
+use crate::domain::oppgave_id::OppgaveId;
 
 pub async fn hent_nyeste_oppgave(
     arbeidssoeker_id: i64,
@@ -23,7 +23,7 @@ pub async fn hent_nyeste_oppgave(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
 
     let oppgave = Oppgave::new(
-        oppgave_row.id,
+        OppgaveId::from(oppgave_row.id),
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
@@ -97,7 +97,7 @@ pub async fn finn_oppgave_for_ekstern_id(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_row.id, tx).await?;
 
     let oppgave = Oppgave::new(
-        oppgave_row.id,
+        OppgaveId::from(oppgave_row.id),
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
@@ -142,7 +142,7 @@ async fn hent_hendelse_logg(
 pub async fn insert_oppgave(
     oppgave_row: &InsertOppgaveRow,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<i64> {
+) -> Result<OppgaveId> {
     let oppgave_id = sqlx::query_scalar(
         r#"
         INSERT INTO oppgaver (type, status, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
@@ -160,7 +160,7 @@ pub async fn insert_oppgave(
         .fetch_one(&mut **transaction)
         .await?;
 
-    Ok(oppgave_id)
+    Ok(OppgaveId(oppgave_id))
 }
 
 pub async fn insert_oppgave_hendelse_logg(
@@ -173,7 +173,7 @@ pub async fn insert_oppgave_hendelse_logg(
         VALUES ($1, $2, $3, $4)
         "#,
     )
-    .bind(hendelse_logg_row.oppgave_id)
+    .bind(i64::from(hendelse_logg_row.oppgave_id))
     .bind(&hendelse_logg_row.status)
     .bind(&hendelse_logg_row.melding)
     .bind(hendelse_logg_row.tidspunkt)
@@ -184,7 +184,7 @@ pub async fn insert_oppgave_hendelse_logg(
 }
 
 pub async fn oppdater_oppgave_med_ekstern_id(
-    oppgave_id: i64,
+    oppgave_id: OppgaveId,
     ekstern_oppgave_id: i64,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<bool> {
@@ -196,14 +196,14 @@ pub async fn oppdater_oppgave_med_ekstern_id(
         "#,
     )
     .bind(ekstern_oppgave_id)
-    .bind(oppgave_id)
+    .bind(i64::from(oppgave_id))
     .execute(&mut **transaction)
     .await?;
     Ok(result.rows_affected() == 1)
 }
 
 pub async fn bytt_oppgave_status(
-    oppgave_id: i64,
+    oppgave_id: OppgaveId,
     expected_status: OppgaveStatus,
     new_status: OppgaveStatus,
     transaction: &mut Transaction<'_, Postgres>,
@@ -217,7 +217,7 @@ pub async fn bytt_oppgave_status(
         "#,
     )
     .bind(new_status.to_string())
-    .bind(oppgave_id)
+    .bind(i64::from(oppgave_id))
     .bind(expected_status.to_string())
     .execute(&mut **transaction)
     .await?;
@@ -261,7 +261,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
     for oppgave_row in oppgave_rows {
         let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
         let oppgave = Oppgave::new(
-            oppgave_row.id,
+            OppgaveId::from(oppgave_row.id),
             oppgave_row.type_,
             oppgave_row.status,
             oppgave_row.opplysninger,
@@ -460,7 +460,7 @@ mod tests {
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx).await?.unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
 
         Ok(())
@@ -480,7 +480,7 @@ mod tests {
 
         let oppgave_id = insert_oppgave(&oppgave_row, &mut tx).await?;
         tx.commit().await?;
-        assert_eq!(oppgave_id, 1);
+        assert_eq!(oppgave_id, OppgaveId(1));
 
         Ok(())
     }
@@ -502,7 +502,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, OppgaveType::AvvistUnder18, &mut tx).await?;
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx).await?;
         tx.commit().await?;
 
         let oppgave = oppgave.unwrap();
@@ -517,7 +517,7 @@ mod tests {
         assert_eq!(oppgave.status, Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
-        assert_eq!(hent_nyeste_oppgave(99999, OppgaveType::AvvistUnder18, &mut tx).await?, None);
+        assert_eq!(hent_nyeste_oppgave(99999, AvvistUnder18, &mut tx).await?, None);
 
         Ok(())
     }

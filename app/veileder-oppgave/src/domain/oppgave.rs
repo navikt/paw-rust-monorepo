@@ -1,12 +1,13 @@
 use thiserror::Error;
 use chrono::{DateTime, Utc};
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
+use crate::domain::oppgave_id::OppgaveId;
 use crate::domain::oppgave_status::{OppgaveStatus, OppgaveStatusParseError};
 use crate::domain::oppgave_type::{OppgaveType, OppgaveTypeParseError};
 
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {
-    pub id: i64,
+    pub id: OppgaveId,
     pub type_: OppgaveType,
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
@@ -19,7 +20,7 @@ pub struct Oppgave {
 
 impl Oppgave {
     pub fn new(
-        id: i64,
+        id: OppgaveId,
         type_: String,
         status: String,
         opplysninger: Vec<String>,
@@ -63,7 +64,7 @@ mod tests {
     fn ny_opg_med_ugyldig_type_kaster_type_parse_error() {
         let ugyldig_type = "Hubba bubba";
         let result = Oppgave::new(
-            1,
+            OppgaveId::from(1),
             ugyldig_type.to_string(),
             OppgaveStatus::Ubehandlet.to_string(),
             vec![],
@@ -90,7 +91,7 @@ mod tests {
     fn ny_opg_med_ugyldig_status_kaster_type_parse_error() {
         let ugyldig_status = "Bubba hubba";
         let result = Oppgave::new(
-            1,
+            OppgaveId::from(1),
             OppgaveType::AvvistUnder18.to_string(),
             ugyldig_status.to_string(),
             vec![],
