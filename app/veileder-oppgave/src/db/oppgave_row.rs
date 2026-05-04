@@ -53,42 +53,20 @@ pub fn to_oppgave_row(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use interne_hendelser::Avvist;
-    use interne_hendelser::Startet;
-    use interne_hendelser::vo::{Bruker, BrukerType, Metadata, Opplysning};
+    use interne_hendelser::vo::Opplysning;
     use paw_rust_base::convenience_functions::contains_all;
+    use paw_test::hendelse_builder::{AvvistBuilder, StartetBuilder};
     use std::collections::HashSet;
-    use uuid::Uuid;
 
     #[test]
     fn test_avvist_hendelse_to_oppgave_row() {
-        let hendelse_id = Uuid::new_v4();
-        let id = 12345;
-        let identitetsnummer = "12345678901".to_string();
-        let now = Utc::now();
-
-        let mut opplysninger = HashSet::new();
-        opplysninger.insert(Opplysning::ErUnder18Aar);
-        opplysninger.insert(Opplysning::BosattEtterFregLoven);
-
-        let avvist_hendelse = Avvist {
-            hendelse_id,
-            id,
-            identitetsnummer: identitetsnummer.clone(),
-            metadata: Metadata {
-                tidspunkt: now,
-                utfoert_av: Bruker {
-                    bruker_type: BrukerType::System,
-                    id: "123".to_string(),
-                    sikkerhetsnivaa: None,
-                },
-                kilde: "Testkilde".to_string(),
-                aarsak: "Test årsak".to_string(),
-                tidspunkt_fra_kilde: None,
-            },
-            opplysninger: opplysninger.clone(),
-            handling: None,
-        };
+        let avvist_hendelse = AvvistBuilder {
+            arbeidssoeker_id: 12345,
+            identitetsnummer: "12345678901".to_string(),
+            opplysninger: HashSet::from([Opplysning::ErUnder18Aar, Opplysning::BosattEtterFregLoven]),
+            ..Default::default()
+        }
+        .build();
 
         let oppgave_row = to_oppgave_row(
             &avvist_hendelse,
@@ -97,7 +75,6 @@ mod tests {
         );
 
         assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
-
         assert!(
             contains_all(
                 &oppgave_row.opplysninger,
@@ -109,42 +86,20 @@ mod tests {
             "Mangler forventede opplysninger: {:?}",
             oppgave_row.opplysninger
         );
-        assert_eq!(
-            oppgave_row.identitetsnummer,
-            avvist_hendelse.identitetsnummer
-        );
+        assert_eq!(oppgave_row.identitetsnummer, avvist_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
     }
 
     #[test]
     fn test_startet_hendelse_to_oppgave_row() {
-        let hendelse_id = Uuid::new_v4();
-        let id = 67890;
-        let identitetsnummer = "98765432109".to_string();
-        let now = Utc::now();
-
-        let mut opplysninger = HashSet::new();
-        opplysninger.insert(Opplysning::ErEuEoesStatsborger);
-        opplysninger.insert(Opplysning::IkkeBosatt);
-
-        let startet_hendelse = Startet {
-            hendelse_id,
-            id,
-            identitetsnummer: identitetsnummer.clone(),
-            metadata: Metadata {
-                tidspunkt: now,
-                utfoert_av: Bruker {
-                    bruker_type: BrukerType::Sluttbruker,
-                    id: "456".to_string(),
-                    sikkerhetsnivaa: None,
-                },
-                kilde: "Testkilde".to_string(),
-                aarsak: "Test årsak".to_string(),
-                tidspunkt_fra_kilde: None,
-            },
-            opplysninger: opplysninger.clone(),
-        };
+        let startet_hendelse = StartetBuilder {
+            arbeidssoeker_id: 67890,
+            identitetsnummer: "98765432109".to_string(),
+            opplysninger: HashSet::from([Opplysning::ErEuEoesStatsborger, Opplysning::IkkeBosatt]),
+            ..Default::default()
+        }
+        .build();
 
         let oppgave_row = to_oppgave_row(
             &startet_hendelse,
@@ -165,10 +120,7 @@ mod tests {
             "Mangler forventede opplysninger: {:?}",
             oppgave_row.opplysninger
         );
-        assert_eq!(
-            oppgave_row.identitetsnummer,
-            startet_hendelse.identitetsnummer
-        );
+        assert_eq!(oppgave_row.identitetsnummer, startet_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(startet_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
     }
