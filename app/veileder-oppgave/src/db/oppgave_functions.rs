@@ -8,6 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
 pub async fn hent_nyeste_oppgave(
@@ -29,7 +30,7 @@ pub async fn hent_nyeste_oppgave(
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
-        oppgave_row.ekstern_oppgave_id,
+        oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
     )?;
@@ -67,7 +68,7 @@ async fn hent_nyeste_oppgave_for_arbeidssoeker(
 }
 
 pub async fn finn_oppgave_for_ekstern_id(
-    ekstern_id: i64,
+    ekstern_id: EksternOppgaveId,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>> {
     let rows = sqlx::query_as::<_, OppgaveRow>(
@@ -85,7 +86,7 @@ pub async fn finn_oppgave_for_ekstern_id(
         WHERE ekstern_oppgave_id = $1
         "#,
     )
-    .bind(ekstern_id)
+    .bind(i64::from(ekstern_id))
     .fetch_optional(&mut **tx)
     .await?;
 
@@ -103,7 +104,7 @@ pub async fn finn_oppgave_for_ekstern_id(
         oppgave_row.opplysninger,
         oppgave_row.arbeidssoeker_id,
         oppgave_row.identitetsnummer,
-        oppgave_row.ekstern_oppgave_id,
+        oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
     )?;
@@ -185,7 +186,7 @@ pub async fn insert_oppgave_hendelse_logg(
 
 pub async fn oppdater_oppgave_med_ekstern_id(
     oppgave_id: OppgaveId,
-    ekstern_oppgave_id: i64,
+    ekstern_oppgave_id: EksternOppgaveId,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<bool> {
     let result = sqlx::query(
@@ -195,7 +196,7 @@ pub async fn oppdater_oppgave_med_ekstern_id(
         WHERE id = $2
         "#,
     )
-    .bind(ekstern_oppgave_id)
+    .bind(i64::from(ekstern_oppgave_id))
     .bind(i64::from(oppgave_id))
     .execute(&mut **transaction)
     .await?;
@@ -267,7 +268,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
             oppgave_row.opplysninger,
             oppgave_row.arbeidssoeker_id,
             oppgave_row.identitetsnummer,
-            oppgave_row.ekstern_oppgave_id,
+            oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
             oppgave_row.tidspunkt,
             hendelse_logg,
         )?;
@@ -424,7 +425,7 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let ekstern_oppgave_id = 1337;
+        let ekstern_oppgave_id = EksternOppgaveId::from(1337);
         let oppdatert =
             oppdater_oppgave_med_ekstern_id(oppgave_id, ekstern_oppgave_id, &mut tx).await?;
         tx.commit().await?;

@@ -9,6 +9,7 @@ use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 use chrono::Utc;
 use sqlx::{Postgres, Transaction};
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
 pub async fn ferdigstill_oppgave(
     kafka_message_payload: &[u8],
@@ -29,7 +30,7 @@ pub async fn ferdigstill_oppgave(
         OppgaveHendelsetype::OppgaveEndret => return Ok(()),
     };
 
-    let ekstern_oppgave_id = melding.oppgave.oppgave_id;
+    let ekstern_oppgave_id = EksternOppgaveId::from(melding.oppgave.oppgave_id);
     let oppgave = match finn_oppgave_for_ekstern_id(ekstern_oppgave_id, tx).await? {
         None => return Ok(()),
         Some(oppgave) => oppgave,
@@ -70,6 +71,7 @@ mod tests {
     use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
+    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
     const EKSTERN_OPPGAVE_ID_FEILREGISTRERT: i64 = 66666;
@@ -117,7 +119,7 @@ mod tests {
             &mut tx,
         )
         .await?;
-        oppdater_oppgave_med_ekstern_id(oppgave_id, EKSTERN_OPPGAVE_ID_FERDIGSTILT, &mut tx)
+        oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FERDIGSTILT), &mut tx)
             .await?;
         tx.commit().await?;
 
@@ -172,7 +174,7 @@ mod tests {
             &mut tx,
         )
         .await?;
-        oppdater_oppgave_med_ekstern_id(oppgave_id, EKSTERN_OPPGAVE_ID_FEILREGISTRERT, &mut tx)
+        oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FEILREGISTRERT), &mut tx)
             .await?;
         tx.commit().await?;
 

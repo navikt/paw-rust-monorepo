@@ -20,6 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
 pub fn spawn_ekstern_oppgave_task(
     db_pool: PgPool,
@@ -113,7 +114,7 @@ async fn prosesser_oppgave(
                 &mut tx,
             )
             .await?;
-            oppdater_oppgave_med_ekstern_id(oppgave.id, oppgave_dto.id, &mut tx).await?;
+            oppdater_oppgave_med_ekstern_id(oppgave.id, EksternOppgaveId::from(oppgave_dto.id), &mut tx).await?;
             tracing::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
             tx.commit().await?;
         }
@@ -201,6 +202,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::sleep;
+    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]
     async fn en_feilet_oppgave_stopper_ikke_batchen() -> Result<()> {
@@ -318,7 +320,7 @@ mod tests {
                 .await?
                 .unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
-        assert_eq!(oppgave_1.ekstern_oppgave_id, Some(100));
+        assert_eq!(oppgave_1.ekstern_oppgave_id, Some(EksternOppgaveId::from(100)));
         assert!(
             oppgave_1
                 .hendelse_logg
@@ -346,7 +348,7 @@ mod tests {
                 .await?
                 .unwrap();
         assert_eq!(oppgave_3.status, Opprettet);
-        assert_eq!(oppgave_3.ekstern_oppgave_id, Some(200));
+        assert_eq!(oppgave_3.ekstern_oppgave_id, Some(EksternOppgaveId::from(200)));
         assert!(
             oppgave_3
                 .hendelse_logg

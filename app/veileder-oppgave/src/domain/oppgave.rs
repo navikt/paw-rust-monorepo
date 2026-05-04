@@ -1,5 +1,6 @@
 use thiserror::Error;
 use chrono::{DateTime, Utc};
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_id::OppgaveId;
 use crate::domain::oppgave_status::{OppgaveStatus, OppgaveStatusParseError};
@@ -13,7 +14,7 @@ pub struct Oppgave {
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
-    pub ekstern_oppgave_id: Option<i64>,
+    pub ekstern_oppgave_id: Option<EksternOppgaveId>,
     pub tidspunkt: DateTime<Utc>,
     pub hendelse_logg: Vec<HendelseLoggEntry>,
 }
@@ -26,7 +27,7 @@ impl Oppgave {
         opplysninger: Vec<String>,
         arbeidssoeker_id: i64,
         identitetsnummer: String,
-        ekstern_oppgave_id: Option<i64>,
+        ekstern_oppgave_id: Option<EksternOppgaveId>,
         tidspunkt: DateTime<Utc>,
         hendelse_logg: Vec<HendelseLoggEntry>,
     ) -> Result<Self, OppgaveError> {
@@ -97,7 +98,7 @@ mod tests {
             vec![],
             12345,
             "12345678901".to_string(),
-            Some(12341),
+            Some(EksternOppgaveId::from(12341)),
             Utc::now(),
             vec![],
         );
