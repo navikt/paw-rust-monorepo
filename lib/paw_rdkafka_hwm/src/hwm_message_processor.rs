@@ -35,12 +35,16 @@ async fn internal_hwm_process_message(
         let res = processor.process_message(&mut tx, msg).await;
         increment_kafka_messages_processed(true, &topic.to_string(), msg.partition(), res.is_err());
         match res {
-            Ok(_) => tracing::debug!(
-                "Message processed successfully: topic={}, partition={}, offset={}",
-                topic,
-                msg.partition(),
-                msg.offset()
-            ),
+            Ok(_) => {
+                tracing::debug!(
+                    "Message processed successfully: topic={}, partition={}, offset={}",
+                    topic,
+                    msg.partition(),
+                    msg.offset()
+                );
+                tx.commit().await?;
+                Ok(())
+            }
             Err(e) => {
                 tracing::error!(
                     "Error processing message: topic={}, partition={}, offset={}, error={}",
@@ -50,10 +54,9 @@ async fn internal_hwm_process_message(
                     e
                 );
                 tx.rollback().await?;
-                return Err(e);
+                Err(e)
             }
         }
-        tx.commit().await?;
     } else {
         increment_kafka_messages_processed(false, &topic.to_string(), msg.partition(), false);
         tracing::info!(
@@ -62,8 +65,8 @@ async fn internal_hwm_process_message(
             msg.partition(),
             msg.offset()
         );
+        Ok(())
     }
-    Ok(())
 }
 
 pub async fn hwm_process_message(
