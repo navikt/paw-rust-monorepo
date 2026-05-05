@@ -115,7 +115,7 @@ mod tests {
         )
         .await?;
 
-        // VurderOpphold med duplikat — skal IKKE telles
+        // VurderOppholdsstatus med duplikat — skal IKKE telles
         let vurder_oppgave_id = insert_oppgave(
             &InsertOppgaveRow {
                 type_: VurderOppholdsstatus.to_string(),
@@ -142,7 +142,7 @@ mod tests {
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let rader = hent_avvergede_duplikater_per_dag(cutoff, &mut tx).await?;
 
-        assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff — VurderOpphold ekskludert");
+        assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff — VurderOppholdsstatus ekskludert");
         let avvergede_duplikater_forste_dag = rader
             .iter()
             .find(|r| r.dato == "2026-03-15")

@@ -124,7 +124,7 @@ mod tests {
         )
         .await?;
 
-        // Person 3: VurderOpphold med forsøk — skal IKKE telles
+        // Person 3: VurderOppholdsstatus med forsøk — skal IKKE telles
         let oppgave_id_vurder = insert_oppgave(
             &InsertOppgaveRow {
                 type_: VurderOppholdsstatus.to_string(),
@@ -176,7 +176,7 @@ mod tests {
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(cutoff, &mut tx).await?;
 
-        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0 (VurderOpphold ignorert)
+        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0 (VurderOppholdsstatus ignorert)
         assert_eq!(gjennomsnitt, 1.0);
 
         Ok(())

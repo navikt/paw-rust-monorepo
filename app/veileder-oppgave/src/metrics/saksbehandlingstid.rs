@@ -165,7 +165,7 @@ mod tests {
         )
         .await?;
 
-        // Uke 1: VurderOpphold — 1 dag → vises separat fra AvvistUnder18
+        // Uke 1: VurderOppholdsstatus — 1 dag → vises separat fra AvvistUnder18
         let opprettet_v = uke1_mandag + Duration::days(2) + Duration::hours(8);
         let ferdigstilt_v = opprettet_v + Duration::days(1);
         let oppgave_id_v = insert_oppgave(
@@ -285,7 +285,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
         let rader = hent_saksbehandlingstid_per_uke(cutoff, &mut tx).await?;
 
-        // 3 rader: uke1/AvvistUnder18, uke1/VurderOpphold, uke2/AvvistUnder18
+        // 3 rader: uke1/AvvistUnder18, uke1/VurderOppholdsstatus, uke2/AvvistUnder18
         // Oppgaven fra for 31 uker siden skal ikke telles
         assert_eq!(rader.len(), 3, "Skal ha tre rader — oppgave eldre enn 30 uker skal ekskluderes");
 
@@ -303,7 +303,7 @@ mod tests {
         assert_eq!(avvist_rader.len(), 2, "Skal ha to AvvistUnder18-rader (to uker)");
 
         let vurder_rader: Vec<_> = rader.iter().filter(|r| r.type_ == VurderOppholdsstatus.to_string()).collect();
-        assert_eq!(vurder_rader.len(), 1, "Skal ha én VurderOpphold-rad");
+        assert_eq!(vurder_rader.len(), 1, "Skal ha én VurderOppholdsstatus-rad");
         assert_eq!(
             vurder_rader[0].gjennomsnitt_sekunder,
             Duration::days(1).num_seconds() as f64

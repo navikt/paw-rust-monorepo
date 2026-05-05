@@ -243,7 +243,7 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
         hent_nyeste_oppgave(OVER_18_ARBEIDSSOEKER_ID, OppgaveType::VurderOppholdsstatus, &mut tx)
             .await?
             .is_none(),
-        "Over 18 skal ikke ha VurderOpphold-oppgave"
+        "Over 18 skal ikke ha VurderOppholdsstatus-oppgave"
     );
     tx.commit().await?;
 

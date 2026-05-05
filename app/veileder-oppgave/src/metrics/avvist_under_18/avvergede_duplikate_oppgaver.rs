@@ -105,7 +105,7 @@ mod tests {
         )
         .await?;
 
-        // VurderOpphold med duplikat — skal IKKE telles
+        // VurderOppholdsstatus med duplikat — skal IKKE telles
         let vurder_oppgave_id = insert_oppgave(
             &InsertOppgaveRow {
                 type_: VurderOppholdsstatus.to_string(),
