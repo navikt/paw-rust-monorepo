@@ -54,7 +54,6 @@ pub fn to_oppgave_row(
 mod tests {
     use super::*;
     use interne_hendelser::vo::Opplysning;
-    use paw_rust_base::convenience_functions::contains_all;
     use paw_test::hendelse_builder::{AvvistBuilder, StartetBuilder};
     use std::collections::HashSet;
 
@@ -75,19 +74,10 @@ mod tests {
         );
 
         assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
-        assert!(
-            contains_all(
-                &oppgave_row.opplysninger,
-                &[
-                    "ER_UNDER_18_AAR".to_string(),
-                    "BOSATT_ETTER_FREG_LOVEN".to_string()
-                ]
-            ),
-            "Mangler forventede opplysninger: {:?}",
-            oppgave_row.opplysninger
-        );
         assert_eq!(oppgave_row.type_, OppgaveType::AvvistUnder18.to_string());
         assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
+        let forventede: HashSet<String> = avvist_hendelse.opplysninger.iter().map(|o| o.to_string()).collect();
+        assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
         assert_eq!(oppgave_row.identitetsnummer, avvist_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
@@ -112,17 +102,8 @@ mod tests {
         assert_eq!(oppgave_row.melding_id, startet_hendelse.hendelse_id);
         assert_eq!(oppgave_row.type_, OppgaveType::VurderOppholdsstatus.to_string());
         assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
-        assert!(
-            contains_all(
-                &oppgave_row.opplysninger,
-                &[
-                    "ER_EU_EOES_STATSBORGER".to_string(),
-                    "IKKE_BOSATT".to_string()
-                ]
-            ),
-            "Mangler forventede opplysninger: {:?}",
-            oppgave_row.opplysninger
-        );
+        let forventede_opplysninger: HashSet<String> = startet_hendelse.opplysninger.iter().map(|opplysning| opplysning.to_string()).collect();
+        assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede_opplysninger);
         assert_eq!(oppgave_row.identitetsnummer, startet_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(startet_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
