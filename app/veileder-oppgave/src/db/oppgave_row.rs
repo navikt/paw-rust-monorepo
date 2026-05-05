@@ -86,6 +86,8 @@ mod tests {
             "Mangler forventede opplysninger: {:?}",
             oppgave_row.opplysninger
         );
+        assert_eq!(oppgave_row.type_, OppgaveType::AvvistUnder18.to_string());
+        assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
         assert_eq!(oppgave_row.identitetsnummer, avvist_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
@@ -103,12 +105,13 @@ mod tests {
 
         let oppgave_row = to_oppgave_row(
             &startet_hendelse,
-            OppgaveType::VurderOpphold,
+            OppgaveType::VurderOppholdsstatus,
             OppgaveStatus::Ubehandlet,
         );
 
         assert_eq!(oppgave_row.melding_id, startet_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.type_, "VURDER_OPPHOLD");
+        assert_eq!(oppgave_row.type_, OppgaveType::VurderOppholdsstatus.to_string());
+        assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
         assert!(
             contains_all(
                 &oppgave_row.opplysninger,

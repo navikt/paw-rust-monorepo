@@ -56,7 +56,7 @@ mod tests {
     use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
-    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -127,7 +127,7 @@ mod tests {
         // Person 3: VurderOpphold med forsøk — skal IKKE telles
         let oppgave_id_vurder = insert_oppgave(
             &InsertOppgaveRow {
-                type_: VurderOpphold.to_string(),
+                type_: VurderOppholdsstatus.to_string(),
                 identitetsnummer: "12345678905".to_string(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()

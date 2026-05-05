@@ -43,7 +43,7 @@ pub fn create_oppgave_request(
 ) -> OpprettOppgaveRequest {
     match oppgave_type {
         OppgaveType::AvvistUnder18 => avvist_under_18(identitetsnummer),
-        OppgaveType::VurderOpphold => vurder_opphold(identitetsnummer),
+        OppgaveType::VurderOppholdsstatus => vurder_oppholdsstatus(identitetsnummer),
     }
 }
 
@@ -69,19 +69,19 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
     }
 }
 
-const BESKRIVELSE_VURDER_OPPHOLD: &str = r#"Vurder oppholdsstatus for EU/EØS-borger som er utflyttet fra Norge.
+const BESKRIVELSE_VURDER_OPPHOLDSSTATUS: &str = r#"Vurder oppholdsstatus for EU/EØS-borger som har status utflyttet i folkeregisteret
 
-Vi trenger bekreftelse på at personen tilfredstiller kravene for å være registrert arbeidssøker. Dersom vedkommende ikke har rett til dette, skal arbeidssøkerperioden avsluttes."#;
+Personen har registrert seg som arbeidssøker og har status utflyttet i folkeregisteret. Nav trenger bekreftelse på at personen har lovlig opphold i Norge. Vurder personens oppholdsstatus i henhold til gjeldende rutine. Dersom vedkommende ikke har lovlig opphold skal personens arbeidssøkerperiode avsluttes."#;
 const VURDER_HENVENDELSE: &str = "VURD_HENV";
 
-fn vurder_opphold(identitetsnummer: String) -> OpprettOppgaveRequest {
+fn vurder_oppholdsstatus(identitetsnummer: String) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
         personident: Some(identitetsnummer),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
         oppgavetype: VURDER_HENVENDELSE.to_string(),
         tema: GENERELL.to_string(),
-        beskrivelse: Some(BESKRIVELSE_VURDER_OPPHOLD.to_string()),
+        beskrivelse: Some(BESKRIVELSE_VURDER_OPPHOLDSSTATUS.to_string()),
         ..Default::default()
     }
 }
@@ -134,22 +134,18 @@ mod tests {
         assert_eq!(request.oppgavetype, KONTAKT_BRUKER);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
-        assert!(request.beskrivelse.is_some());
-        assert!(request.orgnr.is_none());
-        assert!(request.tildelt_enhetsnr.is_none());
+        assert_eq!(request.beskrivelse, Some(BESKRIVELSE_AVVIST_UNDER_18.to_string()));
     }
 
     #[test]
-    fn test_vurder_opphold_request() {
+    fn test_vurder_oppholdsstatus_request() {
         let identitetsnummer = "12345678902".to_string();
-        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOpphold);
+        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOppholdsstatus);
 
         assert_eq!(request.personident, Some(identitetsnummer));
         assert_eq!(request.oppgavetype, VURDER_HENVENDELSE);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
-        assert!(request.beskrivelse.is_some());
-        assert!(request.orgnr.is_none());
-        assert!(request.tildelt_enhetsnr.is_none());
+        assert_eq!(request.beskrivelse, Some(BESKRIVELSE_VURDER_OPPHOLDSSTATUS.to_string()));
     }
 }

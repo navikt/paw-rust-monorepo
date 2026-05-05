@@ -79,7 +79,7 @@ mod tests {
     use crate::db::oppgave_functions::{insert_oppgave, insert_oppgave_hendelse_logg};
     use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
     use crate::db::oppgave_row::InsertOppgaveRow;
-    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{Datelike, Duration, Utc};
     use paw_test::setup_test_db::setup_test_db;
@@ -170,7 +170,7 @@ mod tests {
         let ferdigstilt_v = opprettet_v + Duration::days(1);
         let oppgave_id_v = insert_oppgave(
             &InsertOppgaveRow {
-                type_: VurderOpphold.to_string(),
+                type_: VurderOppholdsstatus.to_string(),
                 identitetsnummer: "12345678905".to_string(),
                 tidspunkt: opprettet_v,
                 ..Default::default()
@@ -302,7 +302,7 @@ mod tests {
         let avvist_rader: Vec<_> = rader.iter().filter(|r| r.type_ == AvvistUnder18.to_string()).collect();
         assert_eq!(avvist_rader.len(), 2, "Skal ha to AvvistUnder18-rader (to uker)");
 
-        let vurder_rader: Vec<_> = rader.iter().filter(|r| r.type_ == VurderOpphold.to_string()).collect();
+        let vurder_rader: Vec<_> = rader.iter().filter(|r| r.type_ == VurderOppholdsstatus.to_string()).collect();
         assert_eq!(vurder_rader.len(), 1, "Skal ha én VurderOpphold-rad");
         assert_eq!(
             vurder_rader[0].gjennomsnitt_sekunder,

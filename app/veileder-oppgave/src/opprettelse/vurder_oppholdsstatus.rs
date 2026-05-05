@@ -4,7 +4,7 @@ use crate::db::oppgave_functions::{
 use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_row;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
-use crate::domain::kriterier::vurder_opphold;
+use crate::domain::kriterier::vurder_oppholdsstatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use chrono::Utc;
 use interne_hendelser::Startet;
@@ -13,15 +13,15 @@ use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 use crate::metrics;
 
-pub async fn opprett_vurder_opphold_oppgave(
+pub async fn opprett_vurder_oppholdsstatus_oppgave(
     startet_hendelse: &Startet,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    if vurder_opphold::KRITERIER.ikke_oppfylt_av(startet_hendelse) {
+    if vurder_oppholdsstatus::KRITERIER.ikke_oppfylt_av(startet_hendelse) {
         return Ok(());
     }
 
-    let oppgave_type = vurder_opphold::KRITERIER.oppgave_type;
+    let oppgave_type = vurder_oppholdsstatus::KRITERIER.oppgave_type;
     metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     let arbeidssoeker_id = ArbeidssøkerId::from(startet_hendelse.id);

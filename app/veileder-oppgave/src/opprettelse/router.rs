@@ -1,5 +1,5 @@
 use super::avvist_under_18::opprett_avvist_under_18_oppgave;
-use super::vurder_opphold::opprett_vurder_opphold_oppgave;
+use super::vurder_oppholdsstatus::opprett_vurder_oppholdsstatus_oppgave;
 use crate::config::ApplicationConfig;
 use anyhow::Context;
 use interne_hendelser::{Avvist, Startet};
@@ -29,7 +29,7 @@ pub async fn process_hendelselogg_message(
         interne_hendelser::STARTET_HENDELSE_TYPE => {
             let startet: Startet = serde_json::from_value(hendelse_json)
                 .context("Kunne ikke deserialisere startet hendelse")?;
-            opprett_vurder_opphold_oppgave(&startet, tx).await?;
+            opprett_vurder_oppholdsstatus_oppgave(&startet, tx).await?;
         }
         _ => {}
     }

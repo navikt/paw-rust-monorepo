@@ -65,7 +65,7 @@ mod tests {
     use crate::db::oppgave_functions::insert_oppgave;
     use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
-    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOpphold};
+    use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
     use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
@@ -108,7 +108,7 @@ mod tests {
         .await?;
         insert_oppgave(
             &InsertOppgaveRow {
-                type_: VurderOpphold.to_string(),
+                type_: VurderOppholdsstatus.to_string(),
                 status: Ubehandlet.to_string(),
                 arbeidssoeker_id: ArbeidssøkerId(4),
                 ..Default::default()
@@ -131,7 +131,7 @@ mod tests {
             .map(|r| r.antall);
         let vurder_ubehandlet = rader
             .iter()
-            .find(|r| r.status == Ubehandlet.to_string() && r.type_ == VurderOpphold.to_string())
+            .find(|r| r.status == Ubehandlet.to_string() && r.type_ == VurderOppholdsstatus.to_string())
             .map(|r| r.antall);
 
         assert_eq!(avvist_ubehandlet, Some(2));

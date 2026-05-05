@@ -4,7 +4,7 @@ use interne_hendelser::Startet;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 
 pub const KRITERIER: OppgaveKriterier<Startet> = OppgaveKriterier::new(
-    OppgaveType::VurderOpphold,
+    OppgaveType::VurderOppholdsstatus,
     &[
         Kriterium {
             navn: "innsendt_av_sluttbruker",
