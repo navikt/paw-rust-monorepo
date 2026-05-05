@@ -71,7 +71,9 @@ fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
 
 const BESKRIVELSE_VURDER_OPPHOLDSSTATUS: &str = r#"Vurder oppholdsstatus for EU/EØS-borger som har status utflyttet i folkeregisteret
 
-Personen har registrert seg som arbeidssøker og har status utflyttet i folkeregisteret. Nav trenger bekreftelse på at personen har lovlig opphold i Norge. Vurder personens oppholdsstatus i henhold til gjeldende rutine. Dersom vedkommende ikke har lovlig opphold skal personens arbeidssøkerperiode avsluttes."#;
+Personen har registrert seg som arbeidssøker og har status utflyttet i folkeregisteret. Nav trenger bekreftelse på at personen har lovlig opphold i Norge. Vurder personens oppholdsstatus i henhold til gjeldende rutine. Dersom vedkommende ikke har lovlig opphold skal personens arbeidssøkerperiode avsluttes.
+
+Se servicerutine: "EU/EØS-borgere med status utflyttet""#;
 const VURDER_HENVENDELSE: &str = "VURD_HENV";
 
 fn vurder_oppholdsstatus(identitetsnummer: String) -> OpprettOppgaveRequest {
