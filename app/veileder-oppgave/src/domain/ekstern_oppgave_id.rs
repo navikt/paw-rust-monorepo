@@ -1,8 +1,7 @@
 use fmt::Display;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EksternOppgaveId(pub i64);
 
 impl From<i64> for EksternOppgaveId {

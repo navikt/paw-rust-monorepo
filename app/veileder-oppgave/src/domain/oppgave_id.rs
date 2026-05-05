@@ -1,7 +1,7 @@
 use fmt::Display;
 use std::fmt;
 
-#[derive(Debug, Eq, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OppgaveId(pub i64);
 
 impl From<i64> for OppgaveId {
