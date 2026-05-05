@@ -1,12 +1,3 @@
-
-use utgang::consumer_function::UtgangMessageProcessor;
-use utgang::kafka::kafka_consumer::create_kafka_consumer;
-use utgang::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
-use utgang::oppdater_pdl_data::PdlDataOppdatering;
-use utgang::pdl::pdl_config::PDLClientConfig;
-use utgang::pdl::pdl_query::PDLClient;
-use utgang::pdl_oppdatering_task::start_pdl_oppdatering_task;
-use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 use anyhow::Result;
 use chrono::TimeDelta;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
@@ -15,8 +6,8 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::config::DatabaseConfig;
 use paw_sqlx::postgres::init_db;
+use paw_sqlx::{config::DatabaseConfig, postgres::clear_db};
 use rdkafka::Message;
 use std::{num::NonZeroU16, sync::Arc, time::Duration};
 use texas_client::token_client::create_token_client;
@@ -24,9 +15,16 @@ use tokio::{
     signal::{unix::SignalKind, unix::signal},
     task::{JoinError, JoinHandle},
 };
+use utgang::consumer_function::UtgangMessageProcessor;
+use utgang::kafka::kafka_consumer::create_kafka_consumer;
+use utgang::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
+use utgang::oppdater_pdl_data::PdlDataOppdatering;
+use utgang::pdl::pdl_config::PDLClientConfig;
+use utgang::pdl::pdl_query::PDLClient;
+use utgang::pdl_oppdatering_task::start_pdl_oppdatering_task;
+use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 
-const PDL_BATCH_SIZE: NonZeroU16 =
-    NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
+const PDL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,6 +45,7 @@ async fn main() -> Result<()> {
     });
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
     let pg_pool = init_db(db_config).await?;
+    clear_db(&pg_pool).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let kafka_config = toml::from_str::<KafkaConfig>(read_config_file!("kafka_config.toml"))?;
     let hwm_version = *kafka_config.hwm_version;
