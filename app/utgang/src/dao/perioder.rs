@@ -3,7 +3,9 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::domain::{
-    arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
+    arbeidssoeker_id::ArbeidssoekerId,
+    arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
+    identitetsnummer::Identitetsnummer,
 };
 
 pub struct PeriodeRad {
@@ -12,6 +14,7 @@ pub struct PeriodeRad {
     pub trenger_kontroll: bool,
     pub stoppet: bool,
     pub sist_oppdatert: chrono::DateTime<chrono::Utc>,
+    pub identitetsnummer: Identitetsnummer,
 }
 
 impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
@@ -21,12 +24,16 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
         let trenger_kontroll: bool = row.try_get("trenger_kontroll")?;
         let stoppet: bool = row.try_get("stoppet")?;
         let sist_oppdatert: NaiveDateTime = row.try_get("sist_oppdatert")?;
+        let identitetsnummer: String = row.try_get("identitetsnummer")?;
+        let identitetsnummer = Identitetsnummer::new(identitetsnummer)
+            .ok_or_else(|| sqlx::Error::Decode("Ugyldig identitetsnummer".into()))?;
         Ok(PeriodeRad {
             id: ArbeidssoekerperiodeId::from(id),
             arbeidssoeker_id: arbeidssoeker_id.map(ArbeidssoekerId),
             trenger_kontroll,
             stoppet,
             sist_oppdatert: sist_oppdatert.and_utc(),
+            identitetsnummer,
         })
     }
 }
@@ -39,11 +46,12 @@ pub async fn skriv_perioder(
         return Ok(());
     }
     let mut builder = sqlx::QueryBuilder::new(
-        "INSERT INTO perioder (id, arbeidssoeker_id, trenger_kontroll, stoppet, sist_oppdatert) ",
+        "INSERT INTO perioder (id, arbeidssoeker_id, identitetsnummer, trenger_kontroll, stoppet, sist_oppdatert) ",
     );
     builder.push_values(perioder, |mut b, p| {
         b.push_bind(p.id.0)
             .push_bind(p.arbeidssoeker_id.map(|a| a.0))
+            .push_bind(String::from(p.identitetsnummer))
             .push_bind(p.trenger_kontroll)
             .push_bind(p.stoppet)
             .push_bind(p.sist_oppdatert.naive_utc());
@@ -68,7 +76,7 @@ pub async fn hent_perioder(
     }
     let uuid_liste: Vec<Uuid> = periode_ider.iter().map(|id| id.0).collect();
     sqlx::query_as::<_, PeriodeRad>(
-        "SELECT id, arbeidssoeker_id, trenger_kontroll, stoppet, sist_oppdatert
+        "SELECT id, arbeidssoeker_id, identitetsnummer, trenger_kontroll, stoppet, sist_oppdatert
          FROM perioder
          WHERE id = ANY($1)
            AND stoppet = false",
@@ -84,7 +92,7 @@ pub async fn hent_perioder_eldre_enn(
     limit: std::num::NonZeroU32,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
     sqlx::query_as::<_, PeriodeRad>(
-        "SELECT id, arbeidssoeker_id, trenger_kontroll, stoppet, sist_oppdatert
+        "SELECT id, arbeidssoeker_id, identitetsnummer, trenger_kontroll, stoppet, sist_oppdatert
          FROM perioder
          WHERE trenger_kontroll = false AND stoppet = false AND sist_oppdatert < $1
          ORDER BY sist_oppdatert ASC
@@ -101,7 +109,7 @@ pub async fn hent_perioder_som_trenger_kontroll(
     limit: std::num::NonZeroU32,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
     sqlx::query_as::<_, PeriodeRad>(
-        "SELECT id, arbeidssoeker_id, trenger_kontroll, stoppet, sist_oppdatert
+        "SELECT id, arbeidssoeker_id, identitetsnummer, trenger_kontroll, stoppet, sist_oppdatert
          FROM perioder
          WHERE trenger_kontroll = true AND stoppet = false
          ORDER BY sist_oppdatert ASC
