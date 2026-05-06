@@ -5,7 +5,7 @@ use chrono::{Duration, Utc};
 use interne_hendelser::vo::{BrukerType, Opplysning};
 use paw_test::setup_test_db::setup_test_db;
 use utgang::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use utgang::dao::utgang_hendelser_logg::{hent_hendelser, skriv_hendelser};
+use utgang::dao::utgang_hendelser_logg::{hent_hendelser, hent_metadata_og_siste_pdl, skriv_hendelser};
 use utgang::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use utgang::domain::opplysninger::Opplysninger;
 use utgang::domain::utgang_hendelse_type::UtgangHendelseType;
@@ -209,6 +209,139 @@ async fn hent_hendelser_uten_opplysninger_returnerer_none() {
 
     let h = &resultat[&periode_id][0];
     assert!(h.opplysninger().is_none(), "Opplysninger skal være None");
+}
+
+#[tokio::test]
+async fn hent_metadata_og_siste_pdl_returnerer_metadata_mottatt_og_siste_pdl() {
+    let pool = setup().await;
+
+    let periode_id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let now = Utc::now().with_nanosecond_truncated();
+    let tidlig = (now - Duration::minutes(10)).with_nanosecond_truncated();
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_hendelser(
+        &mut tx,
+        vec![
+            InternUtgangHendelse::new(
+                UtgangHendelseType::MetadataMottatt,
+                periode_id.clone(),
+                tidlig,
+                BrukerType::Sluttbruker,
+                None,
+            ),
+            InternUtgangHendelse::new(
+                UtgangHendelseType::PdlDataEndret,
+                periode_id.clone(),
+                now - Duration::minutes(5),
+                BrukerType::Sluttbruker,
+                None,
+            ),
+            InternUtgangHendelse::new(
+                UtgangHendelseType::PdlDataEndret,
+                periode_id.clone(),
+                now,
+                BrukerType::Sluttbruker,
+                None,
+            ),
+        ],
+    )
+    .await
+    .expect("skriv_hendelser feilet");
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let resultat = hent_metadata_og_siste_pdl(&mut tx, &[periode_id.clone()])
+        .await
+        .expect("hent_metadata_og_siste_pdl feilet");
+    tx.commit().await.unwrap();
+
+    let data = resultat.get(&periode_id).expect("Periode-ID ikke funnet");
+    assert!(matches!(
+        data.metadata_mottatt.hendelsetype(),
+        UtgangHendelseType::MetadataMottatt
+    ));
+    assert_eq!(data.metadata_mottatt.timestamp(), tidlig);
+    let siste = data.siste_pdl_data_endret.as_ref().expect("Forventet PdlDataEndret");
+    assert_eq!(siste.timestamp(), now);
+}
+
+#[tokio::test]
+async fn hent_metadata_og_siste_pdl_uten_pdl_data_endret() {
+    let pool = setup().await;
+
+    let periode_id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+    let now = Utc::now().with_nanosecond_truncated();
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_hendelser(
+        &mut tx,
+        vec![InternUtgangHendelse::new(
+            UtgangHendelseType::MetadataMottatt,
+            periode_id.clone(),
+            now,
+            BrukerType::Sluttbruker,
+            None,
+        )],
+    )
+    .await
+    .expect("skriv_hendelser feilet");
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let resultat = hent_metadata_og_siste_pdl(&mut tx, &[periode_id.clone()])
+        .await
+        .expect("hent_metadata_og_siste_pdl feilet");
+    tx.commit().await.unwrap();
+
+    let data = resultat.get(&periode_id).expect("Periode-ID ikke funnet");
+    assert!(data.siste_pdl_data_endret.is_none());
+}
+
+#[tokio::test]
+async fn hent_metadata_og_siste_pdl_uten_metadata_mottatt_returneres_ikke() {
+    let pool = setup().await;
+
+    let periode_id = ArbeidssoekerperiodeId::from(Uuid::new_v4());
+
+    let mut tx = pool.begin().await.unwrap();
+    skriv_hendelser(
+        &mut tx,
+        vec![InternUtgangHendelse::new(
+            UtgangHendelseType::PdlDataEndret,
+            periode_id.clone(),
+            Utc::now(),
+            BrukerType::Sluttbruker,
+            None,
+        )],
+    )
+    .await
+    .expect("skriv_hendelser feilet");
+    tx.commit().await.unwrap();
+
+    let mut tx = pool.begin().await.unwrap();
+    let resultat = hent_metadata_og_siste_pdl(&mut tx, &[periode_id.clone()])
+        .await
+        .expect("hent_metadata_og_siste_pdl feilet");
+    tx.commit().await.unwrap();
+
+    assert!(
+        resultat.get(&periode_id).is_none(),
+        "Periode uten MetadataMottatt skal ikke returneres"
+    );
+}
+
+#[tokio::test]
+async fn hent_metadata_og_siste_pdl_tom_input_returnerer_tomt_resultat() {
+    let pool = setup().await;
+
+    let mut tx = pool.begin().await.unwrap();
+    let resultat = hent_metadata_og_siste_pdl(&mut tx, &[])
+        .await
+        .expect("hent_metadata_og_siste_pdl feilet");
+    tx.commit().await.unwrap();
+
+    assert!(resultat.is_empty());
 }
 
 trait TruncateNanoseconds {
