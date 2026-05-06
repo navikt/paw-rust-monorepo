@@ -2,6 +2,7 @@ use interne_hendelser::vo::BrukerType;
 
 use crate::dao::perioder::PeriodeRad;
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
+use crate::domain::identitetsnummer::Identitetsnummer;
 use crate::domain::{
     arbeidssoekerperiode_id::ArbeidssoekerperiodeId, utgang_hendelse_type::UtgangHendelseType,
 };
@@ -42,6 +43,14 @@ impl From<&Periode> for PeriodeRad {
             trenger_kontroll: false,
             stoppet: value.avsluttet.is_some(),
             sist_oppdatert,
+            identitetsnummer: Identitetsnummer::new(value.identitetsnummer.clone())
+                .unwrap_or_else(||
+                    //Vi skriver 'Identitetsnummer'til db, dermed skal vi kunne lese de tilbake uten
+                    //problemer. Hvis vi ikke klarer det, indikerer det at data i DB har blitt
+                    //endret utenfor vår kontroll, eller at det er en feil i koden som skriver til
+                    //DB.
+                    panic!("Ugyldig identitetsnummer i rad: id={}, indikerer eksterne endringer i DB, eller kodefeil.", value.id,)
+                ),
         }
     }
 }

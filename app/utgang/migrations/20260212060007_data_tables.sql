@@ -13,6 +13,7 @@ create index utgang_hendelser_logg_periode_id_idx on utgang_hendelser_logg (peri
 create table perioder (
   id                  UUID PRIMARY KEY,
   arbeidssoeker_id    BIGINT,
+  identitetsnummer    VARCHAR NOT NULL,
   trenger_kontroll    BOOLEAN NOT NULL,
   stoppet             BOOLEAN NOT NULL DEFAULT false,
   sist_oppdatert      TIMESTAMP(3) NOT NULL

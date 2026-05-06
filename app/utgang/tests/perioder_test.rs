@@ -174,6 +174,7 @@ async fn skriv_perioder_upsert_oppdaterer_eksisterende() {
     assert_eq!(rad.arbeidssoeker_id.as_ref().map(|a| a.0), Some(2));
     assert!(rad.trenger_kontroll);
     assert_eq!(rad.sist_oppdatert, oppdatert);
+    assert_eq!(rad.identitetsnummer, identitetsnummer);
 }
 
 #[tokio::test]
@@ -230,14 +231,16 @@ async fn hent_perioder_eldre_enn_returnerer_kun_rader_foer_grense() {
             lag_periode(
                 gammel.clone(),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 grense - Duration::minutes(10),
             ),
             lag_periode(
                 ny.clone(),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 grense + Duration::minutes(10),
             ),
@@ -270,8 +273,22 @@ async fn hent_perioder_eldre_enn_ignorerer_rader_med_trenger_kontroll_true() {
     skriv_perioder(
         &mut tx,
         vec![
-            lag_periode(gammel_uten_kontroll.clone(), None, test_fnr(), false, false, tidspunkt),
-            lag_periode(gammel_med_kontroll.clone(), None, test_fnr(), true, false, tidspunkt),
+            lag_periode(
+                gammel_uten_kontroll.clone(),
+                None,
+                test_fnr(),
+                false,
+                false,
+                tidspunkt,
+            ),
+            lag_periode(
+                gammel_med_kontroll.clone(),
+                None,
+                test_fnr(),
+                true,
+                false,
+                tidspunkt,
+            ),
         ],
     )
     .await
@@ -303,14 +320,16 @@ async fn hent_perioder_eldre_enn_returnerer_i_stigende_rekkefølge() {
             lag_periode(
                 sen.clone(),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 grense - Duration::minutes(1),
             ),
             lag_periode(
                 tidlig.clone(),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 grense - Duration::minutes(10),
             ),
@@ -344,21 +363,24 @@ async fn hent_perioder_eldre_enn_respekterer_limit() {
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 tidspunkt,
             ),
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 tidspunkt,
             ),
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), false,
+                test_fnr(),
+                false,
                 false,
                 tidspunkt,
             ),
@@ -420,21 +442,24 @@ async fn hent_perioder_som_trenger_kontroll_respekterer_limit() {
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), true,
+                test_fnr(),
+                true,
                 false,
                 now,
             ),
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), true,
+                test_fnr(),
+                true,
                 false,
                 now,
             ),
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
-                test_fnr(), true,
+                test_fnr(),
+                true,
                 false,
                 now,
             ),
@@ -574,7 +599,14 @@ async fn stoppet_periode_ekskluderes_fra_eldre_enn() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(id.clone(), None, test_fnr(), false, true, tidspunkt)],
+        vec![lag_periode(
+            id.clone(),
+            None,
+            test_fnr(),
+            false,
+            true,
+            tidspunkt,
+        )],
     )
     .await
     .unwrap();

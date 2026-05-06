@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Identitetsnummer {
     value: String,
 }
@@ -18,5 +18,17 @@ impl Identitetsnummer {
 impl From<Identitetsnummer> for String {
     fn from(identitetsnummer: Identitetsnummer) -> Self {
         identitetsnummer.value
+    }
+}
+
+impl std::fmt::Debug for Identitetsnummer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Identitetsnummer(*)")
+    }
+}
+
+impl std::fmt::Display for Identitetsnummer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Identitetsnummer(*)")
     }
 }
