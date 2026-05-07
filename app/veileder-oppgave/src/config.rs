@@ -12,9 +12,7 @@ use texas_client::config::TokenClientConfig;
 #[derive(Debug, Clone, Deserialize)]
 pub struct ApplicationConfig {
     pub topic_hendelseslogg: String,
-    pub topic_hendelseslogg_version: i16,
     pub topic_oppgavehendelse: String,
-    pub topic_oppgavehendelse_version: i16,
     pub opprett_oppgaver_task_interval_minutes: u64,
     pub opprett_oppgaver_task_batch_size: i64,
     pub opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
