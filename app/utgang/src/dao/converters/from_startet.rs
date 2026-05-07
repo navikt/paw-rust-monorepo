@@ -1,3 +1,4 @@
+use interne_hendelser::vo::Opplysninger;
 use interne_hendelser::Startet;
 use types::identitetsnummer::Identitetsnummer;
 
@@ -8,7 +9,6 @@ use crate::{
     },
     domain::{
         arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-        opplysninger::Opplysninger,
         utgang_hendelse_type::UtgangHendelseType,
     },
 };

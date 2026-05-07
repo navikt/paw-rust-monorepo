@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
-use interne_hendelser::vo::Opplysning;
+use super::opplysning::Opplysning;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Opplysninger(pub HashSet<Opplysning>);
 
 impl Opplysninger {

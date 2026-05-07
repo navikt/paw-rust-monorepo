@@ -1,7 +1,8 @@
 use interne_hendelser::vo::BrukerType;
+use interne_hendelser::vo::Opplysninger;
 
 use crate::domain::{
-    arbeidssoeker_id::ArbeidssoekerId, opplysninger::Opplysninger,
+    arbeidssoeker_id::ArbeidssoekerId,
 };
 use types::identitetsnummer::Identitetsnummer;
 
