@@ -10,7 +10,7 @@ use chrono::Utc;
 use interne_hendelser::Startet;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
-use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use crate::metrics;
 
 pub async fn opprett_vurder_oppholdsstatus_oppgave(

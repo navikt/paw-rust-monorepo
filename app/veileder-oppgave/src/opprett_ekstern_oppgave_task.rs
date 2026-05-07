@@ -203,7 +203,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::time::sleep;
-    use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]

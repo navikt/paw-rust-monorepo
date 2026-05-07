@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
@@ -317,7 +317,7 @@ mod tests {
     use paw_test::setup_test_db::setup_test_db;
     use uuid::Uuid;
     use OppgaveType::AvvistUnder18;
-    use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
 
     #[tokio::test]
     async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {

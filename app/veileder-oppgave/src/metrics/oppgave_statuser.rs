@@ -68,7 +68,7 @@ mod tests {
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
-    use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
 
     #[tokio::test]
     async fn test_hent_antall_oppgaver_per_status_og_type() -> Result<()> {

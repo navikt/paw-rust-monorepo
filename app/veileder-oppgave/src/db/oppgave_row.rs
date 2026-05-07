@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
-use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveRow {

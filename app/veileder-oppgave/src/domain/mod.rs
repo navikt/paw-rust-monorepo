@@ -6,4 +6,3 @@ pub mod ekstern_oppgave_id;
 pub mod hendelse_logg_entry;
 pub mod hendelse_logg_status;
 pub mod kriterier;
-pub mod arbeidssoeker_id;

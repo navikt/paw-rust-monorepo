@@ -1,6 +1,6 @@
 use thiserror::Error;
 use chrono::{DateTime, Utc};
-use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_id::OppgaveId;

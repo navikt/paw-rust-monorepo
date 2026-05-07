@@ -12,7 +12,7 @@ use chrono::Utc;
 use interne_hendelser::Avvist;
 use sqlx::{Postgres, Transaction};
 use OppgaveStatus::{Ferdigbehandlet, Ignorert};
-use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use crate::metrics;
 
 pub async fn opprett_avvist_under_18_oppgave(

@@ -71,7 +71,7 @@ mod tests {
     use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
-    use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
