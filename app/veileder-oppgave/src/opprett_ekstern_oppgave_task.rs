@@ -16,6 +16,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rand::prelude::*;
 use sqlx::PgPool;
+use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -39,17 +40,17 @@ async fn kjør_processing_loop(
     oppgave_api_client: Arc<OppgaveApiClient>,
     app_config: ApplicationConfig,
 ) -> Result<()> {
-    let opprett_oppgaver_task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
-    let opprett_oppgaver_task_batch_size = *app_config.opprett_oppgaver_task_batch_size;
+    let task_batch_size = *app_config.opprett_oppgaver_task_batch_size;
     let opprett_avvist_under_18_oppgaver_fra_tidspunkt =
         *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
-    let task_interval = Duration::from_mins(opprett_oppgaver_task_interval_minutes);
+    let task_interval_minutes = *app_config.opprett_oppgaver_task_interval_minutes;
+    let task_interval = Duration::from_mins(task_interval_minutes.get() as u64);
     let mut interval = interval(task_interval);
     loop {
         interval.tick().await;
         if let Err(e) = prosesser_ubehandlede_oppgaver(
             opprett_avvist_under_18_oppgaver_fra_tidspunkt,
-            opprett_oppgaver_task_batch_size,
+            task_batch_size,
             oppgave_api_client.clone(),
             db_pool.clone(),
         )
@@ -62,7 +63,7 @@ async fn kjør_processing_loop(
 
 pub async fn prosesser_ubehandlede_oppgaver(
     fra_tidspunkt: DateTime<Utc>,
-    batch_size: i64,
+    batch_size: NonZeroU32,
     oppgave_api_client: Arc<OppgaveApiClient>,
     db_pool: PgPool,
 ) -> Result<()> {
@@ -261,7 +262,7 @@ mod tests {
         // Tom batch: ingen oppgaver, ingen HTTP-kall forventet
         prosesser_ubehandlede_oppgaver(
             DateTime::UNIX_EPOCH,
-            3,
+            NonZeroU32::try_from(3).unwrap(),
             Arc::clone(&oppgave_api_client),
             pg_pool.clone(),
         )
@@ -310,7 +311,7 @@ mod tests {
 
         let fra_dato = DateTime::UNIX_EPOCH;
         let result =
-            prosesser_ubehandlede_oppgaver(fra_dato, 3, oppgave_api_client, pg_pool.clone()).await;
+            prosesser_ubehandlede_oppgaver(fra_dato, NonZeroU32::new(3).unwrap(), oppgave_api_client, pg_pool.clone()).await;
         assert!(result.is_ok(), "Funksjonen skulle returnere Ok(())");
 
         let mut tx = pg_pool.begin().await?;
@@ -404,7 +405,7 @@ mod tests {
 
         let mut hent_eldste_oppgaver_tx = pg_pool.begin().await?;
         let mut oppgaver = hent_de_eldste_ubehandlede_oppgavene(
-            1,
+            NonZeroU32::new(1).unwrap(),
             DateTime::UNIX_EPOCH,
             &mut hent_eldste_oppgaver_tx,
         )

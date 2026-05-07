@@ -8,6 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
@@ -227,7 +228,7 @@ pub async fn bytt_oppgave_status(
 }
 
 pub async fn hent_de_eldste_ubehandlede_oppgavene(
-    antall_oppgaver: i64,
+    antall_oppgaver: NonZeroU32,
     fra_tidspunkt: DateTime<Utc>,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Vec<Oppgave>> {
@@ -252,7 +253,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
     )
     .bind(OppgaveStatus::Ubehandlet.to_string())
     .bind(fra_tidspunkt)
-    .bind(antall_oppgaver)
+    .bind(antall_oppgaver.get() as i64)
     .fetch_all(&mut **transaction)
     .await?;
 
@@ -353,12 +354,12 @@ mod tests {
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let antall_oppgaver = 2;
+        let antall_oppgaver = NonZeroU32::new(2).unwrap();
         let fra_tidspunkt = Utc::now() - chrono::Duration::days(1336);
         let oppgaver =
             hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
 
-        assert_eq!(oppgaver.len(), antall_oppgaver as usize);
+        assert_eq!(oppgaver.len(), antall_oppgaver.get() as usize);
         let eldste_oppgave = &oppgaver[0];
         let nest_eldste_oppgave = &oppgaver[1];
         assert!(eldste_oppgave.tidspunkt < nest_eldste_oppgave.tidspunkt);
@@ -395,14 +396,14 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let fra_tidspunkt = now - chrono::Duration::seconds(1);
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(NonZeroU32::new(10).unwrap(), fra_tidspunkt, &mut tx).await?;
         assert_eq!(oppgaver.len(), 1, "Skal bare finne ny_oppgave");
         tx.commit().await?;
 
         // fra_tidspunkt 1 sekund i fremtiden — ingen oppgaver
         let mut tx = pg_pool.begin().await?;
         let fra_tidspunkt = now + chrono::Duration::seconds(1);
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(10, fra_tidspunkt, &mut tx).await?;
+        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(NonZeroU32::new(10).unwrap(), fra_tidspunkt, &mut tx).await?;
         assert_eq!(
             oppgaver.len(),
             0,

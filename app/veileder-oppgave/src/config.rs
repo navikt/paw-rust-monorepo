@@ -6,6 +6,7 @@ use paw_rust_base::env;
 use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
+use std::num::NonZeroU32;
 use texas_client::config::TokenClientConfig;
 
 #[env_field_wrap]
@@ -13,8 +14,8 @@ use texas_client::config::TokenClientConfig;
 pub struct ApplicationConfig {
     pub topic_hendelseslogg: String,
     pub topic_oppgavehendelse: String,
-    pub opprett_oppgaver_task_interval_minutes: u64,
-    pub opprett_oppgaver_task_batch_size: i64,
+    pub opprett_oppgaver_task_interval_minutes: NonZeroU32,
+    pub opprett_oppgaver_task_batch_size: NonZeroU32,
     pub opprett_avvist_under_18_oppgaver_fra_tidspunkt: DateTime<Utc>,
 }
 
