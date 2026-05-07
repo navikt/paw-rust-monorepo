@@ -3,9 +3,8 @@ use types::identitetsnummer::Identitetsnummer;
 
 use crate::dao::perioder::PeriodeRad;
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use crate::domain::{
-    arbeidssoekerperiode_id::ArbeidssoekerperiodeId, utgang_hendelse_type::UtgangHendelseType,
-};
+use crate::domain::utgang_hendelse_type::UtgangHendelseType;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use crate::kafka::periode_deserializer::{BrukerType as PeriodeTopicBrukerType, Periode};
 
 impl From<Periode> for InternUtgangHendelse<Input> {

@@ -1,6 +1,7 @@
 use interne_hendelser::vo::Opplysninger;
 use interne_hendelser::Startet;
 use types::arbeidssoeker_id::ArbeidssoekerId;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use types::identitetsnummer::Identitetsnummer;
 
 use crate::{
@@ -8,10 +9,7 @@ use crate::{
         perioder::PeriodeRad,
         utgang_hendelse::{Input, InternUtgangHendelse},
     },
-    domain::{
-        arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-        utgang_hendelse_type::UtgangHendelseType,
-    },
+    domain::utgang_hendelse_type::UtgangHendelseType,
 };
 
 impl From<Startet> for InternUtgangHendelse<Input> {

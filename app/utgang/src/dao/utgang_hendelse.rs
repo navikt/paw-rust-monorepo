@@ -6,10 +6,8 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use sqlx::Row;
 use uuid::Uuid;
 
-use crate::domain::{
-    arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-    utgang_hendelse_type::UtgangHendelseType,
-};
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
+use crate::domain::utgang_hendelse_type::UtgangHendelseType;
 use interne_hendelser::vo::Opplysninger;
 
 pub struct Input;

@@ -4,9 +4,7 @@ use uuid::Uuid;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 
-use crate::domain::{
-    arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-};
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
 pub struct PeriodeRad {
     pub id: ArbeidssoekerperiodeId,

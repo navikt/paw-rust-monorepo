@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse, Output};
-use crate::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use crate::domain::utgang_hendelse_type::UtgangHendelseType;
 
 pub struct PeriodeHendelseData {
