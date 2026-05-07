@@ -1,4 +1,5 @@
 use interne_hendelser::Startet;
+use types::identitetsnummer::Identitetsnummer;
 
 use crate::{
     dao::{
@@ -7,7 +8,7 @@ use crate::{
     },
     domain::{
         arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-        identitetsnummer::Identitetsnummer, opplysninger::Opplysninger,
+        opplysninger::Opplysninger,
         utgang_hendelse_type::UtgangHendelseType,
     },
 };

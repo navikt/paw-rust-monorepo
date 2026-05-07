@@ -1,8 +1,8 @@
 use interne_hendelser::vo::BrukerType;
+use types::identitetsnummer::Identitetsnummer;
 
 use crate::dao::perioder::PeriodeRad;
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use crate::domain::identitetsnummer::Identitetsnummer;
 use crate::domain::{
     arbeidssoekerperiode_id::ArbeidssoekerperiodeId, utgang_hendelse_type::UtgangHendelseType,
 };

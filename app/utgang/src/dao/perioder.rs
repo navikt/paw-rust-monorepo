@@ -1,11 +1,11 @@
 use chrono::NaiveDateTime;
 use sqlx::Row;
 use uuid::Uuid;
+use types::identitetsnummer::Identitetsnummer;
 
 use crate::domain::{
     arbeidssoeker_id::ArbeidssoekerId,
     arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
-    identitetsnummer::Identitetsnummer,
 };
 
 pub struct PeriodeRad {

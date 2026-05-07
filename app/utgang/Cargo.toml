@@ -13,6 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 pdl_graphql = { path = "../../domain/pdl_graphql" }
+types = { path = "../../domain/types" }
 interne_hendelser = { path = "../../domain/interne_hendelser" }
 texas_client = { path = "../../lib/texas_client" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

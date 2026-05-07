@@ -1,9 +1,9 @@
 use interne_hendelser::vo::BrukerType;
 
 use crate::domain::{
-    arbeidssoeker_id::ArbeidssoekerId, identitetsnummer::Identitetsnummer,
-    opplysninger::Opplysninger,
+    arbeidssoeker_id::ArbeidssoekerId, opplysninger::Opplysninger,
 };
+use types::identitetsnummer::Identitetsnummer;
 
 pub(crate) enum UtgangHendelser {
     // Metadata mottatt, det kommer trolig en Startet koblet til denne,
