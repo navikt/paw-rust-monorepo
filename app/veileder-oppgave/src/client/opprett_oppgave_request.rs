@@ -1,6 +1,7 @@
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,7 +39,7 @@ pub struct OpprettOppgaveRequest {
 }
 
 pub fn create_oppgave_request(
-    identitetsnummer: String,
+    identitetsnummer: Identitetsnummer,
     oppgave_type: &OppgaveType,
 ) -> OpprettOppgaveRequest {
     match oppgave_type {
@@ -57,9 +58,9 @@ Når samtykke er innhentet kan du registrere arbeidssøker via flate for manuell
 
 const KONTAKT_BRUKER: &str = "KONT_BRUK";
 
-fn avvist_under_18(identitetsnummer: String) -> OpprettOppgaveRequest {
+fn avvist_under_18(identitetsnummer: Identitetsnummer) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
-        personident: Some(identitetsnummer),
+        personident: Some(String::from(identitetsnummer)),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
         oppgavetype: KONTAKT_BRUKER.to_string(),
@@ -76,9 +77,9 @@ Personen har registrert seg som arbeidssøker og har status utflyttet i folkereg
 Se servicerutine: "EU/EØS-borgere med status utflyttet""#;
 const VURDER_HENVENDELSE: &str = "VURD_HENV";
 
-fn vurder_oppholdsstatus(identitetsnummer: String) -> OpprettOppgaveRequest {
+fn vurder_oppholdsstatus(identitetsnummer: Identitetsnummer) -> OpprettOppgaveRequest {
     OpprettOppgaveRequest {
-        personident: Some(identitetsnummer),
+        personident: Some(String::from(identitetsnummer)),
         aktiv_dato: Utc::now().format("%Y-%m-%d").to_string(),
         prioritet: PrioritetV1::Norm,
         oppgavetype: VURDER_HENVENDELSE.to_string(),
@@ -129,10 +130,10 @@ mod tests {
 
     #[test]
     fn test_avvist_under_18_request() {
-        let identitetsnummer = "12345678901".to_string();
-        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::AvvistUnder18);
+        let identitetsnummer = Identitetsnummer::new("12345678901".to_string()).unwrap();
+        let request = create_oppgave_request(identitetsnummer, &OppgaveType::AvvistUnder18);
 
-        assert_eq!(request.personident, Some(identitetsnummer));
+        assert_eq!(request.personident, Some("12345678901".to_string()));
         assert_eq!(request.oppgavetype, KONTAKT_BRUKER);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
@@ -141,10 +142,10 @@ mod tests {
 
     #[test]
     fn test_vurder_oppholdsstatus_request() {
-        let identitetsnummer = "12345678902".to_string();
-        let request = create_oppgave_request(identitetsnummer.clone(), &OppgaveType::VurderOppholdsstatus);
+        let identitetsnummer = Identitetsnummer::new("12345678902".to_string()).unwrap();
+        let request = create_oppgave_request(identitetsnummer, &OppgaveType::VurderOppholdsstatus);
 
-        assert_eq!(request.personident, Some(identitetsnummer));
+        assert_eq!(request.personident, Some("12345678902".to_string()));
         assert_eq!(request.oppgavetype, VURDER_HENVENDELSE);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);

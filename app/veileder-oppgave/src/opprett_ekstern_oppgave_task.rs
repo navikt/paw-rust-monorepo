@@ -204,6 +204,7 @@ mod tests {
     use std::time::Duration;
     use tokio::time::sleep;
     use types::arbeidssoeker_id::ArbeidssoekerId;
+    use types::identitetsnummer::Identitetsnummer;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]
@@ -275,7 +276,7 @@ mod tests {
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_1,
-                identitetsnummer: identitetsnummer_1.to_string(),
+                identitetsnummer: Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(),
                 status: Ubehandlet.to_string(),
                 ..Default::default()
             },
@@ -287,7 +288,7 @@ mod tests {
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_2,
-                identitetsnummer: identitetsnummer_2.to_string(),
+                identitetsnummer: Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(),
                 status: Ubehandlet.to_string(),
                 ..Default::default()
             },
@@ -299,7 +300,7 @@ mod tests {
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id: arbeidssoeker_id_3,
-                identitetsnummer: identitetsnummer_3.to_string(),
+                identitetsnummer: Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(),
                 status: Ubehandlet.to_string(),
                 ..Default::default()
             },
@@ -394,7 +395,7 @@ mod tests {
         insert_oppgave(
             &InsertOppgaveRow {
                 arbeidssoeker_id,
-                identitetsnummer: identitetsnummer.to_string(),
+                identitetsnummer: Identitetsnummer::new(identitetsnummer.to_string()).unwrap(),
                 status: Ubehandlet.to_string(),
                 ..Default::default()
             },

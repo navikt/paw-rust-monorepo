@@ -60,6 +60,7 @@ mod tests {
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
+    use types::identitetsnummer::Identitetsnummer;
 
     #[tokio::test]
     async fn test_hent_gjentatte_forsok_gjennomsnitt() -> Result<()> {
@@ -74,7 +75,7 @@ mod tests {
         let oppgave_id_1 = insert_oppgave(
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
-                identitetsnummer: "12345678901".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678901".to_string()).unwrap(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()
             },
@@ -106,7 +107,7 @@ mod tests {
         let oppgave_id_2 = insert_oppgave(
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
-                identitetsnummer: "12345678902".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678902".to_string()).unwrap(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()
             },
@@ -128,7 +129,7 @@ mod tests {
         let oppgave_id_vurder = insert_oppgave(
             &InsertOppgaveRow {
                 type_: VurderOppholdsstatus.to_string(),
-                identitetsnummer: "12345678905".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678905".to_string()).unwrap(),
                 tidspunkt: tidspunkt_etter_cutoff,
                 ..Default::default()
             },
@@ -152,7 +153,7 @@ mod tests {
         let oppgave_id_3 = insert_oppgave(
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
-                identitetsnummer: "12345678903".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678903".to_string()).unwrap(),
                 tidspunkt: tidspunkt_foer_cutoff,
                 ..Default::default()
             },

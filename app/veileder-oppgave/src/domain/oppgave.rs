@@ -1,6 +1,7 @@
 use thiserror::Error;
 use chrono::{DateTime, Utc};
 use types::arbeidssoeker_id::ArbeidssoekerId;
+use types::identitetsnummer::Identitetsnummer;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
 use crate::domain::oppgave_id::OppgaveId;
@@ -14,7 +15,7 @@ pub struct Oppgave {
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: ArbeidssoekerId,
-    pub identitetsnummer: String,
+    pub identitetsnummer: Identitetsnummer,
     pub ekstern_oppgave_id: Option<EksternOppgaveId>,
     pub tidspunkt: DateTime<Utc>,
     pub hendelse_logg: Vec<HendelseLoggEntry>,
@@ -27,7 +28,7 @@ impl Oppgave {
         status: String,
         opplysninger: Vec<String>,
         arbeidssoeker_id: ArbeidssoekerId,
-        identitetsnummer: String,
+        identitetsnummer: Identitetsnummer,
         ekstern_oppgave_id: Option<EksternOppgaveId>,
         tidspunkt: DateTime<Utc>,
         hendelse_logg: Vec<HendelseLoggEntry>,
@@ -60,6 +61,7 @@ pub enum OppgaveError {
 mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
+    use types::identitetsnummer::Identitetsnummer;
     use super::*;
 
     #[test]
@@ -71,7 +73,7 @@ mod tests {
             OppgaveStatus::Ubehandlet.to_string(),
             vec![],
             ArbeidssoekerId(12345),
-            "12345678901".to_string(),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
             None,
             Utc::now(),
             vec![],
@@ -98,7 +100,7 @@ mod tests {
             ugyldig_status.to_string(),
             vec![],
             ArbeidssoekerId(12345),
-            "12345678901".to_string(),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
             Some(EksternOppgaveId(12341)),
             Utc::now(),
             vec![],

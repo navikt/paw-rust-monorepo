@@ -5,6 +5,7 @@ use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
 use types::arbeidssoeker_id::ArbeidssoekerId;
+use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveRow {
@@ -25,7 +26,7 @@ pub struct InsertOppgaveRow {
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
     pub arbeidssoeker_id: ArbeidssoekerId,
-    pub identitetsnummer: String,
+    pub identitetsnummer: Identitetsnummer,
     pub tidspunkt: DateTime<Utc>,
 }
 
@@ -46,7 +47,8 @@ pub fn to_oppgave_row(
         melding_id: hendelse.hendelse_id(),
         opplysninger,
         arbeidssoeker_id: ArbeidssoekerId::from(hendelse.id()),
-        identitetsnummer: hendelse.identitetsnummer().to_string(),
+        identitetsnummer: Identitetsnummer::new(hendelse.identitetsnummer().to_string())
+            .expect("Ugyldig identitetsnummer i Kafka-hendelse — avviser"),
         tidspunkt: hendelse.metadata().tidspunkt,
     }
 }
@@ -78,7 +80,7 @@ mod tests {
         assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
         let forventede: HashSet<String> = avvist_hendelse.opplysninger.iter().map(|o| o.to_string()).collect();
         assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
-        assert_eq!(oppgave_row.identitetsnummer, avvist_hendelse.identitetsnummer);
+        assert_eq!(String::from(oppgave_row.identitetsnummer), avvist_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
     }
@@ -104,7 +106,7 @@ mod tests {
         assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
         let forventede_opplysninger: HashSet<String> = startet_hendelse.opplysninger.iter().map(|opplysning| opplysning.to_string()).collect();
         assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede_opplysninger);
-        assert_eq!(oppgave_row.identitetsnummer, startet_hendelse.identitetsnummer);
+        assert_eq!(String::from(oppgave_row.identitetsnummer), startet_hendelse.identitetsnummer);
         assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(startet_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
     }

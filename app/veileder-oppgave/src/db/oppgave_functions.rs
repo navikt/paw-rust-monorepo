@@ -10,6 +10,7 @@ use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use types::arbeidssoeker_id::ArbeidssoekerId;
+use types::identitetsnummer::Identitetsnummer;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
@@ -31,7 +32,8 @@ pub async fn hent_nyeste_oppgave(
         oppgave_row.status,
         oppgave_row.opplysninger,
         ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
-        oppgave_row.identitetsnummer,
+        Identitetsnummer::new(oppgave_row.identitetsnummer)
+            .expect("Identitetsnummer fra database er ugyldig — dataintegritetsfeil"),
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
@@ -105,7 +107,8 @@ pub async fn finn_oppgave_for_ekstern_id(
         oppgave_row.status,
         oppgave_row.opplysninger,
         ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
-        oppgave_row.identitetsnummer,
+        Identitetsnummer::new(oppgave_row.identitetsnummer)
+            .expect("Identitetsnummer fra database er ugyldig — dataintegritetsfeil"),
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
@@ -158,7 +161,7 @@ pub async fn insert_oppgave(
         .bind(oppgave_row.melding_id)
         .bind(&oppgave_row.opplysninger)
         .bind(i64::from(oppgave_row.arbeidssoeker_id))
-        .bind(&oppgave_row.identitetsnummer)
+        .bind(String::from(oppgave_row.identitetsnummer.clone()))
         .bind(oppgave_row.tidspunkt)
         .fetch_one(&mut **transaction)
         .await?;
@@ -269,7 +272,8 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
             oppgave_row.status,
             oppgave_row.opplysninger,
             ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
-            oppgave_row.identitetsnummer,
+            Identitetsnummer::new(oppgave_row.identitetsnummer)
+                .expect("Identitetsnummer fra database er ugyldig — dataintegritetsfeil"),
             oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
             oppgave_row.tidspunkt,
             hendelse_logg,
@@ -318,6 +322,7 @@ mod tests {
     use uuid::Uuid;
     use OppgaveType::AvvistUnder18;
     use types::arbeidssoeker_id::ArbeidssoekerId;
+    use types::identitetsnummer::Identitetsnummer;
 
     #[tokio::test]
     async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {
@@ -513,7 +518,7 @@ mod tests {
         assert_eq!(oppgave.type_, AvvistUnder18);
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.arbeidssoeker_id, ArbeidssoekerId(12345));
-        assert_eq!(oppgave.identitetsnummer, "12345678901");
+        assert_eq!(oppgave.identitetsnummer, Identitetsnummer::new("12345678901".to_string()).unwrap());
         assert_eq!(
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
@@ -537,7 +542,7 @@ mod tests {
                     "BOSATT_ETTER_FREG_LOVEN".to_string(),
                 ],
                 arbeidssoeker_id: ArbeidssoekerId(1234567),
-                identitetsnummer: "12345678901".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678901".to_string()).unwrap(),
                 tidspunkt: Utc::now(),
             }
         }

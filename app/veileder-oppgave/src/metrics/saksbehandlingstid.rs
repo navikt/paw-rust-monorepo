@@ -83,6 +83,7 @@ mod tests {
     use anyhow::Result;
     use chrono::{Datelike, Duration, Utc};
     use paw_test::setup_test_db::setup_test_db;
+    use types::identitetsnummer::Identitetsnummer;
 
     #[tokio::test]
     async fn test_hent_saksbehandlingstid_per_uke_og_type() -> Result<()> {
@@ -137,7 +138,7 @@ mod tests {
         let oppgave_id_2 = insert_oppgave(
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
-                identitetsnummer: "12345678902".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678902".to_string()).unwrap(),
                 tidspunkt: opprettet_b,
                 ..Default::default()
             },
@@ -171,7 +172,7 @@ mod tests {
         let oppgave_id_v = insert_oppgave(
             &InsertOppgaveRow {
                 type_: VurderOppholdsstatus.to_string(),
-                identitetsnummer: "12345678905".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678905".to_string()).unwrap(),
                 tidspunkt: opprettet_v,
                 ..Default::default()
             },
@@ -210,7 +211,7 @@ mod tests {
         let oppgave_id_3 = insert_oppgave(
             &InsertOppgaveRow {
                 type_: AvvistUnder18.to_string(),
-                identitetsnummer: "12345678903".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678903".to_string()).unwrap(),
                 tidspunkt: opprettet_retry_forste,
                 ..Default::default()
             },
@@ -252,7 +253,7 @@ mod tests {
         let for_gammel = now - Duration::weeks(31);
         let oppgave_id_4 = insert_oppgave(
             &InsertOppgaveRow {
-                identitetsnummer: "12345678904".to_string(),
+                identitetsnummer: Identitetsnummer::new("12345678904".to_string()).unwrap(),
                 tidspunkt: for_gammel,
                 ..Default::default()
             },
