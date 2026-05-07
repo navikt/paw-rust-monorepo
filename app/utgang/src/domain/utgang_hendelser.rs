@@ -1,9 +1,6 @@
 use interne_hendelser::vo::BrukerType;
 use interne_hendelser::vo::Opplysninger;
-
-use crate::domain::{
-    arbeidssoeker_id::ArbeidssoekerId,
-};
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 
 pub(crate) enum UtgangHendelser {

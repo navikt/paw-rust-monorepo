@@ -1,10 +1,10 @@
 use chrono::NaiveDateTime;
 use sqlx::Row;
 use uuid::Uuid;
+use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 
 use crate::domain::{
-    arbeidssoeker_id::ArbeidssoekerId,
     arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
 };
 
