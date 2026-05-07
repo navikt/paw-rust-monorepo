@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 interne_hendelser = { path = "../interne_hendelser" }
+types = { path = "../types" }
 pdl_graphql = { path = "../pdl_graphql" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 thiserror = { workspace = true }

@@ -6,6 +6,9 @@ use super::opplysning::Opplysning;
 pub struct Opplysninger(pub HashSet<Opplysning>);
 
 impl Opplysninger {
+    pub fn new(opplysninger: Vec<Opplysning>) -> Self {
+        Self(opplysninger.into_iter().collect())
+    }
     pub fn er_forhaandsgodkjent(&self) -> bool {
         self.0.contains(&Opplysning::ForhaandsgodkjentAvAnsatt)
     }

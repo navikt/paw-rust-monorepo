@@ -2878,6 +2878,7 @@ dependencies = [
  "serde",
  "serde-env-field",
  "thiserror 2.0.18",
+ "types",
 ]
 
 [[package]]

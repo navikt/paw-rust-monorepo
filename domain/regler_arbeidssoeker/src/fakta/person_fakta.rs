@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use crate::fakta::UtledeFakta;
 use crate::fakta::adresse_fakta::UtledeAdresseFakta;
 use crate::fakta::alder_fakta::UtledeAlderFakta;
@@ -6,8 +8,9 @@ use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
 use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
 use anyhow::Result;
-use interne_hendelser::vo::Opplysning;
+use interne_hendelser::vo::{Opplysning, Opplysninger};
 use pdl_graphql::pdl::Person;
+use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug)]
 pub struct UtledePersonFakta {
@@ -17,6 +20,20 @@ pub struct UtledePersonFakta {
     statsborgerskap_fakta: UtledeStatsborgerskapFakta,
     opphold_fakta: UtledeOppholdstillatelseFakta,
     utflytting_fakta: UtledeUtflyttingFakta,
+}
+
+static UTLEDPERSON_FAKTA: LazyLock<UtledePersonFakta> = LazyLock::new(UtledePersonFakta::default);
+
+pub fn utled_fakta(
+    personer: Vec<(Identitetsnummer, Person)>,
+) -> Vec<(Identitetsnummer, Result<Opplysninger>)> {
+    personer
+        .into_iter()
+        .map(|(ident, person)| {
+            let fakta = UTLEDPERSON_FAKTA.utlede_fakta(&person);
+            (ident, fakta.map(Opplysninger::new))
+        })
+        .collect()
 }
 
 impl Default for UtledePersonFakta {
