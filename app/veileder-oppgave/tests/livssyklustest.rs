@@ -15,7 +15,7 @@ use std::sync::Arc;
 use veileder_oppgave::client::oppgave_client::{OPPGAVER_PATH, OppgaveApiClient};
 use veileder_oppgave::config::{ApplicationConfig, OppgaveClientConfig, read_application_config};
 use veileder_oppgave::db::oppgave_functions::{bytt_oppgave_status, hent_nyeste_oppgave};
-use veileder_oppgave::domain::arbeidssoeker_id::ArbeidssøkerId;
+use veileder_oppgave::domain::arbeidssoeker_id::ArbeidssoekerId;
 use veileder_oppgave::domain::hendelse_logg_entry::HendelseLoggEntry;
 use veileder_oppgave::domain::hendelse_logg_status::HendelseLoggStatus;
 use veileder_oppgave::domain::oppgave_status::OppgaveStatus;
@@ -24,15 +24,15 @@ use veileder_oppgave::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 use veileder_oppgave::opprettelse::process_hendelselogg_message;
 use veileder_oppgave::opprett_ekstern_oppgave_task::prosesser_ubehandlede_oppgaver;
 
-const UNDER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(100);
+const UNDER_18_ARBEIDSSOEKER_ID: ArbeidssoekerId = ArbeidssoekerId(100);
 const UNDER_18_IDENT: &str = "10000000001";
-const OVER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(200);
+const OVER_18_ARBEIDSSOEKER_ID: ArbeidssoekerId = ArbeidssoekerId(200);
 const OVER_18_IDENT: &str = "20000000002";
-const HISTORISK_UNDER_18_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(300);
+const HISTORISK_UNDER_18_ARBEIDSSOEKER_ID: ArbeidssoekerId = ArbeidssoekerId(300);
 const HISTORISK_UNDER_18_IDENT: &str = "30000000003";
 const VEILEDER_IDENT: &str = "Z991459";
 
-const VURDER_OPPHOLDSSTATUS_ARBEIDSSOEKER_ID: ArbeidssøkerId = ArbeidssøkerId(400);
+const VURDER_OPPHOLDSSTATUS_ARBEIDSSOEKER_ID: ArbeidssoekerId = ArbeidssoekerId(400);
 const VURDER_OPPHOLDSSTATUS_IDENT: &str = "40000000004";
 
 #[tokio::test]
@@ -435,7 +435,7 @@ impl TestContext {
 
     async fn assert_oppgave_status(
         &self,
-        arbeidssoeker_id: ArbeidssøkerId,
+        arbeidssoeker_id: ArbeidssoekerId,
         oppgave_type: OppgaveType,
         forventet: OppgaveStatus,
     ) -> Result<()> {
@@ -455,7 +455,7 @@ impl TestContext {
 
     async fn sett_status(
         &self,
-        arbeidssoeker_id: ArbeidssøkerId,
+        arbeidssoeker_id: ArbeidssoekerId,
         oppgave_type: OppgaveType,
         ny_status: OppgaveStatus,
     ) -> Result<()> {
@@ -470,7 +470,7 @@ impl TestContext {
 
     async fn assert_hendelse_logg(
         &self,
-        arbeidssoeker_id: ArbeidssøkerId,
+        arbeidssoeker_id: ArbeidssoekerId,
         oppgave_type: OppgaveType,
         forventede_statuser: &[HendelseLoggStatus],
     ) -> Result<()> {

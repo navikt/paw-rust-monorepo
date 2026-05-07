@@ -9,12 +9,12 @@ use chrono::{DateTime, Utc};
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
+use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
 pub async fn hent_nyeste_oppgave(
-    arbeidssoeker_id: ArbeidssøkerId,
+    arbeidssoeker_id: ArbeidssoekerId,
     oppgave_type: OppgaveType,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>> {
@@ -30,7 +30,7 @@ pub async fn hent_nyeste_oppgave(
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
-        ArbeidssøkerId::from(oppgave_row.arbeidssoeker_id),
+        ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
         oppgave_row.identitetsnummer,
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
@@ -41,7 +41,7 @@ pub async fn hent_nyeste_oppgave(
 }
 
 async fn hent_nyeste_oppgave_for_arbeidssoeker(
-    arbeidssoeker_id: ArbeidssøkerId,
+    arbeidssoeker_id: ArbeidssoekerId,
     oppgave_type: &OppgaveType,
     transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<OppgaveRow>> {
@@ -104,7 +104,7 @@ pub async fn finn_oppgave_for_ekstern_id(
         oppgave_row.type_,
         oppgave_row.status,
         oppgave_row.opplysninger,
-        ArbeidssøkerId::from(oppgave_row.arbeidssoeker_id),
+        ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
         oppgave_row.identitetsnummer,
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
@@ -268,7 +268,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
             oppgave_row.type_,
             oppgave_row.status,
             oppgave_row.opplysninger,
-            ArbeidssøkerId::from(oppgave_row.arbeidssoeker_id),
+            ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
             oppgave_row.identitetsnummer,
             oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
             oppgave_row.tidspunkt,
@@ -317,7 +317,7 @@ mod tests {
     use paw_test::setup_test_db::setup_test_db;
     use uuid::Uuid;
     use OppgaveType::AvvistUnder18;
-    use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
+    use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
 
     #[tokio::test]
     async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {
@@ -419,7 +419,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let arbeidssoeker_id = ArbeidssøkerId(12345);
+        let arbeidssoeker_id = ArbeidssoekerId(12345);
         let oppgave_row = InsertOppgaveRow {
             arbeidssoeker_id,
             ..Default::default()
@@ -448,7 +448,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let arbeidssoeker_id = ArbeidssøkerId(12345);
+        let arbeidssoeker_id = ArbeidssoekerId(12345);
         let oppgave_row = InsertOppgaveRow {
             arbeidssoeker_id,
             status: Ubehandlet.to_string(),
@@ -476,7 +476,7 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let arbeidssoeker_id = ArbeidssøkerId(12345);
+        let arbeidssoeker_id = ArbeidssoekerId(12345);
         let oppgave_row = InsertOppgaveRow {
             arbeidssoeker_id,
             ..Default::default()
@@ -496,7 +496,7 @@ mod tests {
 
         // Sett inn en oppgave
         let mut tx = pg_pool.begin().await?;
-        let arbeidssoeker_id = ArbeidssøkerId(12345);
+        let arbeidssoeker_id = ArbeidssoekerId(12345);
         let oppgave_row = InsertOppgaveRow {
             arbeidssoeker_id,
             ..InsertOppgaveRow::default()
@@ -512,7 +512,7 @@ mod tests {
         let oppgave = oppgave.unwrap();
         assert_eq!(oppgave.type_, AvvistUnder18);
         assert_eq!(oppgave.status, Ubehandlet);
-        assert_eq!(oppgave.arbeidssoeker_id, ArbeidssøkerId(12345));
+        assert_eq!(oppgave.arbeidssoeker_id, ArbeidssoekerId(12345));
         assert_eq!(oppgave.identitetsnummer, "12345678901");
         assert_eq!(
             oppgave.opplysninger,
@@ -521,7 +521,7 @@ mod tests {
         assert_eq!(oppgave.status, Ubehandlet);
 
         let mut tx = pg_pool.begin().await?;
-        assert_eq!(hent_nyeste_oppgave(ArbeidssøkerId(99999), AvvistUnder18, &mut tx).await?, None);
+        assert_eq!(hent_nyeste_oppgave(ArbeidssoekerId(99999), AvvistUnder18, &mut tx).await?, None);
 
         Ok(())
     }
@@ -536,7 +536,7 @@ mod tests {
                     "ER_UNDER_18_AAR".to_string(),
                     "BOSATT_ETTER_FREG_LOVEN".to_string(),
                 ],
-                arbeidssoeker_id: ArbeidssøkerId(1234567),
+                arbeidssoeker_id: ArbeidssoekerId(1234567),
                 identitetsnummer: "12345678901".to_string(),
                 tidspunkt: Utc::now(),
             }

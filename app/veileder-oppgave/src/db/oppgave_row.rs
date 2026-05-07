@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
-use crate::domain::arbeidssoeker_id::ArbeidssøkerId;
+use crate::domain::arbeidssoeker_id::ArbeidssoekerId;
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveRow {
@@ -24,7 +24,7 @@ pub struct InsertOppgaveRow {
     pub status: String,
     pub melding_id: Uuid,
     pub opplysninger: Vec<String>,
-    pub arbeidssoeker_id: ArbeidssøkerId,
+    pub arbeidssoeker_id: ArbeidssoekerId,
     pub identitetsnummer: String,
     pub tidspunkt: DateTime<Utc>,
 }
@@ -45,7 +45,7 @@ pub fn to_oppgave_row(
         status: oppgave_status.to_string(),
         melding_id: hendelse.hendelse_id(),
         opplysninger,
-        arbeidssoeker_id: ArbeidssøkerId::from(hendelse.id()),
+        arbeidssoeker_id: ArbeidssoekerId::from(hendelse.id()),
         identitetsnummer: hendelse.identitetsnummer().to_string(),
         tidspunkt: hendelse.metadata().tidspunkt,
     }
@@ -79,7 +79,7 @@ mod tests {
         let forventede: HashSet<String> = avvist_hendelse.opplysninger.iter().map(|o| o.to_string()).collect();
         assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
         assert_eq!(oppgave_row.identitetsnummer, avvist_hendelse.identitetsnummer);
-        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(avvist_hendelse.id));
+        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(avvist_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
     }
 
@@ -105,7 +105,7 @@ mod tests {
         let forventede_opplysninger: HashSet<String> = startet_hendelse.opplysninger.iter().map(|opplysning| opplysning.to_string()).collect();
         assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede_opplysninger);
         assert_eq!(oppgave_row.identitetsnummer, startet_hendelse.identitetsnummer);
-        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssøkerId::from(startet_hendelse.id));
+        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(startet_hendelse.id));
         assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
     }
 }
