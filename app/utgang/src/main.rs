@@ -9,7 +9,8 @@ use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
 use paw_sqlx::{config::DatabaseConfig, postgres::clear_db};
 use rdkafka::Message;
-use std::{num::NonZeroU32, sync::Arc, time::Duration};
+use std::num::NonZeroU16;
+use std::{sync::Arc, time::Duration};
 use texas_client::token_client::create_token_client;
 use tokio::{
     signal::{unix::SignalKind, unix::signal},
@@ -24,7 +25,7 @@ use utgang::pdl::pdl_query::PDLClient;
 use utgang::pdl_oppdatering_task::start_pdl_oppdatering_task;
 use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 
-const PDL_BATCH_SIZE: NonZeroU32 = NonZeroU32::new(1000).expect("Batch size must be non-zero u32");
+const PDL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -81,8 +82,13 @@ async fn main() -> Result<()> {
     tracing::info!("Lastet pdl config: {:?}", pdl_client_config);
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
-    let pdl_oppdatering =
-        PdlDataOppdatering::new(pdl_pool, pdl_client, PDL_BATCH_SIZE, TimeDelta::minutes(1), TimeDelta::hours(24));
+    let pdl_oppdatering = PdlDataOppdatering::new(
+        pdl_pool,
+        pdl_client,
+        PDL_BATCH_SIZE,
+        TimeDelta::minutes(1),
+        TimeDelta::hours(24),
+    );
     let pdl_oppdatering_task = start_pdl_oppdatering_task(pdl_oppdatering, Duration::from_mins(1));
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
