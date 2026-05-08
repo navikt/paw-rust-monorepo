@@ -9,7 +9,7 @@ use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
 use anyhow::Result;
 use interne_hendelser::vo::{Opplysning, Opplysninger};
-use pdl_graphql::pdl::Person;
+use pdl_graphql::pdl::{HentPerson, Person};
 use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug)]

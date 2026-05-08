@@ -6,9 +6,9 @@ use interne_hendelser::vo::{BrukerType, Opplysning};
 use sqlx::Row;
 use uuid::Uuid;
 
-use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use crate::domain::utgang_hendelse_type::UtgangHendelseType;
 use interne_hendelser::vo::Opplysninger;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
 pub struct Input;
 pub struct Output;
@@ -127,5 +127,9 @@ impl<A> InternUtgangHendelse<A> {
 
     pub fn opplysninger(&self) -> Option<&Opplysninger> {
         self.opplysninger.as_ref()
+    }
+
+    pub fn into_opplysninger(self) -> Option<Opplysninger> {
+        self.opplysninger
     }
 }

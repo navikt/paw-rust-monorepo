@@ -1,13 +1,14 @@
 use chrono::Timelike;
 use std::collections::HashSet;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
 use chrono::{Duration, Utc};
-use interne_hendelser::vo::{BrukerType, Opplysning};
+use interne_hendelser::vo::{BrukerType, Opplysning, Opplysninger};
 use paw_test::setup_test_db::setup_test_db;
 use utgang::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use utgang::dao::utgang_hendelser_logg::{hent_hendelser, hent_metadata_og_siste_pdl, skriv_hendelser};
-use utgang::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
-use utgang::domain::opplysninger::Opplysninger;
+use utgang::dao::utgang_hendelser_logg::{
+    hent_hendelser, hent_metadata_og_siste_pdl, skriv_hendelser,
+};
 use utgang::domain::utgang_hendelse_type::UtgangHendelseType;
 use uuid::Uuid;
 
@@ -262,7 +263,10 @@ async fn hent_metadata_og_siste_pdl_returnerer_metadata_mottatt_og_siste_pdl() {
         UtgangHendelseType::MetadataMottatt
     ));
     assert_eq!(data.metadata_mottatt.timestamp(), tidlig);
-    let siste = data.siste_pdl_data_endret.as_ref().expect("Forventet PdlDataEndret");
+    let siste = data
+        .siste_pdl_data_endret
+        .as_ref()
+        .expect("Forventet PdlDataEndret");
     assert_eq!(siste.timestamp(), now);
 }
 

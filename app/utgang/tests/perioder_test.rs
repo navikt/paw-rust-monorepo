@@ -1,13 +1,14 @@
 use chrono::{Duration, Timelike, Utc};
 use paw_test::setup_test_db::setup_test_db;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU16, NonZeroU32};
+use types::{
+    arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
+    identitetsnummer::Identitetsnummer,
+};
 use utgang::dao::perioder::{
     PeriodeRad, hent_perioder, hent_perioder_eldre_enn, hent_perioder_som_trenger_kontroll,
     oppdater_sist_oppdatert, oppdater_stoppet, oppdater_trenger_kontroll, skriv_perioder,
 };
-use utgang::domain::arbeidssoeker_id::ArbeidssoekerId;
-use utgang::domain::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
-use utgang::domain::identitetsnummer::Identitetsnummer;
 use uuid::Uuid;
 
 fn test_fnr() -> Identitetsnummer {
@@ -251,7 +252,7 @@ async fn hent_perioder_eldre_enn_returnerer_kun_rader_foer_grense() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(10).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(10).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -296,7 +297,7 @@ async fn hent_perioder_eldre_enn_ignorerer_rader_med_trenger_kontroll_true() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(10).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(10).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -340,7 +341,7 @@ async fn hent_perioder_eldre_enn_returnerer_i_stigende_rekkefølge() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(10).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(10).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -391,7 +392,7 @@ async fn hent_perioder_eldre_enn_respekterer_limit() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(2).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(2).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -613,7 +614,7 @@ async fn stoppet_periode_ekskluderes_fra_eldre_enn() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU32::new(10).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(10).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();

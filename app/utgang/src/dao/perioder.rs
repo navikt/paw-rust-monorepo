@@ -1,8 +1,8 @@
 use chrono::NaiveDateTime;
 use sqlx::Row;
-use uuid::Uuid;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
+use uuid::Uuid;
 
 use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
@@ -87,7 +87,7 @@ pub async fn hent_perioder(
 pub async fn hent_perioder_eldre_enn(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     foer: chrono::DateTime<chrono::Utc>,
-    limit: std::num::NonZeroU32,
+    limit: std::num::NonZeroU16,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
     sqlx::query_as::<_, PeriodeRad>(
         "SELECT id, arbeidssoeker_id, identitetsnummer, trenger_kontroll, stoppet, sist_oppdatert
