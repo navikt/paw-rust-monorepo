@@ -166,3 +166,241 @@ pub fn koble_ident_med_person(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use chrono::Utc;
+    use interne_hendelser::vo::{BrukerType, Opplysning, Opplysninger};
+    use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
+    use uuid::Uuid;
+
+    use crate::dao::utgang_hendelse::{InternUtgangHendelse, Output};
+    use crate::dao::utgang_hendelser_logg::PeriodeHendelseData;
+    use crate::domain::utgang_hendelse_type::UtgangHendelseType;
+    use types::{arbeidssoekerperiode_id::ArbeidssoekerperiodeId, identitetsnummer::Identitetsnummer};
+
+    use super::{finn_endrede_hendelser, koble_ident_med_person};
+
+    fn ident(fnr: &str) -> Identitetsnummer {
+        Identitetsnummer::new(fnr.to_string()).expect("ugyldig testident")
+    }
+
+    fn periode_id() -> ArbeidssoekerperiodeId {
+        ArbeidssoekerperiodeId(Uuid::new_v4())
+    }
+
+    fn opplysninger_a() -> Opplysninger {
+        Opplysninger::new(vec![Opplysning::ErOver18Aar, Opplysning::IkkeAnsatt])
+    }
+
+    fn opplysninger_b() -> Opplysninger {
+        Opplysninger::new(vec![Opplysning::ErUnder18Aar])
+    }
+
+    fn hendelse_med_opplysninger(
+        pid: ArbeidssoekerperiodeId,
+        opl: Option<Opplysninger>,
+    ) -> InternUtgangHendelse<Output> {
+        InternUtgangHendelse::from_db_row(
+            1,
+            UtgangHendelseType::MetadataMottatt,
+            pid,
+            Utc::now(),
+            BrukerType::System,
+            opl,
+        )
+    }
+
+    fn pdl_bolk(fnr: &str, med_person: bool) -> HentPersonBolkHentPersonBolk {
+        HentPersonBolkHentPersonBolk {
+            ident: fnr.to_string(),
+            person: if med_person {
+                Some(pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolkPerson {
+                    foedselsdato: vec![],
+                    statsborgerskap: vec![],
+                    opphold: vec![],
+                    folkeregisterpersonstatus: vec![],
+                    bostedsadresse: vec![],
+                    innflytting_til_norge: vec![],
+                    utflytting_fra_norge: vec![],
+                })
+            } else {
+                None
+            },
+            code: "ok".to_string(),
+        }
+    }
+
+    // --- koble_ident_med_person ---
+
+    #[test]
+    fn kobler_ident_med_matchende_person() {
+        let fnr = "12345678901";
+        let result = koble_ident_med_person(vec![ident(fnr)], vec![pdl_bolk(fnr, true)]);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].1.is_some());
+    }
+
+    #[test]
+    fn returnerer_none_for_ident_uten_pdl_treff() {
+        let fnr = "12345678901";
+        let result = koble_ident_med_person(vec![ident(fnr)], vec![]);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].1.is_none());
+    }
+
+    #[test]
+    fn returnerer_none_naar_pdl_mangler_person() {
+        let fnr = "12345678901";
+        let result = koble_ident_med_person(vec![ident(fnr)], vec![pdl_bolk(fnr, false)]);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].1.is_none());
+    }
+
+    #[test]
+    fn pdl_data_uten_matchende_ident_ignoreres() {
+        let result = koble_ident_med_person(
+            vec![ident("12345678901")],
+            vec![pdl_bolk("09876543210", true)],
+        );
+        assert_eq!(result.len(), 1);
+        assert!(result[0].1.is_none());
+    }
+
+    #[test]
+    fn bevarer_rekkefølge_fra_input_ident_liste() {
+        let fnr1 = "12345678901";
+        let fnr2 = "10987654321";
+        let result = koble_ident_med_person(
+            vec![ident(fnr1), ident(fnr2)],
+            vec![pdl_bolk(fnr2, true), pdl_bolk(fnr1, true)],
+        );
+        assert_eq!(result[0].0, ident(fnr1));
+        assert_eq!(result[1].0, ident(fnr2));
+    }
+
+    // --- finn_endrede_hendelser ---
+
+    #[test]
+    fn returnerer_hendelse_naar_opplysninger_er_endret() {
+        let pid = periode_id();
+        let id = ident("12345678901");
+        let ident_map = HashMap::from([(id.clone(), pid.clone())]);
+        let gjeldende_data = HashMap::from([(
+            pid.clone(),
+            PeriodeHendelseData {
+                metadata_mottatt: hendelse_med_opplysninger(pid.clone(), Some(opplysninger_a())),
+                siste_pdl_data_endret: None,
+            },
+        )]);
+
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Ok(opplysninger_b()))],
+            gjeldende_data,
+            &ident_map,
+            Utc::now(),
+        );
+
+        assert_eq!(resultat.len(), 1);
+    }
+
+    #[test]
+    fn returnerer_ingenting_naar_opplysninger_er_like() {
+        let pid = periode_id();
+        let id = ident("12345678901");
+        let ident_map = HashMap::from([(id.clone(), pid.clone())]);
+        let gjeldende_data = HashMap::from([(
+            pid.clone(),
+            PeriodeHendelseData {
+                metadata_mottatt: hendelse_med_opplysninger(pid.clone(), Some(opplysninger_a())),
+                siste_pdl_data_endret: None,
+            },
+        )]);
+
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Ok(opplysninger_a()))],
+            gjeldende_data,
+            &ident_map,
+            Utc::now(),
+        );
+
+        assert!(resultat.is_empty());
+    }
+
+    #[test]
+    fn bruker_siste_pdl_data_endret_fremfor_metadata() {
+        let pid = periode_id();
+        let id = ident("12345678901");
+        let ident_map = HashMap::from([(id.clone(), pid.clone())]);
+        let gjeldende_data = HashMap::from([(
+            pid.clone(),
+            PeriodeHendelseData {
+                metadata_mottatt: hendelse_med_opplysninger(pid.clone(), Some(opplysninger_b())),
+                siste_pdl_data_endret: Some(hendelse_med_opplysninger(
+                    pid.clone(),
+                    Some(opplysninger_a()),
+                )),
+            },
+        )]);
+
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Ok(opplysninger_a()))],
+            gjeldende_data,
+            &ident_map,
+            Utc::now(),
+        );
+
+        assert!(resultat.is_empty(), "skal matche siste_pdl_data_endret, ikke metadata");
+    }
+
+    #[test]
+    fn utelater_ident_uten_matchende_periode_id() {
+        let id = ident("12345678901");
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Ok(opplysninger_a()))],
+            HashMap::new(),
+            &HashMap::new(),
+            Utc::now(),
+        );
+        assert!(resultat.is_empty());
+    }
+
+    #[test]
+    fn utelater_ident_uten_lagret_pdl_data() {
+        let pid = periode_id();
+        let id = ident("12345678901");
+        let ident_map = HashMap::from([(id.clone(), pid.clone())]);
+
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Ok(opplysninger_a()))],
+            HashMap::new(),
+            &ident_map,
+            Utc::now(),
+        );
+        assert!(resultat.is_empty());
+    }
+
+    #[test]
+    fn utelater_ved_feil_i_opplysninger() {
+        let pid = periode_id();
+        let id = ident("12345678901");
+        let ident_map = HashMap::from([(id.clone(), pid.clone())]);
+        let gjeldende_data = HashMap::from([(
+            pid.clone(),
+            PeriodeHendelseData {
+                metadata_mottatt: hendelse_med_opplysninger(pid.clone(), Some(opplysninger_a())),
+                siste_pdl_data_endret: None,
+            },
+        )]);
+
+        let resultat = finn_endrede_hendelser(
+            vec![(id, Err(anyhow::anyhow!("testfeil")))],
+            gjeldende_data,
+            &ident_map,
+            Utc::now(),
+        );
+        assert!(resultat.is_empty());
+    }
+}
