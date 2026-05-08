@@ -1,4 +1,4 @@
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Identitetsnummer {
     value: String,
 }
