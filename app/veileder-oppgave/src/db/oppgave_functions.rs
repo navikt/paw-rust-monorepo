@@ -28,8 +28,8 @@ pub async fn hent_nyeste_oppgave(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::fra_db(
         oppgave_id,
-        oppgave_row.type_,
-        oppgave_row.status,
+        oppgave_row.type_.parse()?,
+        oppgave_row.status.parse()?,
         oppgave_row.opplysninger,
         ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
         Identitetsnummer::new(oppgave_row.identitetsnummer)
@@ -37,7 +37,7 @@ pub async fn hent_nyeste_oppgave(
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
-    )?;
+    );
 
     Ok(Some(oppgave))
 }
@@ -103,8 +103,8 @@ pub async fn finn_oppgave_for_ekstern_id(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::fra_db(
         oppgave_id,
-        oppgave_row.type_,
-        oppgave_row.status,
+        oppgave_row.type_.parse()?,
+        oppgave_row.status.parse()?,
         oppgave_row.opplysninger,
         ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
         Identitetsnummer::new(oppgave_row.identitetsnummer)
@@ -112,7 +112,7 @@ pub async fn finn_oppgave_for_ekstern_id(
         oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
         oppgave_row.tidspunkt,
         hendelse_logg,
-    )?;
+    );
 
     Ok(Some(oppgave))
 }
@@ -270,8 +270,8 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
         let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
         let oppgave = Oppgave::fra_db(
             OppgaveId::from(oppgave_row.id),
-            oppgave_row.type_,
-            oppgave_row.status,
+            oppgave_row.type_.parse()?,
+            oppgave_row.status.parse()?,
             oppgave_row.opplysninger,
             ArbeidssoekerId::from(oppgave_row.arbeidssoeker_id),
             Identitetsnummer::new(oppgave_row.identitetsnummer)
@@ -279,7 +279,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
             oppgave_row.ekstern_oppgave_id.map(EksternOppgaveId::from),
             oppgave_row.tidspunkt,
             hendelse_logg,
-        )?;
+        );
         oppgaver.push(oppgave);
     }
 
