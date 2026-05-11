@@ -1,3 +1,4 @@
+use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
@@ -28,6 +29,18 @@ pub struct InsertOppgaveRow {
     pub arbeidssoeker_id: ArbeidssoekerId,
     pub identitetsnummer: Identitetsnummer,
     pub tidspunkt: DateTime<Utc>,
+}
+
+pub fn oppgave_til_insert_row(oppgave: &Oppgave, melding_id: Uuid) -> InsertOppgaveRow {
+    InsertOppgaveRow {
+        type_: oppgave.type_.to_string(),
+        status: oppgave.status.to_string(),
+        melding_id,
+        opplysninger: oppgave.opplysninger.clone(),
+        arbeidssoeker_id: oppgave.arbeidssoeker_id,
+        identitetsnummer: oppgave.identitetsnummer.clone(),
+        tidspunkt: oppgave.tidspunkt,
+    }
 }
 
 pub fn to_oppgave_row(
