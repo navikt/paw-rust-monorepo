@@ -22,7 +22,7 @@ pub struct Oppgave {
 }
 
 impl Oppgave {
-    pub fn new(
+    pub fn fra_db(
         id: OppgaveId,
         type_: String,
         status: String,
@@ -63,9 +63,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ny_opg_med_ugyldig_type_kaster_type_parse_error() {
+    fn rehydrer_med_ugyldig_type_kaster_type_parse_error() {
         let ugyldig_type = "Hubba bubba";
-        let result = Oppgave::new(
+        let result = Oppgave::fra_db(
             OppgaveId(1),
             ugyldig_type.to_string(),
             OppgaveStatus::Ubehandlet.to_string(),
@@ -90,9 +90,9 @@ mod tests {
     }
 
     #[test]
-    fn ny_opg_med_ugyldig_status_kaster_type_parse_error() {
+    fn rehydrer_med_ugyldig_status_kaster_status_parse_error() {
         let ugyldig_status = "Bubba hubba";
-        let result = Oppgave::new(
+        let result = Oppgave::fra_db(
             OppgaveId(1),
             OppgaveType::AvvistUnder18.to_string(),
             ugyldig_status.to_string(),

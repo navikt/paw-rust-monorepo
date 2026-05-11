@@ -26,7 +26,7 @@ pub async fn hent_nyeste_oppgave(
 
     let oppgave_id = OppgaveId::from(oppgave_row.id);
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
-    let oppgave = Oppgave::new(
+    let oppgave = Oppgave::fra_db(
         oppgave_id,
         oppgave_row.type_,
         oppgave_row.status,
@@ -101,7 +101,7 @@ pub async fn finn_oppgave_for_ekstern_id(
 
     let oppgave_id = OppgaveId::from(oppgave_row.id);
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
-    let oppgave = Oppgave::new(
+    let oppgave = Oppgave::fra_db(
         oppgave_id,
         oppgave_row.type_,
         oppgave_row.status,
@@ -268,7 +268,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
     let mut oppgaver = Vec::with_capacity(oppgave_rows.len());
     for oppgave_row in oppgave_rows {
         let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
-        let oppgave = Oppgave::new(
+        let oppgave = Oppgave::fra_db(
             OppgaveId::from(oppgave_row.id),
             oppgave_row.type_,
             oppgave_row.status,
