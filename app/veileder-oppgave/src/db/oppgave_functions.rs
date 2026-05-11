@@ -1,6 +1,6 @@
 use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
-use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
@@ -125,6 +125,7 @@ async fn hent_hendelse_logg(
         r#"
         SELECT
             status,
+            melding,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
         FROM oppgave_hendelse_logg
         WHERE oppgave_id = $1
@@ -135,12 +136,13 @@ async fn hent_hendelse_logg(
     .fetch_all(&mut **transaction)
     .await?;
 
-    let hendelse_logg: Vec<HendelseLoggEntry> =
-        rows.into_iter().try_fold(Vec::new(), |mut acc, row| {
-            let entry = HendelseLoggEntry::new(row.status, row.tidspunkt)?;
-            acc.push(entry);
-            Ok::<Vec<HendelseLoggEntry>, HendelseLoggEntryError>(acc)
-        })?;
+    let hendelse_logg: Vec<HendelseLoggEntry> = rows
+        .into_iter()
+        .map(|row| {
+            let status = row.status.parse()?;
+            Ok(HendelseLoggEntry::new(status, row.melding, row.tidspunkt))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(hendelse_logg)
 }
@@ -293,6 +295,7 @@ async fn hent_hendelse_logger(
         SELECT
             oppgave_id,
             status,
+            melding,
             tidspunkt AT TIME ZONE 'UTC' as tidspunkt
         FROM oppgave_hendelse_logg
         WHERE oppgave_id = ANY($1)
@@ -305,7 +308,8 @@ async fn hent_hendelse_logger(
 
     let mut map: HashMap<i64, Vec<HendelseLoggEntry>> = HashMap::new();
     for row in rows {
-        let entry = HendelseLoggEntry::new(row.status, row.tidspunkt)?;
+        let status = row.status.parse()?;
+        let entry = HendelseLoggEntry::new(status, row.melding, row.tidspunkt);
         map.entry(row.oppgave_id).or_default().push(entry);
     }
     Ok(map)

@@ -13,6 +13,7 @@ pub struct InsertOppgaveHendelseLoggRow {
 #[derive(Debug, FromRow)]
 pub struct OppgaveHendelseLoggRow {
     pub status: String,
+    pub melding: String,
     pub tidspunkt: DateTime<Utc>,
 }
 
@@ -20,5 +21,6 @@ pub struct OppgaveHendelseLoggRow {
 pub struct OppgaveHendelseLoggBatchRow {
     pub oppgave_id: i64,
     pub status: String,
+    pub melding: String,
     pub tidspunkt: DateTime<Utc>,
 }

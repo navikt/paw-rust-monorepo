@@ -1,26 +1,25 @@
-use crate::domain::hendelse_logg_status::{HendelseLoggStatus, HendelseLoggStatusParseError};
+use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use chrono::{DateTime, Utc};
-use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HendelseLoggEntry {
     pub status: HendelseLoggStatus,
+    pub melding: String,
     pub tidspunkt: DateTime<Utc>,
 }
 
 impl HendelseLoggEntry {
-    pub fn new(status: String, tidspunkt: DateTime<Utc>) -> Result<Self, HendelseLoggEntryError> {
-        Ok(Self {
-            status: status.parse()?,
+    pub fn new(
+        status: HendelseLoggStatus,
+        melding: String,
+        tidspunkt: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            status,
+            melding,
             tidspunkt,
-        })
+        }
     }
-}
-
-#[derive(Error, Debug, PartialEq)]
-pub enum HendelseLoggEntryError {
-    #[error(transparent)]
-    ParseError(#[from] HendelseLoggStatusParseError),
 }
 
 #[cfg(test)]
@@ -28,16 +27,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_with_invalid_status() {
+    fn test_new() {
         let tidspunkt = Utc::now();
-        let ugyldig_logg_status = "UgyldigStatus";
-        let result = HendelseLoggEntry::new(ugyldig_logg_status.to_string(), tidspunkt);
-
-        assert!(result.is_err());
-        let error = result.unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            format!("Ugyldig HendelseLoggStatus: {}", ugyldig_logg_status)
+        let entry = HendelseLoggEntry::new(
+            HendelseLoggStatus::OppgaveOpprettet,
+            "test melding".to_string(),
+            tidspunkt,
         );
+
+        assert_eq!(entry.status, HendelseLoggStatus::OppgaveOpprettet);
+        assert_eq!(entry.melding, "test melding");
+        assert_eq!(entry.tidspunkt, tidspunkt);
     }
 }

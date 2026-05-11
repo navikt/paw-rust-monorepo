@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
-use crate::domain::hendelse_logg_entry::{HendelseLoggEntry, HendelseLoggEntryError};
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave_id::OppgaveId;
 use crate::domain::oppgave_status::{OppgaveStatus, OppgaveStatusParseError};
 use crate::domain::oppgave_type::{OppgaveType, OppgaveTypeParseError};
@@ -53,8 +53,6 @@ pub enum OppgaveError {
     StatusParseError(#[from] OppgaveStatusParseError),
     #[error(transparent)]
     TypeParseError(#[from] OppgaveTypeParseError),
-    #[error(transparent)]
-    HendelseLoggEntryError(#[from] HendelseLoggEntryError),
 }
 
 #[cfg(test)]
