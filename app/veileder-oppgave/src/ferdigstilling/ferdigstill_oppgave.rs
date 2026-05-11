@@ -36,9 +36,9 @@ pub async fn ferdigstill_oppgave(
         Some(oppgave) => oppgave,
     };
 
-    if bytt_oppgave_status(oppgave.id, Opprettet, Ferdigbehandlet, tx).await? {
+    if bytt_oppgave_status(oppgave.id(), Opprettet, Ferdigbehandlet, tx).await? {
         let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-            oppgave_id: oppgave.id,
+            oppgave_id: oppgave.id(),
             status: logg_status.to_string(),
             melding: format!(
                 "Ekstern oppgave {} ble {}",
@@ -50,7 +50,7 @@ pub async fn ferdigstill_oppgave(
         insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
         tracing::info!(
             "Oppgave {} oppdatert til Ferdigbehandlet etter melding om ekstern {}",
-            oppgave.id,
+            oppgave.id(),
             melding.hendelse.hendelsestype.to_string().to_lowercase()
         );
     }

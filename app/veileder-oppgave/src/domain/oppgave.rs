@@ -10,7 +10,7 @@ use crate::domain::oppgave_type::{OppgaveType, OppgaveTypeParseError};
 
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {
-    pub id: OppgaveId,
+    pub id: Option<OppgaveId>,
     pub type_: OppgaveType,
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
@@ -22,6 +22,10 @@ pub struct Oppgave {
 }
 
 impl Oppgave {
+    pub fn id(&self) -> OppgaveId {
+        self.id.expect("Oppgave mangler id — ikke persistert")
+    }
+
     pub fn fra_db(
         id: OppgaveId,
         type_: String,
@@ -34,7 +38,7 @@ impl Oppgave {
         hendelse_logg: Vec<HendelseLoggEntry>,
     ) -> Result<Self, OppgaveError> {
         Ok(Self {
-            id,
+            id: Some(id),
             type_: type_.parse()?,
             status: status.parse()?,
             opplysninger,

@@ -75,7 +75,7 @@ pub async fn prosesser_ubehandlede_oppgaver(
 
     for oppgave in oppgaver {
         if let Err(e) = prosesser_oppgave(&db_pool, &oppgave_api_client, &oppgave).await {
-            tracing::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id, e);
+            tracing::error!("Feil ved prosessering av oppgave {}: {}", oppgave.id(), e);
         }
     }
     Ok(())
@@ -89,9 +89,9 @@ async fn prosesser_oppgave(
     let mut tx = db_pool.begin().await?;
 
     // CAS: prøv å ta eierskap over oppgaven
-    if !bytt_oppgave_status(oppgave.id, Ubehandlet, Opprettet, &mut tx).await? {
+    if !bytt_oppgave_status(oppgave.id(), Ubehandlet, Opprettet, &mut tx).await? {
         tx.rollback().await?;
-        tracing::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id);
+        tracing::info!("Oppgave {} tatt av en annen tråd, ignorerer", oppgave.id());
         return Ok(());
     }
 
@@ -107,7 +107,7 @@ async fn prosesser_oppgave(
         Ok(oppgave_dto) => {
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
+                    oppgave_id: oppgave.id(),
                     status: EksternOppgaveOpprettet.to_string(),
                     melding: "Ekstern oppgave_id opprettet".to_string(),
                     tidspunkt: Utc::now(),
@@ -115,20 +115,20 @@ async fn prosesser_oppgave(
                 &mut tx,
             )
             .await?;
-            oppdater_oppgave_med_ekstern_id(oppgave.id, EksternOppgaveId::from(oppgave_dto.id), &mut tx).await?;
-            tracing::info!("Oppgave {} opprettet i Oppgave API", oppgave.id);
+            oppdater_oppgave_med_ekstern_id(oppgave.id(), EksternOppgaveId::from(oppgave_dto.id), &mut tx).await?;
+            tracing::info!("Oppgave {} opprettet i Oppgave API", oppgave.id());
             tx.commit().await?;
         }
         Err(error) => {
             inkrement_ekstern_oppgave_opprettelse_feil(&error);
-            if !bytt_oppgave_status(oppgave.id, Opprettet, Ubehandlet, &mut tx).await? {
+            if !bytt_oppgave_status(oppgave.id(), Opprettet, Ubehandlet, &mut tx).await? {
                 tracing::error!(
-                    oppgave_id = %oppgave.id,
+                    oppgave_id = %oppgave.id(),
                     "Oppgave sitter fast i status Opprettet uten ekstern_id — manuell gjennomgang nødvendig"
                 );
                 return Err(anyhow::anyhow!(
                     "Kunne ikke sette oppgave {} tilbake til Ubehandlet",
-                    oppgave.id
+                    oppgave.id()
                 ));
             }
 
@@ -148,13 +148,13 @@ async fn prosesser_oppgave(
             };
             tracing::error!(
                 "Feil ved opprettelse av oppgave {} i Oppgave API: {}",
-                oppgave.id,
+                oppgave.id(),
                 error_melding
             );
 
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
+                    oppgave_id: oppgave.id(),
                     status: EksternOppgaveOpprettelseFeilet.to_string(),
                     melding: error_melding,
                     tidspunkt: Utc::now(),
@@ -178,7 +178,7 @@ fn warning_ved_gjentatte_feil(oppgave: &Oppgave) {
 
     if antall_tidligere_feil >= 5 {
         tracing::warn!(
-            oppgave_id = %oppgave.id,
+            oppgave_id = %oppgave.id(),
             antall_feil = antall_tidligere_feil,
             "Oppgave har feilet gjentatte ganger mot Oppgave API — mulig kork"
         );
@@ -414,7 +414,7 @@ mod tests {
         hent_eldste_oppgaver_tx.commit().await?;
         let oppgave = oppgaver.remove(0);
 
-        let oppgave_id = oppgave.id;
+        let oppgave_id = oppgave.id();
         let mut tx_a = pg_pool.begin().await?;
         let resultat_a = bytt_oppgave_status(oppgave_id, Ubehandlet, Opprettet, &mut tx_a).await?;
         assert!(resultat_a, "Sett i gang row lock og hold den åpen");

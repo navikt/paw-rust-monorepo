@@ -31,7 +31,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
     {
         insert_oppgave_hendelse_logg(
             &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave.id,
+                oppgave_id: oppgave.id(),
                 status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
                 melding: "Arbeidssøkeren har allerede en aktiv vurder opphold oppgave".to_string(),
                 tidspunkt: Utc::now(),

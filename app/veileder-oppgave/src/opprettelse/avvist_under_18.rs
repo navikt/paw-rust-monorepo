@@ -39,7 +39,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         {
             insert_oppgave_hendelse_logg(
                 &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id,
+                    oppgave_id: oppgave.id(),
                     status: HendelseLoggStatus::OppgaveFinnesAllerede.to_string(),
                     melding: "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering"
                         .to_string(),

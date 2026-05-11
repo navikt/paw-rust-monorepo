@@ -463,7 +463,7 @@ impl TestContext {
         let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, &mut tx)
             .await?
             .expect("Forventet eksisterende oppgave");
-        bytt_oppgave_status(oppgave.id, oppgave.status, ny_status, &mut tx).await?;
+        bytt_oppgave_status(oppgave.id(), oppgave.status, ny_status, &mut tx).await?;
         tx.commit().await?;
         Ok(())
     }
