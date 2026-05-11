@@ -26,6 +26,27 @@ impl Oppgave {
         self.id.expect("Oppgave mangler id — ikke persistert")
     }
 
+    pub fn new(
+        type_: OppgaveType,
+        status: OppgaveStatus,
+        opplysninger: Vec<String>,
+        arbeidssoeker_id: ArbeidssoekerId,
+        identitetsnummer: Identitetsnummer,
+        tidspunkt: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: None,
+            type_,
+            status,
+            opplysninger,
+            arbeidssoeker_id,
+            identitetsnummer,
+            ekstern_oppgave_id: None,
+            tidspunkt,
+            hendelse_logg: Vec::new(),
+        }
+    }
+
     pub fn fra_db(
         id: OppgaveId,
         type_: String,
