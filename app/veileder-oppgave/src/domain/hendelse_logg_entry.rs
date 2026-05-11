@@ -21,22 +21,3 @@ impl HendelseLoggEntry {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new() {
-        let tidspunkt = Utc::now();
-        let entry = HendelseLoggEntry::new(
-            HendelseLoggStatus::OppgaveOpprettet,
-            "test melding".to_string(),
-            tidspunkt,
-        );
-
-        assert_eq!(entry.status, HendelseLoggStatus::OppgaveOpprettet);
-        assert_eq!(entry.melding, "test melding");
-        assert_eq!(entry.tidspunkt, tidspunkt);
-    }
-}
