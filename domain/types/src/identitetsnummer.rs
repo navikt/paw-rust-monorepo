@@ -15,6 +15,12 @@ impl Identitetsnummer {
     }
 }
 
+impl AsRef<str> for Identitetsnummer {
+    fn as_ref(&self) -> &str {
+        &self.value
+    }
+}
+
 impl From<Identitetsnummer> for String {
     fn from(identitetsnummer: Identitetsnummer) -> Self {
         identitetsnummer.value

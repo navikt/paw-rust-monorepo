@@ -79,7 +79,7 @@ impl PdlDataOppdatering {
             &ident_map,
             gjeldene_tidspunkt,
         );
-        skriv_hendelser(&mut tx, endret).await?;
+        skriv_hendelser(&mut tx, &endret).await?;
         Ok(())
     }
 

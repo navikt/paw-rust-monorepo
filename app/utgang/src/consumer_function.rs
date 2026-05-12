@@ -75,8 +75,8 @@ async fn haandter_periode_record(
         .await?;
     let periode_rad: PeriodeRad = (&periode).into();
     let intern_utgang_hendelse: InternUtgangHendelse<Input> = periode.into();
-    skriv_perioder(tx, vec![periode_rad]).await?;
-    skriv_hendelser(tx, vec![intern_utgang_hendelse]).await?;
+    skriv_perioder(tx, &[periode_rad]).await?;
+    skriv_hendelser(tx, &[intern_utgang_hendelse]).await?;
     Ok(())
 }
 
@@ -97,8 +97,8 @@ async fn haandter_hendelse(
             );
             let periode_rad: PeriodeRad = (&startet).into();
             let intern_utgang_hendelse: InternUtgangHendelse<Input> = startet.into();
-            skriv_perioder(tx, vec![periode_rad]).await?;
-            skriv_hendelser(tx, vec![intern_utgang_hendelse]).await?;
+            skriv_perioder(tx, &[periode_rad]).await?;
+            skriv_hendelser(tx, &[intern_utgang_hendelse]).await?;
         }
         _ => {
             tracing::info!("Mottok en annen hendelse som ikke skal lagres");

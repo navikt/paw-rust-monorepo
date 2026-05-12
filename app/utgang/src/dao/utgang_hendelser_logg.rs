@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse, Output};
-use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use crate::domain::utgang_hendelse_type::UtgangHendelseType;
+use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
 pub struct PeriodeHendelseData {
     pub metadata_mottatt: InternUtgangHendelse<Output>,
@@ -95,7 +95,7 @@ pub async fn hent_hendelser(
 
 pub async fn skriv_hendelser(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    hendelser: Vec<InternUtgangHendelse<Input>>,
+    hendelser: &[InternUtgangHendelse<Input>],
 ) -> Result<(), sqlx::Error> {
     if hendelser.is_empty() {
         return Ok(());

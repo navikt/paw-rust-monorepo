@@ -38,7 +38,7 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
 
 pub async fn skriv_perioder(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    perioder: Vec<PeriodeRad>,
+    perioder: &[PeriodeRad],
 ) -> Result<(), sqlx::Error> {
     if perioder.is_empty() {
         return Ok(());
@@ -49,7 +49,7 @@ pub async fn skriv_perioder(
     builder.push_values(perioder, |mut b, p| {
         b.push_bind(p.id.0)
             .push_bind(p.arbeidssoeker_id.map(|a| a.0))
-            .push_bind(String::from(p.identitetsnummer))
+            .push_bind(p.identitetsnummer.as_ref())
             .push_bind(p.trenger_kontroll)
             .push_bind(p.stoppet)
             .push_bind(p.sist_oppdatert.naive_utc());

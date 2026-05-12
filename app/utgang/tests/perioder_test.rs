@@ -65,7 +65,7 @@ async fn skriv_og_hent_roundtrip_bevarer_alle_felter() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(
+        &[lag_periode(
             id.clone(),
             Some(42),
             Identitetsnummer::new("12345678901".to_string()).unwrap(),
@@ -103,7 +103,7 @@ async fn skriv_og_hent_roundtrip_uten_arbeidssoeker_id() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(
+        &[lag_periode(
             id.clone(),
             None,
             Identitetsnummer::new("12345678902".to_string()).unwrap(),
@@ -137,7 +137,7 @@ async fn skriv_perioder_upsert_oppdaterer_eksisterende() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(
+        &[lag_periode(
             id.clone(),
             Some(1),
             identitetsnummer.clone(),
@@ -153,7 +153,7 @@ async fn skriv_perioder_upsert_oppdaterer_eksisterende() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(
+        &[lag_periode(
             id.clone(),
             Some(2),
             identitetsnummer.clone(),
@@ -189,7 +189,7 @@ async fn hent_perioder_returnerer_kun_forespurte_ider() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(id_a.clone(), None, test_fnr(), false, false, now),
             lag_periode(id_b.clone(), None, test_fnr(), false, false, now),
         ],
@@ -228,7 +228,7 @@ async fn hent_perioder_eldre_enn_returnerer_kun_rader_foer_grense() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(
                 gammel.clone(),
                 None,
@@ -273,7 +273,7 @@ async fn hent_perioder_eldre_enn_ignorerer_rader_med_trenger_kontroll_true() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(
                 gammel_uten_kontroll.clone(),
                 None,
@@ -317,7 +317,7 @@ async fn hent_perioder_eldre_enn_returnerer_i_stigende_rekkefølge() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(
                 sen.clone(),
                 None,
@@ -360,7 +360,7 @@ async fn hent_perioder_eldre_enn_respekterer_limit() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
@@ -411,7 +411,7 @@ async fn hent_perioder_som_trenger_kontroll_returnerer_kun_true_rader() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(med.clone(), None, test_fnr(), true, false, now),
             lag_periode(uten.clone(), None, test_fnr(), false, false, now),
         ],
@@ -439,7 +439,7 @@ async fn hent_perioder_som_trenger_kontroll_respekterer_limit() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(
                 ArbeidssoekerperiodeId::from(Uuid::new_v4()),
                 None,
@@ -490,7 +490,7 @@ async fn oppdater_trenger_kontroll_oppdaterer_kun_angitte_ider() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(id_a.clone(), None, test_fnr(), false, false, now),
             lag_periode(id_b.clone(), None, test_fnr(), false, false, now),
         ],
@@ -529,7 +529,7 @@ async fn oppdater_sist_oppdatert_oppdaterer_kun_angitte_ider() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(id_a.clone(), None, test_fnr(), false, false, opprinnelig),
             lag_periode(id_b.clone(), None, test_fnr(), false, false, opprinnelig),
         ],
@@ -569,7 +569,7 @@ async fn oppdater_stoppet_setter_flagg_og_ekskluderer_fra_hent() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(id.clone(), None, test_fnr(), false, false, now)],
+        &[lag_periode(id.clone(), None, test_fnr(), false, false, now)],
     )
     .await
     .unwrap();
@@ -600,7 +600,7 @@ async fn stoppet_periode_ekskluderes_fra_eldre_enn() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(
+        &[lag_periode(
             id.clone(),
             None,
             test_fnr(),
@@ -635,7 +635,7 @@ async fn stoppet_periode_ekskluderes_fra_trenger_kontroll() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![lag_periode(id.clone(), None, test_fnr(), true, true, now)],
+        &[lag_periode(id.clone(), None, test_fnr(), true, true, now)],
     )
     .await
     .unwrap();
@@ -664,7 +664,7 @@ async fn oppdater_stoppet_pavirker_kun_angitte_ider() {
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(
         &mut tx,
-        vec![
+        &[
             lag_periode(id_a.clone(), None, test_fnr(), false, false, now),
             lag_periode(id_b.clone(), None, test_fnr(), false, false, now),
         ],

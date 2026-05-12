@@ -54,7 +54,7 @@ async fn skriv_og_hent_roundtrip_bevarer_alle_felter() {
     );
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_hendelser(&mut tx, vec![hendelse])
+    skriv_hendelser(&mut tx, &[hendelse])
         .await
         .expect("skriv_hendelser feilet");
     tx.commit().await.unwrap();
@@ -95,7 +95,7 @@ async fn hent_hendelser_returnerer_kun_forespurte_periode_ider() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![
+        &[
             lag_hendelse(periode_a.clone(), now, None),
             lag_hendelse(periode_b.clone(), now, None),
         ],
@@ -133,7 +133,7 @@ async fn hent_hendelser_returnerer_i_stigende_timestamp_rekkefølge() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![
+        &[
             lag_hendelse(periode_id.clone(), sen, None),
             lag_hendelse(periode_id.clone(), tidlig, None),
             lag_hendelse(periode_id.clone(), midtre, None),
@@ -196,7 +196,7 @@ async fn hent_hendelser_uten_opplysninger_returnerer_none() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![lag_hendelse(periode_id.clone(), Utc::now(), None)],
+        &[lag_hendelse(periode_id.clone(), Utc::now(), None)],
     )
     .await
     .expect("skriv_hendelser feilet");
@@ -223,7 +223,7 @@ async fn hent_metadata_og_siste_pdl_returnerer_metadata_mottatt_og_siste_pdl() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![
+        &[
             InternUtgangHendelse::new(
                 UtgangHendelseType::MetadataMottatt,
                 periode_id.clone(),
@@ -280,7 +280,7 @@ async fn hent_metadata_og_siste_pdl_uten_pdl_data_endret() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![InternUtgangHendelse::new(
+        &[InternUtgangHendelse::new(
             UtgangHendelseType::MetadataMottatt,
             periode_id.clone(),
             now,
@@ -311,7 +311,7 @@ async fn hent_metadata_og_siste_pdl_uten_metadata_mottatt_returneres_ikke() {
     let mut tx = pool.begin().await.unwrap();
     skriv_hendelser(
         &mut tx,
-        vec![InternUtgangHendelse::new(
+        &[InternUtgangHendelse::new(
             UtgangHendelseType::PdlDataEndret,
             periode_id.clone(),
             Utc::now(),
