@@ -1,7 +1,7 @@
 use crate::db::oppgave_functions::{
-    bytt_oppgave_status, finn_oppgave_for_ekstern_id, insert_oppgave_hendelse_logg,
+    bytt_oppgave_status, finn_oppgave_for_ekstern_id, oppdater_hendelse_logg,
 };
-use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
 use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
@@ -37,17 +37,16 @@ pub async fn ferdigstill_oppgave(
     };
 
     if bytt_oppgave_status(oppgave.id(), Opprettet, Ferdigbehandlet, tx).await? {
-        let hendelse_logg_row = InsertOppgaveHendelseLoggRow {
-            oppgave_id: oppgave.id(),
-            status: logg_status.to_string(),
-            melding: format!(
+        let hendelse_logg = HendelseLoggEntry::new(
+            logg_status,
+            format!(
                 "Ekstern oppgave {} ble {}",
                 ekstern_oppgave_id,
                 melding.hendelse.hendelsestype.to_string().to_lowercase()
             ),
-            tidspunkt: Utc::now(),
-        };
-        insert_oppgave_hendelse_logg(&hendelse_logg_row, tx).await?;
+            Utc::now(),
+        );
+        oppdater_hendelse_logg(oppgave.id(), hendelse_logg, tx).await?;
         tracing::info!(
             "Oppgave {} oppdatert til Ferdigbehandlet etter melding om ekstern {}",
             oppgave.id(),
