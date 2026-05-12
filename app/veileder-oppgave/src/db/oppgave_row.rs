@@ -1,8 +1,5 @@
 use crate::domain::oppgave::Oppgave;
-use crate::domain::oppgave_status::OppgaveStatus;
-use crate::domain::oppgave_type::OppgaveType;
 use chrono::{DateTime, Utc};
-use interne_hendelser::Hendelse;
 use sqlx::FromRow;
 use uuid::Uuid;
 use types::arbeidssoeker_id::ArbeidssoekerId;
@@ -31,7 +28,7 @@ pub struct InsertOppgaveRow {
     pub tidspunkt: DateTime<Utc>,
 }
 
-pub fn oppgave_til_insert_row(oppgave: &Oppgave, melding_id: Uuid) -> InsertOppgaveRow {
+pub fn to_oppgave_insert_row(oppgave: &Oppgave, melding_id: Uuid) -> InsertOppgaveRow {
     InsertOppgaveRow {
         type_: oppgave.type_.to_string(),
         status: oppgave.status.to_string(),
@@ -43,63 +40,17 @@ pub fn oppgave_til_insert_row(oppgave: &Oppgave, melding_id: Uuid) -> InsertOppg
     }
 }
 
-pub fn to_oppgave_row(
-    hendelse: &impl Hendelse,
-    oppgave_type: OppgaveType,
-    oppgave_status: OppgaveStatus,
-) -> InsertOppgaveRow {
-    let opplysninger: Vec<String> = hendelse
-        .opplysninger()
-        .iter()
-        .map(|opplysning| opplysning.to_string())
-        .collect();
-
-    InsertOppgaveRow {
-        type_: oppgave_type.to_string(),
-        status: oppgave_status.to_string(),
-        melding_id: hendelse.hendelse_id(),
-        opplysninger,
-        arbeidssoeker_id: ArbeidssoekerId::from(hendelse.id()),
-        identitetsnummer: Identitetsnummer::new(hendelse.identitetsnummer().to_string())
-            .expect("Ugyldig identitetsnummer i Kafka-hendelse — avviser"),
-        tidspunkt: hendelse.metadata().tidspunkt,
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::oppgave_status::OppgaveStatus;
+    use crate::domain::oppgave_type::OppgaveType;
     use interne_hendelser::vo::Opplysning;
-    use paw_test::hendelse_builder::{AvvistBuilder, StartetBuilder};
+    use paw_test::hendelse_builder::StartetBuilder;
     use std::collections::HashSet;
 
     #[test]
-    fn test_avvist_hendelse_to_oppgave_row() {
-        let avvist_hendelse = AvvistBuilder {
-            arbeidssoeker_id: 12345,
-            identitetsnummer: "12345678901".to_string(),
-            opplysninger: HashSet::from([Opplysning::ErUnder18Aar, Opplysning::BosattEtterFregLoven]),
-            ..Default::default()
-        }
-        .build();
-
-        let oppgave_row = to_oppgave_row(
-            &avvist_hendelse,
-            OppgaveType::AvvistUnder18,
-            OppgaveStatus::Ubehandlet,
-        );
-
-        assert_eq!(oppgave_row.melding_id, avvist_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.type_, OppgaveType::AvvistUnder18.to_string());
-        assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
-        let forventede: HashSet<String> = avvist_hendelse.opplysninger.iter().map(|o| o.to_string()).collect();
-        assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
-        assert_eq!(String::from(oppgave_row.identitetsnummer), avvist_hendelse.identitetsnummer);
-        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(avvist_hendelse.id));
-        assert_eq!(oppgave_row.tidspunkt, avvist_hendelse.metadata.tidspunkt);
-    }
-
-    #[test]
-    fn test_startet_hendelse_to_oppgave_row() {
+    fn test_oppgave_til_insert_row() {
         let startet_hendelse = StartetBuilder {
             arbeidssoeker_id: 67890,
             identitetsnummer: "98765432109".to_string(),
@@ -108,19 +59,31 @@ mod tests {
         }
         .build();
 
-        let oppgave_row = to_oppgave_row(
-            &startet_hendelse,
+        let opplysninger: Vec<String> = startet_hendelse
+            .opplysninger
+            .iter()
+            .map(|o| o.to_string())
+            .collect();
+
+        let oppgave = Oppgave::new(
             OppgaveType::VurderOppholdsstatus,
             OppgaveStatus::Ubehandlet,
+            opplysninger.clone(),
+            ArbeidssoekerId::from(startet_hendelse.id),
+            Identitetsnummer::new(startet_hendelse.identitetsnummer.clone())
+                .expect("Ugyldig identitetsnummer"),
+            startet_hendelse.metadata.tidspunkt,
         );
 
-        assert_eq!(oppgave_row.melding_id, startet_hendelse.hendelse_id);
-        assert_eq!(oppgave_row.type_, OppgaveType::VurderOppholdsstatus.to_string());
-        assert_eq!(oppgave_row.status, OppgaveStatus::Ubehandlet.to_string());
-        let forventede_opplysninger: HashSet<String> = startet_hendelse.opplysninger.iter().map(|opplysning| opplysning.to_string()).collect();
-        assert_eq!(oppgave_row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede_opplysninger);
-        assert_eq!(String::from(oppgave_row.identitetsnummer), startet_hendelse.identitetsnummer);
-        assert_eq!(oppgave_row.arbeidssoeker_id, ArbeidssoekerId::from(startet_hendelse.id));
-        assert_eq!(oppgave_row.tidspunkt, startet_hendelse.metadata.tidspunkt);
+        let row = to_oppgave_insert_row(&oppgave, startet_hendelse.hendelse_id);
+
+        assert_eq!(row.melding_id, startet_hendelse.hendelse_id);
+        assert_eq!(row.type_, OppgaveType::VurderOppholdsstatus.to_string());
+        assert_eq!(row.status, OppgaveStatus::Ubehandlet.to_string());
+        let forventede: HashSet<String> = opplysninger.into_iter().collect();
+        assert_eq!(row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
+        assert_eq!(String::from(row.identitetsnummer), startet_hendelse.identitetsnummer);
+        assert_eq!(row.arbeidssoeker_id, ArbeidssoekerId::from(startet_hendelse.id));
+        assert_eq!(row.tidspunkt, startet_hendelse.metadata.tidspunkt);
     }
 }
