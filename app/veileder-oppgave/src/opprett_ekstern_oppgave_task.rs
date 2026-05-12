@@ -2,10 +2,10 @@ use crate::client::oppgave_client::{OppgaveApiClient, OppgaveApiError};
 use crate::client::opprett_oppgave_request::create_oppgave_request;
 use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{
-    bytt_oppgave_status, hent_de_eldste_ubehandlede_oppgavene, insert_oppgave_hendelse_logg,
+    bytt_oppgave_status, hent_de_eldste_ubehandlede_oppgavene, oppdater_hendelse_logg,
     oppdater_oppgave_med_ekstern_id,
 };
-use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
+use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
     EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet,
 };
@@ -105,17 +105,13 @@ async fn prosesser_oppgave(
 
     match response {
         Ok(oppgave_dto) => {
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id(),
-                    status: EksternOppgaveOpprettet.to_string(),
-                    melding: "Ekstern oppgave_id opprettet".to_string(),
-                    tidspunkt: Utc::now(),
-                },
-                &mut tx,
-            )
-            .await?;
             oppdater_oppgave_med_ekstern_id(oppgave.id(), EksternOppgaveId::from(oppgave_dto.id), &mut tx).await?;
+            let hendelse_logg = HendelseLoggEntry::new(
+                EksternOppgaveOpprettet,
+                "Ekstern oppgave_id opprettet".to_string(),
+                Utc::now(),
+            );
+            oppdater_hendelse_logg(oppgave.id(), hendelse_logg, &mut tx).await?;
             tracing::info!("Oppgave {} opprettet i Oppgave API", oppgave.id());
             tx.commit().await?;
         }
@@ -152,16 +148,10 @@ async fn prosesser_oppgave(
                 error_melding
             );
 
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id(),
-                    status: EksternOppgaveOpprettelseFeilet.to_string(),
-                    melding: error_melding,
-                    tidspunkt: Utc::now(),
-                },
-                &mut tx,
-            )
-            .await?;
+            let hendelse_logg = HendelseLoggEntry::new(
+                EksternOppgaveOpprettelseFeilet, error_melding, Utc::now(),
+            );
+            oppdater_hendelse_logg(oppgave.id(), hendelse_logg, &mut tx).await?;
             tx.commit().await?;
         }
     }
