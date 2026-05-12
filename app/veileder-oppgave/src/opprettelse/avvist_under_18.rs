@@ -1,8 +1,7 @@
 use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{
-    hent_nyeste_oppgave, insert_oppgave, oppdater_hendelse_logg,
+    hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg,
 };
-use crate::db::oppgave_row::to_oppgave_insert_row;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::avvist_under_18;
@@ -61,8 +60,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             avvist_hendelse.metadata.tidspunkt,
         );
 
-        let oppgave_row = to_oppgave_insert_row(&oppgave, avvist_hendelse.hendelse_id());
-        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave, avvist_hendelse.hendelse_id(), tx).await?;
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveOpprettet,
@@ -80,8 +78,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             avvist_hendelse.metadata.tidspunkt,
         );
 
-        let oppgave_row = to_oppgave_insert_row(&oppgave, avvist_hendelse.hendelse_id());
-        let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave, avvist_hendelse.hendelse_id(), tx).await?;
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveIgnorert,

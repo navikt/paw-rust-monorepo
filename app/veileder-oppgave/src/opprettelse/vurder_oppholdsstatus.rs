@@ -1,7 +1,6 @@
 use crate::db::oppgave_functions::{
-    hent_nyeste_oppgave, insert_oppgave, oppdater_hendelse_logg,
+    hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg,
 };
-use crate::db::oppgave_row::to_oppgave_insert_row;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::vurder_oppholdsstatus;
@@ -42,7 +41,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
     }
 
     let identitetsnummer = Identitetsnummer::new(startet_hendelse.identitetsnummer().to_string())
-        .expect("Ugyldig identitetsnummer i Kafka-hendelse — avviser");
+        .expect("Ugyldig identitetsnummer i Kafka-hendelse som oppfyller kriteriene for vurder oppholdsstatus");
 
     let oppgave = Oppgave::new(
         oppgave_type,
@@ -53,8 +52,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
         startet_hendelse.metadata().tidspunkt,
     );
 
-    let oppgave_row = to_oppgave_insert_row(&oppgave, startet_hendelse.hendelse_id());
-    let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
+    let oppgave_id = lagre_oppgave(&oppgave, startet_hendelse.hendelse_id(), tx).await?;
 
     let hendelse_logg = HendelseLoggEntry::new(
         HendelseLoggStatus::OppgaveOpprettet,

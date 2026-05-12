@@ -1,5 +1,5 @@
 use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
-use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow};
+use crate::db::oppgave_row::{InsertOppgaveRow, OppgaveRow, to_oppgave_insert_row};
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
+use uuid::Uuid;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
@@ -169,6 +170,15 @@ pub async fn insert_oppgave(
         .await?;
 
     Ok(OppgaveId(oppgave_id))
+}
+
+pub async fn lagre_oppgave(
+    oppgave: &Oppgave,
+    melding_id: Uuid,
+    tx: &mut Transaction<'_, Postgres>,
+) -> Result<OppgaveId> {
+    let row = to_oppgave_insert_row(oppgave, melding_id);
+    insert_oppgave(&row, tx).await
 }
 
 pub async fn insert_oppgave_hendelse_logg(
