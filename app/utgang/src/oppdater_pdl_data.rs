@@ -2,7 +2,7 @@ use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
 
 use crate::{
     dao::{
-        perioder::hent_perioder_eldre_enn,
+        perioder::{hent_perioder_eldre_enn, oppdater_trenger_kontroll},
         utgang_hendelse::{Input, InternUtgangHendelse},
         utgang_hendelser_logg::{PeriodeHendelseData, hent_metadata_og_siste_pdl, skriv_hendelser},
     },
@@ -27,7 +27,6 @@ struct PdlDataOppdateringRef {
     pg_pool: PgPool,
     pdl_client: PDLClient,
     batch_size: NonZeroU16,
-    intervall: Duration,
     data_gyldighet: Duration,
 }
 
@@ -36,7 +35,6 @@ impl PdlDataOppdatering {
         pg_pool: PgPool,
         pdl_client: PDLClient,
         batch_size: NonZeroU16,
-        intervall: Duration,
         data_gyldighet: Duration,
     ) -> Self {
         Self {
@@ -44,7 +42,6 @@ impl PdlDataOppdatering {
                 pg_pool,
                 pdl_client,
                 batch_size,
-                intervall,
                 data_gyldighet,
             }),
         }
@@ -69,7 +66,9 @@ impl PdlDataOppdatering {
             .map(|periode| periode.id.clone())
             .collect();
 
-        let pdl_data = self.hent_og_koble_pdl_data(identitetsnummer, trenger_oppdatering.len()).await?;
+        let pdl_data = self
+            .hent_og_koble_pdl_data(identitetsnummer, trenger_oppdatering.len())
+            .await?;
 
         let gjeldende_opplysninger = utled_fakta(pdl_data);
         let gjeldende_data = hent_metadata_og_siste_pdl(&mut tx, &periode_ider).await?;
@@ -80,6 +79,9 @@ impl PdlDataOppdatering {
             gjeldene_tidspunkt,
         );
         skriv_hendelser(&mut tx, &endret).await?;
+        let endrede_perioder: Vec<ArbeidssoekerperiodeId> =
+            endret.into_iter().map(|e| e.into_periode_id()).collect();
+        oppdater_trenger_kontroll(&mut tx, &endrede_perioder, true).await?;
         Ok(())
     }
 
@@ -179,7 +181,9 @@ mod tests {
     use crate::dao::utgang_hendelse::{InternUtgangHendelse, Output};
     use crate::dao::utgang_hendelser_logg::PeriodeHendelseData;
     use crate::domain::utgang_hendelse_type::UtgangHendelseType;
-    use types::{arbeidssoekerperiode_id::ArbeidssoekerperiodeId, identitetsnummer::Identitetsnummer};
+    use types::{
+        arbeidssoekerperiode_id::ArbeidssoekerperiodeId, identitetsnummer::Identitetsnummer,
+    };
 
     use super::{finn_endrede_hendelser, koble_ident_med_person};
 
@@ -217,15 +221,17 @@ mod tests {
         HentPersonBolkHentPersonBolk {
             ident: fnr.to_string(),
             person: if med_person {
-                Some(pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolkPerson {
-                    foedselsdato: vec![],
-                    statsborgerskap: vec![],
-                    opphold: vec![],
-                    folkeregisterpersonstatus: vec![],
-                    bostedsadresse: vec![],
-                    innflytting_til_norge: vec![],
-                    utflytting_fra_norge: vec![],
-                })
+                Some(
+                    pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolkPerson {
+                        foedselsdato: vec![],
+                        statsborgerskap: vec![],
+                        opphold: vec![],
+                        folkeregisterpersonstatus: vec![],
+                        bostedsadresse: vec![],
+                        innflytting_til_norge: vec![],
+                        utflytting_fra_norge: vec![],
+                    },
+                )
             } else {
                 None
             },
@@ -352,7 +358,10 @@ mod tests {
             Utc::now(),
         );
 
-        assert!(resultat.is_empty(), "skal matche siste_pdl_data_endret, ikke metadata");
+        assert!(
+            resultat.is_empty(),
+            "skal matche siste_pdl_data_endret, ikke metadata"
+        );
     }
 
     #[test]

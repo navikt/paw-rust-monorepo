@@ -132,4 +132,8 @@ impl<A> InternUtgangHendelse<A> {
     pub fn into_opplysninger(self) -> Option<Opplysninger> {
         self.opplysninger
     }
+
+    pub fn into_periode_id(self) -> ArbeidssoekerperiodeId {
+        self.periode_id
+    }
 }
