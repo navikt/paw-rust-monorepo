@@ -1,8 +1,7 @@
 use crate::config::ApplicationConfig;
 use crate::db::oppgave_functions::{
-    hent_nyeste_oppgave, insert_oppgave, insert_oppgave_hendelse_logg,
+    hent_nyeste_oppgave, insert_oppgave, oppdater_hendelse_logg,
 };
-use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
 use crate::db::oppgave_row::to_oppgave_insert_row;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
@@ -44,21 +43,12 @@ pub async fn opprett_avvist_under_18_oppgave(
             && oppgave.status != Ferdigbehandlet
             && oppgave.status != Ignorert
         {
-            let hendelse_logg_entry = HendelseLoggEntry::new(
+            let hendelse_logg = HendelseLoggEntry::new(
                 HendelseLoggStatus::OppgaveFinnesAllerede,
                 "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering".to_string(),
                 Utc::now(),
             );
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave.id(),
-                    status: hendelse_logg_entry.status.to_string(),
-                    melding: hendelse_logg_entry.melding,
-                    tidspunkt: hendelse_logg_entry.tidspunkt,
-                },
-                tx,
-            )
-            .await?;
+            oppdater_hendelse_logg(oppgave.id(), hendelse_logg, tx).await?;
             return Ok(());
         }
 
@@ -74,21 +64,12 @@ pub async fn opprett_avvist_under_18_oppgave(
         let oppgave_row = to_oppgave_insert_row(&oppgave, avvist_hendelse.hendelse_id());
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
 
-        let hendelse_logg_entry = HendelseLoggEntry::new(
+        let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveOpprettet,
             "Oppretter oppgave for avvist registrering".to_string(),
             oppgave.tidspunkt,
         );
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
-                status: hendelse_logg_entry.status.to_string(),
-                melding: hendelse_logg_entry.melding,
-                tidspunkt: hendelse_logg_entry.tidspunkt,
-            },
-            tx,
-        )
-        .await?;
+        oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
     } else {
         let oppgave = Oppgave::new(
             oppgave_type,
@@ -102,7 +83,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         let oppgave_row = to_oppgave_insert_row(&oppgave, avvist_hendelse.hendelse_id());
         let oppgave_id = insert_oppgave(&oppgave_row, tx).await?;
 
-        let hendelse_logg_entry = HendelseLoggEntry::new(
+        let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveIgnorert,
             format!(
                 "Oppretter oppgave for avvist registrering med status {} fordi hendelse er eldre enn {}",
@@ -111,16 +92,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             ),
             oppgave.tidspunkt,
         );
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id,
-                status: hendelse_logg_entry.status.to_string(),
-                melding: hendelse_logg_entry.melding,
-                tidspunkt: hendelse_logg_entry.tidspunkt,
-            },
-            tx,
-        )
-        .await?;
+        oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
     }
 
     Ok(())

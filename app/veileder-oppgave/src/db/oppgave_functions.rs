@@ -191,6 +191,20 @@ pub async fn insert_oppgave_hendelse_logg(
     Ok(result.rows_affected())
 }
 
+pub async fn oppdater_hendelse_logg(
+    oppgave_id: OppgaveId,
+    entry: HendelseLoggEntry,
+    tx: &mut Transaction<'_, Postgres>,
+) -> Result<u64> {
+    let row = InsertOppgaveHendelseLoggRow {
+        oppgave_id,
+        status: entry.status.to_string(),
+        melding: entry.melding,
+        tidspunkt: entry.tidspunkt,
+    };
+    insert_oppgave_hendelse_logg(&row, tx).await
+}
+
 pub async fn oppdater_oppgave_med_ekstern_id(
     oppgave_id: OppgaveId,
     ekstern_oppgave_id: EksternOppgaveId,
