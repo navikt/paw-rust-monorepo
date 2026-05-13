@@ -45,45 +45,33 @@ mod tests {
     use super::*;
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_type::OppgaveType;
-    use interne_hendelser::vo::Opplysning;
-    use paw_test::hendelse_builder::StartetBuilder;
-    use std::collections::HashSet;
+    use chrono::Utc;
 
     #[test]
     fn test_oppgave_til_insert_row() {
-        let startet_hendelse = StartetBuilder {
-            arbeidssoeker_id: 67890,
-            identitetsnummer: "98765432109".to_string(),
-            opplysninger: HashSet::from([Opplysning::ErEuEoesStatsborger, Opplysning::IkkeBosatt]),
-            ..Default::default()
-        }
-        .build();
-
-        let opplysninger: Vec<String> = startet_hendelse
-            .opplysninger
-            .iter()
-            .map(|o| o.to_string())
-            .collect();
+        let melding_id = Uuid::new_v4();
+        let tidspunkt = Utc::now();
+        let opplysninger = vec!["ER_UNDER_18_AAR".to_string(), "BOSATT_ETTER_FREG_LOVEN".to_string()];
+        let arbeidssoeker_id = ArbeidssoekerId(12345);
+        let identitetsnummer = Identitetsnummer::new("12345678901".to_string()).unwrap();
 
         let oppgave = Oppgave::new(
             OppgaveType::VurderOppholdsstatus,
             OppgaveStatus::Ubehandlet,
             opplysninger.clone(),
-            ArbeidssoekerId::from(startet_hendelse.id),
-            Identitetsnummer::new(startet_hendelse.identitetsnummer.clone())
-                .expect("Ugyldig identitetsnummer"),
-            startet_hendelse.metadata.tidspunkt,
+            arbeidssoeker_id,
+            identitetsnummer.clone(),
+            tidspunkt,
         );
 
-        let row = to_oppgave_insert_row(&oppgave, startet_hendelse.hendelse_id);
+        let row = to_oppgave_insert_row(&oppgave, melding_id);
 
-        assert_eq!(row.melding_id, startet_hendelse.hendelse_id);
+        assert_eq!(row.melding_id, melding_id);
         assert_eq!(row.type_, OppgaveType::VurderOppholdsstatus.to_string());
         assert_eq!(row.status, OppgaveStatus::Ubehandlet.to_string());
-        let forventede: HashSet<String> = opplysninger.into_iter().collect();
-        assert_eq!(row.opplysninger.into_iter().collect::<HashSet<_>>(), forventede);
-        assert_eq!(String::from(row.identitetsnummer), startet_hendelse.identitetsnummer);
-        assert_eq!(row.arbeidssoeker_id, ArbeidssoekerId::from(startet_hendelse.id));
-        assert_eq!(row.tidspunkt, startet_hendelse.metadata.tidspunkt);
+        assert_eq!(row.opplysninger, opplysninger);
+        assert_eq!(row.arbeidssoeker_id, arbeidssoeker_id);
+        assert_eq!(row.identitetsnummer, identitetsnummer);
+        assert_eq!(row.tidspunkt, tidspunkt);
     }
 }

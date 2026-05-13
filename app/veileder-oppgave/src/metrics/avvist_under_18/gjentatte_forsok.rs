@@ -52,15 +52,18 @@ async fn hent_gjentatte_forsok_gjennomsnitt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::oppgave_functions::{insert_oppgave, insert_oppgave_hendelse_logg};
-    use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
-    use crate::db::oppgave_row::InsertOppgaveRow;
+    use crate::db::oppgave_functions::{lagre_oppgave, oppdater_hendelse_logg};
+    use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave::Oppgave;
+    use crate::domain::oppgave_status::OppgaveStatus::Ubehandlet;
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_hent_gjentatte_forsok_gjennomsnitt() -> Result<()> {
@@ -72,104 +75,27 @@ mod tests {
         let tidspunkt_foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
         // Person 1: to ekstra forsøk etter cutoff (AvvistUnder18)
-        let oppgave_id_1 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678901".to_string()).unwrap(),
-                tidspunkt: tidspunkt_etter_cutoff,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_1,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: tidspunkt_etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_1,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: tidspunkt_etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_med_to_forsok = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_1 = lagre_oppgave(&avvist_med_to_forsok, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
 
         // Person 2: null ekstra forsøk (AvvistUnder18)
-        let oppgave_id_2 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678902".to_string()).unwrap(),
-                tidspunkt: tidspunkt_etter_cutoff,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_2,
-                status: HendelseLoggStatus::OppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: tidspunkt_etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_uten_forsok = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_2 = lagre_oppgave(&avvist_uten_forsok, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
 
         // Person 3: VurderOppholdsstatus med forsøk — skal IKKE telles
-        let oppgave_id_vurder = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: VurderOppholdsstatus.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678905".to_string()).unwrap(),
-                tidspunkt: tidspunkt_etter_cutoff,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let vurder_ignorert = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_vurder = lagre_oppgave(&vurder_ignorert, Uuid::new_v4(), &mut tx).await?;
         for _ in 0..5 {
-            insert_oppgave_hendelse_logg(
-                &InsertOppgaveHendelseLoggRow {
-                    oppgave_id: oppgave_id_vurder,
-                    status: OppgaveFinnesAllerede.to_string(),
-                    melding: String::new(),
-                    tidspunkt: tidspunkt_etter_cutoff,
-                },
-                &mut tx,
-            )
-            .await?;
+            oppdater_hendelse_logg(oppgave_id_vurder, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
         }
 
         // Person 4: oppgave før cutoff — skal ikke telles
-        let oppgave_id_3 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678903".to_string()).unwrap(),
-                tidspunkt: tidspunkt_foer_cutoff,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_3,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: tidspunkt_foer_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_foer_cutoff = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), tidspunkt_foer_cutoff);
+        let oppgave_id_3 = lagre_oppgave(&avvist_foer_cutoff, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_foer_cutoff), &mut tx).await?;
 
         tx.commit().await?;
 

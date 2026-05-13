@@ -62,13 +62,16 @@ async fn hent_antall(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::oppgave_functions::insert_oppgave;
-    use crate::db::oppgave_row::InsertOppgaveRow;
+    use crate::db::oppgave_functions::lagre_oppgave;
+    use crate::domain::oppgave::Oppgave;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
+    use chrono::Utc;
     use paw_test::setup_test_db::setup_test_db;
     use types::arbeidssoeker_id::ArbeidssoekerId;
+    use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_hent_antall_oppgaver_per_status_og_type() -> Result<()> {
@@ -76,46 +79,15 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                status: Ubehandlet.to_string(),
-                arbeidssoeker_id: ArbeidssoekerId(1),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                status: Ubehandlet.to_string(),
-                arbeidssoeker_id: ArbeidssoekerId(2),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                status: Ferdigbehandlet.to_string(),
-                arbeidssoeker_id: ArbeidssoekerId(3),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave(
-            &InsertOppgaveRow {
-                type_: VurderOppholdsstatus.to_string(),
-                status: Ubehandlet.to_string(),
-                arbeidssoeker_id: ArbeidssoekerId(4),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_ubehandlet_1 = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_ubehandlet_2 = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let avvist_ferdigbehandlet = Oppgave::new(AvvistUnder18, Ferdigbehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678903".to_string()).unwrap(), Utc::now());
+        let vurder_ubehandlet = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678904".to_string()).unwrap(), Utc::now());
+
+        lagre_oppgave(&avvist_ubehandlet_1, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&avvist_ubehandlet_2, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&avvist_ferdigbehandlet, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&vurder_ubehandlet, Uuid::new_v4(), &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

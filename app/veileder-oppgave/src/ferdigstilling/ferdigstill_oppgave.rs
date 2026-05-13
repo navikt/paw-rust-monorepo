@@ -61,16 +61,17 @@ pub async fn ferdigstill_oppgave(
 mod tests {
     use super::*;
     use crate::db::oppgave_functions::{
-        hent_nyeste_oppgave, insert_oppgave, oppdater_oppgave_med_ekstern_id,
+        hent_nyeste_oppgave, lagre_oppgave, oppdater_oppgave_med_ekstern_id,
     };
-    use crate::db::oppgave_row::InsertOppgaveRow;
-    use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave::Oppgave;
     use crate::domain::oppgave_type::OppgaveType;
 
-    use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
+    use crate::domain::hendelse_logg_status::HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
     use anyhow::Result;
     use paw_test::setup_test_db::setup_test_db;
     use types::arbeidssoeker_id::ArbeidssoekerId;
+    use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
@@ -110,15 +111,15 @@ mod tests {
         // --- Ferdigstilt ---
         let arbeidssoeker_id_1 = ArbeidssoekerId(12345);
         let mut tx = pg_pool.begin().await?;
-        let oppgave_id = insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id: arbeidssoeker_id_1,
-                status: Opprettet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let oppgave_til_ferdigstilling = Oppgave::new(
+            OppgaveType::AvvistUnder18,
+            Opprettet,
+            vec![],
+            arbeidssoeker_id_1,
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
+            Utc::now(),
+        );
+        let oppgave_id = lagre_oppgave(&oppgave_til_ferdigstilling, Uuid::new_v4(), &mut tx).await?;
         oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FERDIGSTILT), &mut tx)
             .await?;
         tx.commit().await?;
@@ -165,15 +166,15 @@ mod tests {
         // --- Feilregistrert ---
         let arbeidssoeker_id_2 = ArbeidssoekerId(67890);
         let mut tx = pg_pool.begin().await?;
-        let oppgave_id = insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id: arbeidssoeker_id_2,
-                status: Opprettet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let oppgave_til_feilregistrering = Oppgave::new(
+            OppgaveType::AvvistUnder18,
+            Opprettet,
+            vec![],
+            arbeidssoeker_id_2,
+            Identitetsnummer::new("12345678902".to_string()).unwrap(),
+            Utc::now(),
+        );
+        let oppgave_id = lagre_oppgave(&oppgave_til_feilregistrering, Uuid::new_v4(), &mut tx).await?;
         oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FEILREGISTRERT), &mut tx)
             .await?;
         tx.commit().await?;

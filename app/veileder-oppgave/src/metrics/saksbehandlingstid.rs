@@ -76,14 +76,17 @@ async fn hent_saksbehandlingstid_per_uke(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::oppgave_functions::{insert_oppgave, insert_oppgave_hendelse_logg};
-    use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
-    use crate::db::oppgave_row::InsertOppgaveRow;
+    use crate::db::oppgave_functions::{lagre_oppgave, oppdater_hendelse_logg};
+    use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
+    use crate::domain::oppgave::Oppgave;
+    use crate::domain::oppgave_status::OppgaveStatus::Ubehandlet;
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{Datelike, Duration, Utc};
     use paw_test::setup_test_db::setup_test_db;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_hent_saksbehandlingstid_per_uke_og_type() -> Result<()> {
@@ -103,102 +106,25 @@ mod tests {
         };
         let opprettet_a = uke1_mandag + Duration::hours(8);
         let ferdigstilt_a = opprettet_a + Duration::days(2);
-        let oppgave_id_1 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                tidspunkt: opprettet_a,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_1,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: opprettet_a,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_1,
-                status: EksternOppgaveFerdigstilt.to_string(),
-                melding: String::new(),
-                tidspunkt: ferdigstilt_a,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_a = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), opprettet_a);
+        let oppgave_id_1 = lagre_oppgave(&avvist_a, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_a), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_a), &mut tx).await?;
 
         let opprettet_b = uke1_mandag + Duration::days(1) + Duration::hours(8);
         let ferdigstilt_b = opprettet_b + Duration::days(4);
-        let oppgave_id_2 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678902".to_string()).unwrap(),
-                tidspunkt: opprettet_b,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_2,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: opprettet_b,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_2,
-                status: EksternOppgaveFerdigstilt.to_string(),
-                melding: String::new(),
-                tidspunkt: ferdigstilt_b,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_b = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), opprettet_b);
+        let oppgave_id_2 = lagre_oppgave(&avvist_b, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_b), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_b), &mut tx).await?;
 
         // Uke 1: VurderOppholdsstatus — 1 dag → vises separat fra AvvistUnder18
         let opprettet_v = uke1_mandag + Duration::days(2) + Duration::hours(8);
         let ferdigstilt_v = opprettet_v + Duration::days(1);
-        let oppgave_id_v = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: VurderOppholdsstatus.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678905".to_string()).unwrap(),
-                tidspunkt: opprettet_v,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_v,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: opprettet_v,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_v,
-                status: EksternOppgaveFerdigstilt.to_string(),
-                melding: String::new(),
-                tidspunkt: ferdigstilt_v,
-            },
-            &mut tx,
-        )
-        .await?;
+        let vurder_v = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), opprettet_v);
+        let oppgave_id_v = lagre_oppgave(&vurder_v, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_v, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_v), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_v, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_v), &mut tx).await?;
 
         // Uke 2 (for ~1 uke siden): AvvistUnder18 med retry — skal bruke MIN tidspunkt
         let uke2_mandag = {
@@ -208,78 +134,18 @@ mod tests {
         let opprettet_retry_forste = uke2_mandag + Duration::hours(8);
         let opprettet_retry_andre = opprettet_retry_forste + Duration::hours(1);
         let ferdigstilt_retry = opprettet_retry_forste + Duration::days(1);
-        let oppgave_id_3 = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678903".to_string()).unwrap(),
-                tidspunkt: opprettet_retry_forste,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_3,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: opprettet_retry_forste,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_3,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: opprettet_retry_andre,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_3,
-                status: EksternOppgaveFerdigstilt.to_string(),
-                melding: String::new(),
-                tidspunkt: ferdigstilt_retry,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_retry = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), opprettet_retry_forste);
+        let oppgave_id_3 = lagre_oppgave(&avvist_retry, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_retry_forste), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_retry_andre), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_retry), &mut tx).await?;
 
         // Oppgave eldre enn 30 uker — skal IKKE telles (utenfor rullende vindu)
         let for_gammel = now - Duration::weeks(31);
-        let oppgave_id_4 = insert_oppgave(
-            &InsertOppgaveRow {
-                identitetsnummer: Identitetsnummer::new("12345678904".to_string()).unwrap(),
-                tidspunkt: for_gammel,
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_4,
-                status: EksternOppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: for_gammel,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: oppgave_id_4,
-                status: EksternOppgaveFerdigstilt.to_string(),
-                melding: String::new(),
-                tidspunkt: for_gammel + Duration::hours(1),
-            },
-            &mut tx,
-        )
-        .await?;
+        let for_gammel_avvist = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(5), Identitetsnummer::new("12345678904".to_string()).unwrap(), for_gammel);
+        let oppgave_id_4 = lagre_oppgave(&for_gammel_avvist, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_4, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), for_gammel), &mut tx).await?;
+        oppdater_hendelse_logg(oppgave_id_4, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), for_gammel + Duration::hours(1)), &mut tx).await?;
 
         tx.commit().await?;
 

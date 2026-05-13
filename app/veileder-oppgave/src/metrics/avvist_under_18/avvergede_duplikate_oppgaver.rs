@@ -47,16 +47,19 @@ async fn hent_antall_duplikater_avverget(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::oppgave_functions::{insert_oppgave, insert_oppgave_hendelse_logg};
-    use crate::db::oppgave_hendelse_logg_row::InsertOppgaveHendelseLoggRow;
-    use crate::db::oppgave_row::InsertOppgaveRow;
+    use crate::db::oppgave_functions::{lagre_oppgave, oppdater_hendelse_logg};
+    use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus;
+    use crate::domain::oppgave::Oppgave;
+    use crate::domain::oppgave_status::OppgaveStatus::Ubehandlet;
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{Duration, TimeZone, Utc};
     use paw_test::setup_test_db::setup_test_db;
-    use HendelseLoggStatus::OppgaveOpprettet;
+    use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
+    use HendelseLoggStatus::OppgaveOpprettet;
 
     #[tokio::test]
     async fn test_hent_antall_duplikate_oppgaver() -> Result<()> {
@@ -67,65 +70,16 @@ mod tests {
         let etter_cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap() + Duration::days(1);
         let foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
-        let avvist_oppgave_id = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: AvvistUnder18.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: avvist_oppgave_id,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: avvist_oppgave_id,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: foer_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: avvist_oppgave_id,
-                status: OppgaveOpprettet.to_string(),
-                melding: String::new(),
-                tidspunkt: etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
+        let avvist_oppgave = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_oppgave_id = lagre_oppgave(&avvist_oppgave, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), foer_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveOpprettet, String::new(), etter_cutoff), &mut tx).await?;
 
         // VurderOppholdsstatus med duplikat — skal IKKE telles
-        let vurder_oppgave_id = insert_oppgave(
-            &InsertOppgaveRow {
-                type_: VurderOppholdsstatus.to_string(),
-                identitetsnummer: Identitetsnummer::new("12345678902".to_string()).unwrap(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
-        insert_oppgave_hendelse_logg(
-            &InsertOppgaveHendelseLoggRow {
-                oppgave_id: vurder_oppgave_id,
-                status: OppgaveFinnesAllerede.to_string(),
-                melding: String::new(),
-                tidspunkt: etter_cutoff,
-            },
-            &mut tx,
-        )
-        .await?;
+        let vurder_oppgave_ignorert = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave_ignorert, Uuid::new_v4(), &mut tx).await?;
+        oppdater_hendelse_logg(vurder_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff), &mut tx).await?;
 
         tx.commit().await?;
 

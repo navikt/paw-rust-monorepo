@@ -181,9 +181,8 @@ mod tests {
     use crate::client::oppgave_client::OPPGAVER_PATH;
     use crate::config::OppgaveClientConfig;
     use crate::db::oppgave_functions::{
-        hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, insert_oppgave,
+        hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, lagre_oppgave,
     };
-    use crate::db::oppgave_row::InsertOppgaveRow;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use crate::domain::oppgave_type::OppgaveType;
     use mockito::{Matcher, Server};
@@ -195,6 +194,7 @@ mod tests {
     use tokio::time::sleep;
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
     use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]
@@ -263,40 +263,16 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id_1 = ArbeidssoekerId(12345);
-        insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id: arbeidssoeker_id_1,
-                identitetsnummer: Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(),
-                status: Ubehandlet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let ubehandlet_oppgave_1 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_1, Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_1, Uuid::new_v4(), &mut tx).await?;
 
         let arbeidssoeker_id_2 = ArbeidssoekerId(12346);
-        insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id: arbeidssoeker_id_2,
-                identitetsnummer: Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(),
-                status: Ubehandlet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let ubehandlet_oppgave_2 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_2, Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_2, Uuid::new_v4(), &mut tx).await?;
 
         let arbeidssoeker_id_3 = ArbeidssoekerId(12347);
-        insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id: arbeidssoeker_id_3,
-                identitetsnummer: Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(),
-                status: Ubehandlet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let ubehandlet_oppgave_3 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_3, Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_3, Uuid::new_v4(), &mut tx).await?;
 
         tx.commit().await?;
 
@@ -382,16 +358,8 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        insert_oppgave(
-            &InsertOppgaveRow {
-                arbeidssoeker_id,
-                identitetsnummer: Identitetsnummer::new(identitetsnummer.to_string()).unwrap(),
-                status: Ubehandlet.to_string(),
-                ..Default::default()
-            },
-            &mut tx,
-        )
-        .await?;
+        let oppgave_i_kø = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id, Identitetsnummer::new(identitetsnummer.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&oppgave_i_kø, Uuid::new_v4(), &mut tx).await?;
         tx.commit().await?;
 
         let mut hent_eldste_oppgaver_tx = pg_pool.begin().await?;
