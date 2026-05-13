@@ -104,7 +104,7 @@ impl Default for KafkaConfig {
             certificate_path: None,
             ca_path: None,
             auto_offset_reset: Some(EnvField::from("earliest".to_string())),
-            session_timeout_ms: Some(EnvField::from(6000)),
+            session_timeout_ms: Some(EnvField::from(45000)),
             hwm_version: EnvField::from(HWM_VERSION),
         }
     }
