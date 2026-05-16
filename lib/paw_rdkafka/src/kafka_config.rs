@@ -19,7 +19,7 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         .to_string();
     let session_timeout_ms = kafka_config
         .session_timeout_ms
-        .unwrap_or_else(|| EnvField::from(6000))
+        .unwrap_or_else(|| EnvField::from(45000))
         .into_inner()
         .to_string();
     let auto_offset_reset = kafka_config
