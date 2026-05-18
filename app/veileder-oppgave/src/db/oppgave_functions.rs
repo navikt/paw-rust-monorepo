@@ -1,4 +1,4 @@
-use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
+use crate::db::oppgave_hendelse_logg_row::{OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::OppgaveRow;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
@@ -175,9 +175,10 @@ pub async fn lagre_oppgave(
     Ok(OppgaveId(oppgave_id))
 }
 
-pub async fn insert_oppgave_hendelse_logg(
-    hendelse_logg_row: &InsertOppgaveHendelseLoggRow,
-    transaction: &mut Transaction<'_, Postgres>,
+pub async fn oppdater_hendelse_logg(
+    oppgave_id: OppgaveId,
+    entry: HendelseLoggEntry,
+    tx: &mut Transaction<'_, Postgres>,
 ) -> Result<u64> {
     let result = sqlx::query(
         r#"
@@ -185,28 +186,14 @@ pub async fn insert_oppgave_hendelse_logg(
         VALUES ($1, $2, $3, $4)
         "#,
     )
-    .bind(i64::from(hendelse_logg_row.oppgave_id))
-    .bind(&hendelse_logg_row.status)
-    .bind(&hendelse_logg_row.melding)
-    .bind(hendelse_logg_row.tidspunkt)
-    .execute(&mut **transaction)
+    .bind(i64::from(oppgave_id))
+    .bind(entry.status.to_string())
+    .bind(&entry.melding)
+    .bind(entry.tidspunkt)
+    .execute(&mut **tx)
     .await?;
 
     Ok(result.rows_affected())
-}
-
-pub async fn oppdater_hendelse_logg(
-    oppgave_id: OppgaveId,
-    entry: HendelseLoggEntry,
-    tx: &mut Transaction<'_, Postgres>,
-) -> Result<u64> {
-    let row = InsertOppgaveHendelseLoggRow {
-        oppgave_id,
-        status: entry.status.to_string(),
-        melding: entry.melding,
-        tidspunkt: entry.tidspunkt,
-    };
-    insert_oppgave_hendelse_logg(&row, tx).await
 }
 
 pub async fn oppdater_oppgave_med_ekstern_id(

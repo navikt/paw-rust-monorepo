@@ -1,14 +1,5 @@
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
-use crate::domain::oppgave_id::OppgaveId;
-
-#[derive(Debug)]
-pub struct InsertOppgaveHendelseLoggRow {
-    pub oppgave_id: OppgaveId,
-    pub status: String,
-    pub melding: String,
-    pub tidspunkt: DateTime<Utc>,
-}
 
 #[derive(Debug, FromRow)]
 pub struct OppgaveHendelseLoggRow {
