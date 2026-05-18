@@ -114,6 +114,6 @@ pub enum PDLQueryError {
     NotAuthorized,
     #[error("Authentication failed")]
     AuthenticationFailed,
-    #[error("Unknown error occurred")]
+    #[error("PDL query error: {0}")]
     UnknownError(String),
 }
