@@ -53,6 +53,9 @@ impl PdlDataOppdatering {
         let mut tx = self.inner.pg_pool.begin().await?;
         let trenger_oppdatering =
             hent_perioder_eldre_enn(&mut tx, vannmerke, self.inner.batch_size).await?;
+        if trenger_oppdatering.len() == 0 {
+            return Ok(());
+        }
         let ident_map: HashMap<Identitetsnummer, ArbeidssoekerperiodeId> = trenger_oppdatering
             .iter()
             .map(|periode| (periode.identitetsnummer.clone(), periode.id.clone()))
@@ -65,7 +68,6 @@ impl PdlDataOppdatering {
             .iter()
             .map(|periode| periode.id.clone())
             .collect();
-
         let pdl_data = self
             .hent_og_koble_pdl_data(identitetsnummer, trenger_oppdatering.len())
             .await?;
