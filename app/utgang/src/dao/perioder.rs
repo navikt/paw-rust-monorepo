@@ -1,5 +1,6 @@
 use chrono::NaiveDateTime;
 use sqlx::Row;
+use tracing::instrument;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 use uuid::Uuid;
@@ -36,6 +37,7 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
     }
 }
 
+#[instrument(skip(tx, perioder))]
 pub async fn skriv_perioder(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     perioder: &[PeriodeRad],
@@ -65,6 +67,7 @@ pub async fn skriv_perioder(
     Ok(())
 }
 
+#[instrument(skip(tx, periode_ider))]
 pub async fn hent_perioder(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     periode_ider: &[ArbeidssoekerperiodeId],
@@ -84,6 +87,7 @@ pub async fn hent_perioder(
     .await
 }
 
+#[instrument(skip(tx))]
 pub async fn hent_perioder_eldre_enn(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     foer: chrono::DateTime<chrono::Utc>,
@@ -102,6 +106,7 @@ pub async fn hent_perioder_eldre_enn(
     .await
 }
 
+#[instrument(skip(tx))]
 pub async fn hent_perioder_som_trenger_kontroll(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     limit: std::num::NonZeroU32,
@@ -117,6 +122,8 @@ pub async fn hent_perioder_som_trenger_kontroll(
     .fetch_all(&mut **tx)
     .await
 }
+
+#[instrument(skip(tx, periode_ider))]
 pub async fn oppdater_trenger_kontroll(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     periode_ider: &[ArbeidssoekerperiodeId],
@@ -138,6 +145,7 @@ pub async fn oppdater_trenger_kontroll(
     Ok(())
 }
 
+#[instrument(skip(tx, periode_ider))]
 pub async fn oppdater_sist_oppdatert(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     periode_ider: &[ArbeidssoekerperiodeId],
@@ -159,6 +167,7 @@ pub async fn oppdater_sist_oppdatert(
     Ok(())
 }
 
+#[instrument(skip(tx, periode_ider))]
 pub async fn oppdater_stoppet(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     periode_ider: &[ArbeidssoekerperiodeId],

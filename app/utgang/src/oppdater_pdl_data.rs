@@ -85,6 +85,7 @@ impl PdlDataOppdatering {
         Ok(())
     }
 
+    #[instrument(skip(self, identitetsnummer))]
     async fn hent_og_koble_pdl_data(
         &self,
         identitetsnummer: Vec<Identitetsnummer>,
@@ -114,7 +115,7 @@ impl PdlDataOppdatering {
         Ok(pdl_data)
     }
 }
-
+#[instrument(skip(gjeldende_opplysninger, gjeldende_data, ident_map))]
 fn finn_endrede_hendelser(
     gjeldende_opplysninger: Vec<(Identitetsnummer, anyhow::Result<Opplysninger>)>,
     mut gjeldende_data: HashMap<ArbeidssoekerperiodeId, PeriodeHendelseData>,
@@ -152,6 +153,7 @@ fn finn_endrede_hendelser(
         .collect()
 }
 
+#[instrument(skip(identietsnummer, pdl_data))]
 pub fn koble_ident_med_person(
     identietsnummer: Vec<Identitetsnummer>,
     pdl_data: Vec<HentPersonBolkHentPersonBolk>,
