@@ -24,13 +24,13 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
     }
 
     let oppgave_type = vurder_oppholdsstatus::KRITERIER.oppgave_type;
-    metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     let arbeidssoeker_id = ArbeidssoekerId::from(startet_hendelse.id);
     let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
     if let Some(oppgave) = &eksisterende_oppgave
         && oppgave.status != Ferdigbehandlet
     {
+        metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveFinnesAllerede,
             "Arbeidssøkeren har allerede en aktiv vurder oppholdsstatus oppgave".to_string(),
@@ -54,6 +54,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
     );
 
     let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
+    metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
 
     let hendelse_logg = HendelseLoggEntry::new(
         HendelseLoggStatus::OppgaveOpprettet,

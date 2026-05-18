@@ -29,7 +29,6 @@ pub async fn opprett_avvist_under_18_oppgave(
     }
 
     let oppgave_type = avvist_under_18::KRITERIER.oppgave_type;
-    metrics::kriterier_oppfylt::inkrement(oppgave_type);
 
     let arbeidssoeker_id = ArbeidssoekerId::from(avvist_hendelse.id);
     let identitetsnummer = Identitetsnummer::new(avvist_hendelse.identitetsnummer().to_string())
@@ -42,6 +41,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             && oppgave.status != Ferdigbehandlet
             && oppgave.status != Ignorert
         {
+            metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
             let hendelse_logg = HendelseLoggEntry::new(
                 HendelseLoggStatus::OppgaveFinnesAllerede,
                 "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering".to_string(),
@@ -62,6 +62,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         );
 
         let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
+        metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveOpprettet,
@@ -81,6 +82,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         );
 
         let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
+        metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveIgnorert,
