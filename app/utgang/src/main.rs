@@ -63,11 +63,10 @@ async fn main() -> Result<()> {
     let utgang_processor = UtgangMessageProcessor::new()?;
     let pdl_pool = pg_pool.clone();
     let consumer_task: JoinHandle<Result<()>> = tokio::spawn(async move {
-        let processor = utgang_processor;
         loop {
             let msg = consumer.recv().await?;
             let msg = msg.detach();
-            hwm_process_message(hwm_version, pg_pool.clone(), &msg, &processor)
+            hwm_process_message(hwm_version, pg_pool.clone(), &msg, &utgang_processor)
                 .await
                 .map_err(|e| ProcessingError {
                     message: e.to_string(),
