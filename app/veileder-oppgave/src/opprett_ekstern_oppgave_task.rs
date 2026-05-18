@@ -263,16 +263,16 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id_1 = ArbeidssoekerId(12345);
-        let ubehandlet_oppgave_1 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_1, Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(), Utc::now());
-        lagre_oppgave(&ubehandlet_oppgave_1, Uuid::new_v4(), &mut tx).await?;
+        let ubehandlet_oppgave_1 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_1, Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_1, &mut tx).await?;
 
         let arbeidssoeker_id_2 = ArbeidssoekerId(12346);
-        let ubehandlet_oppgave_2 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_2, Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(), Utc::now());
-        lagre_oppgave(&ubehandlet_oppgave_2, Uuid::new_v4(), &mut tx).await?;
+        let ubehandlet_oppgave_2 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_2, Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_2, &mut tx).await?;
 
         let arbeidssoeker_id_3 = ArbeidssoekerId(12347);
-        let ubehandlet_oppgave_3 = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_3, Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(), Utc::now());
-        lagre_oppgave(&ubehandlet_oppgave_3, Uuid::new_v4(), &mut tx).await?;
+        let ubehandlet_oppgave_3 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_3, Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&ubehandlet_oppgave_3, &mut tx).await?;
 
         tx.commit().await?;
 
@@ -358,8 +358,8 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_i_kø = Oppgave::new(OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id, Identitetsnummer::new(identitetsnummer.to_string()).unwrap(), Utc::now());
-        lagre_oppgave(&oppgave_i_kø, Uuid::new_v4(), &mut tx).await?;
+        let oppgave_i_kø = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id, Identitetsnummer::new(identitetsnummer.to_string()).unwrap(), Utc::now());
+        lagre_oppgave(&oppgave_i_kø, &mut tx).await?;
         tx.commit().await?;
 
         let mut hent_eldste_oppgaver_tx = pg_pool.begin().await?;

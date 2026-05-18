@@ -44,6 +44,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
         .expect("Ugyldig identitetsnummer i Kafka-hendelse som oppfyller kriteriene for vurder oppholdsstatus");
 
     let oppgave = Oppgave::new(
+        startet_hendelse.hendelse_id(),
         oppgave_type,
         Ubehandlet,
         hent_opplysninger_fra(startet_hendelse),
@@ -52,7 +53,7 @@ pub async fn opprett_vurder_oppholdsstatus_oppgave(
         startet_hendelse.metadata().tidspunkt,
     );
 
-    let oppgave_id = lagre_oppgave(&oppgave, startet_hendelse.hendelse_id(), tx).await?;
+    let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
 
     let hendelse_logg = HendelseLoggEntry::new(
         HendelseLoggStatus::OppgaveOpprettet,

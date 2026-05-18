@@ -1,5 +1,5 @@
 use crate::db::oppgave_hendelse_logg_row::{InsertOppgaveHendelseLoggRow, OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
-use crate::db::oppgave_row::{OppgaveRow, to_oppgave_insert_row};
+use crate::db::oppgave_row::OppgaveRow;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
-use uuid::Uuid;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::oppgave_id::OppgaveId;
 
@@ -29,6 +28,7 @@ pub async fn hent_nyeste_oppgave(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::fra_db(
         oppgave_id,
+        oppgave_row.melding_id,
         oppgave_row.type_.parse()?,
         oppgave_row.status.parse()?,
         oppgave_row.opplysninger,
@@ -52,6 +52,7 @@ async fn hent_nyeste_oppgave_for_arbeidssoeker(
         r#"
         SELECT
             id,
+            melding_id,
             type AS type_,
             status,
             opplysninger,
@@ -80,6 +81,7 @@ pub async fn finn_oppgave_for_ekstern_id(
         r#"
         SELECT
             id,
+            melding_id,
             type AS type_,
             status,
             opplysninger,
@@ -104,6 +106,7 @@ pub async fn finn_oppgave_for_ekstern_id(
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
     let oppgave = Oppgave::fra_db(
         oppgave_id,
+        oppgave_row.melding_id,
         oppgave_row.type_.parse()?,
         oppgave_row.status.parse()?,
         oppgave_row.opplysninger,
@@ -150,10 +153,8 @@ async fn hent_hendelse_logg(
 
 pub async fn lagre_oppgave(
     oppgave: &Oppgave,
-    melding_id: Uuid,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<OppgaveId> {
-    let row = to_oppgave_insert_row(oppgave, melding_id);
     let oppgave_id = sqlx::query_scalar(
         r#"
         INSERT INTO oppgaver (type, status, melding_id, opplysninger, arbeidssoeker_id, identitetsnummer, tidspunkt)
@@ -161,13 +162,13 @@ pub async fn lagre_oppgave(
         RETURNING id
         "#,
     )
-    .bind(&row.type_)
-    .bind(&row.status)
-    .bind(row.melding_id)
-    .bind(&row.opplysninger)
-    .bind(i64::from(row.arbeidssoeker_id))
-    .bind(String::from(row.identitetsnummer.clone()))
-    .bind(row.tidspunkt)
+    .bind(oppgave.type_.to_string())
+    .bind(oppgave.status.to_string())
+    .bind(oppgave.melding_id)
+    .bind(&oppgave.opplysninger)
+    .bind(i64::from(oppgave.arbeidssoeker_id))
+    .bind(String::from(oppgave.identitetsnummer.clone()))
+    .bind(oppgave.tidspunkt)
     .fetch_one(&mut **tx)
     .await?;
 
@@ -258,6 +259,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
         r#"
         SELECT
             id,
+            melding_id,
             type AS type_,
             status,
             opplysninger,
@@ -287,6 +289,7 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
         let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
         let oppgave = Oppgave::fra_db(
             OppgaveId::from(oppgave_row.id),
+            oppgave_row.melding_id,
             oppgave_row.type_.parse()?,
             oppgave_row.status.parse()?,
             oppgave_row.opplysninger,
@@ -359,10 +362,10 @@ mod tests {
         let irrelevant_oppgave = test_oppgave(id, Ferdigbehandlet, Utc::now() - chrono::Duration::days(1337));
         let yngste_oppgave = test_oppgave(id, Ubehandlet, Utc::now());
 
-        lagre_oppgave(&eldste_oppgave, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&nest_eldste_oppgave, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&irrelevant_oppgave, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&yngste_oppgave, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&eldste_oppgave, &mut tx).await?;
+        lagre_oppgave(&nest_eldste_oppgave, &mut tx).await?;
+        lagre_oppgave(&irrelevant_oppgave, &mut tx).await?;
+        lagre_oppgave(&yngste_oppgave, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -393,8 +396,8 @@ mod tests {
         let gammel_oppgave = test_oppgave(id, Ubehandlet, now - chrono::Duration::seconds(2));
         let ny_oppgave = test_oppgave(id, Ubehandlet, now);
 
-        lagre_oppgave(&gammel_oppgave, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&ny_oppgave, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&gammel_oppgave, &mut tx).await?;
+        lagre_oppgave(&ny_oppgave, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -423,7 +426,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), Uuid::new_v4(), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -448,7 +451,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), Uuid::new_v4(), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -470,7 +473,7 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), Uuid::new_v4(), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
         tx.commit().await?;
         assert_eq!(oppgave_id, OppgaveId(1));
 
@@ -484,7 +487,7 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -513,6 +516,7 @@ mod tests {
         tidspunkt: DateTime<Utc>,
     ) -> Oppgave {
         Oppgave::new(
+            Uuid::new_v4(),
             AvvistUnder18,
             status,
             vec!["ER_UNDER_18_AAR".to_string(), "BOSATT_ETTER_FREG_LOVEN".to_string()],

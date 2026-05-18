@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
+use uuid::Uuid;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave_id::OppgaveId;
@@ -10,6 +11,7 @@ use crate::domain::oppgave_type::OppgaveType;
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {
     pub id: Option<OppgaveId>,
+    pub melding_id: Uuid,
     pub type_: OppgaveType,
     pub status: OppgaveStatus,
     pub opplysninger: Vec<String>,
@@ -26,6 +28,7 @@ impl Oppgave {
     }
 
     pub fn new(
+        melding_id: Uuid,
         type_: OppgaveType,
         status: OppgaveStatus,
         opplysninger: Vec<String>,
@@ -35,6 +38,7 @@ impl Oppgave {
     ) -> Self {
         Self {
             id: None,
+            melding_id,
             type_,
             status,
             opplysninger,
@@ -48,6 +52,7 @@ impl Oppgave {
 
     pub fn fra_db(
         id: OppgaveId,
+        melding_id: Uuid,
         type_: OppgaveType,
         status: OppgaveStatus,
         opplysninger: Vec<String>,
@@ -59,6 +64,7 @@ impl Oppgave {
     ) -> Self {
         Self {
             id: Some(id),
+            melding_id,
             type_,
             status,
             opplysninger,

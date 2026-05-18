@@ -106,23 +106,23 @@ mod tests {
         };
         let opprettet_a = uke1_mandag + Duration::hours(8);
         let ferdigstilt_a = opprettet_a + Duration::days(2);
-        let avvist_a = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), opprettet_a);
-        let oppgave_id_1 = lagre_oppgave(&avvist_a, Uuid::new_v4(), &mut tx).await?;
+        let avvist_a = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), opprettet_a);
+        let oppgave_id_1 = lagre_oppgave(&avvist_a, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_a), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_a), &mut tx).await?;
 
         let opprettet_b = uke1_mandag + Duration::days(1) + Duration::hours(8);
         let ferdigstilt_b = opprettet_b + Duration::days(4);
-        let avvist_b = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), opprettet_b);
-        let oppgave_id_2 = lagre_oppgave(&avvist_b, Uuid::new_v4(), &mut tx).await?;
+        let avvist_b = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), opprettet_b);
+        let oppgave_id_2 = lagre_oppgave(&avvist_b, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_b), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_b), &mut tx).await?;
 
         // Uke 1: VurderOppholdsstatus — 1 dag → vises separat fra AvvistUnder18
         let opprettet_v = uke1_mandag + Duration::days(2) + Duration::hours(8);
         let ferdigstilt_v = opprettet_v + Duration::days(1);
-        let vurder_v = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), opprettet_v);
-        let oppgave_id_v = lagre_oppgave(&vurder_v, Uuid::new_v4(), &mut tx).await?;
+        let vurder_v = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), opprettet_v);
+        let oppgave_id_v = lagre_oppgave(&vurder_v, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_v, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_v), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_v, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_v), &mut tx).await?;
 
@@ -134,16 +134,16 @@ mod tests {
         let opprettet_retry_forste = uke2_mandag + Duration::hours(8);
         let opprettet_retry_andre = opprettet_retry_forste + Duration::hours(1);
         let ferdigstilt_retry = opprettet_retry_forste + Duration::days(1);
-        let avvist_retry = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), opprettet_retry_forste);
-        let oppgave_id_3 = lagre_oppgave(&avvist_retry, Uuid::new_v4(), &mut tx).await?;
+        let avvist_retry = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), opprettet_retry_forste);
+        let oppgave_id_3 = lagre_oppgave(&avvist_retry, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_retry_forste), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), opprettet_retry_andre), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), ferdigstilt_retry), &mut tx).await?;
 
         // Oppgave eldre enn 30 uker — skal IKKE telles (utenfor rullende vindu)
         let for_gammel = now - Duration::weeks(31);
-        let for_gammel_avvist = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(5), Identitetsnummer::new("12345678904".to_string()).unwrap(), for_gammel);
-        let oppgave_id_4 = lagre_oppgave(&for_gammel_avvist, Uuid::new_v4(), &mut tx).await?;
+        let for_gammel_avvist = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(5), Identitetsnummer::new("12345678904".to_string()).unwrap(), for_gammel);
+        let oppgave_id_4 = lagre_oppgave(&for_gammel_avvist, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_4, HendelseLoggEntry::new(EksternOppgaveOpprettet, String::new(), for_gammel), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_4, HendelseLoggEntry::new(EksternOppgaveFerdigstilt, String::new(), for_gammel + Duration::hours(1)), &mut tx).await?;
 

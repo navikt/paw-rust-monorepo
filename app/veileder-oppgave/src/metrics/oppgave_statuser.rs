@@ -79,15 +79,15 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let avvist_ubehandlet_1 = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
-        let avvist_ubehandlet_2 = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
-        let avvist_ferdigbehandlet = Oppgave::new(AvvistUnder18, Ferdigbehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678903".to_string()).unwrap(), Utc::now());
-        let vurder_ubehandlet = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678904".to_string()).unwrap(), Utc::now());
+        let avvist_ubehandlet_1 = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_ubehandlet_2 = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let avvist_ferdigbehandlet = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ferdigbehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678903".to_string()).unwrap(), Utc::now());
+        let vurder_ubehandlet = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678904".to_string()).unwrap(), Utc::now());
 
-        lagre_oppgave(&avvist_ubehandlet_1, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&avvist_ubehandlet_2, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&avvist_ferdigbehandlet, Uuid::new_v4(), &mut tx).await?;
-        lagre_oppgave(&vurder_ubehandlet, Uuid::new_v4(), &mut tx).await?;
+        lagre_oppgave(&avvist_ubehandlet_1, &mut tx).await?;
+        lagre_oppgave(&avvist_ubehandlet_2, &mut tx).await?;
+        lagre_oppgave(&avvist_ferdigbehandlet, &mut tx).await?;
+        lagre_oppgave(&vurder_ubehandlet, &mut tx).await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;

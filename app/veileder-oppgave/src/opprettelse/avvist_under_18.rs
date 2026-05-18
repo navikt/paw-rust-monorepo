@@ -52,6 +52,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         }
 
         let oppgave = Oppgave::new(
+            avvist_hendelse.hendelse_id(),
             oppgave_type,
             Ubehandlet,
             opplysninger,
@@ -60,7 +61,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             avvist_hendelse.metadata.tidspunkt,
         );
 
-        let oppgave_id = lagre_oppgave(&oppgave, avvist_hendelse.hendelse_id(), tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveOpprettet,
@@ -70,6 +71,7 @@ pub async fn opprett_avvist_under_18_oppgave(
         oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
     } else {
         let oppgave = Oppgave::new(
+            avvist_hendelse.hendelse_id(),
             oppgave_type,
             Ignorert,
             opplysninger,
@@ -78,7 +80,7 @@ pub async fn opprett_avvist_under_18_oppgave(
             avvist_hendelse.metadata.tidspunkt,
         );
 
-        let oppgave_id = lagre_oppgave(&oppgave, avvist_hendelse.hendelse_id(), tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
 
         let hendelse_logg = HendelseLoggEntry::new(
             HendelseLoggStatus::OppgaveIgnorert,

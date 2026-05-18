@@ -112,6 +112,7 @@ mod tests {
         let arbeidssoeker_id_1 = ArbeidssoekerId(12345);
         let mut tx = pg_pool.begin().await?;
         let oppgave_til_ferdigstilling = Oppgave::new(
+            Uuid::new_v4(),
             OppgaveType::AvvistUnder18,
             Opprettet,
             vec![],
@@ -119,7 +120,7 @@ mod tests {
             Identitetsnummer::new("12345678901".to_string()).unwrap(),
             Utc::now(),
         );
-        let oppgave_id = lagre_oppgave(&oppgave_til_ferdigstilling, Uuid::new_v4(), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave_til_ferdigstilling, &mut tx).await?;
         oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FERDIGSTILT), &mut tx)
             .await?;
         tx.commit().await?;
@@ -167,6 +168,7 @@ mod tests {
         let arbeidssoeker_id_2 = ArbeidssoekerId(67890);
         let mut tx = pg_pool.begin().await?;
         let oppgave_til_feilregistrering = Oppgave::new(
+            Uuid::new_v4(),
             OppgaveType::AvvistUnder18,
             Opprettet,
             vec![],
@@ -174,7 +176,7 @@ mod tests {
             Identitetsnummer::new("12345678902".to_string()).unwrap(),
             Utc::now(),
         );
-        let oppgave_id = lagre_oppgave(&oppgave_til_feilregistrering, Uuid::new_v4(), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(&oppgave_til_feilregistrering, &mut tx).await?;
         oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FEILREGISTRERT), &mut tx)
             .await?;
         tx.commit().await?;

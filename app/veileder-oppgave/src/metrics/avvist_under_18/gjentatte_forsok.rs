@@ -75,26 +75,26 @@ mod tests {
         let tidspunkt_foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
         // Person 1: to ekstra forsøk etter cutoff (AvvistUnder18)
-        let avvist_med_to_forsok = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), tidspunkt_etter_cutoff);
-        let oppgave_id_1 = lagre_oppgave(&avvist_med_to_forsok, Uuid::new_v4(), &mut tx).await?;
+        let avvist_med_to_forsok = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_1 = lagre_oppgave(&avvist_med_to_forsok, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
 
         // Person 2: null ekstra forsøk (AvvistUnder18)
-        let avvist_uten_forsok = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), tidspunkt_etter_cutoff);
-        let oppgave_id_2 = lagre_oppgave(&avvist_uten_forsok, Uuid::new_v4(), &mut tx).await?;
+        let avvist_uten_forsok = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_2 = lagre_oppgave(&avvist_uten_forsok, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
 
         // Person 3: VurderOppholdsstatus med forsøk — skal IKKE telles
-        let vurder_ignorert = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
-        let oppgave_id_vurder = lagre_oppgave(&vurder_ignorert, Uuid::new_v4(), &mut tx).await?;
+        let vurder_ignorert = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_vurder = lagre_oppgave(&vurder_ignorert, &mut tx).await?;
         for _ in 0..5 {
             oppdater_hendelse_logg(oppgave_id_vurder, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
         }
 
         // Person 4: oppgave før cutoff — skal ikke telles
-        let avvist_foer_cutoff = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), tidspunkt_foer_cutoff);
-        let oppgave_id_3 = lagre_oppgave(&avvist_foer_cutoff, Uuid::new_v4(), &mut tx).await?;
+        let avvist_foer_cutoff = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), tidspunkt_foer_cutoff);
+        let oppgave_id_3 = lagre_oppgave(&avvist_foer_cutoff, &mut tx).await?;
         oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_foer_cutoff), &mut tx).await?;
 
         tx.commit().await?;

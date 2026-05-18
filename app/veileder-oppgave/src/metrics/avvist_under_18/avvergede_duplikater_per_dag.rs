@@ -82,8 +82,8 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let avvist_oppgave = Oppgave::new(AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
-        let avvist_oppgave_id = lagre_oppgave(&avvist_oppgave, Uuid::new_v4(), &mut tx).await?;
+        let avvist_oppgave = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_oppgave_id = lagre_oppgave(&avvist_oppgave, &mut tx).await?;
         let første_dag = Utc.with_ymd_and_hms(2026, 3, 15, 10, 0, 0).unwrap();
         let andre_dag = første_dag + Duration::days(1);
         let tidspunkt_før_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
@@ -93,8 +93,8 @@ mod tests {
         }
         oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), første_dag), &mut tx).await?;
 
-        let vurder_oppgave_ignorert = Oppgave::new(VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
-        let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave_ignorert, Uuid::new_v4(), &mut tx).await?;
+        let vurder_oppgave_ignorert = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave_ignorert, &mut tx).await?;
         oppdater_hendelse_logg(vurder_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), første_dag), &mut tx).await?;
 
         tx.commit().await?;
