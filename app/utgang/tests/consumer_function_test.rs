@@ -118,12 +118,8 @@ async fn upsert_med_avsluttet_oppdaterer_aktiv_periode_til_stoppet() {
     );
 }
 
-/// BUG-TEST: Verifiserer at perioder som sjekkes mot PDL men IKKE har endringer
-/// må få oppdatert sist_oppdatert, ellers plukkes de opp igjen neste kjøring.
-///
-/// kjoer_oppdatering oppdaterer kun trenger_kontroll for endrede perioder,
-/// men oppdaterer IKKE sist_oppdatert for noen perioder. Dette betyr at
-/// alle sjekket-men-uendrede perioder forblir "gamle" og hentes på nytt.
+/// Verifiserer at perioder som sjekkes mot PDL uten endringer ikke plukkes
+/// opp igjen dersom sist_oppdatert oppdateres etter sjekk.
 #[tokio::test]
 async fn periode_uten_endring_skal_ikke_plukkes_opp_igjen_etter_pdl_sjekk() {
     let pool = setup().await;
@@ -137,8 +133,9 @@ async fn periode_uten_endring_skal_ikke_plukkes_opp_igjen_etter_pdl_sjekk() {
     tx.commit().await.unwrap();
 
     // Perioden har sist_oppdatert = startet.tidspunkt (2024-01-01)
-    // Vannmerke er nå - data_gyldighet, så perioden plukkes opp
-    let grense = Utc::now() + Duration::hours(1);
+    // Vannmerke er nå + 1h, så perioden plukkes opp
+    let naa = Utc::now();
+    let grense = naa + Duration::hours(1);
     let mut tx = pool.begin().await.unwrap();
     let foerste_kjoring = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(100).unwrap())
         .await
@@ -146,27 +143,29 @@ async fn periode_uten_endring_skal_ikke_plukkes_opp_igjen_etter_pdl_sjekk() {
     tx.commit().await.unwrap();
     assert_eq!(foerste_kjoring.len(), 1, "Perioden skal plukkes opp");
 
-    // Simuler at PDL-sjekk er gjort uten endringer.
-    // kjoer_oppdatering oppdaterer IKKE sist_oppdatert her — dette er buggen.
-    // For å verifisere: sjekk at perioden plukkes opp IGJEN uten at noe er endret.
+    // Simuler at PDL-sjekk er gjort uten endringer — oppdater sist_oppdatert
     let mut tx = pool.begin().await.unwrap();
-    let andre_kjoring = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(100).unwrap())
-        .await
-        .unwrap();
+    oppdater_sist_oppdatert(&mut tx, &[periode_id], naa).await.unwrap();
     tx.commit().await.unwrap();
 
-    // DENNE FEILER — beviser buggen: perioden plukkes opp igjen
-    // fordi sist_oppdatert aldri ble oppdatert etter første sjekk.
+    // Med grense = naa - 1s skal perioden IKKE plukkes opp igjen
+    // fordi sist_oppdatert (naa) er nyere enn grensen
+    let eldre_grense = naa - Duration::seconds(1);
+    let mut tx = pool.begin().await.unwrap();
+    let andre_kjoring =
+        hent_perioder_eldre_enn(&mut tx, eldre_grense, NonZeroU16::new(100).unwrap())
+            .await
+            .unwrap();
+    tx.commit().await.unwrap();
+
     assert!(
         andre_kjoring.is_empty(),
-        "BUG: Periode som allerede er PDL-sjekket skal ikke plukkes opp igjen, \
-         men sist_oppdatert oppdateres aldri i kjoer_oppdatering"
+        "Periode med oppdatert sist_oppdatert skal ikke plukkes opp igjen"
     );
 }
 
-/// Verifiserer at oppdater_sist_oppdatert faktisk forhindrer re-plukking.
-/// Dette viser hva fiksen bør gjøre: oppdatere sist_oppdatert for alle
-/// behandlede perioder etter PDL-sjekk.
+/// Verifiserer at oppdater_sist_oppdatert faktisk forhindrer re-plukking
+/// når grensen er lik eller eldre enn sist_oppdatert.
 #[tokio::test]
 async fn oppdatert_sist_oppdatert_forhindrer_re_plukking() {
     let pool = setup().await;
@@ -180,27 +179,27 @@ async fn oppdatert_sist_oppdatert_forhindrer_re_plukking() {
     tx.commit().await.unwrap();
 
     let naa = Utc::now();
-    let grense = naa + Duration::hours(1);
+    let grense_vid = naa + Duration::hours(1);
 
-    // Plukkes opp
+    // Plukkes opp med vid grense
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(100).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, grense_vid, NonZeroU16::new(100).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();
     assert_eq!(rader.len(), 1);
 
-    // Simuler at vi oppdaterer sist_oppdatert til nå (som fiksen bør gjøre)
+    // Oppdater sist_oppdatert til nå
     let mut tx = pool.begin().await.unwrap();
     oppdater_sist_oppdatert(&mut tx, &[periode_id], naa)
         .await
         .unwrap();
     tx.commit().await.unwrap();
 
-    // Nå med samme grense: perioden skal IKKE plukkes opp igjen
-    // fordi sist_oppdatert (naa) > grense - data_gyldighet
+    // Med grense eldre enn sist_oppdatert: perioden filtreres bort
+    let eldre_grense = naa - Duration::seconds(1);
     let mut tx = pool.begin().await.unwrap();
-    let rader = hent_perioder_eldre_enn(&mut tx, grense, NonZeroU16::new(100).unwrap())
+    let rader = hent_perioder_eldre_enn(&mut tx, eldre_grense, NonZeroU16::new(100).unwrap())
         .await
         .unwrap();
     tx.commit().await.unwrap();

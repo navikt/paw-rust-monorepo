@@ -2,7 +2,7 @@ use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
 
 use crate::{
     dao::{
-        perioder::{hent_perioder_eldre_enn, oppdater_trenger_kontroll},
+        perioder::{hent_perioder_eldre_enn, oppdater_sist_oppdatert, oppdater_trenger_kontroll},
         utgang_hendelse::{Input, InternUtgangHendelse},
         utgang_hendelser_logg::{PeriodeHendelseData, hent_metadata_og_siste_pdl, skriv_hendelser},
     },
@@ -84,6 +84,11 @@ impl PdlDataOppdatering {
         let endrede_perioder: Vec<ArbeidssoekerperiodeId> =
             endret.into_iter().map(|e| e.into_periode_id()).collect();
         oppdater_trenger_kontroll(&mut tx, &endrede_perioder, true).await?;
+        let uendrede_perioder: Vec<ArbeidssoekerperiodeId> = periode_ider
+            .into_iter()
+            .filter(|id| !endrede_perioder.contains(id))
+            .collect();
+        oppdater_sist_oppdatert(&mut tx, &uendrede_perioder, gjeldene_tidspunkt).await?;
         tx.commit().await?;
         Ok(())
     }
