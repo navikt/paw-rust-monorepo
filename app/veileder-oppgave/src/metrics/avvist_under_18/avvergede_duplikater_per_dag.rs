@@ -93,8 +93,8 @@ mod tests {
         }
         oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), første_dag), &mut tx).await?;
 
-        let vurder_oppgave_ignorert = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
-        let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave_ignorert, &mut tx).await?;
+        let vurder_oppgave = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave, &mut tx).await?;
         oppdater_hendelse_logg(vurder_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), første_dag), &mut tx).await?;
 
         tx.commit().await?;

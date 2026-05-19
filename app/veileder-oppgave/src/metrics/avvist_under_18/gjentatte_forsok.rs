@@ -86,8 +86,8 @@ mod tests {
         oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
 
         // Person 3: VurderOppholdsstatus med forsøk — skal IKKE telles
-        let vurder_ignorert = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
-        let oppgave_id_vurder = lagre_oppgave(&vurder_ignorert, &mut tx).await?;
+        let vurder_oppgave = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let oppgave_id_vurder = lagre_oppgave(&vurder_oppgave, &mut tx).await?;
         for _ in 0..5 {
             oppdater_hendelse_logg(oppgave_id_vurder, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
         }
@@ -103,7 +103,7 @@ mod tests {
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(cutoff, &mut tx).await?;
 
-        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0 (VurderOppholdsstatus ignorert)
+        // Person 1: 2 forsøk, person 2: 0 forsøk → gjennomsnitt = 1.0 (VurderOppholdsstatus filtreres bort)
         assert_eq!(gjennomsnitt, 1.0);
 
         Ok(())

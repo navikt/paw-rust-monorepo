@@ -245,21 +245,19 @@ async fn test_flyt_blandet_avvist_og_startet_hendelser() -> Result<()> {
             .is_none(),
         "Over 18 skal ikke ha VurderOppholdsstatus-oppgave"
     );
+    assert!(
+        hent_nyeste_oppgave(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .is_none(),
+        "Hendelse før vannskille skal ikke opprette oppgave"
+    );
     tx.commit().await?;
-
-    test_context
-        .assert_oppgave_status(
-            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
-            OppgaveType::AvvistUnder18,
-            OppgaveStatus::Ignorert,
-        )
-        .await?;
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() -> Result<()> {
+async fn test_ny_hendelse_etter_ferdigbehandlet_gir_ny_oppgave() -> Result<()> {
     let test_context = TestContext::ny().await?;
     let etter_vannskille = rfc3339("2024-09-01T00:00:00Z");
 
@@ -286,7 +284,7 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
         )
         .await?;
 
-    // 2) Ignorert (før vannskille) → ny avvist (etter vannskille) gir ny Ubehandlet oppgave
+    // 2) Hendelse før vannskille gir ingen oppgave, ny hendelse etter vannskille gir Ubehandlet
     let foer_vannskille = rfc3339("2020-01-01T00:00:00Z");
     let historisk_avvist: Avvist = AvvistBuilder {
         arbeidssoeker_id: HISTORISK_UNDER_18_ARBEIDSSOEKER_ID.0,
@@ -306,13 +304,14 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_eller_ignorert_gir_ny_oppgave() 
     .build();
 
     test_context.send_hendelselogg(&historisk_avvist.as_json()).await?;
-    test_context
-        .assert_oppgave_status(
-            HISTORISK_UNDER_18_ARBEIDSSOEKER_ID,
-            OppgaveType::AvvistUnder18,
-            OppgaveStatus::Ignorert,
-        )
-        .await?;
+    let mut tx = test_context.pg_pool.begin().await?;
+    assert!(
+        hent_nyeste_oppgave(HISTORISK_UNDER_18_ARBEIDSSOEKER_ID, OppgaveType::AvvistUnder18, &mut tx)
+            .await?
+            .is_none(),
+        "Hendelse før vannskille skal ikke opprette oppgave"
+    );
+    tx.commit().await?;
 
     test_context.send_hendelselogg(&ny_avvist.as_json()).await?;
     test_context

@@ -11,7 +11,7 @@ use chrono::Utc;
 use interne_hendelser::Avvist;
 use interne_hendelser::Hendelse;
 use sqlx::{Postgres, Transaction};
-use OppgaveStatus::{Ferdigbehandlet, Ignorert, Ubehandlet};
+use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
 use crate::metrics;
@@ -21,80 +21,54 @@ pub async fn opprett_avvist_under_18_oppgave(
     app_config: &ApplicationConfig,
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<()> {
-    let opprett_avvist_under_18_oppgaver_fra_tidspunkt =
-        *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt;
-
     if avvist_under_18::KRITERIER.ikke_oppfylt_av(avvist_hendelse) {
         return Ok(());
     }
 
     let oppgave_type = avvist_under_18::KRITERIER.oppgave_type;
 
+    if avvist_hendelse.metadata.tidspunkt < *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt {
+        metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
+        return Ok(());
+    }
+
     let arbeidssoeker_id = ArbeidssoekerId::from(avvist_hendelse.id);
     let identitetsnummer = Identitetsnummer::new(avvist_hendelse.identitetsnummer().to_string())
         .expect("Ugyldig identitetsnummer i Kafka-hendelse — avviser");
-    let opplysninger = hent_opplysninger_fra(avvist_hendelse);
 
-    if avvist_hendelse.metadata.tidspunkt >= opprett_avvist_under_18_oppgaver_fra_tidspunkt {
-        let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
-        if let Some(oppgave) = &eksisterende_oppgave
-            && oppgave.status != Ferdigbehandlet
-            && oppgave.status != Ignorert
-        {
-            metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
-            let hendelse_logg = HendelseLoggEntry::new(
-                HendelseLoggStatus::OppgaveFinnesAllerede,
-                "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering".to_string(),
-                Utc::now(),
-            );
-            oppdater_hendelse_logg(oppgave.id(), hendelse_logg, tx).await?;
-            return Ok(());
-        }
-
-        let oppgave = Oppgave::new(
-            avvist_hendelse.hendelse_id(),
-            oppgave_type,
-            Ubehandlet,
-            opplysninger,
-            arbeidssoeker_id,
-            identitetsnummer,
-            avvist_hendelse.metadata.tidspunkt,
-        );
-
-        let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
-        metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
-
+    let eksisterende_oppgave = hent_nyeste_oppgave(arbeidssoeker_id, oppgave_type, tx).await?;
+    if let Some(oppgave) = &eksisterende_oppgave
+        && oppgave.status != Ferdigbehandlet
+    {
+        metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
         let hendelse_logg = HendelseLoggEntry::new(
-            HendelseLoggStatus::OppgaveOpprettet,
-            "Oppretter oppgave for avvist registrering".to_string(),
-            oppgave.tidspunkt,
+            HendelseLoggStatus::OppgaveFinnesAllerede,
+            "Arbeidssøkeren har allerede en aktiv oppgave for avvist registrering".to_string(),
+            Utc::now(),
         );
-        oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
-    } else {
-        let oppgave = Oppgave::new(
-            avvist_hendelse.hendelse_id(),
-            oppgave_type,
-            Ignorert,
-            opplysninger,
-            arbeidssoeker_id,
-            identitetsnummer,
-            avvist_hendelse.metadata.tidspunkt,
-        );
-
-        let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
-        metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
-
-        let hendelse_logg = HendelseLoggEntry::new(
-            HendelseLoggStatus::OppgaveIgnorert,
-            format!(
-                "Oppretter oppgave for avvist registrering med status {} fordi hendelse er eldre enn {}",
-                Ignorert,
-                opprett_avvist_under_18_oppgaver_fra_tidspunkt
-            ),
-            oppgave.tidspunkt,
-        );
-        oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
+        oppdater_hendelse_logg(oppgave.id(), hendelse_logg, tx).await?;
+        return Ok(());
     }
+
+    let oppgave = Oppgave::new(
+        avvist_hendelse.hendelse_id(),
+        oppgave_type,
+        Ubehandlet,
+        hent_opplysninger_fra(avvist_hendelse),
+        arbeidssoeker_id,
+        identitetsnummer,
+        avvist_hendelse.metadata.tidspunkt,
+    );
+
+    let oppgave_id = lagre_oppgave(&oppgave, tx).await?;
+    metrics::kriterier_oppfylt::inkrement(oppgave_type, true);
+
+    let hendelse_logg = HendelseLoggEntry::new(
+        HendelseLoggStatus::OppgaveOpprettet,
+        "Oppretter oppgave for avvist registrering".to_string(),
+        oppgave.tidspunkt,
+    );
+    oppdater_hendelse_logg(oppgave_id, hendelse_logg, tx).await?;
 
     Ok(())
 }

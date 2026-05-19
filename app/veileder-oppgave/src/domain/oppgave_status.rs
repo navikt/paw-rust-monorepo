@@ -11,7 +11,6 @@ pub enum OppgaveStatus {
     Ubehandlet,
     Opprettet,
     Ferdigbehandlet,
-    Ignorert
 }
 
 fn oppgave_status_not_found(status: &str) -> OppgaveStatusParseError {
@@ -42,10 +41,6 @@ mod tests {
         assert_eq!(
             OppgaveStatus::from_str("FERDIGBEHANDLET"),
             Ok(OppgaveStatus::Ferdigbehandlet)
-        );
-        assert_eq!(
-            OppgaveStatus::from_str("IGNORERT"),
-            Ok(OppgaveStatus::Ignorert)
         );
 
         let ugyldig_status = "UgyldigStatus";
