@@ -35,7 +35,7 @@ check app="":
 
 # Run tests for workspace or a specific app  (e.g. just test utgang)
 test app="":
-    cargo test {{ if app == "" { "--workspace" } else { "-p " + app } }}
+    cargo nextest run {{ if app == "" { "--workspace" } else { "-p " + app } }}
 
 # Run clippy lints  (e.g. just clippy utgang)
 clippy app="":
