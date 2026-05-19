@@ -2,7 +2,7 @@ use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::UtledeFakta;
 use crate::utils::finn_alder;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
@@ -33,8 +33,8 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
                 }
                 None => match foedselsdato.foedselsaar {
                     Some(aar) => {
-                        let int = aar.to_string().parse::<i32>()?; // TODO: Finn bedre løsning
-                        let foedt_dato = NaiveDate::from_ymd_opt(int, 12, 31).unwrap();
+                        let aar = i32::try_from(aar).context("Invalid year, out of i32 range")?;
+                        let foedt_dato = NaiveDate::from_ymd_opt(aar, 12, 31).unwrap();
                         let alder = finn_alder(foedt_dato);
                         println!("Alder: {}", alder);
                         if alder > 18 {
@@ -52,8 +52,8 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
 
 #[cfg(test)]
 mod tests {
-    use crate::fakta::alder_fakta::UtledeAlderFakta;
     use crate::fakta::UtledeFakta;
+    use crate::fakta::alder_fakta::UtledeAlderFakta;
     use crate::modell::feil::FaktaFeil;
     use chrono::{Datelike, Local, Months};
     use interne_hendelser::vo::Opplysning::{
