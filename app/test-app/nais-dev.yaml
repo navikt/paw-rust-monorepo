@@ -34,6 +34,12 @@ spec:
   observability:
     tracing:
       enabled: true
+  gcp:
+    sqlInstances:
+      - type: POSTGRES_18
+        tier: db-f1-micro
+        databases:
+          - name: rust-test-app
   resources:
     limits:
       memory: 8Mi
