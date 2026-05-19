@@ -1,6 +1,11 @@
 ---
 name: rust-development
-description: "Idiomatisk Rust-utvikling med cargo, clippy, error handling, async/tokio, unsafe og prosjektoppsett. Bruk for: nytt Rust-prosjekt, Cargo.toml-oppsett, feilhåndtering, unsafe-review, async-patterns, workspace-struktur, ytelsesoptimalisering, lint-konfig."
+description: Idiomatisk Rust-utvikling med cargo, clippy, error handling, async/tokio, unsafe og testing
+license: MIT
+compatibility: Rust project with Cargo
+metadata:
+  domain: backend
+  tags: rust cargo clippy async tokio
 ---
 
 # Rust Development Skill
