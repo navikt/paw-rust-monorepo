@@ -84,6 +84,7 @@ impl PdlDataOppdatering {
         let endrede_perioder: Vec<ArbeidssoekerperiodeId> =
             endret.into_iter().map(|e| e.into_periode_id()).collect();
         oppdater_trenger_kontroll(&mut tx, &endrede_perioder, true).await?;
+        tx.commit().await?;
         Ok(())
     }
 
