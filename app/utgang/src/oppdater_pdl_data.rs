@@ -47,14 +47,15 @@ impl PdlDataOppdatering {
         }
     }
     #[instrument(skip(self))]
-    pub async fn kjoer_oppdatering(&self, gjeldene_tidspunkt: DateTime<Utc>) -> Result<()> {
+    pub async fn kjoer_oppdatering(&self, gjeldene_tidspunkt: DateTime<Utc>) -> Result<bool> {
         tracing::info!("Starter oppdatering av PDL data");
         let vannmerke = gjeldene_tidspunkt - self.inner.data_gyldighet;
         let mut tx = self.inner.pg_pool.begin().await?;
         let trenger_oppdatering =
             hent_perioder_eldre_enn(&mut tx, vannmerke, self.inner.batch_size).await?;
-        if trenger_oppdatering.len() == 0 {
-            return Ok(());
+        let antall_som_trenger_oppdatering = trenger_oppdatering.len();
+        if antall_som_trenger_oppdatering == 0 {
+            return Ok(false);
         }
         let ident_map: HashMap<Identitetsnummer, ArbeidssoekerperiodeId> = trenger_oppdatering
             .iter()
@@ -90,7 +91,7 @@ impl PdlDataOppdatering {
             .collect();
         oppdater_sist_oppdatert(&mut tx, &uendrede_perioder, gjeldene_tidspunkt).await?;
         tx.commit().await?;
-        Ok(())
+        Ok(antall_som_trenger_oppdatering > 0)
     }
 
     #[instrument(skip(self, identitetsnummer))]

@@ -9,8 +9,10 @@ pub fn start_pdl_oppdatering_task(
 ) -> JoinHandle<Result<()>> {
     tokio::spawn(async move {
         loop {
-            oppdatering.kjoer_oppdatering(Utc::now()).await?;
-            sleep(intervall).await;
+            let data_tilgjengelig = oppdatering.kjoer_oppdatering(Utc::now()).await?;
+            if !data_tilgjengelig {
+                sleep(intervall).await;
+            }
         }
     })
 }
