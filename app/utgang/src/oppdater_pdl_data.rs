@@ -145,7 +145,12 @@ fn finn_endrede_hendelser(
             let siste = lagret
                 .siste_pdl_data_endret
                 .and_then(|e| e.into_opplysninger())
-                .or_else(|| lagret.metadata_mottatt.into_opplysninger())?;
+                .or_else(|| {
+                    lagret
+                        .metadata_mottatt
+                        .into_opplysninger()
+                        .map(|o| o.uten_auth_opplysninger())
+                })?;
             if opplysninger != siste {
                 Some(InternUtgangHendelse::new(
                     PdlDataEndret,
@@ -207,6 +212,10 @@ mod tests {
 
     fn opplysninger_a() -> Opplysninger {
         Opplysninger::new(vec![Opplysning::ErOver18Aar, Opplysning::IkkeAnsatt])
+    }
+
+    fn opplysninger_a_bare_pdl() -> Opplysninger {
+        Opplysninger::new(vec![Opplysning::ErOver18Aar])
     }
 
     fn opplysninger_b() -> Opplysninger {
@@ -336,7 +345,7 @@ mod tests {
         )]);
 
         let resultat = finn_endrede_hendelser(
-            vec![(id, Ok(opplysninger_a()))],
+            vec![(id, Ok(opplysninger_a_bare_pdl()))],
             gjeldende_data,
             &ident_map,
             Utc::now(),
