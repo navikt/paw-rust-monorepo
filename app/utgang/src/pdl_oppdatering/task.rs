@@ -1,4 +1,4 @@
-use crate::oppdater_pdl_data::PdlDataOppdatering;
+use super::oppdater::PdlDataOppdatering;
 use anyhow::Result;
 use chrono::Utc;
 use tokio::{task::JoinHandle, time::sleep};

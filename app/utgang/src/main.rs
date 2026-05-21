@@ -19,13 +19,14 @@ use tokio::{
 use utgang::consumer_function::UtgangMessageProcessor;
 use utgang::kafka::kafka_consumer::create_kafka_consumer;
 use utgang::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
-use utgang::oppdater_pdl_data::PdlDataOppdatering;
+use utgang::kontroll::{KontrollTask, start_kontroll_task};
 use utgang::pdl::pdl_config::PDLClientConfig;
 use utgang::pdl::pdl_query::PDLClient;
-use utgang::pdl_oppdatering_task::start_pdl_oppdatering_task;
+use utgang::pdl_oppdatering::{PdlDataOppdatering, start_pdl_oppdatering_task};
 use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 
 const PDL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
+const KONTROLL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(200).expect("Batch size must be non-zero u16");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -81,14 +82,18 @@ async fn main() -> Result<()> {
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
     let pdl_oppdatering =
-        PdlDataOppdatering::new(pdl_pool, pdl_client, PDL_BATCH_SIZE, TimeDelta::hours(24));
+        PdlDataOppdatering::new(pdl_pool.clone(), pdl_client, PDL_BATCH_SIZE, TimeDelta::hours(24));
     let pdl_oppdatering_task = start_pdl_oppdatering_task(pdl_oppdatering, Duration::from_mins(1));
+    let regelsett = regler_arbeidssoeker::regelsett_v4::regelsett_v4();
+    let kontroll = KontrollTask::new(pdl_pool, KONTROLL_BATCH_SIZE, regelsett);
+    let kontroll_task = start_kontroll_task(kontroll, Duration::from_secs(30));
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {
         res = web_server_task      => haandter_task_resultat("Webserver", res),
         res = consumer_task        => haandter_task_resultat("KafkaConsumer", res),
         res = pdl_oppdatering_task => haandter_task_resultat("PDLOppdatering", res),
+        res = kontroll_task        => haandter_task_resultat("Kontroll", res),
         signal = signal_task => {
             tracing::info!("Mottok shutdown-signal: {}", signal?);
             Ok(())

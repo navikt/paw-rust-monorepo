@@ -1,40 +1,4 @@
-use std::num::NonZeroU16;
-
-use anyhow::Result;
-use regler_arbeidssoeker::regler::regelsett::{EvalueringsResultat, Regelsett};
-
-pub struct KontrolerKlarForKontroll {
-    batch_size: NonZeroU16,
-    pg_pool: sqlx::PgPool,
-    intervall: chrono::Duration,
-    regelsett: Regelsett,
-}
-
-impl KontrolerKlarForKontroll {
-    pub fn new(
-        batch_size: NonZeroU16,
-        pg_pool: sqlx::PgPool,
-        intervall: chrono::Duration,
-        regelsett: Regelsett,
-    ) -> Self {
-        Self {
-            batch_size,
-            pg_pool,
-            intervall,
-            regelsett,
-        }
-    }
-
-    pub async fn kontroler_klar_for_kontroll(&self) -> Result<()> {
-        Ok(())
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum InfoType {
-    Initiell,
-    Forrige,
-    Gjeldende,
-}
+use regler_arbeidssoeker::regler::regelsett::EvalueringsResultat;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum KontrollStatus {
@@ -46,18 +10,18 @@ pub enum KontrollStatus {
 pub enum SjekkFeil {
     #[error("Mangler gjeldende evalueringsresultat")]
     ManglerGjeldende,
-    #[error("Mangler initiell evalueringsresultat")]
-    ManglerInitiell,
 }
 
+/// Sammenligner gjeldende evalueringsresultat mot forrige.
+/// Hvis forrige mangler (første kontroll) antas ingen endring.
 pub fn sjekk_status(
     gjeldende: Option<EvalueringsResultat>,
     forrige: Option<EvalueringsResultat>,
-    initiell: Option<EvalueringsResultat>,
 ) -> Result<KontrollStatus, SjekkFeil> {
     let gjeldende = gjeldende.ok_or(SjekkFeil::ManglerGjeldende)?;
-    let initiell = initiell.ok_or(SjekkFeil::ManglerInitiell)?;
-    let forrige = forrige.unwrap_or(initiell);
+    let Some(forrige) = forrige else {
+        return Ok(KontrollStatus::IngenEndring);
+    };
     if forrige == gjeldende {
         Ok(KontrollStatus::IngenEndring)
     } else {
@@ -88,31 +52,25 @@ mod tests {
 
     #[test]
     fn ingen_endring_nar_gjeldende_lik_forrige() {
-        let result = sjekk_status(Some(godkjent()), Some(godkjent()), Some(godkjent()));
+        let result = sjekk_status(Some(godkjent()), Some(godkjent()));
         assert_eq!(result, Ok(KontrollStatus::IngenEndring));
     }
 
     #[test]
-    fn ingen_endring_bruker_initiell_som_forrige_naar_forrige_mangler() {
-        let result = sjekk_status(Some(godkjent()), None, Some(godkjent()));
+    fn ingen_endring_naar_forrige_mangler() {
+        let result = sjekk_status(Some(godkjent()), None);
         assert_eq!(result, Ok(KontrollStatus::IngenEndring));
     }
 
     #[test]
     fn endring_naar_gjeldende_ulik_forrige() {
-        let result = sjekk_status(Some(avvist()), Some(godkjent()), Some(godkjent()));
+        let result = sjekk_status(Some(avvist()), Some(godkjent()));
         assert_eq!(result, Ok(KontrollStatus::Endret(avvist())));
     }
 
     #[test]
     fn feil_naar_gjeldende_mangler() {
-        let result = sjekk_status(None, None, Some(godkjent()));
+        let result = sjekk_status(None, None);
         assert!(matches!(result, Err(SjekkFeil::ManglerGjeldende)));
-    }
-
-    #[test]
-    fn feil_naar_initiell_mangler() {
-        let result = sjekk_status(Some(godkjent()), None, None);
-        assert!(matches!(result, Err(SjekkFeil::ManglerInitiell)));
     }
 }
