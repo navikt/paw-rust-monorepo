@@ -8,15 +8,11 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing::instrument;
 
-use crate::dao::perioder::oppdater_trenger_kontroll;
-use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use crate::dao::utgang_hendelser_logg::skriv_hendelser;
-use crate::domain::utgang_hendelse_type::UtgangHendelseType;
-use interne_hendelser::vo::BrukerType;
+use crate::dao::perioder::{KontrollStatusType, oppdater_kontroll_status};
 use regler_arbeidssoeker::regler::regelsett::Regelsett;
 
 use super::evaluer::{KontrollStatus, sjekk_status};
-use super::hent_data::{PeriodeKontrollData, hent_perioder_for_kontroll};
+use super::hent_data::hent_perioder_for_kontroll;
 
 #[derive(Clone)]
 pub struct KontrollTask {
@@ -49,13 +45,16 @@ impl KontrollTask {
         }
         tracing::info!("Kontrollerer {} perioder", perioder.len());
 
-        let mut hendelser: Vec<InternUtgangHendelse<Input>> = Vec::new();
-        let mut ferdig_kontrollert: Vec<types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId> =
-            Vec::new();
-
         for periode in &perioder {
-            let gjeldende_vec: Vec<_> =
-                periode.gjeldende_opplysninger.0.iter().cloned().collect();
+            let Some(gjeldende) = &periode.gjeldende_opplysninger else {
+                tracing::warn!(
+                    periode_id = ?periode.id,
+                    "Periode trenger kontroll men mangler gjeldende opplysninger"
+                );
+                continue;
+            };
+
+            let gjeldende_vec: Vec<_> = gjeldende.0.iter().cloned().collect();
             let gjeldende_resultat = self.inner.regelsett.evaluer(&gjeldende_vec);
 
             let forrige_resultat = periode.forrige_opplysninger.as_ref().map(|opl| {
@@ -65,13 +64,19 @@ impl KontrollTask {
 
             let status = sjekk_status(Some(gjeldende_resultat), forrige_resultat);
 
-            let hendelsetype = match &status {
-                Ok(KontrollStatus::IngenEndring) => UtgangHendelseType::StatusIkkeEndret,
-                Ok(KontrollStatus::Endret(Err(_))) => UtgangHendelseType::StatusEndretTilAvvist,
-                Ok(KontrollStatus::Endret(Ok(_))) => UtgangHendelseType::StatusEndretTilOK,
+            let (db_status, opplysninger) = match &status {
+                Ok(KontrollStatus::IngenEndring) => {
+                    (KontrollStatusType::Godkjent, None)
+                }
+                Ok(KontrollStatus::Endret(Err(_))) => {
+                    (KontrollStatusType::Avvist, Some(gjeldende))
+                }
+                Ok(KontrollStatus::Endret(Ok(_))) => {
+                    (KontrollStatusType::Godkjent, Some(gjeldende))
+                }
                 Err(e) => {
                     tracing::warn!(
-                        periode_id = ?periode.periode_id,
+                        periode_id = ?periode.id,
                         "Kontroll feilet: {}",
                         e
                     );
@@ -79,18 +84,16 @@ impl KontrollTask {
                 }
             };
 
-            hendelser.push(InternUtgangHendelse::new(
-                hendelsetype,
-                periode.periode_id.clone(),
+            oppdater_kontroll_status(
+                &mut tx,
+                &periode.id,
+                &db_status,
                 Utc::now(),
-                BrukerType::System,
-                None,
-            ));
-            ferdig_kontrollert.push(periode.periode_id.clone());
+                opplysninger,
+            )
+            .await?;
         }
 
-        skriv_hendelser(&mut tx, &hendelser).await?;
-        oppdater_trenger_kontroll(&mut tx, &ferdig_kontrollert, false).await?;
         tx.commit().await?;
         Ok(true)
     }
