@@ -1,7 +1,10 @@
-use interne_hendelser::vo::BrukerType;
+use interne_hendelser::{Startet, vo::BrukerType};
 use types::identitetsnummer::Identitetsnummer;
 
-use crate::{dao::tilstand::Stoppet, kafka::periode_deserializer::Periode};
+use crate::{
+    dao::tilstand::{Stoppet, Tilstand},
+    kafka::periode_deserializer::Periode,
+};
 
 pub async fn skriv_periode_data(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
@@ -40,6 +43,37 @@ pub async fn skriv_periode_data(
     .execute(&mut **tx)
     .await?;
     Ok(())
+}
+
+pub async fn skriv_startet_periode(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    startet: Startet,
+) -> Result<(), sqlx::Error> {
+    let id = startet.hendelse_id;
+    let arbeidssoeker_id = startet.id;
+    let identitetsnummer = Identitetsnummer::new(startet.identitetsnummer.clone())
+        .expect("Ugyldig identitetsnummer i Startet");
+    let stoppet = None;
+    let trenger_kontroll = false;
+    let siste_kontroll_tidspunkt = None;
+    let sist_oppdatert = startet.tidspunkt;
+    let tilstand = Some(Tilstand {
+        initielle: startet.opplysninger.into_iter().collect(),
+        gjeldende: None,
+        forrige: None,
+    });
+    skriv_periode_data(
+        tx,
+        id,
+        Some(arbeidssoeker_id),
+        identitetsnummer.as_ref(),
+        stoppet,
+        sist_oppdatert,
+        trenger_kontroll,
+        siste_kontroll_tidspunkt,
+        tilstand,
+    )
+    .await
 }
 
 pub async fn skriv_periode(
