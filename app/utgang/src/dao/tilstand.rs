@@ -1,16 +1,18 @@
 use chrono::{DateTime, Utc};
+use interne_hendelser::vo::Opplysning;
+use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tilstand {
-    pub initielle: Vec<String>,
+    pub initielle: Vec<Opplysning>,
     pub gjeldende: Option<OpplysningerMedEvaluering>,
     pub forrige: Option<OpplysningerMedEvaluering>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpplysningerMedEvaluering {
-    pub opplysninger: Vec<String>,
+    pub opplysninger: Vec<Opplysning>,
     pub tidspunkt: DateTime<Utc>,
     pub evaluering: Option<Evaluering>,
 }
@@ -24,24 +26,11 @@ pub struct Evaluering {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EvalueringResultat {
     Godkjent {
-        grunnlag: Vec<RegelDetalj>,
+        grunnlag: Vec<GrunnlagForGodkjenning>,
     },
     Avvist {
-        problemer: Vec<ProblemDetalj>,
+        problemer: Vec<Problem>,
     },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RegelDetalj {
-    pub regel_id: String,
-    pub opplysninger: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProblemDetalj {
-    pub regel_id: String,
-    pub opplysninger: Vec<String>,
-    pub kind: String,
 }
 
 impl EvalueringResultat {
