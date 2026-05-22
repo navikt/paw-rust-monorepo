@@ -4,6 +4,10 @@ use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct RegelsettVersjon(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tilstand {
     pub initielle: Vec<Opplysning>,
     pub gjeldende: Option<OpplysningerMedEvaluering>,
@@ -19,7 +23,7 @@ pub struct OpplysningerMedEvaluering {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evaluering {
-    pub regelsett_versjon: String,
+    pub regelsett_versjon: RegelsettVersjon,
     pub resultat: EvalueringResultat,
 }
 
