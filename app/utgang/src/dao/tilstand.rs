@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use interne_hendelser::vo::bruker_type::BrukerType;
 use interne_hendelser::vo::Opplysning;
 use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem};
 use serde::{Deserialize, Serialize};
@@ -6,6 +7,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct RegelsettVersjon(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Stoppet {
+    pub tidspunkt: DateTime<Utc>,
+    pub utfoert_av: BrukerType,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tilstand {

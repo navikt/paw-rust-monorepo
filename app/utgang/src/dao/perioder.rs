@@ -5,13 +5,13 @@ use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use types::identitetsnummer::Identitetsnummer;
 use uuid::Uuid;
 
-use super::tilstand::Tilstand;
+use super::tilstand::{Stoppet, Tilstand};
 
 pub struct PeriodeRad {
     pub id: ArbeidssoekerperiodeId,
     pub arbeidssoeker_id: Option<ArbeidssoekerId>,
     pub identitetsnummer: Identitetsnummer,
-    pub stoppet: bool,
+    pub stoppet: Option<Stoppet>,
     pub sist_oppdatert: chrono::DateTime<chrono::Utc>,
     pub trenger_kontroll: bool,
     pub siste_kontroll_tidspunkt: Option<chrono::DateTime<chrono::Utc>>,
@@ -25,7 +25,11 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
         let identitetsnummer: String = row.try_get("identitetsnummer")?;
         let identitetsnummer = Identitetsnummer::new(identitetsnummer)
             .ok_or_else(|| sqlx::Error::Decode("Ugyldig identitetsnummer".into()))?;
-        let stoppet: bool = row.try_get("stoppet")?;
+        let stoppet_json: Option<serde_json::Value> = row.try_get("stoppet")?;
+        let stoppet = stoppet_json
+            .map(serde_json::from_value::<Stoppet>)
+            .transpose()
+            .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
         let sist_oppdatert: NaiveDateTime = row.try_get("sist_oppdatert")?;
         let trenger_kontroll: bool = row.try_get("trenger_kontroll")?;
         let siste_kontroll_tidspunkt: Option<NaiveDateTime> =
