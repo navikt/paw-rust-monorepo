@@ -3,28 +3,47 @@ use crate::fakta::person_fakta::UtledePersonFakta;
 use crate::modell::feil::EvalueringFeil;
 use crate::regelsett_v2::regelsett_v2;
 use crate::regelsett_v3::regelsett_v3;
+use crate::regelsett_v4::regelsett_v4;
 use crate::regler::regelsett::Regelsett;
 use crate::regler::resultat::GrunnlagForGodkjenning;
 use anyhow::Result;
 use pdl_graphql::pdl::Person;
+use serde::{Deserialize, Serialize};
 
 struct Regelmotor {
     utlede_fakta: UtledePersonFakta,
     regelsett: Regelsett,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct RegelVersjon(String);
+
+impl RegelVersjon {
+    pub fn current() -> Self {
+        Self(env!("REGLER_SOURCE_HASH").to_string())
+    }
+}
+
 impl Regelmotor {
-    fn inngang() -> Self {
+    fn v2() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
             regelsett: regelsett_v2(),
         }
     }
 
-    fn utgang() -> Self {
+    fn v3() -> Self {
         Self {
             utlede_fakta: UtledePersonFakta::default(),
             regelsett: regelsett_v3(),
+        }
+    }
+
+    fn v4() -> Self {
+        Self {
+            utlede_fakta: UtledePersonFakta::default(),
+            regelsett: regelsett_v4(),
         }
     }
 
@@ -118,7 +137,7 @@ mod tests {
             vec!["bosattEtterFolkeregisterloven"],
             vec![Oppholdstillatelse::PERMANENT],
         );
-        let regler_inngang: Regelmotor = Regelmotor::inngang();
+        let regler_inngang: Regelmotor = Regelmotor::v2();
         match regler_inngang.evaluer(&person) {
             Ok(grunnlag) => assert_eq!(
                 grunnlag,
@@ -149,7 +168,7 @@ mod tests {
             vec![],
             vec![Oppholdstillatelse::Other("__UNKNOWN_VALUE".to_string())],
         );
-        let regler_inngang: Regelmotor = Regelmotor::inngang();
+        let regler_inngang: Regelmotor = Regelmotor::v2();
         match regler_inngang.evaluer(&person) {
             Ok(grunnlag) => panic!("Forventet problemer, fikk: {:?}", grunnlag),
             Err(error) => match error.downcast::<EvalueringFeil>() {
