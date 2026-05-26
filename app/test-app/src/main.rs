@@ -20,7 +20,7 @@ use std::sync::Arc;
 use tracing::info;
 use crate::rebalance::rebalance_handler::RebalanceHandler;
 
-const HENDELSELOGG_TOPIC: &str = "paw.arbeidssokerregisteret.internt.hendelselogg-v1";
+const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
 
 #[tokio::main]
 async fn main() -> Result<()> {
