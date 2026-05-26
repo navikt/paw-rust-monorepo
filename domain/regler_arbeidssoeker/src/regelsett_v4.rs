@@ -97,11 +97,20 @@ mod tests {
     impl Evaluering<'_> {
         fn skal_godkjennes_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::Avvist { .. } => {
-                    panic!("Forventet godkjenning, men fikk avvisning")
+                EvalueringsResultat::Avvist { regel_ider } => {
+                    panic!(
+                        "Forventet godkjenning, men fikk avvisning med regel_ider: {:?}",
+                        regel_ider
+                    )
                 }
-                EvalueringsResultat::Godkjent { grunnlag } => {
-                    grunnlag.into_iter().map(|g| g.regel_id).collect()
+                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                    regel_ider.into_iter().collect()
+                }
+                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                    panic!(
+                        "Forventet GrunnlagForGodkjen, men fikk KreverManuellVurdering med regel_ider: {:?}",
+                        regel_ider
+                    )
                 }
             };
             let forventet: HashSet<_> = forventet.iter().cloned().collect();
@@ -110,11 +119,40 @@ mod tests {
 
         fn skal_avvises_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::Godkjent { .. } => {
-                    panic!("Forventet avvisning, men fikk godkjenning")
+                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                    panic!(
+                        "Forventet avvisning, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
+                        regel_ider
+                    )
                 }
-                EvalueringsResultat::Avvist { problemer } => {
-                    problemer.into_iter().map(|p| p.regel_id).collect()
+                EvalueringsResultat::Avvist { regel_ider } => regel_ider.into_iter().collect(),
+                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                    panic!(
+                        "Forvent Avvist, men fikk KreverManuellVurdering med regel_ider: {:?}",
+                        regel_ider
+                    )
+                }
+            };
+            let forventet: HashSet<_> = forventet.iter().cloned().collect();
+            assert_eq!(ids, forventet);
+        }
+
+        fn krever_manuell_vurdering(self, forventet: &[RegelId]) {
+            let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
+                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                    panic!(
+                        "Forventet KreverManuellVurdering, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
+                        regel_ider
+                    )
+                }
+                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                    regel_ider.into_iter().collect()
+                }
+                EvalueringsResultat::Avvist { regel_ider } => {
+                    panic!(
+                        "Forvent KreverManuellVurdering, men fikk Avvist med regel_ider: {:?}",
+                        regel_ider
+                    )
                 }
             };
             let forventet: HashSet<_> = forventet.iter().cloned().collect();
@@ -124,14 +162,21 @@ mod tests {
 
     macro_rules! regeltest {
         () => {};
-        ($navn:ident: [$($input:expr),*] => Ok([$($forventet:expr),*]), $($rest:tt)*) => {
+        ($navn:ident: [$($input:expr),*] => EvalueringsResultat::GrunnlagForGodkjenning([$($forventet:expr),*]), $($rest:tt)*) => {
             #[test]
             fn $navn() {
                 gitt(&[$($input),*]).skal_godkjennes_med(&[$($forventet),*]);
             }
             regeltest!($($rest)*);
         };
-        ($navn:ident: [$($input:expr),*] => Err([$($forventet:expr),*]), $($rest:tt)*) => {
+        ($navn:ident: [$($input:expr),*] => EvalueringsResultat::KreverManuellVurdering([$($forventet:expr),*]), $($rest:tt)*) => {
+            #[test]
+            fn $navn() {
+                gitt(&[$($input),*]).krever_manuell_vurdering(&[$($forventet),*]);
+            }
+            regeltest!($($rest)*);
+        };
+        ($navn:ident: [$($input:expr),*] => EvalueringsResultat::Avvist([$($forventet:expr),*]), $($rest:tt)*) => {
             #[test]
             fn $navn() {
                 gitt(&[$($input),*]).skal_avvises_med(&[$($forventet),*]);
@@ -144,70 +189,70 @@ mod tests {
 
     regeltest! {
         person_ikke_funnet_avvises:
-            [PersonIkkeFunnet] => Err([RegelId::IkkeFunnet]),
+            [PersonIkkeFunnet] => EvalueringsResultat::Avvist([RegelId::IkkeFunnet]),
         doed_person_avvises:
-            [Doed, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => Err([RegelId::Doed]),
+            [Doed, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Doed]),
         savnet_person_avvises:
-            [Savnet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => Err([RegelId::Savnet]),
+            [Savnet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Savnet]),
         opphoert_identitet_avvises:
-            [OpphoertIdentitet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => Err([RegelId::Opphoert]),
+            [OpphoertIdentitet, ErNorskStatsborger, ErEuEoesStatsborger, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Opphoert]),
         forhaandsgodkjenning_overstyrer_ikke_doed:
-            [Doed, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => Err([RegelId::Doed]),
+            [Doed, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Doed]),
         forhaandsgodkjenning_overstyrer_ikke_savnet:
-            [Savnet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => Err([RegelId::Savnet]),
+            [Savnet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Savnet]),
         forhaandsgodkjenning_overstyrer_ikke_opphoert:
-            [OpphoertIdentitet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => Err([RegelId::Opphoert]),
+            [OpphoertIdentitet, ForhaandsgodkjentAvAnsatt, BosattEtterFregLoven, ErOver18Aar] => EvalueringsResultat::Avvist([RegelId::Opphoert]),
     }
 
     // --- Under 18 år ---
 
     regeltest! {
         eu_eoes_under_18_bosatt_avvises_kun_for_alder:
-            [ErUnder18Aar, BosattEtterFregLoven, ErEuEoesStatsborger] => Err([RegelId::Under18Aar]),
+            [ErUnder18Aar, BosattEtterFregLoven, ErEuEoesStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::Under18Aar]),
         under_18_tredjelandsborger_uten_bosatt_avvises_for_alder_og_bosatt:
-            [ErUnder18Aar] => Err([RegelId::Under18Aar, RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
+            [ErUnder18Aar] => EvalueringsResultat::KreverManuellVurdering([RegelId::Under18Aar, RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
         under_18_eu_eoes_uten_bosatt_avvises_kun_for_alder:
-            [ErUnder18Aar, ErEuEoesStatsborger] => Err([RegelId::Under18Aar]),
+            [ErUnder18Aar, ErEuEoesStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::Under18Aar]),
         under_18_norsk_uten_bosatt_avvises_kun_for_alder:
-            [ErUnder18Aar, ErNorskStatsborger, ErEuEoesStatsborger] => Err([RegelId::Under18Aar]),
+            [ErUnder18Aar, ErNorskStatsborger, ErEuEoesStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::Under18Aar]),
         under_18_forhaandsgodkjent_godkjennes:
-            [ErUnder18Aar, ForhaandsgodkjentAvAnsatt] => Ok([RegelId::ForhaandsgodkjentAvAnsatt]),
+            [ErUnder18Aar, ForhaandsgodkjentAvAnsatt] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::ForhaandsgodkjentAvAnsatt]),
         under_18_forhaandsgodkjent_doed_avvises:
-            [Doed, ForhaandsgodkjentAvAnsatt, ErUnder18Aar, BosattEtterFregLoven] => Err([RegelId::Doed, RegelId::Under18Aar]),
+            [Doed, ForhaandsgodkjentAvAnsatt, ErUnder18Aar, BosattEtterFregLoven] => EvalueringsResultat::Avvist([RegelId::Doed, RegelId::Under18Aar]),
     }
 
     // --- Ukjent alder ---
 
     regeltest! {
         ukjent_alder_tredjelandsborger_avvises_for_alder_og_bosatt:
-            [UkjentFoedselsaar, UkjentFoedselsdato] => Err([RegelId::UkjentAlder, RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
+            [UkjentFoedselsaar, UkjentFoedselsdato] => EvalueringsResultat::KreverManuellVurdering([RegelId::UkjentAlder, RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
         ukjent_alder_eu_eoes_avvises_kun_for_alder:
-            [UkjentFoedselsaar, UkjentFoedselsdato, ErEuEoesStatsborger] => Err([RegelId::UkjentAlder]),
+            [UkjentFoedselsaar, UkjentFoedselsdato, ErEuEoesStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::UkjentAlder]),
     }
 
     // --- Over 18 ---
 
     regeltest! {
         over_18_bosatt_godkjennes:
-            [ErOver18Aar, BosattEtterFregLoven] => Ok([RegelId::Over18AarOgBosattEtterFregLoven]),
+            [ErOver18Aar, BosattEtterFregLoven] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::Over18AarOgBosattEtterFregLoven]),
         over_18_eu_eoes_uten_bosatt_godkjennes:
-            [ErOver18Aar, ErEuEoesStatsborger] => Ok([RegelId::EuEoesStatsborgerOver18Aar]),
+            [ErOver18Aar, ErEuEoesStatsborger] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::EuEoesStatsborgerOver18Aar]),
         over_18_utflyttet_eu_eoes_godkjennes:
-            [ErOver18Aar, ErEuEoesStatsborger, IkkeBosatt] => Ok([RegelId::EuEoesStatsborgerOver18Aar]),
+            [ErOver18Aar, ErEuEoesStatsborger, IkkeBosatt] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::EuEoesStatsborgerOver18Aar]),
         over_18_norsk_uten_bosatt_godkjennes:
-            [ErOver18Aar, ErEuEoesStatsborger] => Ok([RegelId::EuEoesStatsborgerOver18Aar]),
+            [ErOver18Aar, ErEuEoesStatsborger] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::EuEoesStatsborgerOver18Aar]),
         over_18_forhaandsgodkjent_godkjennes:
-            [ErOver18Aar, ForhaandsgodkjentAvAnsatt] => Ok([RegelId::ForhaandsgodkjentAvAnsatt]),
+            [ErOver18Aar, ForhaandsgodkjentAvAnsatt] => EvalueringsResultat::GrunnlagForGodkjenning([RegelId::ForhaandsgodkjentAvAnsatt]),
         over_18_tredjelandsborger_uten_bosatt_avvises:
-            [ErOver18Aar] => Err([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
+            [ErOver18Aar] => EvalueringsResultat::KreverManuellVurdering([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
         over_18_gbr_statsborger_uten_bosatt_avvises:
-            [ErOver18Aar, ErGbrStatsborger] => Err([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
+            [ErOver18Aar, ErGbrStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
     }
 
     // --- Standardregel ---
 
     regeltest! {
         norsk_eu_eoes_uten_aldersinfo_avvises_via_standardregel:
-            [ErNorskStatsborger, ErEuEoesStatsborger] => Err([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
+            [ErNorskStatsborger, ErEuEoesStatsborger] => EvalueringsResultat::KreverManuellVurdering([RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]),
     }
 }

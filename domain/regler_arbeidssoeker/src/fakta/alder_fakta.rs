@@ -1,7 +1,5 @@
-use std::collections::HashSet;
 use std::vec;
 
-use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::UtledeFakta;
 use crate::utils::finn_alder;
@@ -24,7 +22,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
             .map(|foedsels_info| {
                 let info = (
                     foedsels_info.foedselsdato.clone(),
-                    foedsels_info.foedselsaar.clone(),
+                    foedsels_info.foedselsaar,
                 );
                 match info {
                     (Some(dato), _) => {
@@ -68,7 +66,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
         if res.iter().any(|r| r.contains(&ErUnder18Aar)) {
             return Ok(vec![ErUnder18Aar]);
         }
-        return Ok(vec![UkjentFoedselsaar, UkjentFoedselsdato]);
+        Ok(vec![UkjentFoedselsaar, UkjentFoedselsdato])
     }
 }
 

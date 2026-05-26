@@ -111,73 +111,90 @@ mod tests {
     use crate::regler::regelsett::EvalueringsResultat;
     use interne_hendelser::vo::Opplysning::*;
 
-    fn avviste_regel_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
+    fn krever_manuel_vurdering_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
         match regelsett_v2().evaluer(opplysninger) {
-            EvalueringsResultat::Godkjent { .. } => {
+            EvalueringsResultat::GrunnlagForGodkjenning { .. } => {
                 panic!("Forventet avvisning, men fikk godkjenning")
             }
-            EvalueringsResultat::Avvist { problemer } => {
-                problemer.into_iter().map(|p| p.regel_id).collect()
+            EvalueringsResultat::Avvist { regel_ider } => regel_ider,
+            EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                panic!(
+                    "Forventet avvis, men fikk KreverManuellVurdering: {:?}",
+                    regel_ider
+                )
             }
         }
     }
 
     fn er_godkjent(opplysninger: &[Opplysning]) -> bool {
-        regelsett_v2().evaluer(opplysninger).is_godkjent()
+        regelsett_v2()
+            .evaluer(opplysninger)
+            .is_grunnlag_for_godkjenning()
     }
 
     // --- Under 18 år, ikke forhåndsgodkjent ---
 
     #[test]
     fn under_18_avvises_selv_om_alt_annet_er_ok() {
-        let ids = avviste_regel_ider(&[
+        let res = regelsett_v2().evaluer(&[
             ErUnder18Aar,
             BosattEtterFregLoven,
             HarNorskAdresse,
             ErNorskStatsborger,
         ]);
-        assert_eq!(ids, vec![RegelId::Under18Aar]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::Under18Aar]
+            }
+        );
     }
 
     #[test]
     fn under_18_avvises_med_ikke_bosatt_nar_ingen_statsborgerskap_info() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar, IkkeBosatt]);
-        ids.sort_by_key(|id| format!("{:?}", id));
-        let mut expected = vec![
-            RegelId::Under18Aar,
-            RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-        ];
-        expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        let res = regelsett_v2().evaluer(&[ErUnder18Aar, IkkeBosatt]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![
+                    RegelId::Under18Aar,
+                    RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
+                ]
+            }
+        );
     }
 
     #[test]
     fn norsk_statsborger_under_18_avvises_med_ikke_bosatt() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar, IkkeBosatt, ErNorskStatsborger]);
-        ids.sort_by_key(|id| format!("{:?}", id));
-        let mut expected = vec![
-            RegelId::Under18Aar,
-            RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-        ];
-        expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        let res = regelsett_v2().evaluer(&[ErUnder18Aar, IkkeBosatt, ErNorskStatsborger]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![
+                    RegelId::Under18Aar,
+                    RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
+                ]
+            }
+        );
     }
 
     #[test]
     fn eu_eoes_under_18_avvises_med_ikke_bosatt_status() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar, IkkeBosatt, ErEuEoesStatsborger]);
-        ids.sort_by_key(|id| format!("{:?}", id));
-        let mut expected = vec![
-            RegelId::Under18Aar,
-            RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt,
-        ];
-        expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        let res = regelsett_v2().evaluer(&[ErUnder18Aar, IkkeBosatt, ErEuEoesStatsborger]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![
+                    RegelId::Under18Aar,
+                    RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt,
+                ]
+            }
+        );
     }
 
     #[test]
     fn eu_eoes_under_18_med_dnummer_og_ikke_utflyttet_avvises_kun_for_alder() {
-        let ids = avviste_regel_ider(&[
+        let res = regelsett_v2().evaluer(&[
             ErUnder18Aar,
             ErEuEoesStatsborger,
             HarUtenlandskAdresse,
@@ -186,12 +203,17 @@ mod tests {
             Dnummer,
             IngenFlytteInformasjon,
         ]);
-        assert_eq!(ids, vec![RegelId::Under18Aar]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::Under18Aar]
+            }
+        );
     }
 
     #[test]
     fn eu_eoes_under_18_med_dnummer_og_utflyttet_avvises_for_alder_og_ikke_bosatt_status() {
-        let mut ids = avviste_regel_ider(&[
+        let res = regelsett_v2().evaluer(&[
             ErUnder18Aar,
             ErEuEoesStatsborger,
             HarUtenlandskAdresse,
@@ -201,48 +223,62 @@ mod tests {
             IngenFlytteInformasjon,
             IkkeBosatt,
         ]);
-        ids.sort_by_key(|id| format!("{:?}", id));
-        let mut expected = vec![
-            RegelId::Under18Aar,
-            RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt,
-        ];
-        expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![
+                    RegelId::Under18Aar,
+                    RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt,
+                ]
+            }
+        );
     }
 
     // --- Under 18 år, forhåndsgodkjent, skal avvises ---
 
     #[test]
     fn under_18_forhaandsgodkjent_er_doed_avvises() {
-        let mut ids = avviste_regel_ider(&[
+        let res = regelsett_v2().evaluer(&[
             Doed,
             ForhaandsgodkjentAvAnsatt,
             ErUnder18Aar,
             BosattEtterFregLoven,
         ]);
-        ids.sort_by_key(|id| format!("{:?}", id));
-        let mut expected = vec![RegelId::Doed, RegelId::Under18Aar];
-        expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        assert_eq!(
+            res,
+            EvalueringsResultat::Avvist {
+                regel_ider: vec![RegelId::Doed, RegelId::Under18Aar]
+            }
+        );
     }
 
     #[test]
     fn under_18_forhaandsgodkjent_er_savnet_avvises() {
-        let mut ids = avviste_regel_ider(&[Savnet, ForhaandsgodkjentAvAnsatt, ErUnder18Aar]);
-        ids.sort_by_key(|id| format!("{:?}", id));
+        let res = regelsett_v2().evaluer(&[Savnet, ForhaandsgodkjentAvAnsatt, ErUnder18Aar]);
         let mut expected = vec![
             RegelId::Savnet,
             RegelId::Under18Aar,
             RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
         ];
+        // order-insensitive comparison: sort stringified names
+        let mut got = match res {
+            EvalueringsResultat::Avvist { regel_ider } => regel_ider,
+            other => panic!("Forventet Avvist, men fikk {:?}", other),
+        };
+        got.sort_by_key(|id| format!("{:?}", id));
         expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        assert_eq!(got, expected);
     }
 
     #[test]
     fn ikke_funnet_i_pdl_avvises() {
-        let ids = avviste_regel_ider(&[PersonIkkeFunnet]);
-        assert_eq!(ids, vec![RegelId::IkkeFunnet]);
+        let res = regelsett_v2().evaluer(&[PersonIkkeFunnet]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::Avvist {
+                regel_ider: vec![RegelId::IkkeFunnet]
+            }
+        );
     }
 
     // --- Under 18 år, forhåndsgodkjent, skal godkjennes ---
@@ -265,31 +301,40 @@ mod tests {
 
     #[test]
     fn over_18_norsk_statsborger_ikke_bosatt_avvises() {
-        let ids = avviste_regel_ider(&[
+        let res = regelsett_v2().evaluer(&[
             ErNorskStatsborger,
             ErEuEoesStatsborger,
             ErOver18Aar,
             IkkeBosatt,
         ]);
         assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            }
         );
     }
 
     #[test]
     fn over_18_tredjelandsborger_ikke_bosatt_avvises() {
-        let ids = avviste_regel_ider(&[ErOver18Aar, IkkeBosatt]);
+        let res = regelsett_v2().evaluer(&[ErOver18Aar, IkkeBosatt]);
         assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            }
         );
     }
 
     #[test]
     fn over_18_eu_eoes_ikke_norsk_med_ikke_bosatt_avvises() {
-        let ids = avviste_regel_ider(&[ErOver18Aar, ErEuEoesStatsborger, IkkeBosatt]);
-        assert_eq!(ids, vec![RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt]);
+        let res = regelsett_v2().evaluer(&[ErOver18Aar, ErEuEoesStatsborger, IkkeBosatt]);
+        assert_eq!(
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::EuEoesStatsborgerMenHarStatusIkkeBosatt]
+            }
+        );
     }
 
     // --- Over 18 år, skal godkjennes ---
@@ -317,43 +362,55 @@ mod tests {
 
     #[test]
     fn gbr_statsborger_over_18_avvises_ikke_bosatt() {
-        let ids = avviste_regel_ider(&[ErOver18Aar, ErGbrStatsborger]);
+        let res = regelsett_v2().evaluer(&[ErOver18Aar, ErGbrStatsborger]);
         assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            }
         );
     }
 
     #[test]
     fn gbr_statsborger_under_18_avvises() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar, ErGbrStatsborger]);
-        ids.sort_by_key(|id| format!("{:?}", id));
+        let res = regelsett_v2().evaluer(&[ErUnder18Aar, ErGbrStatsborger]);
         let mut expected = vec![
             RegelId::Under18Aar,
             RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
         ];
+        let mut got = match res {
+            EvalueringsResultat::KreverManuellVurdering { regel_ider } => regel_ider,
+            other => panic!("Forventet KreverManuellVurdering, men fikk {:?}", other),
+        };
+        got.sort_by_key(|id| format!("{:?}", id));
         expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        assert_eq!(got, expected);
     }
 
     #[test]
     fn tredjelandsborger_under_18_avvises() {
-        let mut ids = avviste_regel_ider(&[ErUnder18Aar]);
-        ids.sort_by_key(|id| format!("{:?}", id));
+        let res = regelsett_v2().evaluer(&[ErUnder18Aar]);
         let mut expected = vec![
             RegelId::Under18Aar,
             RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
         ];
+        let mut got = match res {
+            EvalueringsResultat::KreverManuellVurdering { regel_ider } => regel_ider,
+            other => panic!("Forventet KreverManuellVurdering, men fikk {:?}", other),
+        };
+        got.sort_by_key(|id| format!("{:?}", id));
         expected.sort_by_key(|id| format!("{:?}", id));
-        assert_eq!(ids, expected);
+        assert_eq!(got, expected);
     }
 
     #[test]
     fn tredjelandsborger_over_18_avvises_via_standardregel() {
-        let ids = avviste_regel_ider(&[]);
+        let res = regelsett_v2().evaluer(&[]);
         assert_eq!(
-            ids,
-            vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            res,
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven]
+            }
         );
     }
 }

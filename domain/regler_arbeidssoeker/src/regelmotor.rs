@@ -153,10 +153,8 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::Godkjent {
-                grunnlag: vec![GrunnlagForGodkjenning {
-                    regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
-                }]
+            EvalueringsResultat::GrunnlagForGodkjenning {
+                regel_ider: vec!(RegelId::Over18AarOgBosattEtterFregLoven)
             }
         );
         assert!(evaluering.fakta.contains(&ErOver18Aar));
@@ -177,11 +175,8 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::Avvist {
-                problemer: vec![Problem {
-                    regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-                    kind: ProblemKind::MuligGrunnlagForAvvisning,
-                }]
+            EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec!(RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven)
             }
         );
         assert!(evaluering.fakta.contains(&ErOver18Aar));

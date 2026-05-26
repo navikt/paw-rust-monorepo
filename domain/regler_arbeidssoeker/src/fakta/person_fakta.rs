@@ -9,7 +9,7 @@ use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
 use anyhow::Result;
 use interne_hendelser::vo::{Opplysning, Opplysninger};
-use pdl_graphql::pdl::{HentPerson, Person};
+use pdl_graphql::pdl::Person;
 use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug)]
@@ -39,12 +39,12 @@ pub fn utled_fakta(
 impl Default for UtledePersonFakta {
     fn default() -> Self {
         Self {
-            alder_fakta: UtledeAlderFakta::default(),
+            alder_fakta: UtledeAlderFakta,
             adresse_fakta: UtledeAdresseFakta::default(),
             folkeregister_fakta: UtledeFolkeregisterFakta::default(),
             statsborgerskap_fakta: UtledeStatsborgerskapFakta::default(),
-            opphold_fakta: UtledeOppholdstillatelseFakta::default(),
-            utflytting_fakta: UtledeUtflyttingFakta::default(),
+            opphold_fakta: UtledeOppholdstillatelseFakta,
+            utflytting_fakta: UtledeUtflyttingFakta,
         }
     }
 }

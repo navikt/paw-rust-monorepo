@@ -25,7 +25,7 @@ fn main() {
     collect_source_files(Path::new("src"), &mut files);
 
     let mut hash: u64 = 0xcbf29ce484222325;
-    for (_, content) in &files {
+    for content in files.values() {
         for &byte in content {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(0x100000001b3);

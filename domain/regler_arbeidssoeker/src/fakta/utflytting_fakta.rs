@@ -30,7 +30,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeUtflyttingFakta {
         } else if innflyttinger.is_empty() && !utflyttinger.is_empty() {
             Ok(vec![SisteFlyttingVarUtAvNorge])
         } else {
-            let flyttinger = vec![innflyttinger, utflyttinger].concat();
+            let flyttinger = [innflyttinger, utflyttinger].concat();
             let mut unike_datoer = flyttinger
                 .iter()
                 .filter_map(|f| f.dato)
@@ -46,11 +46,11 @@ impl UtledeFakta<Person, Opplysning> for UtledeUtflyttingFakta {
                     .filter(|f| f.dato.is_some())
                     .max_by(|f1, f2| f1.dato.cmp(&f2.dato))
                     .unwrap();
-                return if siste_flytting.innflytting {
+                if siste_flytting.innflytting {
                     Ok(vec![SisteFlyttingVarInnTilNorge])
                 } else {
                     Ok(vec![SisteFlyttingVarUtAvNorge])
-                };
+                }
             }
         }
     }

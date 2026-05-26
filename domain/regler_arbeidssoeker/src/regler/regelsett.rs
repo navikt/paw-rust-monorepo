@@ -80,14 +80,14 @@ impl Regelsett {
                     .chain(eval.manuell_vurdering)
                     .collect(),
             },
+            eval if !eval.godkjent.is_empty() => EvalueringsResultat::GrunnlagForGodkjenning {
+                regel_ider: eval.godkjent,
+            },
             eval if !eval.manuell_vurdering.is_empty() => {
                 EvalueringsResultat::KreverManuellVurdering {
                     regel_ider: eval.manuell_vurdering,
                 }
             }
-            eval if !eval.godkjent.is_empty() => EvalueringsResultat::GrunnlagForGodkjenning {
-                regel_ider: eval.godkjent,
-            },
             _ => self.standard_regel.ved_treff(),
         }
     }
