@@ -8,6 +8,7 @@ use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::types::RDKafkaRespErr;
 use sqlx::PgPool;
 use std::sync::Arc;
+use paw_rdkafka_hwm::hwm::Hwm;
 
 pub struct RebalanceHandler {
     pub pg_pool: PgPool,
@@ -26,7 +27,7 @@ impl ConsumerContext for RebalanceHandler {
             RDKafkaRespErr::RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS => {
                 tracing::info!(partitions = ?tpl_as_string(tpl), "Partitions assigned");
 
-                let hwms = match get_hwms(self.version, tpl, &self.pg_pool) {
+                let hwms: Vec<Hwm> = match get_hwms(self.version, tpl, &self.pg_pool) {
                     Ok(hwms) => hwms,
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to get HWMs");
@@ -35,7 +36,7 @@ impl ConsumerContext for RebalanceHandler {
                     }
                 };
 
-                let assigned_tpl = match build_tpl_from(&hwms) {
+                let assigned_tpl: TopicPartitionList = match build_tpl_from(&hwms) {
                     Ok(tpl) => tpl,
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to build TopicPartitionList");
