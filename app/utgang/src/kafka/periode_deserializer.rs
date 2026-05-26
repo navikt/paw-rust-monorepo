@@ -28,7 +28,7 @@ pub struct Bruker {
 }
 
 /// Type of user/actor
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BrukerType {
     UkjentVerdi,

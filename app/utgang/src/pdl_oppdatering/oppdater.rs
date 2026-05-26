@@ -1,6 +1,8 @@
 use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
 
-use crate::dao::perioder::{hent_perioder_eldre_enn, oppdater_pdl_opplysninger, oppdater_sist_oppdatert};
+use crate::dao::periode_rad::{
+    hent_perioder_eldre_enn, oppdater_pdl_opplysninger, oppdater_sist_oppdatert,
+};
 use crate::pdl::pdl_query::PDLClient;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
@@ -63,12 +65,12 @@ impl PdlDataOppdatering {
             .iter()
             .map(|p| p.identitetsnummer.clone())
             .collect();
-        let uendrede_perioder: Vec<ArbeidssoekerperiodeId> = trenger_oppdatering
-            .iter()
-            .map(|p| p.id.clone())
-            .collect();
+        let uendrede_perioder: Vec<ArbeidssoekerperiodeId> =
+            trenger_oppdatering.iter().map(|p| p.id.clone()).collect();
 
-        let pdl_data = self.hent_og_koble_pdl_data(identitetsnummer, antall).await?;
+        let pdl_data = self
+            .hent_og_koble_pdl_data(identitetsnummer, antall)
+            .await?;
         let nye_opplysninger = utled_fakta(pdl_data);
 
         let mut oppdaterte: Vec<ArbeidssoekerperiodeId> = Vec::new();

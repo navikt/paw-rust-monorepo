@@ -5,7 +5,7 @@ use types::{
     arbeidssoeker_id::ArbeidssoekerId, arbeidssoekerperiode_id::ArbeidssoekerperiodeId,
     identitetsnummer::Identitetsnummer,
 };
-use utgang::dao::perioder::{
+use utgang::dao::periode_rad::{
     PeriodeRad, hent_perioder, hent_perioder_eldre_enn, hent_perioder_som_trenger_kontroll,
     oppdater_sist_oppdatert, oppdater_stoppet, oppdater_trenger_kontroll, skriv_perioder,
 };

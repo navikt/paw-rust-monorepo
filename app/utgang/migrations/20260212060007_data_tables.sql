@@ -6,7 +6,8 @@ create table perioder (
   sist_oppdatert           TIMESTAMP(3) NOT NULL,
   trenger_kontroll         BOOLEAN NOT NULL DEFAULT false,
   siste_kontroll_tidspunkt TIMESTAMP(3),
-  tilstand                 JSONB
+  tilstand                 JSONB,
+  bekreftet                BOOLEAN NOT NULL
 );
 
 create index perioder_trenger_kontroll_idx

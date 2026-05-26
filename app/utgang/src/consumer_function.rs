@@ -1,11 +1,9 @@
-use crate::dao::perioder::{PeriodeRad, skriv_perioder};
-use crate::dao::utgang_hendelse::{Input, InternUtgangHendelse};
-use crate::dao::utgang_hendelser_logg::skriv_hendelser;
+use crate::dao::skriv_periode::{skriv_periode_melding, skriv_startet_hendelse};
 use crate::kafka::periode_processor::{PeriodeProcessor, PeriodeProcessorError};
 use crate::kafka::schema_registry_config::create_schema_registry_settings;
 use crate::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 use anyhow::Result;
-use interne_hendelser::InterneHendelser;
+use interne_hendelser::{InterneHendelser, Startet};
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -38,71 +36,50 @@ impl MessageProcessor for UtgangMessageProcessor {
         Box::pin(
             async move {
                 let topic = msg.topic();
-                match (topic, msg.payload()) {
-                    (t, None) => {
-                        return Err(PeriodeProcessorError::NoPayload {
-                            topic: t.to_string(),
-                            partition: msg.partition(),
-                            offset: msg.offset(),
-                        }
-                        .into());
+                let res: Result<(), ProcessorError> = match (topic, msg.payload()) {
+                    (t, None) => Err(PeriodeProcessorError::NoPayload {
+                        topic: t.to_string(),
+                        partition: msg.partition(),
+                        offset: msg.offset(),
                     }
+                    .into()),
                     (t, Some(p)) if t == HENDELSELOGG_TOPIC => {
-                        haandter_hendelse(tx, p).await?;
+                        async move {
+                            if let Some(startet) = deserialize_startet_hendelse(p)? {
+                                skriv_startet_hendelse(tx, startet).await?;
+                            }
+                            Ok(())
+                        }
+                        .await
                     }
                     (t, Some(p)) if t == ARBEIDSSOKERPERIODER_TOPIC => {
-                        haandter_periode_record(self, tx, p).await?;
+                        async move {
+                            let periode = self.periode_processor.deserialize_message(p).await?;
+                            skriv_periode_melding(tx, periode).await?;
+                            Ok(())
+                        }
+                        .await
                     }
                     _ => {
                         warn!("Received message for unknown topic: {}", topic);
+                        Ok(())
                     }
-                }
-                Ok(())
+                };
+                res
             }
             .instrument(tracing::Span::current()),
         )
     }
 }
 
-async fn haandter_periode_record(
-    utgang_message_processor: &UtgangMessageProcessor,
-    tx: &mut Transaction<'_, Postgres>,
-    payload: &[u8],
-) -> Result<(), ProcessorError> {
-    let periode = utgang_message_processor
-        .periode_processor
-        .deserialize_message(payload)
-        .await?;
-    let periode_rad: PeriodeRad = (&periode).into();
-    let intern_utgang_hendelse: InternUtgangHendelse<Input> = periode.into();
-    skriv_perioder(tx, &[periode_rad]).await?;
-    skriv_hendelser(tx, &[intern_utgang_hendelse]).await?;
-    Ok(())
-}
-
-async fn haandter_hendelse(
-    tx: &mut Transaction<'_, Postgres>,
-    payload: &[u8],
-) -> Result<(), ProcessorError> {
+pub fn deserialize_startet_hendelse(payload: &[u8]) -> Result<Option<Startet>, ProcessorError> {
     let payload_str = std::str::from_utf8(payload)
         .map_err(|e| ProcessorError::from(format!("Invalid UTF-8 in payload: {}", e)))?;
-
     let hendelse: InterneHendelser = serde_json::from_str(payload_str)
         .map_err(|e| ProcessorError::from(format!("Failed to deserialize event: {}", e)))?;
-    match hendelse {
-        InterneHendelser::Startet(startet) => {
-            tracing::info!(
-                "Mottok startet hendelse med hendelse_id: {}",
-                startet.hendelse_id
-            );
-            let periode_rad: PeriodeRad = (&startet).into();
-            let intern_utgang_hendelse: InternUtgangHendelse<Input> = startet.into();
-            skriv_perioder(tx, &[periode_rad]).await?;
-            skriv_hendelser(tx, &[intern_utgang_hendelse]).await?;
-        }
-        _ => {
-            tracing::info!("Mottok en annen hendelse som ikke skal lagres");
-        }
+    if let InterneHendelser::Startet(startet) = hendelse {
+        Ok(Some(startet))
+    } else {
+        Ok(None)
     }
-    Ok(())
 }

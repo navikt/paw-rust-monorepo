@@ -1,6 +1,5 @@
 use super::regel::Regel;
 use super::regel_id::RegelId;
-use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
 use interne_hendelser::vo::Opplysning;
 use serde::{Deserialize, Serialize};
 
@@ -11,23 +10,36 @@ pub struct Regelsett {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EvalueringsResultat {
-    Godkjent { grunnlag: Vec<GrunnlagForGodkjenning> },
-    Avvist { problemer: Vec<Problem> },
+    GrunnlagForGodkjenning { regel_ider: Vec<RegelId> },
+    Avvist { regel_ider: Vec<RegelId> },
+    KreverManuellVurdering { regel_ider: Vec<RegelId> },
+}
+
+#[derive(Default)]
+pub struct Eval {
+    manuell_vurdering: Vec<RegelId>,
+    godkjent: Vec<RegelId>,
+    avvist: Vec<RegelId>,
 }
 
 impl EvalueringsResultat {
-    pub fn is_godkjent(&self) -> bool {
-        matches!(self, Self::Godkjent { .. })
+    pub fn is_grunnlag_for_godkjenning(&self) -> bool {
+        matches!(self, Self::GrunnlagForGodkjenning { .. })
     }
 
     pub fn is_avvist(&self) -> bool {
         matches!(self, Self::Avvist { .. })
     }
 
+    pub fn is_krever_manuell_vurdering(&self) -> bool {
+        matches!(self, Self::KreverManuellVurdering { .. })
+    }
+
     pub fn status(&self) -> &'static str {
         match self {
-            Self::Godkjent { .. } => "GODKJENT",
+            Self::GrunnlagForGodkjenning { .. } => "GODKJENT",
             Self::Avvist { .. } => "AVVIST",
+            Self::KreverManuellVurdering { .. } => "KREVER_MANUELL_VURDERING",
         }
     }
 }
@@ -42,45 +54,41 @@ impl Regelsett {
     /// 4. Any problems → return them all.
     /// 5. No rules matched → apply `standard_regel`.
     pub fn evaluer(&self, opplysninger: &[Opplysning]) -> EvalueringsResultat {
-        let mut problemer: Vec<Problem> = Vec::new();
-        let mut godkjenninger: Vec<GrunnlagForGodkjenning> = Vec::new();
-
-        for regel in self.regler.iter().filter(|r| r.evaluer(opplysninger)) {
-            match regel.ved_treff() {
-                Ok(g) => godkjenninger.push(g),
-                Err(p) => problemer.push(p),
-            }
-        }
-
-        if let Some(idx) = problemer
-            .iter()
-            .position(|p| p.kind == ProblemKind::SkalAvvises)
-        {
-            if problemer[idx].regel_id == RegelId::IkkeFunnet {
-                return EvalueringsResultat::Avvist {
-                    problemer: vec![problemer.swap_remove(idx)],
+        let eval = self.regler.iter().filter(|r| r.evaluer(opplysninger)).fold(
+            Eval::default(),
+            |mut eval, regel| {
+                match regel.ved_treff() {
+                    EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                        eval.godkjent.extend(regel_ider)
+                    }
+                    EvalueringsResultat::Avvist { regel_ider } => eval.avvist.extend(regel_ider),
+                    EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                        eval.manuell_vurdering.extend(regel_ider)
+                    }
                 };
-            }
-            let skal_avvises = problemer.remove(idx);
-            problemer.insert(0, skal_avvises);
-            return EvalueringsResultat::Avvist { problemer };
-        }
-
-        if !godkjenninger.is_empty() {
-            return EvalueringsResultat::Godkjent {
-                grunnlag: godkjenninger,
-            };
-        }
-
-        if !problemer.is_empty() {
-            return EvalueringsResultat::Avvist { problemer };
-        }
-
-        match self.standard_regel.ved_treff() {
-            Ok(g) => EvalueringsResultat::Godkjent { grunnlag: vec![g] },
-            Err(p) => EvalueringsResultat::Avvist {
-                problemer: vec![p],
+                eval
             },
+        );
+        match eval {
+            eval if eval.avvist.contains(&RegelId::IkkeFunnet) => EvalueringsResultat::Avvist {
+                regel_ider: vec![RegelId::IkkeFunnet],
+            },
+            eval if !eval.avvist.is_empty() => EvalueringsResultat::Avvist {
+                regel_ider: eval
+                    .avvist
+                    .into_iter()
+                    .chain(eval.manuell_vurdering)
+                    .collect(),
+            },
+            eval if !eval.manuell_vurdering.is_empty() => {
+                EvalueringsResultat::KreverManuellVurdering {
+                    regel_ider: eval.manuell_vurdering,
+                }
+            }
+            eval if !eval.godkjent.is_empty() => EvalueringsResultat::GrunnlagForGodkjenning {
+                regel_ider: eval.godkjent,
+            },
+            _ => self.standard_regel.ved_treff(),
         }
     }
 

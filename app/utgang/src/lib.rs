@@ -1,6 +1,5 @@
 pub mod consumer_function;
 pub mod dao;
-pub mod domain;
 pub mod kafka;
 pub mod kontroll;
 pub mod pdl;

@@ -70,7 +70,6 @@ mod tests {
     use crate::regelmotor::{RegelVersjon, Regelmotor};
     use crate::regler::regel_id::RegelId;
     use crate::regler::regelsett::EvalueringsResultat;
-    use crate::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, ErNorskStatsborger, ErOver18Aar, IngenAdresseFunnet,

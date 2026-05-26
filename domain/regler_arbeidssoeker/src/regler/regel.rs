@@ -1,6 +1,7 @@
+use crate::regler::regelsett::EvalueringsResultat;
+
 use super::betingelse::Betingelse;
 use super::regel_id::RegelId;
-use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
 use interne_hendelser::vo::Opplysning;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,19 +31,17 @@ impl Regel {
         self.betingelser.iter().all(|b| b.eval(opplysninger))
     }
 
-    pub fn ved_treff(&self) -> Result<GrunnlagForGodkjenning, Problem> {
+    pub fn ved_treff(&self) -> EvalueringsResultat {
         match self.aksjon {
-            Aksjon::GrunnlagForGodkjenning => Ok(GrunnlagForGodkjenning {
-                regel_id: self.id.clone(),
-            }),
-            Aksjon::SkalAvvises => Err(Problem {
-                regel_id: self.id.clone(),
-                kind: ProblemKind::SkalAvvises,
-            }),
-            Aksjon::MuligGrunnlagForAvvisning => Err(Problem {
-                regel_id: self.id.clone(),
-                kind: ProblemKind::MuligGrunnlagForAvvisning,
-            }),
+            Aksjon::GrunnlagForGodkjenning => EvalueringsResultat::GrunnlagForGodkjenning {
+                regel_ider: vec![self.id.clone()],
+            },
+            Aksjon::SkalAvvises => EvalueringsResultat::Avvist {
+                regel_ider: vec![self.id.clone()],
+            },
+            Aksjon::MuligGrunnlagForAvvisning => EvalueringsResultat::KreverManuellVurdering {
+                regel_ider: vec![self.id.clone()],
+            },
         }
     }
 }

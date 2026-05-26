@@ -2,7 +2,7 @@ use std::num::NonZeroU16;
 
 use tracing::instrument;
 
-use crate::dao::perioder::{PeriodeRad, hent_perioder_som_trenger_kontroll};
+use crate::dao::periode_rad::{PeriodeRad, hent_perioder_som_trenger_kontroll};
 
 #[instrument(skip(tx))]
 pub async fn hent_perioder_for_kontroll(

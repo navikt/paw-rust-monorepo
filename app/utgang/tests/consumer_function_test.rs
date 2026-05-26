@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use paw_test::setup_test_db::setup_test_db;
 use std::num::NonZeroU16;
 use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
-use utgang::dao::perioder::{
+use utgang::dao::periode_rad::{
     hent_perioder, hent_perioder_eldre_enn, oppdater_sist_oppdatert, skriv_perioder,
 };
 use uuid::Uuid;
@@ -31,7 +31,7 @@ async fn avsluttet_periode_fra_periode_topic_ekskluderes_fra_pdl_oppdatering() {
     let mut periode = main_avro_periode();
     periode.avsluttet = Some(main_avro_metadata());
 
-    let periode_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let periode_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     assert!(
         periode_rad.stoppet,
         "PeriodeRad fra avsluttet periode skal ha stoppet=true"
@@ -62,7 +62,7 @@ async fn aktiv_periode_fra_periode_topic_inkluderes_i_pdl_oppdatering() {
     let periode = main_avro_periode();
     assert!(periode.avsluttet.is_none());
 
-    let periode_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let periode_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     assert!(!periode_rad.stoppet);
 
     let mut tx = pool.begin().await.unwrap();
@@ -88,7 +88,7 @@ async fn upsert_med_avsluttet_oppdaterer_aktiv_periode_til_stoppet() {
     let mut periode = main_avro_periode();
     let periode_id = periode.id;
 
-    let aktiv_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let aktiv_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(&mut tx, &[aktiv_rad]).await.unwrap();
     tx.commit().await.unwrap();
@@ -102,7 +102,7 @@ async fn upsert_med_avsluttet_oppdaterer_aktiv_periode_til_stoppet() {
     assert!(!rader[0].stoppet);
 
     periode.avsluttet = Some(main_avro_metadata());
-    let stoppet_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let stoppet_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(&mut tx, &[stoppet_rad]).await.unwrap();
     tx.commit().await.unwrap();
@@ -127,7 +127,7 @@ async fn periode_uten_endring_skal_ikke_plukkes_opp_igjen_etter_pdl_sjekk() {
     let periode = main_avro_periode();
     let periode_id = ArbeidssoekerperiodeId::from(periode.id);
 
-    let periode_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let periode_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(&mut tx, &[periode_rad]).await.unwrap();
     tx.commit().await.unwrap();
@@ -145,7 +145,9 @@ async fn periode_uten_endring_skal_ikke_plukkes_opp_igjen_etter_pdl_sjekk() {
 
     // Simuler at PDL-sjekk er gjort uten endringer — oppdater sist_oppdatert
     let mut tx = pool.begin().await.unwrap();
-    oppdater_sist_oppdatert(&mut tx, &[periode_id], naa).await.unwrap();
+    oppdater_sist_oppdatert(&mut tx, &[periode_id], naa)
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     // Med grense = naa - 1s skal perioden IKKE plukkes opp igjen
@@ -173,7 +175,7 @@ async fn oppdatert_sist_oppdatert_forhindrer_re_plukking() {
     let periode = main_avro_periode();
     let periode_id = ArbeidssoekerperiodeId::from(periode.id);
 
-    let periode_rad: utgang::dao::perioder::PeriodeRad = (&periode).into();
+    let periode_rad: utgang::dao::periode_rad::PeriodeRad = (&periode).into();
     let mut tx = pool.begin().await.unwrap();
     skriv_perioder(&mut tx, &[periode_rad]).await.unwrap();
     tx.commit().await.unwrap();
