@@ -11,17 +11,24 @@ pub struct Regelsett {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EvalueringsResultat {
-    Godkjent(Vec<GrunnlagForGodkjenning>),
-    Avvist(Vec<Problem>),
+    Godkjent { grunnlag: Vec<GrunnlagForGodkjenning> },
+    Avvist { problemer: Vec<Problem> },
 }
 
 impl EvalueringsResultat {
     pub fn is_godkjent(&self) -> bool {
-        matches!(self, Self::Godkjent(_))
+        matches!(self, Self::Godkjent { .. })
     }
 
     pub fn is_avvist(&self) -> bool {
-        matches!(self, Self::Avvist(_))
+        matches!(self, Self::Avvist { .. })
+    }
+
+    pub fn status(&self) -> &'static str {
+        match self {
+            Self::Godkjent { .. } => "GODKJENT",
+            Self::Avvist { .. } => "AVVIST",
+        }
     }
 }
 
@@ -50,24 +57,30 @@ impl Regelsett {
             .position(|p| p.kind == ProblemKind::SkalAvvises)
         {
             if problemer[idx].regel_id == RegelId::IkkeFunnet {
-                return EvalueringsResultat::Avvist(vec![problemer.swap_remove(idx)]);
+                return EvalueringsResultat::Avvist {
+                    problemer: vec![problemer.swap_remove(idx)],
+                };
             }
             let skal_avvises = problemer.remove(idx);
             problemer.insert(0, skal_avvises);
-            return EvalueringsResultat::Avvist(problemer);
+            return EvalueringsResultat::Avvist { problemer };
         }
 
         if !godkjenninger.is_empty() {
-            return EvalueringsResultat::Godkjent(godkjenninger);
+            return EvalueringsResultat::Godkjent {
+                grunnlag: godkjenninger,
+            };
         }
 
         if !problemer.is_empty() {
-            return EvalueringsResultat::Avvist(problemer);
+            return EvalueringsResultat::Avvist { problemer };
         }
 
         match self.standard_regel.ved_treff(opplysninger.to_vec()) {
-            Ok(g) => EvalueringsResultat::Godkjent(vec![g]),
-            Err(p) => EvalueringsResultat::Avvist(vec![p]),
+            Ok(g) => EvalueringsResultat::Godkjent { grunnlag: vec![g] },
+            Err(p) => EvalueringsResultat::Avvist {
+                problemer: vec![p],
+            },
         }
     }
 

@@ -66,10 +66,10 @@ impl KontrollTask {
 
             let (db_status, opplysninger) = match &status {
                 Ok(KontrollStatus::IngenEndring) => (KontrollStatusType::Godkjent, None),
-                Ok(KontrollStatus::Endret(EvalueringsResultat::Avvist(_))) => {
+                Ok(KontrollStatus::Endret(EvalueringsResultat::Avvist { .. })) => {
                     (KontrollStatusType::Avvist, Some(gjeldende))
                 }
-                Ok(KontrollStatus::Endret(EvalueringsResultat::Godkjent(_))) => {
+                Ok(KontrollStatus::Endret(EvalueringsResultat::Godkjent { .. })) => {
                     (KontrollStatusType::Godkjent, Some(gjeldende))
                 }
                 Err(e) => {

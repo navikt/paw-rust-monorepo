@@ -25,7 +25,7 @@ impl RegelVersjon {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evaluering {
-    pub versjon: RegelVersjon,
+    pub regelsett_versjon: RegelVersjon,
     pub resultat: EvalueringsResultat,
 }
 
@@ -55,7 +55,7 @@ impl Regelmotor {
         let fakta = self.utlede_fakta.utlede_fakta(person)?;
         let resultat = self.regelsett.evaluer(&fakta);
         Ok(Evaluering {
-            versjon: RegelVersjon::gjeldende(),
+            regelsett_versjon: RegelVersjon::gjeldende(),
             resultat,
         })
     }
@@ -152,19 +152,21 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::Godkjent(vec![GrunnlagForGodkjenning {
-                regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
-                opplysninger: vec![
-                    ErOver18Aar,
-                    HarNorskAdresse,
-                    HarRegistrertAdresseIEuEoes,
-                    BosattEtterFregLoven,
-                    ErNorskStatsborger,
-                    ErEuEoesStatsborger,
-                    HarGyldigOppholdstillatelse,
-                    IngenFlytteInformasjon
-                ],
-            }])
+            EvalueringsResultat::Godkjent {
+                grunnlag: vec![GrunnlagForGodkjenning {
+                    regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
+                    opplysninger: vec![
+                        ErOver18Aar,
+                        HarNorskAdresse,
+                        HarRegistrertAdresseIEuEoes,
+                        BosattEtterFregLoven,
+                        ErNorskStatsborger,
+                        ErEuEoesStatsborger,
+                        HarGyldigOppholdstillatelse,
+                        IngenFlytteInformasjon
+                    ],
+                }]
+            }
         );
     }
 
@@ -181,16 +183,18 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::Avvist(vec![Problem {
-                regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-                opplysninger: vec![
-                    ErOver18Aar,
-                    IngenAdresseFunnet,
-                    UkjentStatusForOppholdstillatelse,
-                    IngenFlytteInformasjon
-                ],
-                kind: ProblemKind::MuligGrunnlagForAvvisning,
-            }])
+            EvalueringsResultat::Avvist {
+                problemer: vec![Problem {
+                    regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
+                    opplysninger: vec![
+                        ErOver18Aar,
+                        IngenAdresseFunnet,
+                        UkjentStatusForOppholdstillatelse,
+                        IngenFlytteInformasjon
+                    ],
+                    kind: ProblemKind::MuligGrunnlagForAvvisning,
+                }]
+            }
         );
     }
 }
