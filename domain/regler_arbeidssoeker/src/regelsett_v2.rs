@@ -108,17 +108,22 @@ pub fn regelsett_v2() -> Regelsett {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::regler::regelsett::EvalueringsResultat;
     use interne_hendelser::vo::Opplysning::*;
 
     fn avviste_regel_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
         match regelsett_v2().evaluer(opplysninger) {
-            Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
-            Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
+            EvalueringsResultat::Godkjent { .. } => {
+                panic!("Forventet avvisning, men fikk godkjenning")
+            }
+            EvalueringsResultat::Avvist { problemer } => {
+                problemer.into_iter().map(|p| p.regel_id).collect()
+            }
         }
     }
 
     fn er_godkjent(opplysninger: &[Opplysning]) -> bool {
-        regelsett_v2().evaluer(opplysninger).is_ok()
+        regelsett_v2().evaluer(opplysninger).is_godkjent()
     }
 
     // --- Under 18 år, ikke forhåndsgodkjent ---

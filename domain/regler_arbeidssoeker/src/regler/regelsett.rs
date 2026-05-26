@@ -46,7 +46,7 @@ impl Regelsett {
         let mut godkjenninger: Vec<GrunnlagForGodkjenning> = Vec::new();
 
         for regel in self.regler.iter().filter(|r| r.evaluer(opplysninger)) {
-            match regel.ved_treff(opplysninger.to_vec()) {
+            match regel.ved_treff() {
                 Ok(g) => godkjenninger.push(g),
                 Err(p) => problemer.push(p),
             }
@@ -76,7 +76,7 @@ impl Regelsett {
             return EvalueringsResultat::Avvist { problemer };
         }
 
-        match self.standard_regel.ved_treff(opplysninger.to_vec()) {
+        match self.standard_regel.ved_treff() {
             Ok(g) => EvalueringsResultat::Godkjent { grunnlag: vec![g] },
             Err(p) => EvalueringsResultat::Avvist {
                 problemer: vec![p],

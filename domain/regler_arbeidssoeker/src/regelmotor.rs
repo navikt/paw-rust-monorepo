@@ -5,6 +5,7 @@ use crate::regelsett_v3::regelsett_v3;
 use crate::regelsett_v4::regelsett_v4;
 use crate::regler::regelsett::{EvalueringsResultat, Regelsett};
 use anyhow::Result;
+use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +27,8 @@ impl RegelVersjon {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evaluering {
     pub regelsett_versjon: RegelVersjon,
+    #[serde(default)]
+    pub fakta: Vec<Opplysning>,
     pub resultat: EvalueringsResultat,
 }
 
@@ -56,6 +59,7 @@ impl Regelmotor {
         let resultat = self.regelsett.evaluer(&fakta);
         Ok(Evaluering {
             regelsett_versjon: RegelVersjon::gjeldende(),
+            fakta,
             resultat,
         })
     }
@@ -63,15 +67,13 @@ impl Regelmotor {
 
 #[cfg(test)]
 mod tests {
-    use crate::regelmotor::{Evaluering, RegelVersjon, Regelmotor};
-    use crate::regler::regelsett::EvalueringsResultat;
+    use crate::regelmotor::{RegelVersjon, Regelmotor};
     use crate::regler::regel_id::RegelId;
+    use crate::regler::regelsett::EvalueringsResultat;
     use crate::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
-        BosattEtterFregLoven, ErEuEoesStatsborger, ErNorskStatsborger, ErOver18Aar,
-        HarGyldigOppholdstillatelse, HarNorskAdresse, HarRegistrertAdresseIEuEoes,
-        IngenAdresseFunnet, IngenFlytteInformasjon, UkjentStatusForOppholdstillatelse,
+        BosattEtterFregLoven, ErNorskStatsborger, ErOver18Aar, IngenAdresseFunnet,
     };
     use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
     use pdl_graphql::pdl::{
@@ -155,19 +157,12 @@ mod tests {
             EvalueringsResultat::Godkjent {
                 grunnlag: vec![GrunnlagForGodkjenning {
                     regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
-                    opplysninger: vec![
-                        ErOver18Aar,
-                        HarNorskAdresse,
-                        HarRegistrertAdresseIEuEoes,
-                        BosattEtterFregLoven,
-                        ErNorskStatsborger,
-                        ErEuEoesStatsborger,
-                        HarGyldigOppholdstillatelse,
-                        IngenFlytteInformasjon
-                    ],
                 }]
             }
         );
+        assert!(evaluering.fakta.contains(&ErOver18Aar));
+        assert!(evaluering.fakta.contains(&BosattEtterFregLoven));
+        assert!(evaluering.fakta.contains(&ErNorskStatsborger));
     }
 
     #[test]
@@ -186,15 +181,11 @@ mod tests {
             EvalueringsResultat::Avvist {
                 problemer: vec![Problem {
                     regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-                    opplysninger: vec![
-                        ErOver18Aar,
-                        IngenAdresseFunnet,
-                        UkjentStatusForOppholdstillatelse,
-                        IngenFlytteInformasjon
-                    ],
                     kind: ProblemKind::MuligGrunnlagForAvvisning,
                 }]
             }
         );
+        assert!(evaluering.fakta.contains(&ErOver18Aar));
+        assert!(evaluering.fakta.contains(&IngenAdresseFunnet));
     }
 }

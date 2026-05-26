@@ -1,7 +1,6 @@
 use super::betingelse::Betingelse;
 use super::regel_id::RegelId;
 use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
-use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,22 +30,16 @@ impl Regel {
         self.betingelser.iter().all(|b| b.eval(opplysninger))
     }
 
-    pub fn ved_treff(
-        &self,
-        opplysninger: Vec<Opplysning>,
-    ) -> Result<GrunnlagForGodkjenning, Problem> {
+    pub fn ved_treff(&self) -> Result<GrunnlagForGodkjenning, Problem> {
         match self.aksjon {
             Aksjon::GrunnlagForGodkjenning => Ok(GrunnlagForGodkjenning {
-                opplysninger,
                 regel_id: self.id.clone(),
             }),
             Aksjon::SkalAvvises => Err(Problem {
-                opplysninger,
                 regel_id: self.id.clone(),
                 kind: ProblemKind::SkalAvvises,
             }),
             Aksjon::MuligGrunnlagForAvvisning => Err(Problem {
-                opplysninger,
                 regel_id: self.id.clone(),
                 kind: ProblemKind::MuligGrunnlagForAvvisning,
             }),

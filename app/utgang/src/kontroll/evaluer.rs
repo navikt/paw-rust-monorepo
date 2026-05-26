@@ -39,7 +39,6 @@ mod tests {
         EvalueringsResultat::Godkjent {
             grunnlag: vec![GrunnlagForGodkjenning {
                 regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
-                opplysninger: vec![],
             }],
         }
     }
@@ -48,7 +47,6 @@ mod tests {
         EvalueringsResultat::Avvist {
             problemer: vec![Problem {
                 regel_id: RegelId::IkkeFunnet,
-                opplysninger: vec![],
                 kind: ProblemKind::SkalAvvises,
             }],
         }

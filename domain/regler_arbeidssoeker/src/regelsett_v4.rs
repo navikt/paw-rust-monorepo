@@ -84,6 +84,7 @@ pub fn regelsett_v4() -> Regelsett {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::regler::regelsett::EvalueringsResultat;
     use interne_hendelser::vo::Opplysning::*;
     use std::collections::HashSet;
 
@@ -96,8 +97,12 @@ mod tests {
     impl Evaluering<'_> {
         fn skal_godkjennes_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                Err(_) => panic!("Forventet godkjenning, men fikk avvisning"),
-                Ok(godkjenninger) => godkjenninger.into_iter().map(|g| g.regel_id).collect(),
+                EvalueringsResultat::Avvist { .. } => {
+                    panic!("Forventet godkjenning, men fikk avvisning")
+                }
+                EvalueringsResultat::Godkjent { grunnlag } => {
+                    grunnlag.into_iter().map(|g| g.regel_id).collect()
+                }
             };
             let forventet: HashSet<_> = forventet.iter().cloned().collect();
             assert_eq!(ids, forventet);
@@ -105,8 +110,12 @@ mod tests {
 
         fn skal_avvises_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                Ok(_) => panic!("Forventet avvisning, men fikk godkjenning"),
-                Err(problemer) => problemer.into_iter().map(|p| p.regel_id).collect(),
+                EvalueringsResultat::Godkjent { .. } => {
+                    panic!("Forventet avvisning, men fikk godkjenning")
+                }
+                EvalueringsResultat::Avvist { problemer } => {
+                    problemer.into_iter().map(|p| p.regel_id).collect()
+                }
             };
             let forventet: HashSet<_> = forventet.iter().cloned().collect();
             assert_eq!(ids, forventet);
