@@ -17,7 +17,7 @@ spec:
     - name: RUST_BACKTRACE
       value: "1"
     - name: PGSSLMODE
-      value: "verify-full"
+      value: "VerifyFull"
     - name: PGSSLROOTCERT
       value: "$(NAIS_DATABASE_RUST_NAIS_API_TEST_RUST_TEST_APP_SSLROOTCERT)"
     - name: PGSSLCERT
