@@ -1,11 +1,9 @@
 use crate::fakta::UtledeFakta;
 use crate::fakta::person_fakta::UtledePersonFakta;
-use crate::modell::feil::EvalueringFeil;
 use crate::regelsett_v2::regelsett_v2;
 use crate::regelsett_v3::regelsett_v3;
 use crate::regelsett_v4::regelsett_v4;
-use crate::regler::regelsett::Regelsett;
-use crate::regler::resultat::GrunnlagForGodkjenning;
+use crate::regler::regelsett::{EvalueringsResultat, Regelsett};
 use anyhow::Result;
 use pdl_graphql::pdl::Person;
 use serde::{Deserialize, Serialize};
@@ -20,9 +18,15 @@ struct Regelmotor {
 pub struct RegelVersjon(String);
 
 impl RegelVersjon {
-    pub fn current() -> Self {
+    pub fn gjeldende() -> Self {
         Self(env!("REGLER_SOURCE_HASH").to_string())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Evaluering {
+    pub versjon: RegelVersjon,
+    pub resultat: EvalueringsResultat,
 }
 
 impl Regelmotor {
@@ -47,19 +51,20 @@ impl Regelmotor {
         }
     }
 
-    pub fn evaluer(&self, person: &Person) -> Result<Vec<GrunnlagForGodkjenning>> {
+    pub fn evaluer(&self, person: &Person) -> Result<Evaluering> {
         let fakta = self.utlede_fakta.utlede_fakta(person)?;
-        match self.regelsett.evaluer(&fakta) {
-            Ok(grunnlag) => Ok(grunnlag),
-            Err(problemer) => Err(EvalueringFeil::Problemer(problemer).into()),
-        }
+        let resultat = self.regelsett.evaluer(&fakta);
+        Ok(Evaluering {
+            versjon: RegelVersjon::gjeldende(),
+            resultat,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::modell::feil::EvalueringFeil;
-    use crate::regelmotor::Regelmotor;
+    use crate::regelmotor::{Evaluering, RegelVersjon, Regelmotor};
+    use crate::regler::regelsett::EvalueringsResultat;
     use crate::regler::regel_id::RegelId;
     use crate::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
     use chrono::NaiveDate;
@@ -129,6 +134,12 @@ mod tests {
     }
 
     #[test]
+    fn sjekk_regelmotor_versjon() {
+        let versjon = RegelVersjon::gjeldende();
+        assert_eq!(versjon.0, env!("REGLER_SOURCE_HASH").to_string());
+    }
+
+    #[test]
     fn bosatt_person_kan_godkjennes() {
         let person = person(
             NaiveDate::from_ymd_opt(1970, 1, 1),
@@ -138,25 +149,23 @@ mod tests {
             vec![Oppholdstillatelse::PERMANENT],
         );
         let regler_inngang: Regelmotor = Regelmotor::v2();
-        match regler_inngang.evaluer(&person) {
-            Ok(grunnlag) => assert_eq!(
-                grunnlag,
-                vec![GrunnlagForGodkjenning {
-                    regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
-                    opplysninger: vec![
-                        ErOver18Aar,
-                        HarNorskAdresse,
-                        HarRegistrertAdresseIEuEoes,
-                        BosattEtterFregLoven,
-                        ErNorskStatsborger,
-                        ErEuEoesStatsborger,
-                        HarGyldigOppholdstillatelse,
-                        IngenFlytteInformasjon
-                    ],
-                }]
-            ),
-            Err(error) => panic!("Forventet grunnlag for godkjenning, fikk: {:?}", error),
-        }
+        let evaluering = regler_inngang.evaluer(&person).unwrap();
+        assert_eq!(
+            evaluering.resultat,
+            EvalueringsResultat::Godkjent(vec![GrunnlagForGodkjenning {
+                regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
+                opplysninger: vec![
+                    ErOver18Aar,
+                    HarNorskAdresse,
+                    HarRegistrertAdresseIEuEoes,
+                    BosattEtterFregLoven,
+                    ErNorskStatsborger,
+                    ErEuEoesStatsborger,
+                    HarGyldigOppholdstillatelse,
+                    IngenFlytteInformasjon
+                ],
+            }])
+        );
     }
 
     #[test]
@@ -169,26 +178,19 @@ mod tests {
             vec![Oppholdstillatelse::Other("__UNKNOWN_VALUE".to_string())],
         );
         let regler_inngang: Regelmotor = Regelmotor::v2();
-        match regler_inngang.evaluer(&person) {
-            Ok(grunnlag) => panic!("Forventet problemer, fikk: {:?}", grunnlag),
-            Err(error) => match error.downcast::<EvalueringFeil>() {
-                Ok(EvalueringFeil::Problemer(problemer)) => {
-                    assert_eq!(
-                        problemer,
-                        vec![Problem {
-                            regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
-                            opplysninger: vec![
-                                ErOver18Aar,
-                                IngenAdresseFunnet,
-                                UkjentStatusForOppholdstillatelse,
-                                IngenFlytteInformasjon
-                            ],
-                            kind: ProblemKind::MuligGrunnlagForAvvisning,
-                        }]
-                    )
-                }
-                Err(other) => panic!("Forventet EvalueringFeil, fikk: {:?}", other),
-            },
-        }
+        let evaluering = regler_inngang.evaluer(&person).unwrap();
+        assert_eq!(
+            evaluering.resultat,
+            EvalueringsResultat::Avvist(vec![Problem {
+                regel_id: RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven,
+                opplysninger: vec![
+                    ErOver18Aar,
+                    IngenAdresseFunnet,
+                    UkjentStatusForOppholdstillatelse,
+                    IngenFlytteInformasjon
+                ],
+                kind: ProblemKind::MuligGrunnlagForAvvisning,
+            }])
+        );
     }
 }

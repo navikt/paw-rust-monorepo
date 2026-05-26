@@ -8,8 +8,8 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing::instrument;
 
-use crate::dao::perioder::{KontrollStatusType, oppdater_kontroll_status};
-use regler_arbeidssoeker::regler::regelsett::Regelsett;
+use crate::dao::periode_rad::{KontrollStatusType, oppdater_kontroll_status};
+use regler_arbeidssoeker::regler::regelsett::{EvalueringsResultat, Regelsett};
 
 use super::evaluer::{KontrollStatus, sjekk_status};
 use super::hent_data::hent_perioder_for_kontroll;
@@ -65,13 +65,11 @@ impl KontrollTask {
             let status = sjekk_status(Some(gjeldende_resultat), forrige_resultat);
 
             let (db_status, opplysninger) = match &status {
-                Ok(KontrollStatus::IngenEndring) => {
-                    (KontrollStatusType::Godkjent, None)
-                }
-                Ok(KontrollStatus::Endret(Err(_))) => {
+                Ok(KontrollStatus::IngenEndring) => (KontrollStatusType::Godkjent, None),
+                Ok(KontrollStatus::Endret(EvalueringsResultat::Avvist(_))) => {
                     (KontrollStatusType::Avvist, Some(gjeldende))
                 }
-                Ok(KontrollStatus::Endret(Ok(_))) => {
+                Ok(KontrollStatus::Endret(EvalueringsResultat::Godkjent(_))) => {
                     (KontrollStatusType::Godkjent, Some(gjeldende))
                 }
                 Err(e) => {
@@ -84,14 +82,8 @@ impl KontrollTask {
                 }
             };
 
-            oppdater_kontroll_status(
-                &mut tx,
-                &periode.id,
-                &db_status,
-                Utc::now(),
-                opplysninger,
-            )
-            .await?;
+            oppdater_kontroll_status(&mut tx, &periode.id, &db_status, Utc::now(), opplysninger)
+                .await?;
         }
 
         tx.commit().await?;

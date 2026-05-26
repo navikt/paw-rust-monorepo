@@ -36,14 +36,14 @@ mod tests {
     use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
 
     fn godkjent() -> EvalueringsResultat {
-        Ok(vec![GrunnlagForGodkjenning {
+        EvalueringsResultat::Godkjent(vec![GrunnlagForGodkjenning {
             regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
             opplysninger: vec![],
         }])
     }
 
     fn avvist() -> EvalueringsResultat {
-        Err(vec![Problem {
+        EvalueringsResultat::Avvist(vec![Problem {
             regel_id: RegelId::IkkeFunnet,
             opplysninger: vec![],
             kind: ProblemKind::SkalAvvises,

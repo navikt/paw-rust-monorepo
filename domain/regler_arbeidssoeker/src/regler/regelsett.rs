@@ -1,15 +1,29 @@
 use super::regel::Regel;
 use super::regel_id::RegelId;
 use super::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
-use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
+use serde::{Deserialize, Serialize};
 
 pub struct Regelsett {
     pub regler: Vec<Regel>,
     pub standard_regel: Regel,
 }
 
-pub type EvalueringsResultat = Result<Vec<GrunnlagForGodkjenning>, Vec<Problem>>;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvalueringsResultat {
+    Godkjent(Vec<GrunnlagForGodkjenning>),
+    Avvist(Vec<Problem>),
+}
+
+impl EvalueringsResultat {
+    pub fn is_godkjent(&self) -> bool {
+        matches!(self, Self::Godkjent(_))
+    }
+
+    pub fn is_avvist(&self) -> bool {
+        matches!(self, Self::Avvist(_))
+    }
+}
 
 impl Regelsett {
     /// Evaluates the rule set against the given opplysninger.
@@ -20,10 +34,7 @@ impl Regelsett {
     /// 3. Any `GrunnlagForGodkjenning` → return all matching.
     /// 4. Any problems → return them all.
     /// 5. No rules matched → apply `standard_regel`.
-    pub fn evaluer(
-        &self,
-        opplysninger: &[Opplysning],
-    ) -> Result<Vec<GrunnlagForGodkjenning>, Vec<Problem>> {
+    pub fn evaluer(&self, opplysninger: &[Opplysning]) -> EvalueringsResultat {
         let mut problemer: Vec<Problem> = Vec::new();
         let mut godkjenninger: Vec<GrunnlagForGodkjenning> = Vec::new();
 
@@ -39,25 +50,25 @@ impl Regelsett {
             .position(|p| p.kind == ProblemKind::SkalAvvises)
         {
             if problemer[idx].regel_id == RegelId::IkkeFunnet {
-                return Err(vec![problemer.swap_remove(idx)]);
+                return EvalueringsResultat::Avvist(vec![problemer.swap_remove(idx)]);
             }
             let skal_avvises = problemer.remove(idx);
             problemer.insert(0, skal_avvises);
-            return Err(problemer);
+            return EvalueringsResultat::Avvist(problemer);
         }
 
         if !godkjenninger.is_empty() {
-            return Ok(godkjenninger);
+            return EvalueringsResultat::Godkjent(godkjenninger);
         }
 
         if !problemer.is_empty() {
-            return Err(problemer);
+            return EvalueringsResultat::Avvist(problemer);
         }
 
-        self.standard_regel
-            .ved_treff(opplysninger.to_vec())
-            .map(|g| vec![g])
-            .map_err(|p| vec![p])
+        match self.standard_regel.ved_treff(opplysninger.to_vec()) {
+            Ok(g) => EvalueringsResultat::Godkjent(vec![g]),
+            Err(p) => EvalueringsResultat::Avvist(vec![p]),
+        }
     }
 
     pub fn evaluer_liste<'a, T>(
