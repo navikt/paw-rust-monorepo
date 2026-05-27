@@ -153,7 +153,7 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::GrunnlagForGodkjenning {
+            EvalueringsResultat::Godkjent {
                 regel_ider: vec!(RegelId::Over18AarOgBosattEtterFregLoven)
             }
         );

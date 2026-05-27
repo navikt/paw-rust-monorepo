@@ -33,7 +33,7 @@ impl Regel {
 
     pub fn ved_treff(&self) -> EvalueringsResultat {
         match self.aksjon {
-            Aksjon::GrunnlagForGodkjenning => EvalueringsResultat::GrunnlagForGodkjenning {
+            Aksjon::GrunnlagForGodkjenning => EvalueringsResultat::Godkjent {
                 regel_ider: vec![self.id.clone()],
             },
             Aksjon::SkalAvvises => EvalueringsResultat::Avvist {

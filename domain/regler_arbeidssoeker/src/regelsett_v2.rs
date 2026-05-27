@@ -113,7 +113,7 @@ mod tests {
 
     fn krever_manuel_vurdering_ider(opplysninger: &[Opplysning]) -> Vec<RegelId> {
         match regelsett_v2().evaluer(opplysninger) {
-            EvalueringsResultat::GrunnlagForGodkjenning { .. } => {
+            EvalueringsResultat::Godkjent { .. } => {
                 panic!("Forventet avvisning, men fikk godkjenning")
             }
             EvalueringsResultat::Avvist { regel_ider } => regel_ider,

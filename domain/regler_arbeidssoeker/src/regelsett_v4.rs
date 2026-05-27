@@ -103,9 +103,7 @@ mod tests {
                         regel_ider
                     )
                 }
-                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
-                    regel_ider.into_iter().collect()
-                }
+                EvalueringsResultat::Godkjent { regel_ider } => regel_ider.into_iter().collect(),
                 EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
                     panic!(
                         "Forventet GrunnlagForGodkjen, men fikk KreverManuellVurdering med regel_ider: {:?}",
@@ -119,7 +117,7 @@ mod tests {
 
         fn skal_avvises_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                EvalueringsResultat::Godkjent { regel_ider } => {
                     panic!(
                         "Forventet avvisning, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
                         regel_ider
@@ -139,7 +137,7 @@ mod tests {
 
         fn krever_manuell_vurdering(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                EvalueringsResultat::Godkjent { regel_ider } => {
                     panic!(
                         "Forventet KreverManuellVurdering, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
                         regel_ider

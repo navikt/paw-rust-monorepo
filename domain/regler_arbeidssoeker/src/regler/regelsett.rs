@@ -10,7 +10,7 @@ pub struct Regelsett {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EvalueringsResultat {
-    GrunnlagForGodkjenning { regel_ider: Vec<RegelId> },
+    Godkjent { regel_ider: Vec<RegelId> },
     Avvist { regel_ider: Vec<RegelId> },
     KreverManuellVurdering { regel_ider: Vec<RegelId> },
 }
@@ -24,7 +24,7 @@ pub struct Eval {
 
 impl EvalueringsResultat {
     pub fn is_grunnlag_for_godkjenning(&self) -> bool {
-        matches!(self, Self::GrunnlagForGodkjenning { .. })
+        matches!(self, Self::Godkjent { .. })
     }
 
     pub fn is_avvist(&self) -> bool {
@@ -37,7 +37,7 @@ impl EvalueringsResultat {
 
     pub fn status(&self) -> &'static str {
         match self {
-            Self::GrunnlagForGodkjenning { .. } => "GODKJENT",
+            Self::Godkjent { .. } => "GODKJENT",
             Self::Avvist { .. } => "AVVIST",
             Self::KreverManuellVurdering { .. } => "KREVER_MANUELL_VURDERING",
         }
@@ -58,7 +58,7 @@ impl Regelsett {
             Eval::default(),
             |mut eval, regel| {
                 match regel.ved_treff() {
-                    EvalueringsResultat::GrunnlagForGodkjenning { regel_ider } => {
+                    EvalueringsResultat::Godkjent { regel_ider } => {
                         eval.godkjent.extend(regel_ider)
                     }
                     EvalueringsResultat::Avvist { regel_ider } => eval.avvist.extend(regel_ider),
@@ -80,7 +80,7 @@ impl Regelsett {
                     .chain(eval.manuell_vurdering)
                     .collect(),
             },
-            eval if !eval.godkjent.is_empty() => EvalueringsResultat::GrunnlagForGodkjenning {
+            eval if !eval.godkjent.is_empty() => EvalueringsResultat::Godkjent {
                 regel_ider: eval.godkjent,
             },
             eval if !eval.manuell_vurdering.is_empty() => {
