@@ -1,6 +1,7 @@
+use crate::rebalance::build_tpl::build_assignment_tpl_from;
 use crate::rebalance::get_hwms::get_hwms;
-use crate::rebalance::build_tpl::build_tpl_from;
 use health_and_monitoring::simple_app_state::AppState;
+use paw_rdkafka_hwm::hwm::Hwm;
 use rdkafka::ClientContext;
 use rdkafka::consumer::ConsumerContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
@@ -8,7 +9,6 @@ use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::types::RDKafkaRespErr;
 use sqlx::PgPool;
 use std::sync::Arc;
-use paw_rdkafka_hwm::hwm::Hwm;
 
 pub struct RebalanceHandler {
     pub pg_pool: PgPool,
@@ -36,7 +36,7 @@ impl ConsumerContext for RebalanceHandler {
                     }
                 };
 
-                let assigned_tpl: TopicPartitionList = match build_tpl_from(&hwms) {
+                let assignment: TopicPartitionList = match build_assignment_tpl_from(&hwms) {
                     Ok(tpl) => tpl,
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to build TopicPartitionList");
@@ -45,9 +45,9 @@ impl ConsumerContext for RebalanceHandler {
                     }
                 };
 
-                match base_consumer.assign(&assigned_tpl) {
+                match base_consumer.assign(&assignment) {
                     Ok(_) => {
-                        tracing::info!(partitions = ?tpl_as_string(&assigned_tpl), "Consumer assigned with HWM offsets");
+                        tracing::info!(partitions = ?tpl_as_string(&assignment), "Consumer assigned with HWM offsets");
                     }
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to assign partitions");
@@ -67,6 +67,12 @@ impl ConsumerContext for RebalanceHandler {
                     }
                 }
             }
+
+            RDKafkaRespErr::RD_KAFKA_RESP_ERR__ASSIGNMENT_LOST => {
+                tracing::error!("Assignment lost - Shutting down app");
+                self.app_state.set_is_alive(false);
+            }
+
             _ => {
                 tracing::error!(error = ?err, "Unexpected rebalance signal");
                 self.app_state.set_is_alive(false);

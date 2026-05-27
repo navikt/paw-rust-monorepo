@@ -3,7 +3,7 @@ use paw_rdkafka_hwm::hwm::Hwm;
 use rdkafka::Offset;
 use rdkafka::topic_partition_list::TopicPartitionList;
 
-pub(super) fn build_tpl_from(hwms: &[Hwm]) -> Result<TopicPartitionList, RebalanceError> {
+pub(super) fn build_assignment_tpl_from(hwms: &[Hwm]) -> Result<TopicPartitionList, RebalanceError> {
     let mut tpl = TopicPartitionList::new();
     for hwm in hwms {
         let offset: Offset = match hwm.offset {
@@ -22,13 +22,13 @@ mod tests {
 
     #[test]
     fn tom_liste_gir_tom_tpl() {
-        let tpl = build_tpl_from(&[]).unwrap();
+        let tpl = build_assignment_tpl_from(&[]).unwrap();
         assert_eq!(tpl.count(), 0);
     }
 
     #[test]
     fn default_hwm_gir_offset_0() {
-        let tpl = build_tpl_from(&[hwm("topic-a", 0, Some(DEFAULT_HWM))]).unwrap();
+        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(DEFAULT_HWM))]).unwrap();
 
         let elem = &tpl.elements()[0];
         assert_eq!(elem.offset(), Offset::Offset(0));
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn hwm_med_offset_gir_offset_pluss_en() {
-        let tpl = build_tpl_from(&[hwm("topic-a", 0, Some(42))]).unwrap();
+        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(42))]).unwrap();
 
         let elem = &tpl.elements()[0];
         assert_eq!(elem.topic(), "topic-a");
@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn hwm_uten_offset_gir_beginning() {
-        let tpl = build_tpl_from(&[hwm("topic-a", 0, None)]).unwrap();
+        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, None)]).unwrap();
 
         let elem = &tpl.elements()[0];
         assert_eq!(elem.offset(), Offset::Beginning);
@@ -60,7 +60,7 @@ mod tests {
             hwm("topic-b", 0, Some(0)),
         ];
 
-        let tpl = build_tpl_from(&hwms).unwrap();
+        let tpl = build_assignment_tpl_from(&hwms).unwrap();
 
         assert_eq!(tpl.count(), 3);
 
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn offset_null_gir_offset_en() {
-        let tpl = build_tpl_from(&[hwm("topic-a", 0, Some(0))]).unwrap();
+        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(0))]).unwrap();
 
         let elem = &tpl.elements()[0];
         assert_eq!(elem.offset(), Offset::Offset(1));
