@@ -2,7 +2,6 @@ mod app_logic;
 mod config;
 mod consumer;
 mod http_apis;
-mod rebalance;
 
 use crate::config::{read_database_config, read_kafka_config};
 use crate::consumer::create_consumer;
@@ -18,7 +17,7 @@ use rdkafka::Message;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::info;
-use crate::rebalance::rebalance_handler::RebalanceHandler;
+use paw_rdkafka_hwm::rebalance::rebalance_handler::RebalanceHandler;
 
 const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
 

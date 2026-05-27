@@ -1,5 +1,5 @@
+use crate::hwm::Hwm;
 use crate::rebalance::rebalance_error::RebalanceError;
-use paw_rdkafka_hwm::hwm::Hwm;
 use rdkafka::Offset;
 use rdkafka::topic_partition_list::TopicPartitionList;
 
@@ -8,7 +8,7 @@ pub(super) fn build_assignment_tpl_from(hwms: &[Hwm]) -> Result<TopicPartitionLi
     for hwm in hwms {
         let offset: Offset = match hwm.offset {
             None => Offset::Beginning,
-            Some(offset) => Offset::Offset(offset + 1)
+            Some(offset) => Offset::Offset(offset + 1),
         };
         tpl.add_partition_offset(&hwm.topic, hwm.partition, offset)?;
     }
@@ -17,8 +17,8 @@ pub(super) fn build_assignment_tpl_from(hwms: &[Hwm]) -> Result<TopicPartitionLi
 
 #[cfg(test)]
 mod tests {
-    use paw_rdkafka_hwm::hwm::DEFAULT_HWM;
     use super::*;
+    use crate::hwm::DEFAULT_HWM;
 
     #[test]
     fn tom_liste_gir_tom_tpl() {
@@ -28,54 +28,53 @@ mod tests {
 
     #[test]
     fn default_hwm_gir_offset_0() {
-        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(DEFAULT_HWM))]).unwrap();
+        let hwms = vec![hwm("topic-a", 0, Some(DEFAULT_HWM))];
+        let tpl = build_assignment_tpl_from(&hwms).unwrap();
 
-        let elem = &tpl.elements()[0];
-        assert_eq!(elem.offset(), Offset::Offset(0));
-    }
-
-    #[test]
-    fn hwm_med_offset_gir_offset_pluss_en() {
-        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(42))]).unwrap();
-
+        assert_eq!(tpl.count(), 1);
         let elem = &tpl.elements()[0];
         assert_eq!(elem.topic(), "topic-a");
         assert_eq!(elem.partition(), 0);
-        assert_eq!(elem.offset(), Offset::Offset(43));
+        assert_eq!(elem.offset(), Offset::Offset(DEFAULT_HWM + 1));
     }
 
     #[test]
-    fn hwm_uten_offset_gir_beginning() {
-        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, None)]).unwrap();
+    fn none_offset_gir_beginning() {
+        let hwms = vec![hwm("topic-a", 0, None)];
+        let tpl = build_assignment_tpl_from(&hwms).unwrap();
 
-        let elem = &tpl.elements()[0];
-        assert_eq!(elem.offset(), Offset::Beginning);
+        assert_eq!(tpl.elements()[0].offset(), Offset::Beginning);
     }
 
     #[test]
-    fn flere_hwms_med_ulike_offsets() {
+    fn flere_hwms_gir_korrekte_offsets() {
         let hwms = vec![
             hwm("topic-a", 0, Some(100)),
             hwm("topic-a", 1, None),
-            hwm("topic-b", 0, Some(0)),
+            hwm("topic-b", 0, Some(42)),
         ];
-
         let tpl = build_assignment_tpl_from(&hwms).unwrap();
 
         assert_eq!(tpl.count(), 3);
-
-        let elements = tpl.elements();
-        assert_eq!(elements[0].offset(), Offset::Offset(101));
-        assert_eq!(elements[1].offset(), Offset::Beginning);
-        assert_eq!(elements[2].offset(), Offset::Offset(1));
+        assert_eq!(tpl.elements()[0].offset(), Offset::Offset(101));
+        assert_eq!(tpl.elements()[1].offset(), Offset::Beginning);
+        assert_eq!(tpl.elements()[2].offset(), Offset::Offset(43));
     }
 
     #[test]
-    fn offset_null_gir_offset_en() {
-        let tpl = build_assignment_tpl_from(&[hwm("topic-a", 0, Some(0))]).unwrap();
+    fn offset_0_gir_offset_1() {
+        let hwms = vec![hwm("topic-a", 0, Some(0))];
+        let tpl = build_assignment_tpl_from(&hwms).unwrap();
 
-        let elem = &tpl.elements()[0];
-        assert_eq!(elem.offset(), Offset::Offset(1));
+        assert_eq!(tpl.elements()[0].offset(), Offset::Offset(1));
+    }
+
+    #[test]
+    fn stor_offset_gir_korrekt_verdi() {
+        let hwms = vec![hwm("topic-a", 0, Some(i64::MAX - 1))];
+        let tpl = build_assignment_tpl_from(&hwms).unwrap();
+
+        assert_eq!(tpl.elements()[0].offset(), Offset::Offset(i64::MAX));
     }
 
     fn hwm(topic: &str, partition: i32, offset: Option<i64>) -> Hwm {

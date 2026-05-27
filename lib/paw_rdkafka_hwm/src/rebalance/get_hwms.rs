@@ -1,7 +1,7 @@
+use crate::hwm::{DEFAULT_HWM, Hwm};
+use crate::hwm_functions::{get_hwm, insert_hwm};
 use crate::rebalance::rebalance_error::RebalanceError;
 use futures::executor::block_on;
-use paw_rdkafka_hwm::hwm::{DEFAULT_HWM, Hwm};
-use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use sqlx::PgPool;
 
@@ -46,7 +46,8 @@ mod tests {
         let pool = setup_db().await;
 
         let mut tpl = TopicPartitionList::new();
-        tpl.add_partition_offset("topic-a", 0, Offset::Invalid).unwrap();
+        tpl.add_partition_offset("topic-a", 0, Offset::Invalid)
+            .unwrap();
 
         let hwms = get_hwms(1, &tpl, &pool).unwrap();
 
@@ -64,7 +65,8 @@ mod tests {
         tx.commit().await.unwrap();
 
         let mut tpl = TopicPartitionList::new();
-        tpl.add_partition_offset("topic-a", 0, Offset::Invalid).unwrap();
+        tpl.add_partition_offset("topic-a", 0, Offset::Invalid)
+            .unwrap();
 
         let hwms = get_hwms(1, &tpl, &pool).unwrap();
 
@@ -80,9 +82,12 @@ mod tests {
         tx.commit().await.unwrap();
 
         let mut tpl = TopicPartitionList::new();
-        tpl.add_partition_offset("topic-a", 0, Offset::Invalid).unwrap();
-        tpl.add_partition_offset("topic-a", 1, Offset::Invalid).unwrap();
-        tpl.add_partition_offset("topic-b", 0, Offset::Invalid).unwrap();
+        tpl.add_partition_offset("topic-a", 0, Offset::Invalid)
+            .unwrap();
+        tpl.add_partition_offset("topic-a", 1, Offset::Invalid)
+            .unwrap();
+        tpl.add_partition_offset("topic-b", 0, Offset::Invalid)
+            .unwrap();
 
         let hwms = get_hwms(1, &tpl, &pool).unwrap();
 

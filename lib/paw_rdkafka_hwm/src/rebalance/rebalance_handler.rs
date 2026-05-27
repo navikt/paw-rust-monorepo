@@ -1,7 +1,6 @@
 use crate::rebalance::build_tpl::build_assignment_tpl_from;
 use crate::rebalance::get_hwms::get_hwms;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_rdkafka_hwm::hwm::Hwm;
 use rdkafka::ClientContext;
 use rdkafka::consumer::ConsumerContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
@@ -27,7 +26,7 @@ impl ConsumerContext for RebalanceHandler {
             RDKafkaRespErr::RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS => {
                 tracing::info!(partitions = ?tpl_as_string(tpl), "Partitions assigned");
 
-                let hwms: Vec<Hwm> = match get_hwms(self.version, tpl, &self.pg_pool) {
+                let hwms = match get_hwms(self.version, tpl, &self.pg_pool) {
                     Ok(hwms) => hwms,
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to get HWMs");
@@ -36,7 +35,7 @@ impl ConsumerContext for RebalanceHandler {
                     }
                 };
 
-                let assignment: TopicPartitionList = match build_assignment_tpl_from(&hwms) {
+                let assignment = match build_assignment_tpl_from(&hwms) {
                     Ok(tpl) => tpl,
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to build TopicPartitionList");

@@ -4,7 +4,7 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 use std::sync::Arc;
-use crate::rebalance::rebalance_handler::RebalanceHandler;
+use paw_rdkafka_hwm::rebalance::rebalance_handler::RebalanceHandler;
 
 pub fn create_consumer(
     app_state: Arc<AppState>,
