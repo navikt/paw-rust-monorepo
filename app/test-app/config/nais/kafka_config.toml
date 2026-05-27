@@ -1,4 +1,4 @@
-hwm_version = 1
+hwm_version = 2
 brokers = "${KAFKA_BROKERS}"
 group_id_prefix = "paw-rust-test-app-hendelselogg"
 security_protocol = "SSL"

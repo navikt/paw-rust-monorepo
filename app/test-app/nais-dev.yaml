@@ -11,8 +11,8 @@ spec:
     - https://intern-rust-testing-arbeidssoekerregisteret.intern.dev.nav.no
   port: 8080
   replicas:
-    min: 1
-    max: 1
+    min: 2
+    max: 2
   env:
     - name: RUST_BACKTRACE
       value: "1"
