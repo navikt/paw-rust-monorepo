@@ -1,4 +1,4 @@
-use crate::regler::regelsett::EvalueringsResultat;
+use crate::regler::evalueringsresultat::Evalueringsresultat;
 
 use super::betingelse::Betingelse;
 use super::regel_id::RegelId;
@@ -31,15 +31,15 @@ impl Regel {
         self.betingelser.iter().all(|b| b.eval(opplysninger))
     }
 
-    pub fn ved_treff(&self) -> EvalueringsResultat {
+    pub fn ved_treff(&self) -> Evalueringsresultat {
         match self.aksjon {
-            Aksjon::GrunnlagForGodkjenning => EvalueringsResultat::Godkjent {
+            Aksjon::GrunnlagForGodkjenning => Evalueringsresultat::Godkjent {
                 regel_ider: vec![self.id.clone()],
             },
-            Aksjon::SkalAvvises => EvalueringsResultat::Avvist {
+            Aksjon::SkalAvvises => Evalueringsresultat::Avvist {
                 regel_ider: vec![self.id.clone()],
             },
-            Aksjon::MuligGrunnlagForAvvisning => EvalueringsResultat::KreverManuellVurdering {
+            Aksjon::MuligGrunnlagForAvvisning => Evalueringsresultat::KreverManuellVurdering {
                 regel_ider: vec![self.id.clone()],
             },
         }

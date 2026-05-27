@@ -1,9 +1,9 @@
-use crate::fakta::UtledeFakta;
 use crate::fakta::person_fakta::UtledePersonFakta;
 use crate::regelsett_v2::regelsett_v2;
 use crate::regelsett_v3::regelsett_v3;
 use crate::regelsett_v4::regelsett_v4;
-use crate::regler::regelsett::{EvalueringsResultat, Regelsett};
+use crate::regler::regelsett::Regelsett;
+use crate::{fakta::UtledeFakta, regler::evalueringsresultat::Evalueringsresultat};
 use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
@@ -29,7 +29,7 @@ pub struct Evaluering {
     pub regelsett_versjon: RegelVersjon,
     #[serde(default)]
     pub fakta: Vec<Opplysning>,
-    pub resultat: EvalueringsResultat,
+    pub resultat: Evalueringsresultat,
 }
 
 impl Regelmotor {
@@ -68,8 +68,8 @@ impl Regelmotor {
 #[cfg(test)]
 mod tests {
     use crate::regelmotor::{RegelVersjon, Regelmotor};
+    use crate::regler::evalueringsresultat::Evalueringsresultat;
     use crate::regler::regel_id::RegelId;
-    use crate::regler::regelsett::EvalueringsResultat;
     use chrono::NaiveDate;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, ErNorskStatsborger, ErOver18Aar, IngenAdresseFunnet,
@@ -153,7 +153,7 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::Godkjent {
+            Evalueringsresultat::Godkjent {
                 regel_ider: vec!(RegelId::Over18AarOgBosattEtterFregLoven)
             }
         );
@@ -175,7 +175,7 @@ mod tests {
         let evaluering = regler_inngang.evaluer(&person).unwrap();
         assert_eq!(
             evaluering.resultat,
-            EvalueringsResultat::KreverManuellVurdering {
+            Evalueringsresultat::KreverManuellVurdering {
                 regel_ider: vec!(RegelId::IkkeBosattINorgeIHenholdTilFolkeregisterloven)
             }
         );

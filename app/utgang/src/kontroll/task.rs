@@ -9,7 +9,7 @@ use tokio::time::sleep;
 use tracing::instrument;
 
 use crate::dao::periode_rad::{KontrollStatusType, oppdater_kontroll_status};
-use regler_arbeidssoeker::regler::regelsett::{EvalueringsResultat, Regelsett};
+use regler_arbeidssoeker::regler::regelsett::{Evalueringsresultat, Regelsett};
 
 use super::evaluer::{KontrollStatus, sjekk_status};
 use super::hent_data::hent_perioder_for_kontroll;
@@ -66,10 +66,10 @@ impl KontrollTask {
 
             let (db_status, opplysninger) = match &status {
                 Ok(KontrollStatus::IngenEndring) => (KontrollStatusType::Godkjent, None),
-                Ok(KontrollStatus::Endret(EvalueringsResultat::Avvist { .. })) => {
+                Ok(KontrollStatus::Endret(Evalueringsresultat::Avvist { .. })) => {
                     (KontrollStatusType::Avvist, Some(gjeldende))
                 }
-                Ok(KontrollStatus::Endret(EvalueringsResultat::Godkjent { .. })) => {
+                Ok(KontrollStatus::Endret(Evalueringsresultat::Godkjent { .. })) => {
                     (KontrollStatusType::Godkjent, Some(gjeldende))
                 }
                 Err(e) => {

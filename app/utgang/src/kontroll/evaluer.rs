@@ -1,9 +1,9 @@
-use regler_arbeidssoeker::regler::regelsett::EvalueringsResultat;
+use regler_arbeidssoeker::regler::regelsett::Evalueringsresultat;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum KontrollStatus {
     IngenEndring,
-    Endret(EvalueringsResultat),
+    Endret(Evalueringsresultat),
 }
 
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -15,8 +15,8 @@ pub enum SjekkFeil {
 /// Sammenligner gjeldende evalueringsresultat mot forrige.
 /// Hvis forrige mangler (første kontroll) antas ingen endring.
 pub fn sjekk_status(
-    gjeldende: Option<EvalueringsResultat>,
-    forrige: Option<EvalueringsResultat>,
+    gjeldende: Option<Evalueringsresultat>,
+    forrige: Option<Evalueringsresultat>,
 ) -> Result<KontrollStatus, SjekkFeil> {
     let gjeldende = gjeldende.ok_or(SjekkFeil::ManglerGjeldende)?;
     let Some(forrige) = forrige else {
@@ -35,16 +35,16 @@ mod tests {
     use regler_arbeidssoeker::regler::regel_id::RegelId;
     use regler_arbeidssoeker::regler::resultat::{GrunnlagForGodkjenning, Problem, ProblemKind};
 
-    fn godkjent() -> EvalueringsResultat {
-        EvalueringsResultat::Godkjent {
+    fn godkjent() -> Evalueringsresultat {
+        Evalueringsresultat::Godkjent {
             grunnlag: vec![GrunnlagForGodkjenning {
                 regel_id: RegelId::Over18AarOgBosattEtterFregLoven,
             }],
         }
     }
 
-    fn avvist() -> EvalueringsResultat {
-        EvalueringsResultat::Avvist {
+    fn avvist() -> Evalueringsresultat {
+        Evalueringsresultat::Avvist {
             problemer: vec![Problem {
                 regel_id: RegelId::IkkeFunnet,
                 kind: ProblemKind::SkalAvvises,

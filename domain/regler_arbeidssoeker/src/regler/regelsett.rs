@@ -1,18 +1,12 @@
+pub use crate::regler::evalueringsresultat::Evalueringsresultat;
+
 use super::regel::Regel;
 use super::regel_id::RegelId;
 use interne_hendelser::vo::Opplysning;
-use serde::{Deserialize, Serialize};
 
 pub struct Regelsett {
     pub regler: Vec<Regel>,
     pub standard_regel: Regel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EvalueringsResultat {
-    Godkjent { regel_ider: Vec<RegelId> },
-    Avvist { regel_ider: Vec<RegelId> },
-    KreverManuellVurdering { regel_ider: Vec<RegelId> },
 }
 
 #[derive(Default)]
@@ -20,28 +14,6 @@ pub struct Eval {
     manuell_vurdering: Vec<RegelId>,
     godkjent: Vec<RegelId>,
     avvist: Vec<RegelId>,
-}
-
-impl EvalueringsResultat {
-    pub fn is_grunnlag_for_godkjenning(&self) -> bool {
-        matches!(self, Self::Godkjent { .. })
-    }
-
-    pub fn is_avvist(&self) -> bool {
-        matches!(self, Self::Avvist { .. })
-    }
-
-    pub fn is_krever_manuell_vurdering(&self) -> bool {
-        matches!(self, Self::KreverManuellVurdering { .. })
-    }
-
-    pub fn status(&self) -> &'static str {
-        match self {
-            Self::Godkjent { .. } => "GODKJENT",
-            Self::Avvist { .. } => "AVVIST",
-            Self::KreverManuellVurdering { .. } => "KREVER_MANUELL_VURDERING",
-        }
-    }
 }
 
 impl Regelsett {
@@ -53,16 +25,16 @@ impl Regelsett {
     /// 3. Any `GrunnlagForGodkjenning` → return all matching.
     /// 4. Any problems → return them all.
     /// 5. No rules matched → apply `standard_regel`.
-    pub fn evaluer(&self, opplysninger: &[Opplysning]) -> EvalueringsResultat {
+    pub fn evaluer(&self, opplysninger: &[Opplysning]) -> Evalueringsresultat {
         let eval = self.regler.iter().filter(|r| r.evaluer(opplysninger)).fold(
             Eval::default(),
             |mut eval, regel| {
                 match regel.ved_treff() {
-                    EvalueringsResultat::Godkjent { regel_ider } => {
+                    Evalueringsresultat::Godkjent { regel_ider } => {
                         eval.godkjent.extend(regel_ider)
                     }
-                    EvalueringsResultat::Avvist { regel_ider } => eval.avvist.extend(regel_ider),
-                    EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                    Evalueringsresultat::Avvist { regel_ider } => eval.avvist.extend(regel_ider),
+                    Evalueringsresultat::KreverManuellVurdering { regel_ider } => {
                         eval.manuell_vurdering.extend(regel_ider)
                     }
                 };
@@ -70,21 +42,21 @@ impl Regelsett {
             },
         );
         match eval {
-            eval if eval.avvist.contains(&RegelId::IkkeFunnet) => EvalueringsResultat::Avvist {
+            eval if eval.avvist.contains(&RegelId::IkkeFunnet) => Evalueringsresultat::Avvist {
                 regel_ider: vec![RegelId::IkkeFunnet],
             },
-            eval if !eval.avvist.is_empty() => EvalueringsResultat::Avvist {
+            eval if !eval.avvist.is_empty() => Evalueringsresultat::Avvist {
                 regel_ider: eval
                     .avvist
                     .into_iter()
                     .chain(eval.manuell_vurdering)
                     .collect(),
             },
-            eval if !eval.godkjent.is_empty() => EvalueringsResultat::Godkjent {
+            eval if !eval.godkjent.is_empty() => Evalueringsresultat::Godkjent {
                 regel_ider: eval.godkjent,
             },
             eval if !eval.manuell_vurdering.is_empty() => {
-                EvalueringsResultat::KreverManuellVurdering {
+                Evalueringsresultat::KreverManuellVurdering {
                     regel_ider: eval.manuell_vurdering,
                 }
             }
@@ -95,7 +67,7 @@ impl Regelsett {
     pub fn evaluer_liste<'a, T>(
         &self,
         opplysninger: &'a [(T, Vec<Opplysning>)],
-    ) -> Vec<(&'a T, EvalueringsResultat)> {
+    ) -> Vec<(&'a T, Evalueringsresultat)> {
         opplysninger
             .iter()
             .map(|(a, opplysning)| (a, self.evaluer(opplysning)))

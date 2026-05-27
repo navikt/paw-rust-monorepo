@@ -84,7 +84,7 @@ pub fn regelsett_v4() -> Regelsett {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::regler::regelsett::EvalueringsResultat;
+    use crate::regler::regelsett::Evalueringsresultat;
     use interne_hendelser::vo::Opplysning::*;
     use std::collections::HashSet;
 
@@ -97,14 +97,14 @@ mod tests {
     impl Evaluering<'_> {
         fn skal_godkjennes_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::Avvist { regel_ider } => {
+                Evalueringsresultat::Avvist { regel_ider } => {
                     panic!(
                         "Forventet godkjenning, men fikk avvisning med regel_ider: {:?}",
                         regel_ider
                     )
                 }
-                EvalueringsResultat::Godkjent { regel_ider } => regel_ider.into_iter().collect(),
-                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                Evalueringsresultat::Godkjent { regel_ider } => regel_ider.into_iter().collect(),
+                Evalueringsresultat::KreverManuellVurdering { regel_ider } => {
                     panic!(
                         "Forventet GrunnlagForGodkjen, men fikk KreverManuellVurdering med regel_ider: {:?}",
                         regel_ider
@@ -117,14 +117,14 @@ mod tests {
 
         fn skal_avvises_med(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::Godkjent { regel_ider } => {
+                Evalueringsresultat::Godkjent { regel_ider } => {
                     panic!(
                         "Forventet avvisning, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
                         regel_ider
                     )
                 }
-                EvalueringsResultat::Avvist { regel_ider } => regel_ider.into_iter().collect(),
-                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                Evalueringsresultat::Avvist { regel_ider } => regel_ider.into_iter().collect(),
+                Evalueringsresultat::KreverManuellVurdering { regel_ider } => {
                     panic!(
                         "Forvent Avvist, men fikk KreverManuellVurdering med regel_ider: {:?}",
                         regel_ider
@@ -137,16 +137,16 @@ mod tests {
 
         fn krever_manuell_vurdering(self, forventet: &[RegelId]) {
             let ids: HashSet<_> = match regelsett_v4().evaluer(self.0) {
-                EvalueringsResultat::Godkjent { regel_ider } => {
+                Evalueringsresultat::Godkjent { regel_ider } => {
                     panic!(
                         "Forventet KreverManuellVurdering, men fikk GrunnlagForGodkjenning med regel_ider: {:?}",
                         regel_ider
                     )
                 }
-                EvalueringsResultat::KreverManuellVurdering { regel_ider } => {
+                Evalueringsresultat::KreverManuellVurdering { regel_ider } => {
                     regel_ider.into_iter().collect()
                 }
-                EvalueringsResultat::Avvist { regel_ider } => {
+                Evalueringsresultat::Avvist { regel_ider } => {
                     panic!(
                         "Forvent KreverManuellVurdering, men fikk Avvist med regel_ider: {:?}",
                         regel_ider
