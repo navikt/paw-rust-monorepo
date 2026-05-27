@@ -3,8 +3,8 @@ use std::str::FromStr;
 use crate::config::DatabaseConfig;
 use crate::error::DatabaseError;
 use anyhow::Result;
-use sqlx::ConnectOptions;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+use sqlx::{AssertSqlSafe, ConnectOptions};
 use sqlx::{FromRow, PgPool};
 
 async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
@@ -46,7 +46,7 @@ pub async fn clear_db(pool: &PgPool) -> Result<()> {
         .collect::<Vec<&str>>();
     tracing::info!("Sletter tabellene: {}", tables.join(", "));
     let sql = format!("DROP TABLE IF EXISTS {} CASCADE", tables.join(", "));
-    let _ = sqlx::query(sql.as_str())
+    let _ = sqlx::query(AssertSqlSafe(sql.as_str()))
         .bind(tables.join(", ").as_str())
         .execute(pool)
         .await

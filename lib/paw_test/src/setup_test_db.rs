@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sqlx::PgPool;
+use sqlx::{AssertSqlSafe, PgPool};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
@@ -28,7 +28,6 @@ pub async fn setup_test_db() -> Result<(PgPool, TestDbGuard)> {
         })
         .await;
 
-    let schema = format!("test_{}", Uuid::new_v4().simple());
 
     let admin_url = format!(
         "postgresql://postgres:postgres@127.0.0.1:{}/postgres",
@@ -38,7 +37,10 @@ pub async fn setup_test_db() -> Result<(PgPool, TestDbGuard)> {
         .max_connections(1)
         .connect(&admin_url)
         .await?;
-    sqlx::query(&format!("CREATE SCHEMA {schema}"))
+
+    let schema = format!("test_{}", Uuid::new_v4().simple());
+    let create_schema_sql = format!("CREATE SCHEMA {schema}");
+    sqlx::query(AssertSqlSafe(create_schema_sql.as_str()))
         .execute(&admin_pool)
         .await?;
     admin_pool.close().await;
