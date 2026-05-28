@@ -34,7 +34,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                     }
                 };
 
-                for hwm in &hwms {
+                for hwm in hwms {
                     if let Err(e) = tpl.set_partition_offset(&hwm.topic, hwm.partition(), hwm.neste_offset()) {
                         tracing::error!(error = %e, "Failed to set partition offset");
                         self.app_state.set_is_alive(false);

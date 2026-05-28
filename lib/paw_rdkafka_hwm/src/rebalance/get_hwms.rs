@@ -1,6 +1,6 @@
 use crate::hwm::{DEFAULT_HWM, Hwm};
 use crate::hwm_functions::{get_hwm, insert_hwm};
-use crate::rebalance::rebalance_error::RebalanceError;
+use anyhow::Result;
 use futures::executor::block_on;
 use rdkafka::topic_partition_list::TopicPartitionList;
 use sqlx::PgPool;
@@ -9,9 +9,9 @@ pub(super) fn get_hwms(
     version: i16,
     tpl: &TopicPartitionList,
     pool: &PgPool,
-) -> Result<Vec<Hwm>, RebalanceError> {
+) -> Result<Vec<Hwm>> {
     block_on(async {
-        let mut tx = pool.begin().await.map_err(anyhow::Error::from)?;
+        let mut tx = pool.begin().await?;
         let mut hwms = Vec::new();
         for topic_partition in tpl.elements() {
             let topic = topic_partition.topic();
@@ -27,7 +27,7 @@ pub(super) fn get_hwms(
             let hwm = Hwm::new(topic, partition, Some(offset));
             hwms.push(hwm);
         }
-        tx.commit().await.map_err(anyhow::Error::from)?;
+        tx.commit().await?;
         Ok(hwms)
     })
 }

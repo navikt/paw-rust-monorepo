@@ -33,7 +33,7 @@ async fn internal_hwm_process_message(
 
     if hwm_ok {
         let res = processor.process_message(&mut tx, msg).await;
-        increment_kafka_messages_processed(true, &topic.to_string(), msg.partition(), res.is_err());
+        increment_kafka_messages_processed(true, topic, msg.partition(), res.is_err());
         match res {
             Ok(_) => {
                 tracing::debug!(
@@ -58,7 +58,7 @@ async fn internal_hwm_process_message(
             }
         }
     } else {
-        increment_kafka_messages_processed(false, &topic.to_string(), msg.partition(), false);
+        increment_kafka_messages_processed(false, topic, msg.partition(), false);
         tracing::info!(
             "Below HWM, topic={}, partition={}, offset={}",
             topic,
@@ -103,7 +103,7 @@ static KAFKA_MESSAGES_PROCESSED: OnceLock<CounterVec> = OnceLock::new();
 
 pub fn increment_kafka_messages_processed(
     above_hwm: bool,
-    topic: &String,
+    topic: &str,
     partition: i32,
     error: bool,
 ) {
@@ -118,7 +118,7 @@ pub fn increment_kafka_messages_processed(
     counter_vec
         .with_label_values(&[
             &above_hwm.to_string(),
-            topic,
+            &topic.to_string(),
             &partition.to_string(),
             &error.to_string(),
         ])
