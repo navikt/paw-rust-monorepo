@@ -23,11 +23,8 @@ pub(super) fn get_hwms(
                     DEFAULT_HWM
                 }
             };
-            let hwm = Hwm {
-                topic: topic.to_string(),
-                partition,
-                offset: Some(offset),
-            };
+            let partition = u32::try_from(partition).expect("rdkafka ga negativ partition");
+            let hwm = Hwm::new(topic, partition, Some(offset));
             hwms.push(hwm);
         }
         tx.commit().await.map_err(anyhow::Error::from)?;

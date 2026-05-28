@@ -10,15 +10,41 @@ pub struct Hwm {
 }
 
 impl Hwm {
-    pub fn seek_to_rd_kafka_offset(&self) -> Offset {
+    pub fn new(topic: impl Into<String>, partition: u32, offset: Option<i64>) -> Self {
+        Self {
+            topic: topic.into(),
+            partition: partition as i32,
+            offset,
+        }
+    }
+
+    pub fn neste_offset(&self) -> Offset {
         match self.offset {
-            None => Offset::Beginning,
             Some(offset) => Offset::Offset(offset + 1),
+            None => Offset::Beginning,
         }
     }
 }
 
-pub struct TopicPartition {
-    pub topic: String,
-    pub partition: i32,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn none_offset_gir_beginning() {
+        let hwm = Hwm::new("test", 0, None);
+        assert_eq!(hwm.neste_offset(), Offset::Beginning);
+    }
+
+    #[test]
+    fn default_hwm_gir_offset_0() {
+        let hwm = Hwm::new("test", 0, Some(DEFAULT_HWM));
+        assert_eq!(hwm.neste_offset(), Offset::Offset(0));
+    }
+
+    #[test]
+    fn offset_0_gir_offset_1() {
+        let hwm = Hwm::new("test", 0, Some(0));
+        assert_eq!(hwm.neste_offset(), Offset::Offset(1));
+    }
 }

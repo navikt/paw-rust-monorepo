@@ -1,4 +1,3 @@
-use crate::rebalance::build_tpl::build_assignment_tpl_from;
 use crate::rebalance::get_hwms::get_hwms;
 use health_and_monitoring::simple_app_state::AppState;
 use rdkafka::ClientContext;
@@ -35,18 +34,17 @@ impl ConsumerContext for HwmRebalanceHandler {
                     }
                 };
 
-                let assignment = match build_assignment_tpl_from(&hwms) {
-                    Ok(tpl) => tpl,
-                    Err(e) => {
-                        tracing::error!(error = %e, "Failed to build TopicPartitionList");
+                for hwm in &hwms {
+                    if let Err(e) = tpl.set_partition_offset(&hwm.topic, hwm.partition, hwm.neste_offset()) {
+                        tracing::error!(error = %e, "Failed to set partition offset");
                         self.app_state.set_is_alive(false);
                         return;
                     }
-                };
+                }
 
-                match base_consumer.assign(&assignment) {
+                match base_consumer.assign(tpl) {
                     Ok(_) => {
-                        tracing::info!(partitions = ?tpl_as_string(&assignment), "Consumer assigned with HWM offsets");
+                        tracing::info!(partitions = ?tpl_as_string(tpl), "Consumer assigned with HWM offsets");
                     }
                     Err(e) => {
                         tracing::error!(error = %e, "Failed to assign partitions");
