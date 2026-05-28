@@ -50,7 +50,7 @@ mod tests {
 
         assert_eq!(hwms.len(), 1);
         assert_eq!(hwms[0].topic, "topic-a");
-        assert_eq!(hwms[0].partition, 0);
+        assert_eq!(hwms[0].partition(), 0);
         assert_eq!(hwms[0].offset, Some(DEFAULT_HWM));
     }
 

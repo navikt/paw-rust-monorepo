@@ -5,7 +5,7 @@ pub const DEFAULT_HWM: i64 = -1;
 #[derive(Debug, Clone)]
 pub struct Hwm {
     pub topic: String,
-    pub partition: i32,
+    partition: u32,
     pub offset: Option<i64>,
 }
 
@@ -13,9 +13,13 @@ impl Hwm {
     pub fn new(topic: impl Into<String>, partition: u32, offset: Option<i64>) -> Self {
         Self {
             topic: topic.into(),
-            partition: partition as i32,
+            partition,
             offset,
         }
+    }
+    
+    pub fn partition(&self) -> i32 {
+        self.partition as i32
     }
 
     pub fn neste_offset(&self) -> Offset {
