@@ -63,30 +63,35 @@ impl Tilstand {
         let gjeldende_oppl = gjeldende.map(|o| &o.opplysninger);
 
         match (forrige_eval, gjeldende_eval, forrige_oppl, gjeldende_oppl) {
-            (Some(f), Some(g), Some(fo), Some(go)) => {
-                if f.regelsett_versjon != g.regelsett_versjon {
-                    endringer.push(Endring::RegelsettEndret(RegelsettEndret {
-                        forrige: f.regelsett_versjon.clone(),
-                        gjeldende: g.regelsett_versjon.clone(),
-                    }));
+            (
+                Some(forige_eval),
+                Some(gjeldene_eval),
+                Some(forrige_opplysninger),
+                Some(gjeldene_opplysninger),
+            ) => {
+                if forige_eval.regelsett_versjon != gjeldene_eval.regelsett_versjon {
+                    endringer.push(Endring::RegelsettEndret {
+                        forrige: forige_eval.regelsett_versjon.clone(),
+                        gjeldende: gjeldene_eval.regelsett_versjon.clone(),
+                    });
                 }
-                if !eq_unordered(&f.regel_ider, &g.regel_ider) {
-                    endringer.push(Endring::RegelIdEndret(RegelIdEndret {
-                        forrige: f.regel_ider.clone(),
-                        gjeldende: g.regel_ider.clone(),
-                    }));
+                if !eq_unordered(&forige_eval.regel_ider, &gjeldene_eval.regel_ider) {
+                    endringer.push(Endring::RegelIderEndret {
+                        forrige: forige_eval.regel_ider.clone(),
+                        gjeldende: gjeldene_eval.regel_ider.clone(),
+                    });
                 }
-                if f.status != g.status {
-                    endringer.push(Endring::StatusEndret(StatusEndret {
-                        forrige: f.status.clone(),
-                        gjeldende: g.status.clone(),
-                    }));
+                if forige_eval.status != gjeldene_eval.status {
+                    endringer.push(Endring::StatusEndret {
+                        forrige: forige_eval.status.clone(),
+                        gjeldende: gjeldene_eval.status.clone(),
+                    });
                 }
-                if fo != go {
-                    endringer.push(Endring::OpplysningerEndret(OpplysningerEndret {
-                        forrige: fo.clone(),
-                        gjeldende: go.clone(),
-                    }));
+                if forrige_opplysninger != gjeldene_opplysninger {
+                    endringer.push(Endring::OpplysningerEndret {
+                        forrige: forrige_opplysninger.clone(),
+                        gjeldende: gjeldene_opplysninger.clone(),
+                    });
                 }
             }
             _ => {}
@@ -101,30 +106,10 @@ fn eq_unordered<T: PartialEq>(a: &[T], b: &[T]) -> bool {
 }
 
 pub enum Endring {
-    StatusEndret(StatusEndret),
-    RegelIdEndret(RegelIdEndret),
-    OpplysningerEndret(OpplysningerEndret),
-    RegelsettEndret(RegelsettEndret),
-}
-
-pub struct StatusEndret {
-    forrige: Status,
-    gjeldende: Status,
-}
-
-pub struct RegelIdEndret {
-    forrige: Vec<String>,
-    gjeldende: Vec<String>,
-}
-
-pub struct OpplysningerEndret {
-    forrige: Vec<Opplysning>,
-    gjeldende: Vec<Opplysning>,
-}
-
-pub struct RegelsettEndret {
-    forrige: String,
-    gjeldende: String,
+    StatusEndret { forrige: Status, gjeldende: Status },
+    RegelIderEndret { forrige: Vec<String>, gjeldende: Vec<String> },
+    RegelsettEndret { forrige: String, gjeldende: String },
+    OpplysningerEndret { forrige: Vec<Opplysning>, gjeldende: Vec<Opplysning> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
