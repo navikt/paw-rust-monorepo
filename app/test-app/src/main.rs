@@ -17,7 +17,7 @@ use rdkafka::Message;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::info;
-use paw_rdkafka_hwm::rebalance::rebalance_handler::RebalanceHandler;
+use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 
 const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
 
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
 }
 
 fn spawn_consumer_task(
-    consumer: StreamConsumer<RebalanceHandler>,
+    consumer: StreamConsumer<HwmRebalanceHandler>,
     hwm_version: i16,
     pg_pool: PgPool,
 ) -> tokio::task::JoinHandle<Result<()>> {

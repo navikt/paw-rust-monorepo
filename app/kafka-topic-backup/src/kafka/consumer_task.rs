@@ -1,14 +1,14 @@
 use crate::kafka::message_processor::BackupMessageProcessor;
 use anyhow::Result;
 use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
-use paw_rdkafka_hwm::rebalance::rebalance_handler::RebalanceHandler;
+use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::error::ServerError;
 use rdkafka::consumer::StreamConsumer;
 use sqlx::PgPool;
 use tokio::task::JoinHandle;
 
 pub fn spawn_kafka_consumer_task(
-    consumer: StreamConsumer<RebalanceHandler>,
+    consumer: StreamConsumer<HwmRebalanceHandler>,
     hwm_version: i16,
     pg_pool: PgPool,
     processor: BackupMessageProcessor,

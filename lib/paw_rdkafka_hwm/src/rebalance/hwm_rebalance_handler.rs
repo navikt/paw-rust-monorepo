@@ -9,13 +9,13 @@ use rdkafka::types::RDKafkaRespErr;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-pub struct RebalanceHandler {
+pub struct HwmRebalanceHandler {
     pub pg_pool: PgPool,
     pub app_state: Arc<AppState>,
     pub version: i16,
 }
 
-impl ConsumerContext for RebalanceHandler {
+impl ConsumerContext for HwmRebalanceHandler {
     fn rebalance(
         &self,
         base_consumer: &BaseConsumer<Self>,
@@ -80,7 +80,7 @@ impl ConsumerContext for RebalanceHandler {
     }
 }
 
-impl ClientContext for RebalanceHandler {}
+impl ClientContext for HwmRebalanceHandler {}
 
 fn tpl_as_string(topic_partition_list: &TopicPartitionList) -> Vec<String> {
     topic_partition_list
