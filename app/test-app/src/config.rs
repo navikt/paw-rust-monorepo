@@ -6,12 +6,12 @@ use paw_sqlx::config::DatabaseConfig;
 
 pub fn read_database_config() -> Result<DatabaseConfig> {
     let file_content = read_database_config_file();
-    read_toml_config::<DatabaseConfig>(file_content)
+    Ok(read_toml_config::<DatabaseConfig>(file_content)?)
 }
 
 pub fn read_kafka_config() -> Result<KafkaConfig> {
     let file_content = read_kafka_config_file();
-    read_toml_config::<KafkaConfig>(file_content)
+    Ok(read_toml_config::<KafkaConfig>(file_content)?)
 }
 
 fn read_database_config_file() -> &'static str {
