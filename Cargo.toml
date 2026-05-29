@@ -16,7 +16,9 @@ members = [
     "app/test-app",
     "app/kafka-topic-backup",
     "app/veileder-oppgave",
-    "app/utgang", "domain/types",
+    "app/utgang",
+    "app/oversikt-api",
+    "domain/types",
 ]
 
 [workspace.package]

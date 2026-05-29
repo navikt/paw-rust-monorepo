@@ -1,0 +1,14 @@
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+max_line_length = 120
+tab_width = 4
+ij_continuation_indent_size = 8
+ij_smart_tabs = false
+
+[{*.yml,*.yaml}]
+indent_size = 2
+tab_width = 2
+ij_continuation_indent_size = 4

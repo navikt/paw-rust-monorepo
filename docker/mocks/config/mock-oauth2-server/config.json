@@ -14,8 +14,26 @@
                         "aud": [
                             "paw-kafka-key-generator"
                         ],
-                        "pid": "01017012345",
-                        "acr": "idporten-loa-high"
+                        "oid": "84a9421a-610d-4258-ac2c-bae144216f14",
+                        "azp": "87f8731e-28bf-48c9-b1ef-585e147aa0ae",
+                        "azp_name": "local:paw:paw-kafka-key-generator",
+                        "name": "Nav Navesen",
+                        "NAVident": "NAV12345"
+                    }
+                },
+                {
+                    "requestParam": "client_id",
+                    "match": "paw-arbeidssoekerregisteret-api-oversikt",
+                    "claims": {
+                        "sub": "admin@paw-arbeidssoekerregisteret-api-oversikt",
+                        "aud": [
+                            "paw-arbeidssoekerregisteret-api-oversikt"
+                        ],
+                        "oid": "84a9421a-610d-4258-ac2c-bae144216f14",
+                        "azp": "87f8731e-28bf-48c9-b1ef-585e147aa0ae",
+                        "azp_name": "local:paw:paw-arbeidssoekerregisteret-api-oversikt",
+                        "name": "Nav Navesen",
+                        "NAVident": "NAV12345"
                     }
                 }
             ]

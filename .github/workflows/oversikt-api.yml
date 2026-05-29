@@ -1,0 +1,74 @@
+name: Oversikt API - build and deploy
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/oversikt-api.yml"
+      - "app/oversikt-api/**"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "lib/**"
+      - "domain/**"
+      - "Dockerfile"
+env:
+  APP_NAME: oversikt-api
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+      - run: cargo test -p ${{ env.APP_NAME }}
+  build:
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+      - uses: actions/cache@v5
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ github.workflow_ref }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: docker-build-push
+        uses: nais/docker-build-push@v0
+        id: docker-build-push
+        with:
+          team: paw
+          image_suffix: ${{ env.APP_NAME }}
+          build_args: |
+            APP=${{ env.APP_NAME }}
+            GIT_COMMIT_HASH=${{ github.sha }}
+            FEATURES=nais
+    outputs:
+      image: ${{ steps.docker-build-push.outputs.image }}
+
+  deploy-dev:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev')
+    name: Deploy to dev-gcp
+    needs: [test, build]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nais/deploy/actions/deploy@v2
+        env:
+          CLUSTER: dev-gcp
+          RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
+          VAR: image=${{ needs.build.outputs.image }}

@@ -2229,6 +2229,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "oversikt-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum_health",
+ "health_and_monitoring",
+ "mockito",
+ "paw_app_config",
+ "paw_rust_base",
+ "paw_test",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "temp-env",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
