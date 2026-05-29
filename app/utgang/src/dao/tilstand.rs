@@ -22,6 +22,40 @@ pub struct Tilstand {
 }
 
 impl Tilstand {
+    pub fn fordhaandsgodkjent(&self) -> bool {
+        self.initielle
+            .contains(&Opplysning::ForhaandsgodkjentAvAnsatt)
+    }
+
+    pub fn slett_forhaandsgodkjent(self) -> Self {
+        Tilstand {
+            initielle: self
+                .initielle
+                .into_iter()
+                .filter(|o| o != &Opplysning::ForhaandsgodkjentAvAnsatt)
+                .collect(),
+            gjeldende: self.gjeldende,
+            forrige: self.forrige,
+        }
+    }
+
+    pub fn registrer_nye_opplysninger(
+        self,
+        tidspunkt: chrono::DateTime<Utc>,
+        opplysninger: Vec<Opplysning>,
+    ) -> Self {
+        let opplysning_med_evaluering = OpplysningerMedEvaluering {
+            opplysninger,
+            oppdatert: tidspunkt,
+            evaluering: None,
+        };
+        Tilstand {
+            initielle: self.initielle,
+            gjeldende: Some(opplysning_med_evaluering),
+            forrige: self.gjeldende,
+        }
+    }
+
     pub fn registrer_evaluering(
         self,
         tidspunkt: chrono::DateTime<Utc>,
@@ -38,7 +72,10 @@ impl Tilstand {
             tidspunkt,
             regelsett_versjon: evaluering.regelsett_versjon.into_string(),
             status,
-            regel_ider: regel_ideer.into_iter().map(|id| id.into_string()).collect(),
+            regel_ider: regel_ideer
+                .into_iter()
+                .map(|id| id.as_ref().to_string())
+                .collect(),
         };
         let opplysning_med_evaluering = OpplysningerMedEvaluering {
             opplysninger: evaluering.fakta,
@@ -106,10 +143,22 @@ fn eq_unordered<T: PartialEq>(a: &[T], b: &[T]) -> bool {
 }
 
 pub enum Endring {
-    StatusEndret { forrige: Status, gjeldende: Status },
-    RegelIderEndret { forrige: Vec<String>, gjeldende: Vec<String> },
-    RegelsettEndret { forrige: String, gjeldende: String },
-    OpplysningerEndret { forrige: Vec<Opplysning>, gjeldende: Vec<Opplysning> },
+    StatusEndret {
+        forrige: Status,
+        gjeldende: Status,
+    },
+    RegelIderEndret {
+        forrige: Vec<String>,
+        gjeldende: Vec<String>,
+    },
+    RegelsettEndret {
+        forrige: String,
+        gjeldende: String,
+    },
+    OpplysningerEndret {
+        forrige: Vec<Opplysning>,
+        gjeldende: Vec<Opplysning>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

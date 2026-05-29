@@ -1,6 +1,6 @@
 pub use crate::regler::evalueringsresultat::Evalueringsresultat;
+use crate::regler::regel::Regel;
 
-use super::regel::Regel;
 use super::regel_id::RegelId;
 use interne_hendelser::vo::Opplysning;
 

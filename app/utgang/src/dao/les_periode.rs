@@ -1,8 +1,10 @@
+use std::num::NonZeroU16;
+
 use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 
 use super::{periode_rad::PeriodeRad, tilstand::Tilstand};
 
-pub async fn oppdater_periode_kontroll(
+pub async fn oppdater_periode(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     id: ArbeidssoekerperiodeId,
     sist_oppdatert: chrono::DateTime<chrono::Utc>,
@@ -30,7 +32,7 @@ pub async fn oppdater_periode_kontroll(
 pub async fn hent_utdaterte_perioder(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     foer: chrono::DateTime<chrono::Utc>,
-    limit: i64,
+    limit: NonZeroU16,
 ) -> Result<Vec<PeriodeRad>, sqlx::Error> {
     sqlx::query_as(
         r#"SELECT id, arbeidssoeker_id, identitetsnummer, stoppet, sist_oppdatert, trenger_kontroll, siste_kontroll_tidspunkt, tilstand
@@ -39,7 +41,7 @@ pub async fn hent_utdaterte_perioder(
            LIMIT $2"#,
     )
     .bind(foer.naive_utc())
-    .bind(limit)
+    .bind(limit.get() as i64)
     .fetch_all(&mut **tx)
     .await
 }

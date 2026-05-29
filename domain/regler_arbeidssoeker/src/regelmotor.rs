@@ -22,6 +22,10 @@ impl RegelVersjon {
     pub fn gjeldende() -> Self {
         Self(env!("REGLER_SOURCE_HASH").to_string())
     }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,8 +1,10 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use strum::{AsRefStr, EnumString};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, AsRefStr, Serialize, Deserialize)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum RegelId {
     IkkeFunnet,
     Savnet,
