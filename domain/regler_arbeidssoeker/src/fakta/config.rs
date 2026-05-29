@@ -1,5 +1,5 @@
-use anyhow::Result;
 use paw_app_config::config::read_toml_config;
+use paw_app_config::error::ConfigError;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 
@@ -18,7 +18,7 @@ impl ReglerConfig {
     }
 }
 
-pub fn read_regler_config() -> Result<ReglerConfig> {
+pub fn read_regler_config() -> Result<ReglerConfig, ConfigError> {
     let file_content = read_regler_config_file();
     read_toml_config::<ReglerConfig>(file_content)
 }

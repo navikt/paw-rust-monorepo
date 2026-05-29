@@ -2,7 +2,6 @@ use crate::modell::feil::FaktaFeil;
 
 use crate::fakta::config::read_regler_config;
 use crate::fakta::UtledeFakta;
-use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     HarNorskAdresse, HarRegistrertAdresseIEuEoes, HarUtenlandskAdresse, IngenAdresseFunnet,
@@ -24,11 +23,11 @@ impl Default for UtledeAdresseFakta {
 }
 
 impl UtledeFakta<Person, Opplysning> for UtledeAdresseFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         if input.bostedsadresse.is_empty() {
             Ok(vec![IngenAdresseFunnet])
         } else if input.bostedsadresse.len() > 1 {
-            Err(FaktaFeil::FlereBostedsadresser(input.bostedsadresse.len()).into())
+            Err(FaktaFeil::FlereBostedsadresser(input.bostedsadresse.len()))
         } else {
             let bostedsadresse = &input.bostedsadresse[0];
             let vegadresse = bostedsadresse.vegadresse.as_ref();
@@ -87,8 +86,8 @@ mod tests {
         match result {
             Ok(fakta) => panic!("Feil resultat: {:?}", fakta),
             Err(err) => assert!(matches!(
-                err.downcast_ref::<FaktaFeil>(),
-                Some(FaktaFeil::FlereBostedsadresser(2))
+                err,
+                FaktaFeil::FlereBostedsadresser(2)
             )),
         };
     }

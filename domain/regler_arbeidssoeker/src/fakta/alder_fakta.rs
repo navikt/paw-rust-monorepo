@@ -2,8 +2,8 @@ use std::vec;
 
 
 use crate::fakta::UtledeFakta;
+use crate::modell::feil::FaktaFeil;
 use crate::utils::finn_alder;
-use anyhow::{Context, Error, Result};
 use chrono::NaiveDate;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
@@ -15,8 +15,8 @@ use pdl_graphql::pdl::Person;
 pub struct UtledeAlderFakta;
 
 impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
-        let res: Result<Vec<Vec<Opplysning>>, Error> = input
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
+        let res: Result<Vec<Vec<Opplysning>>, FaktaFeil> = input
             .foedselsdato
             .iter()
             .map(|foedsels_info| {
@@ -26,8 +26,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
                 );
                 match info {
                     (Some(dato), _) => {
-                        let naive_date = NaiveDate::parse_from_str(&dato, "%Y-%m-%d")
-                            .context("Invalid date format")?;
+                        let naive_date = NaiveDate::parse_from_str(&dato, "%Y-%m-%d")?;
                         let alder = finn_alder(naive_date);
                         if alder > 18 {
                             Ok(vec![ErOver18Aar])
@@ -36,7 +35,7 @@ impl UtledeFakta<Person, Opplysning> for UtledeAlderFakta {
                         }
                     }
                     (None, Some(aar)) => {
-                        let aar = i32::try_from(aar).context("Invalid year, out of i32 range")?;
+                        let aar = i32::try_from(aar)?;
                         let foedt_dato = NaiveDate::from_ymd_opt(aar, 12, 31).unwrap();
                         let alder = finn_alder(foedt_dato);
                         println!("Alder: {}", alder);

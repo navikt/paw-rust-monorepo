@@ -10,4 +10,3 @@ nais = []
 toml = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
-anyhow = { workspace = true }

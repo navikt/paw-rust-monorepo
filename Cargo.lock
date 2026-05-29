@@ -2309,7 +2309,6 @@ dependencies = [
 name = "paw_app_config"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "serde",
  "thiserror 2.0.18",
  "toml",
@@ -2826,7 +2825,6 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 name = "regler_arbeidssoeker"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "interne_hendelser",
  "paw_app_config",

@@ -1,6 +1,5 @@
 use crate::fakta::UtledeFakta;
 use crate::modell::feil::FaktaFeil;
-use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
@@ -13,11 +12,11 @@ use pdl_graphql::pdl::Person;
 pub struct UtledeOppholdstillatelseFakta;
 
 impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         if input.opphold.is_empty() {
             Ok(vec![IngenInformasjonOmOppholdstillatelse])
         } else if input.opphold.len() > 1 {
-            Err(FaktaFeil::FlereOppholdstillatelser(input.opphold.len()).into())
+            Err(FaktaFeil::FlereOppholdstillatelser(input.opphold.len()))
         } else {
             let opphold = &input.opphold[0];
             let fakta = match opphold.type_ {
@@ -66,8 +65,8 @@ mod tests {
         match result {
             Ok(fakta) => panic!("Feil resultat: {:?}", fakta),
             Err(err) => assert!(matches!(
-                err.downcast_ref::<FaktaFeil>(),
-                Some(FaktaFeil::FlereOppholdstillatelser(2))
+                err,
+                FaktaFeil::FlereOppholdstillatelser(2)
             )),
         };
     }

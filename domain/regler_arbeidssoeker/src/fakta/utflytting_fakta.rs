@@ -1,5 +1,5 @@
 use crate::fakta::UtledeFakta;
-use anyhow::Result;
+use crate::modell::feil::FaktaFeil;
 use chrono::NaiveDate;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
@@ -12,7 +12,7 @@ use pdl_graphql::pdl::{InnflyttingTilNorge, Person, UtflyttingFraNorge};
 pub struct UtledeUtflyttingFakta;
 
 impl UtledeFakta<Person, Opplysning> for UtledeUtflyttingFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         let innflyttinger = input
             .innflytting_til_norge
             .iter()

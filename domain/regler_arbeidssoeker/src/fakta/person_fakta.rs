@@ -7,7 +7,7 @@ use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
 use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
 use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
 use crate::fakta::utflytting_fakta::UtledeUtflyttingFakta;
-use anyhow::Result;
+use crate::modell::feil::FaktaFeil;
 use interne_hendelser::vo::{Opplysning, Opplysninger};
 use pdl_graphql::pdl::Person;
 use types::identitetsnummer::Identitetsnummer;
@@ -26,7 +26,7 @@ static UTLEDPERSON_FAKTA: LazyLock<UtledePersonFakta> = LazyLock::new(UtledePers
 
 pub fn utled_fakta(
     personer: Vec<(Identitetsnummer, Person)>,
-) -> Vec<(Identitetsnummer, Result<Opplysninger>)> {
+) -> Vec<(Identitetsnummer, Result<Opplysninger, FaktaFeil>)> {
     personer
         .into_iter()
         .map(|(ident, person)| {
@@ -50,7 +50,7 @@ impl Default for UtledePersonFakta {
 }
 
 impl UtledeFakta<Person, Opplysning> for UtledePersonFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         let mut fakta = vec![];
         fakta.append(&mut self.alder_fakta.utlede_fakta(input)?);
         fakta.append(&mut self.adresse_fakta.utlede_fakta(input)?);

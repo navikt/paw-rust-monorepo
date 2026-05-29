@@ -1,10 +1,10 @@
 use crate::fakta::person_fakta::UtledePersonFakta;
+use crate::modell::feil::FaktaFeil;
 use crate::regelsett_v2::regelsett_v2;
 use crate::regelsett_v3::regelsett_v3;
 use crate::regelsett_v4::regelsett_v4;
 use crate::regler::regelsett::Regelsett;
 use crate::{fakta::UtledeFakta, regler::evalueringsresultat::Evalueringsresultat};
-use anyhow::Result;
 use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl Regelmotor {
         }
     }
 
-    pub fn evaluer(&self, person: &Person) -> Result<Evaluering> {
+    pub fn evaluer(&self, person: &Person) -> Result<Evaluering, FaktaFeil> {
         let fakta = self.utlede_fakta.utlede_fakta(person)?;
         let resultat = self.regelsett.evaluer(&fakta);
         Ok(Evaluering {

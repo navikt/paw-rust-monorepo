@@ -6,4 +6,8 @@ pub enum FaktaFeil {
     FlereBostedsadresser(usize),
     #[error("Personen har flere oppholdstillatelser enn forventet: {0}")]
     FlereOppholdstillatelser(usize),
+    #[error("Ugyldig datoformat: {0}")]
+    UgyldigDato(#[from] chrono::ParseError),
+    #[error("Ugyldig fødselsår: {0}")]
+    UgyldigFoedselsaar(#[from] std::num::TryFromIntError),
 }

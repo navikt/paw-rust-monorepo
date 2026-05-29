@@ -1,5 +1,5 @@
 use crate::fakta::UtledeFakta;
-use anyhow::Result;
+use crate::modell::feil::FaktaFeil;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     BosattEtterFregLoven, Dnummer, Doed, IkkeBosatt, OpphoertIdentitet, Savnet,
@@ -36,7 +36,7 @@ impl Default for UtledeFolkeregisterFakta {
 }
 
 impl UtledeFakta<Person, Opplysning> for UtledeFolkeregisterFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         let mut fakta = vec![];
         for status in &input.folkeregisterpersonstatus {
             let key = status.forenklet_status.to_uppercase();

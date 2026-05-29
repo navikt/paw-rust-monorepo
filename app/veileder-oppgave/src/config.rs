@@ -37,26 +37,26 @@ pub struct OppgaveClientConfig {
 
 pub fn read_application_config() -> Result<ApplicationConfig> {
     let file_content = read_application_config_file();
-    read_toml_config::<ApplicationConfig>(file_content)
+    Ok(read_toml_config::<ApplicationConfig>(file_content)?)
 }
 
 pub fn read_database_config() -> Result<DatabaseConfig> {
     let file_content = read_database_config_file();
-    read_toml_config::<DatabaseConfig>(file_content)
+    Ok(read_toml_config::<DatabaseConfig>(file_content)?)
 }
 
 pub fn read_kafka_config() -> Result<KafkaConfig> {
     let file_content = read_kafka_config_file();
-    read_toml_config::<KafkaConfig>(file_content)
+    Ok(read_toml_config::<KafkaConfig>(file_content)?)
 }
 
 pub fn read_oppgave_client_config() -> Result<OppgaveClientConfig> {
     let file_content = read_oppgave_client_config_file();
-    read_toml_config::<OppgaveClientConfig>(file_content)
+    Ok(read_toml_config::<OppgaveClientConfig>(file_content)?)
 }
 
 pub fn read_token_client_config() -> Result<TokenClientConfig> {
-    read_toml_config(read_token_client_config_file())
+    Ok(read_toml_config(read_token_client_config_file())?)
 }
 
 fn read_application_config_file() -> &'static str {

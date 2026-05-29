@@ -1,6 +1,6 @@
 use crate::fakta::config::read_regler_config;
 use crate::fakta::UtledeFakta;
-use anyhow::Result;
+use crate::modell::feil::FaktaFeil;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     ErEuEoesStatsborger, ErGbrStatsborger, ErNorskStatsborger,
@@ -25,7 +25,7 @@ impl Default for UtledeStatsborgerskapFakta {
 }
 
 impl UtledeFakta<Person, Opplysning> for UtledeStatsborgerskapFakta {
-    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>> {
+    fn utlede_fakta(&self, input: &Person) -> Result<Vec<Opplysning>, FaktaFeil> {
         let mut fakta = vec![];
         for statsborgerskap in &input.statsborgerskap {
             if statsborgerskap.land.to_uppercase() == NOR {

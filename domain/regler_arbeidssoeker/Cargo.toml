@@ -9,7 +9,6 @@ types = { path = "../types" }
 pdl_graphql = { path = "../pdl_graphql" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 thiserror = { workspace = true }
-anyhow = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde-env-field = { workspace = true }
