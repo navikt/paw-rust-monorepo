@@ -11,12 +11,13 @@ use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rust_base::error::ServerError;
 use paw_sqlx::error::DatabaseError;
-use paw_sqlx::postgres::init_db;
+use paw_sqlx::postgres::{clear_db, init_db};
 use rdkafka::consumer::StreamConsumer;
 use rdkafka::Message;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::info;
+use paw_rdkafka_hwm::hwm_migrator::HWM_MIGRATOR;
 use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 
 const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
@@ -28,12 +29,13 @@ async fn main() -> Result<()> {
 
     let app_state = Arc::new(AppState::new());
 
+
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
-    sqlx::migrate!("./migrations")
-        .run(&pg_pool)
-        .await
-        .map_err(DatabaseError::MigrateSchema)?;
+    clear_db(&pg_pool).await?;
+    HWM_MIGRATOR.run(&pg_pool).await.map_err(DatabaseError::MigrateSchema)?;
+    info!("Hwm tabell migrert");
+    sqlx::migrate!("./migrations").run(&pg_pool).await.map_err(DatabaseError::MigrateSchema)?;
     info!("Database migrert");
 
     let kafka_config = read_kafka_config()?;
