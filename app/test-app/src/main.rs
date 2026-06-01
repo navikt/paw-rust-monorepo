@@ -17,7 +17,6 @@ use rdkafka::Message;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::info;
-use paw_rdkafka_hwm::hwm_migrator::HWM_MIGRATOR;
 use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 
 const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
@@ -33,8 +32,6 @@ async fn main() -> Result<()> {
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
     clear_db(&pg_pool).await?;
-    HWM_MIGRATOR.run(&pg_pool).await.map_err(DatabaseError::MigrateSchema)?;
-    info!("Hwm tabell migrert");
     sqlx::migrate!("./migrations").run(&pg_pool).await.map_err(DatabaseError::MigrateSchema)?;
     info!("Database migrert");
 
