@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "domain/types",
     "domain/pdl_graphql",
     "domain/interne_hendelser",
     "domain/regler_arbeidssoeker",
@@ -13,12 +14,12 @@ members = [
     "lib/paw_rdkafka",
     "lib/texas_client",
     "lib/paw_test",
+    "lib/pdl_client",
     "app/test-app",
     "app/kafka-topic-backup",
     "app/veileder-oppgave",
     "app/utgang",
     "app/oversikt-api",
-    "domain/types",
 ]
 
 [workspace.package]

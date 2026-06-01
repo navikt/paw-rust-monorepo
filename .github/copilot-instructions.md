@@ -2,11 +2,10 @@
 
 One atomic change per commit. Every commit must be deployable (build + tests pass).
 
-1. View a file before editing — it may have changed
+1. Read file before editing — it may have changed
 2. Make a single logical change
-3. `git pull --rebase` before building
-4. Build and test the affected module(s)
-5. Commit with a descriptive message, then stop
+3. Build and test the affected module(s)
+4. Suggest git commit message. Do not commit unless instructed to.
 
 Commit messages: imperative, Norwegian, keep technical terms in English. Example: `Fjern KafkaMessage, bruk OwnedMessage direkte`. Never push — only commit locally.
 

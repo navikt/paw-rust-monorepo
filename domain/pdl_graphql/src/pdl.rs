@@ -226,3 +226,10 @@ impl Clone for UtflyttingFraNorgeFolkeregistermetadata {
     query_path = "graphql/hentPersonBolk.graphql"
 )]
 pub struct HentPersonBolk;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/pdl-schema.graphql",
+    query_path = "graphql/hentNavn.graphql"
+)]
+pub struct HentNavn;

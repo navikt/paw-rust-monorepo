@@ -2388,6 +2388,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pdl_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "graphql_client",
+ "pdl_graphql",
+ "reqwest 0.13.4",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "texas_client",
+ "thiserror 2.0.18",
+ "tracing",
+ "types",
+]
+
+[[package]]
 name = "pdl_graphql"
 version = "0.1.0"
 dependencies = [

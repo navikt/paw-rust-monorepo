@@ -1,0 +1,18 @@
+[package]
+name = "pdl_client"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+types = { path = "../../domain/types" }
+texas_client = { path = "../../lib/texas_client" }
+pdl_graphql = { path = "../../domain/pdl_graphql" }
+
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-env-field = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true }
+graphql_client = { workspace = true }

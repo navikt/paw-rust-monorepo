@@ -1,0 +1,157 @@
+use crate::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
+use anyhow::Result;
+use graphql_client::{GraphQLQuery, QueryBody};
+use pdl_graphql::pdl::hent_navn::HentNavnHentPerson;
+use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
+use pdl_graphql::pdl::{hent_navn, hent_person_bolk, HentNavn, HentPersonBolk};
+use std::sync::Arc;
+use texas_client::token_client::M2MTokenClient;
+use tracing::instrument;
+use types::identitetsnummer::Identitetsnummer;
+
+#[derive(Clone)]
+pub struct PDLClient {
+    inner: Arc<PDLClientRef>,
+}
+
+#[derive(Clone)]
+struct PDLClientRef {
+    target_scope: String,
+    url: String,
+    http_client: reqwest::Client,
+    token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+    behandlingsnummer: String,
+}
+
+impl PDLClient {
+    pub fn from_config(
+        config: PDLClientConfig,
+        http_client: reqwest::Client,
+        token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+    ) -> PDLClient {
+        Self::new(
+            config.target_scope.into_inner(),
+            config.url.into_inner(),
+            http_client,
+            token_client,
+        )
+    }
+
+    pub fn new(
+        target_scope: String,
+        url: String,
+        http_client: reqwest::Client,
+        token_client: Arc<dyn M2MTokenClient + Send + Sync>,
+    ) -> PDLClient {
+        let inner = Arc::new(PDLClientRef {
+            target_scope,
+            url,
+            http_client,
+            token_client,
+            behandlingsnummer: BEHANDLINGSNUMMER.to_string(),
+        });
+        PDLClient { inner }
+    }
+
+    //instrument excluding identitetsnummer for privacy reasons
+    #[instrument(skip(self, identitetsnummer))]
+    pub async fn hent_person_bolk(
+        &self,
+        identitetsnummer: Vec<Identitetsnummer>,
+    ) -> Result<Vec<HentPersonBolkHentPersonBolk>> {
+        let variables = hent_person_bolk::Variables {
+            identer: identitetsnummer.into_iter().map(|id| id.into()).collect(),
+            historisk: Some(false),
+        };
+        let request_body = HentPersonBolk::build_query(variables);
+        let response: graphql_client::Response<hent_person_bolk::ResponseData> =
+            self.hent_data(request_body).await?;
+        if let Some(errors) = response.errors {
+            let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
+            return Err(PDLQueryError::UnknownError(messages.join(", ")).into());
+        }
+        let data = response
+            .data
+            .ok_or_else(|| PDLQueryError::UnknownError("No data in PDL response".to_string()))?;
+        Ok(data.hent_person_bolk)
+    }
+
+    //instrument excluding identitetsnummer for privacy reasons
+    #[instrument(skip(self, identitetsnummer))]
+    pub async fn hent_navn(
+        &self,
+        identitetsnummer: Identitetsnummer,
+    ) -> Result<Option<HentNavnHentPerson>> {
+        let variables = hent_navn::Variables {
+            ident: identitetsnummer.into(),
+            historisk: Some(false),
+        };
+        let request_body = HentNavn::build_query(variables);
+        let response: graphql_client::Response<hent_navn::ResponseData> =
+            self.hent_data(request_body).await?;
+        if let Some(errors) = response.errors {
+            let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
+            Err(PDLQueryError::UnknownError(messages.join(", ")).into())
+        } else {
+            let data = response.data.ok_or_else(|| {
+                PDLQueryError::UnknownError("No data in PDL response".to_string())
+            })?;
+            Ok(data.hent_person)
+        }
+    }
+
+    pub async fn hent_data<
+        Variables: serde::Serialize,
+        ResponseData: serde::de::DeserializeOwned,
+    >(
+        &self,
+        body: QueryBody<Variables>,
+    ) -> Result<graphql_client::Response<ResponseData>> {
+        let token = match self
+            .inner
+            .token_client
+            .get_token(self.inner.target_scope.clone())
+            .await
+        {
+            Ok(token) => token,
+            Err(e) => return Err(e),
+        };
+        let res = self
+            .inner
+            .http_client
+            .post(self.inner.url.clone())
+            .json(&body)
+            .bearer_auth(token.access_token)
+            .header("Behandlingsnummer", self.inner.behandlingsnummer.clone())
+            .send()
+            .await?;
+        match res.status() {
+            reqwest::StatusCode::OK => (),
+            reqwest::StatusCode::UNAUTHORIZED => return Err(PDLQueryError::NotAuthorized.into()),
+            reqwest::StatusCode::FORBIDDEN => {
+                return Err(PDLQueryError::AuthenticationFailed.into());
+            }
+            _ => {
+                let status = res.status();
+                let text = res.text().await.unwrap_or_default();
+                return Err(PDLQueryError::UnknownError(format!(
+                    "PDL query failed with status {}: {}",
+                    status, text
+                ))
+                .into());
+            }
+        }
+        let response: graphql_client::Response<ResponseData> = res.json().await?;
+        Ok(response)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum PDLQueryError {
+    #[error("Not authorized to access this PDL data")]
+    NotAuthorized,
+    #[error("Authentication failed")]
+    AuthenticationFailed,
+    #[error("PDL query error: {0}")]
+    UnknownError(String),
+}

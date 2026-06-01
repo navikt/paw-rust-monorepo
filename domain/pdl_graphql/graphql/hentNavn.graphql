@@ -1,0 +1,9 @@
+query HentNavn($ident: ID!, $historisk: Boolean = false) {
+    hentPerson(ident: $ident) {
+        navn(historikk: $historisk) {
+            fornavn
+            mellomnavn
+            etternavn
+        }
+    }
+}
