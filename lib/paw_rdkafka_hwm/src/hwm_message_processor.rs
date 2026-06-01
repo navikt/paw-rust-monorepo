@@ -21,54 +21,6 @@ pub trait MessageProcessor {
     ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>>;
 }
 
-async fn internal_hwm_process_message(
-    topic: &str,
-    hwm_version: i16,
-    pg_pool: PgPool,
-    msg: &OwnedMessage,
-    processor: &(impl MessageProcessor + Send + Sync),
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut tx = pg_pool.begin().await?;
-    let hwm_ok = update_hwm(&mut tx, hwm_version, topic, msg.partition(), msg.offset()).await?;
-
-    if hwm_ok {
-        let res = processor.process_message(&mut tx, msg).await;
-        increment_kafka_messages_processed(true, topic, msg.partition(), res.is_err());
-        match res {
-            Ok(_) => {
-                tracing::debug!(
-                    "Message processed successfully: topic={}, partition={}, offset={}",
-                    topic,
-                    msg.partition(),
-                    msg.offset()
-                );
-                tx.commit().await?;
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!(
-                    "Error processing message: topic={}, partition={}, offset={}, error={}",
-                    topic,
-                    msg.partition(),
-                    msg.offset(),
-                    e
-                );
-                tx.rollback().await?;
-                Err(e)
-            }
-        }
-    } else {
-        increment_kafka_messages_processed(false, topic, msg.partition(), false);
-        tracing::info!(
-            "Below HWM, topic={}, partition={}, offset={}",
-            topic,
-            msg.partition(),
-            msg.offset()
-        );
-        Ok(())
-    }
-}
-
 pub async fn hwm_process_message(
     hwm_version: i16,
     pg_pool: PgPool,
@@ -99,12 +51,61 @@ pub async fn hwm_process_message(
     Ok(())
 }
 
+async fn internal_hwm_process_message(
+    topic: &str,
+    hwm_version: i16,
+    pg_pool: PgPool,
+    msg: &OwnedMessage,
+    processor: &(impl MessageProcessor + Send + Sync),
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let mut tx = pg_pool.begin().await?;
+    let partition = u16::try_from(msg.partition()).expect("Partition cast fra i32->u16 feilet");
+    let hwm_ok = update_hwm(&mut tx, hwm_version, topic, partition, msg.offset()).await?;
+
+    if hwm_ok {
+        let res = processor.process_message(&mut tx, msg).await;
+        increment_kafka_messages_processed(true, topic, partition, res.is_err());
+        match res {
+            Ok(_) => {
+                tracing::debug!(
+                    "Message processed successfully: topic={}, partition={}, offset={}",
+                    topic,
+                    partition,
+                    msg.offset()
+                );
+                tx.commit().await?;
+                Ok(())
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Error processing message: topic={}, partition={}, offset={}, error={}",
+                    topic,
+                    partition,
+                    msg.offset(),
+                    e
+                );
+                tx.rollback().await?;
+                Err(e)
+            }
+        }
+    } else {
+        increment_kafka_messages_processed(false, topic, partition, false);
+        tracing::info!(
+            "Below HWM, topic={}, partition={}, offset={}",
+            topic,
+            partition,
+            msg.offset()
+        );
+        Ok(())
+    }
+}
+
 static KAFKA_MESSAGES_PROCESSED: OnceLock<CounterVec> = OnceLock::new();
 
 pub fn increment_kafka_messages_processed(
     above_hwm: bool,
     topic: &str,
-    partition: i32,
+    partition: u16,
     error: bool,
 ) {
     let counter_vec = KAFKA_MESSAGES_PROCESSED.get_or_init(|| {

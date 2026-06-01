@@ -1,4 +1,4 @@
-use crate::hwm::{DEFAULT_HWM, Hwm};
+use crate::hwm::{DEFAULT_HWM_OFFSET, Hwm};
 use crate::hwm_functions::{get_hwm, insert_hwm};
 use anyhow::Result;
 use futures::executor::block_on;
@@ -15,15 +15,14 @@ pub(super) fn get_hwms(
         let mut hwms = Vec::new();
         for topic_partition in tpl.elements() {
             let topic = topic_partition.topic();
-            let partition = topic_partition.partition();
+            let partition = u16::try_from(topic_partition.partition()).expect("Partition cast fra i32->u16 feilet");
             let offset = match get_hwm(&mut tx, version, topic, partition).await? {
                 Some(offset) => offset,
                 None => {
-                    insert_hwm(&mut tx, version, topic, partition, DEFAULT_HWM).await?;
-                    DEFAULT_HWM
+                    insert_hwm(&mut tx, version, topic, partition, DEFAULT_HWM_OFFSET).await?;
+                    DEFAULT_HWM_OFFSET
                 }
             };
-            let partition = u32::try_from(partition).expect("rdkafka ga negativ partition");
             let hwm = Hwm::new(topic, partition, Some(offset));
             hwms.push(hwm);
         }
@@ -51,7 +50,7 @@ mod tests {
         assert_eq!(hwms.len(), 1);
         assert_eq!(hwms[0].topic, "topic-a");
         assert_eq!(hwms[0].partition(), 0);
-        assert_eq!(hwms[0].offset, Some(DEFAULT_HWM));
+        assert_eq!(hwms[0].offset, Some(DEFAULT_HWM_OFFSET));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -90,8 +89,8 @@ mod tests {
 
         assert_eq!(hwms.len(), 3);
         assert_eq!(hwms[0].offset, Some(100));
-        assert_eq!(hwms[1].offset, Some(DEFAULT_HWM));
-        assert_eq!(hwms[2].offset, Some(DEFAULT_HWM));
+        assert_eq!(hwms[1].offset, Some(DEFAULT_HWM_OFFSET));
+        assert_eq!(hwms[2].offset, Some(DEFAULT_HWM_OFFSET));
     }
 
     async fn setup_db() -> PgPool {

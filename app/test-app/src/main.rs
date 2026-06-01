@@ -81,7 +81,7 @@ fn spawn_consumer_task(
         loop {
             let msg = consumer.recv().await?.detach();
             let topic = msg.topic().to_string();
-            let partition = msg.partition();
+            let partition = u16::try_from(msg.partition()).expect("Partition cast fra i32->u16 feilet");
             let offset = msg.offset();
 
             let mut tx = pg_pool.begin().await?;

@@ -5,7 +5,7 @@ pub async fn update_hwm(
     tx: &mut Transaction<'_, Postgres>,
     version: i16,
     topic: &str,
-    partition: i32,
+    partition: u16,
     hwm: i64,
 ) -> Result<bool> {
     let res = sqlx::query(
@@ -17,7 +17,7 @@ pub async fn update_hwm(
     )
     .bind(version)
     .bind(topic)
-    .bind(partition)
+    .bind(partition as i32)
     .bind(hwm)
     .execute(&mut **tx)
     .await?;
@@ -28,7 +28,7 @@ pub async fn insert_hwm(
     tx: &mut Transaction<'_, Postgres>,
     version: i16,
     topic: &str,
-    partition: i32,
+    partition: u16,
     hwm: i64,
 ) -> Result<()> {
     sqlx::query(
@@ -39,7 +39,7 @@ pub async fn insert_hwm(
     )
     .bind(version)
     .bind(topic)
-    .bind(partition)
+    .bind(partition as i32)
     .bind(hwm)
     .execute(&mut **tx)
     .await?;
@@ -50,7 +50,7 @@ pub async fn get_hwm(
     tx: &mut Transaction<'_, Postgres>,
     version: i16,
     topic: &str,
-    partition: i32,
+    partition: u16,
 ) -> Result<Option<i64>> {
     let row = sqlx::query_scalar(
         r#"
@@ -61,7 +61,7 @@ pub async fn get_hwm(
     )
     .bind(version)
     .bind(topic)
-    .bind(partition)
+    .bind(partition as i32)
     .fetch_optional(&mut **tx)
     .await?;
 

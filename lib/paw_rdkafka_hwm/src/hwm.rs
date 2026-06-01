@@ -1,16 +1,16 @@
 use rdkafka::Offset;
 
-pub const DEFAULT_HWM: i64 = -1;
+pub const DEFAULT_HWM_OFFSET: i64 = -1;
 
 #[derive(Debug, Clone)]
 pub struct Hwm {
     pub topic: String,
-    partition: u32,
+    partition: u16,
     pub offset: Option<i64>,
 }
 
 impl Hwm {
-    pub fn new(topic: impl Into<String>, partition: u32, offset: Option<i64>) -> Self {
+    pub fn new(topic: impl Into<String>, partition: u16, offset: Option<i64>) -> Self {
         Self {
             topic: topic.into(),
             partition,
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn default_hwm_gir_offset_0() {
-        let hwm = Hwm::new("test", 0, Some(DEFAULT_HWM));
+        let hwm = Hwm::new("test", 0, Some(DEFAULT_HWM_OFFSET));
         assert_eq!(hwm.neste_offset(), Offset::Offset(0));
     }
 
