@@ -7,28 +7,32 @@ use crate::regler::regelsett::Regelsett;
 use crate::{fakta::UtledeFakta, regler::evalueringsresultat::Evalueringsresultat};
 use interne_hendelser::vo::Opplysning;
 use pdl_graphql::pdl::Person;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 struct Regelmotor {
     utlede_fakta: UtledePersonFakta,
     regelsett: Regelsett,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
-pub struct RegelVersjon(String);
+pub struct RegelVersjon(&'static str);
 
 impl RegelVersjon {
     pub fn gjeldende() -> Self {
-        Self(env!("REGLER_SOURCE_HASH").to_string())
+        Self(env!("REGLER_SOURCE_HASH"))
     }
 
-    pub fn into_string(self) -> String {
+    pub fn as_string(&self) -> String {
+        self.0.to_string()
+    }
+
+    pub fn as_str(&self) -> &'static str {
         self.0
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Evaluering {
     pub regelsett_versjon: RegelVersjon,
     #[serde(default)]
