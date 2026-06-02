@@ -608,6 +608,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "dab_kontortilhorlighet"
+version = "0.1.0"
+dependencies = [
+ "graphql_client",
+]
+
+[[package]]
 name = "darling"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,6 +789,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "eksterne_hendelser"
+version = "0.1.0"
+dependencies = [
+ "apache-avro",
+ "chrono",
+ "schema_registry_converter",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -1950,6 +1971,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nais_schema_registry"
+version = "0.1.0"
+dependencies = [
+ "paw_rust_base",
+ "schema_registry_converter",
+ "temp-env",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2312,6 +2343,15 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "toml",
+]
+
+[[package]]
+name = "paw_hendelse_processor"
+version = "0.1.0"
+dependencies = [
+ "eksterne_hendelser",
+ "schema_registry_converter",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

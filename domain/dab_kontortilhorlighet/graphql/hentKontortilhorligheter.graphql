@@ -1,0 +1,16 @@
+query HentKontortilhorligheter($ident: String!) {
+    kontorTilhorigheter(ident: $ident) {
+        arbeidsoppfolging {
+            kontorId
+            kontorNavn
+        }
+        arena {
+            kontorId
+            kontorNavn
+        }
+        geografiskTilknytning {
+            kontorId
+            kontorNavn
+        }
+    }
+}
