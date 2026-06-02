@@ -26,7 +26,8 @@ use utgang::pdl_oppdatering::{PdlDataOppdatering, start_pdl_oppdatering_task};
 use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 
 const PDL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
-const KONTROLL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(200).expect("Batch size must be non-zero u16");
+const KONTROLL_BATCH_SIZE: NonZeroU16 =
+    NonZeroU16::new(200).expect("Batch size must be non-zero u16");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -62,11 +63,12 @@ async fn main() -> Result<()> {
     })?;
     let utgang_processor = UtgangMessageProcessor::new()?;
     let pdl_pool = pg_pool.clone();
+    let consumer_pool = pg_pool.clone();
     let consumer_task: JoinHandle<Result<()>> = tokio::spawn(async move {
         loop {
             let msg = consumer.recv().await?;
             let msg = msg.detach();
-            hwm_process_message(hwm_version, pg_pool.clone(), &msg, &utgang_processor)
+            hwm_process_message(hwm_version, consumer_pool.clone(), &msg, &utgang_processor)
                 .await
                 .map_err(|e| ProcessingError {
                     message: e.to_string(),
@@ -81,12 +83,16 @@ async fn main() -> Result<()> {
     tracing::info!("Lastet pdl config: {:?}", pdl_client_config);
     let pdl_client =
         PDLClient::from_config(pdl_client_config, reqwest_client.clone(), token_client);
-    let pdl_oppdatering =
-        PdlDataOppdatering::new(pdl_pool.clone(), pdl_client, PDL_BATCH_SIZE, TimeDelta::hours(24));
+    let pdl_oppdatering = PdlDataOppdatering::new(
+        pdl_pool.clone(),
+        pdl_client,
+        PDL_BATCH_SIZE,
+        TimeDelta::hours(24),
+    );
     let pdl_oppdatering_task = start_pdl_oppdatering_task(pdl_oppdatering, Duration::from_mins(1));
     let regelsett = regler_arbeidssoeker::regelsett_v4::regelsett_v4();
-    let kontroll = KontrollTask::new(pdl_pool, KONTROLL_BATCH_SIZE, regelsett);
-    let kontroll_task = start_kontroll_task(kontroll, Duration::from_secs(30));
+    let kontroll = KontrollTask::new(pg_pool.clone(), KONTROLL_BATCH_SIZE, regelsett);
+    let kontroll_task = start_kontroll_task(kontroll, Duration::from_mins(5));
     let signal_task = get_shutdown_signal();
     app_state.set_has_started(true);
     tokio::select! {

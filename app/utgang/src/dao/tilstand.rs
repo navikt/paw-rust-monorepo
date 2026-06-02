@@ -70,7 +70,7 @@ impl Tilstand {
         };
         let regel_evaluering = RegelEvaluering {
             tidspunkt,
-            regelsett_versjon: evaluering.regelsett_versjon.into_string(),
+            regelsett_versjon: evaluering.regelsett_versjon.as_string(),
             status,
             regel_ider: regel_ideer
                 .into_iter()

@@ -1,8 +1,12 @@
-use std::{collections::HashMap, num::NonZeroU16, sync::Arc};
+use std::{num::NonZeroU16, sync::Arc};
 
-use crate::{dao::les_periode::hent_utdaterte_perioder, pdl::pdl_query::PDLClient};
+use crate::{
+    dao::{les_periode::hent_utdaterte_perioder, skriv_periode::skriv_periode_data},
+    pdl::pdl_query::PDLClient,
+};
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
+use interne_hendelser::vo::Opplysninger;
 use pdl_graphql::pdl::{Person, hent_person_bolk::HentPersonBolkHentPersonBolk};
 use regler_arbeidssoeker::fakta::person_fakta::utled_fakta;
 use sqlx::PgPool;
@@ -54,8 +58,48 @@ impl PdlDataOppdatering {
             .perform_hent_person_bolk(identitetsnummer)
             .await?;
         let identitetsnummer_og_person = generer_identitetsnummer(pdl_data);
-        let identitetsnummer_og_opplysninger = utled_fakta(identitetsnummer_og_person);
-        Ok(false)
+        let identitetsnummer_og_opplysninger: Vec<(Identitetsnummer, Opplysninger)> =
+            utled_fakta(identitetsnummer_og_person)
+                .into_iter()
+                .filter_map(|(ident, opplysninger)| match opplysninger {
+                    Ok(o) => Some((ident, o)),
+                    Err(fakta_feil) => {
+                        tracing::warn!("Feil ved utledning av fakta for ident : {:?}", fakta_feil);
+                        None
+                    }
+                })
+                .collect();
+        let mut rad_map = trenger_oppdatering
+            .into_iter()
+            .map(|periode| (periode.identitetsnummer.clone(), periode))
+            .collect::<std::collections::HashMap<_, _>>();
+        let mut data_oppdatert = false;
+        for (ident, opplysninger) in identitetsnummer_og_opplysninger {
+            if let Some(rad) = rad_map.remove(&ident) {
+                let ny_tilstand = rad.tilstand.map(|tilstand| {
+                    tilstand.registrer_nye_opplysninger(
+                        gjeldene_tidspunkt,
+                        opplysninger.0.into_iter().collect(),
+                    )
+                });
+                data_oppdatert = true;
+                skriv_periode_data(
+                    &mut tx,
+                    rad.id.0,
+                    None,
+                    ident.as_ref(),
+                    None,
+                    gjeldene_tidspunkt,
+                    true,
+                    None,
+                    ny_tilstand,
+                    false,
+                )
+                .await?;
+            }
+        }
+        tx.commit().await?;
+        Ok(data_oppdatert)
     }
 }
 
