@@ -2,14 +2,16 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BrukerType {
-    UkjentVerdi,
     Udefinert,
     Veileder,
     System,
     Sluttbruker,
+    #[serde(other)]
+    #[default]
+    UkjentVerdi,
 }
 
 impl Display for BrukerType {
@@ -19,7 +21,7 @@ impl Display for BrukerType {
             BrukerType::Veileder => write!(f, "VEILEDER"),
             BrukerType::System => write!(f, "SYSTEM"),
             BrukerType::Udefinert => write!(f, "UDEFINITERT"),
-            BrukerType::UkjentVerdi => write!(f, "UKJENT_VERDI"),
+            BrukerType::UkjentVerdi => write!(f, "UkjentVerdi"),
         }
     }
 }
@@ -33,7 +35,7 @@ impl FromStr for BrukerType {
             "VEILEDER" => Ok(BrukerType::Veileder),
             "SYSTEM" => Ok(BrukerType::System),
             "UDEFINITERT" => Ok(BrukerType::Udefinert),
-            "UKJENT_VERDI" => Ok(BrukerType::UkjentVerdi),
+            "UkjentVerdi" => Ok(BrukerType::UkjentVerdi),
             _ => Err(format!("Uventet brukertype {}", s)),
         }
     }

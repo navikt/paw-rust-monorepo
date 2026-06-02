@@ -9,6 +9,6 @@ uuid = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, features = ["serde"] }
 strum = { workspace = true }
 serde_with = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
