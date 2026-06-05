@@ -8,7 +8,7 @@ Authorization: Bearer {{$auth.token("azure")}}
     "method": "POST",
     "url": "http://paw-arbeidssoekerregisteret-api-oversikt/api/v1/oversikt",
     "body": {
-        "identitetsnummer": "24849098329",
+        "identitetsnummer": "{{identitetsnummer}}",
         "paging": {
             "page": 1,
             "page_size": 10,
