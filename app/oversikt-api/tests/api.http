@@ -1,0 +1,13 @@
+### POST /api/v1/oversikt
+POST {{baseUrl}}/api/v1/oversikt
+Accept: application/json
+Content-Type: application/json
+
+{
+    "identitetsnummer": "24849098329",
+    "paging": {
+        "page": 1,
+        "page_size": 10,
+        "sort_order": "DESC"
+    }
+}

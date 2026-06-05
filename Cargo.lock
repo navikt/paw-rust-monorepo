@@ -2266,19 +2266,26 @@ dependencies = [
  "anyhow",
  "axum",
  "axum_health",
+ "chrono",
+ "eksterne_hendelser",
  "health_and_monitoring",
  "mockito",
  "paw_app_config",
  "paw_rust_base",
+ "paw_sqlx",
  "paw_test",
  "serde",
  "serde-env-field",
  "serde_json",
+ "serde_with",
+ "sqlx",
+ "strum 0.28.0",
  "temp-env",
  "thiserror 2.0.18",
  "tokio",
  "toml",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 
@@ -4581,6 +4588,30 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "types",
+ "uuid",
+]
+
+[[package]]
+name = "utoipa"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
+dependencies = [
+ "indexmap 2.14.0",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
  "uuid",
 ]
 
