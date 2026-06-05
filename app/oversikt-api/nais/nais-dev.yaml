@@ -6,13 +6,21 @@ metadata:
   labels:
     team: paw
 spec:
-  image: {{ image }}
+  image: { { image } }
   port: 8080
   env:
     - name: RUST_BACKTRACE
       value: "1"
     - name: RUST_LOG
       value: "info"
+    - name: PGSSLMODE
+      value: "VerifyFull"
+    - name: PGSSLROOTCERT
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_OVERSIKT_OVERSIKT_SSLROOTCERT)"
+    - name: PGSSLCERT
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_OVERSIKT_OVERSIKT_SSLCERT)"
+    - name: PGSSLKEY
+      value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_OVERSIKT_OVERSIKT_SSLKEY)"
   replicas:
     min: 1
     max: 1

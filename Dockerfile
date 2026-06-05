@@ -9,7 +9,7 @@ ARG GIT_COMMIT_HASH=dev-build
 ARG FEATURES
 ENV BUILD_APP="cargo auditable build --target x86_64-unknown-linux-musl --release -p ${APP} ${FEATURES:+--features ${FEATURES}}"
 ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
-RUN echo build_cmd=${BUILD_APP}
+RUN echo "build_cmd=${BUILD_APP}"
 RUN ${BUILD_APP}
 RUN ls -l /build/target/x86_64-unknown-linux-musl/release/
 
