@@ -1,0 +1,18 @@
+### POST /api/v1/oversikt
+POST {{baseUrl}}/api/v1/proxy
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "method": "POST",
+    "url": "http://paw-arbeidssoekerregisteret-api-oversikt/api/v1/oversikt",
+    "body": {
+        "identitetsnummer": "24849098329",
+        "paging": {
+            "page": 1,
+            "page_size": 10,
+            "sort_order": "DESC"
+        }
+    }
+}
