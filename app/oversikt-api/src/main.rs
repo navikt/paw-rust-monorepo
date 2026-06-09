@@ -1,9 +1,10 @@
 use errors::database::DatabaseError;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use oversikt_api::api::build_router;
-use oversikt_api::config::read_database_config;
+use oversikt_api::config::{read_auth_config, read_database_config};
 use oversikt_api::model::context::AppContext;
 use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
+use paw_oauth2::state::AuthState;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
 use std::sync::Arc;
@@ -24,7 +25,12 @@ async fn main() -> anyhow::Result<()> {
 
     let context = AppContext { db };
 
-    let router = build_router(app_state.clone(), context);
+    let auth_config = read_auth_config()?;
+    let auth_state = AuthState::new(auth_config)
+        .await
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+    let router = build_router(app_state.clone(), context, auth_state);
     let server_task = web_server_task(router).await;
     let signal_task = shutdown_signal_task();
 

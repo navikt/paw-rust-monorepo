@@ -19,6 +19,7 @@ health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
+paw_oauth2 = { path = "../../lib/paw_oauth2" }
 
 sqlx = { workspace = true }
 chrono = { workspace = true }

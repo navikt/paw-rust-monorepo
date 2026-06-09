@@ -2218,6 +2218,7 @@ dependencies = [
  "mockito",
  "paw_app_config",
  "paw_error_handling",
+ "paw_oauth2",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
