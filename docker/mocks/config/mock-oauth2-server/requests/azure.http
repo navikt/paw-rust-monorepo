@@ -1,0 +1,17 @@
+### GET /azure/.well-known/openid-configuration
+GET {{baseUrl}}/azure/.well-known/openid-configuration
+Accept: application/json
+
+### GET /azure/jwks
+GET {{baseUrl}}/azure/jwks
+Accept: application/json
+
+### POST /tokenx/token
+POST {{baseUrl}}/azure/token
+Accept: application/json
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&
+client_id=paw-arbeidssoekerregisteret-api-oversikt&
+client_secret=abcd1234&
+scope=openid oid name roles NAVident

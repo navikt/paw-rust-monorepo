@@ -1,10 +1,10 @@
-use crate::model::error::problem_details::ProblemDetails;
 use crate::model::dto::request::QueryRequest;
 use crate::model::dto::response::{
     Arbeidssoeker, Bekreftelse, Egenvurdering, Profilering, TilknyttetKontor,
 };
 use axum::response::IntoResponse;
 use axum::Json;
+use paw_error_handling::problem_details::ProblemDetails;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]

@@ -842,6 +842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "errors"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "sqlx",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "etcetera"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1696,6 +1705,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonwebtoken"
+version = "9.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
+dependencies = [
+ "base64",
+ "js-sys",
+ "pem",
+ "ring",
+ "serde",
+ "serde_json",
+ "simple_asn1",
+]
+
+[[package]]
 name = "kafka-topic-backup"
 version = "0.1.0"
 dependencies = [
@@ -2189,9 +2213,11 @@ dependencies = [
  "axum_health",
  "chrono",
  "eksterne_hendelser",
+ "errors",
  "health_and_monitoring",
  "mockito",
  "paw_app_config",
+ "paw_error_handling",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -2274,12 +2300,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "paw_error_handling"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "errors",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
 name = "paw_hendelse_processor"
 version = "0.1.0"
 dependencies = [
  "eksterne_hendelser",
  "schema_registry_converter",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "paw_oauth2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "errors",
+ "jsonwebtoken",
+ "paw_error_handling",
+ "reqwest 0.13.4",
+ "serde",
+ "serde-env-field",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]
@@ -2328,11 +2387,11 @@ name = "paw_sqlx"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "errors",
  "log",
  "serde",
  "serde-env-field",
  "sqlx",
- "thiserror 2.0.18",
  "tracing",
 ]
 
@@ -2381,6 +2440,16 @@ dependencies = [
  "paw_test",
  "temp-env",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "pem"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
+dependencies = [
+ "base64",
+ "serde_core",
 ]
 
 [[package]]
@@ -3402,6 +3471,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
+name = "simple_asn1"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "thiserror 2.0.18",
+ "time",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3787,6 +3868,7 @@ dependencies = [
  "axum_health",
  "base64",
  "chrono",
+ "errors",
  "futures",
  "health_and_monitoring",
  "log",
@@ -4542,6 +4624,7 @@ dependencies = [
  "async-trait",
  "axum_health",
  "chrono",
+ "errors",
  "health_and_monitoring",
  "interne_hendelser",
  "mockito",

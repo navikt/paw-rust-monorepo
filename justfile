@@ -68,6 +68,14 @@ kafka-up:
 kafka-down:
     docker compose -f docker/kafka/docker-compose.yaml down
 
+# Start local mock services (OAuth2 server, WireMock)
+mocks-up:
+    docker compose -f docker/mocks/docker-compose.yaml up -d
+
+# Stop local mock services
+mocks-down:
+    docker compose -f docker/mocks/docker-compose.yaml down
+
 # Start all local infrastructure
 infra-up: postgres-up kafka-up
 

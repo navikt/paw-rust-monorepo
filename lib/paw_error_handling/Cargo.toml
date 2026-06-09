@@ -1,0 +1,16 @@
+[package]
+name = "paw_error_handling"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+errors = { path = "../../domain/errors" }
+
+anyhow = { workspace = true }
+axum = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+utoipa = { workspace = true }
+uuid = { workspace = true }

@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
 use crate::config::DatabaseConfig;
-use crate::error::DatabaseError;
 use anyhow::Result;
+use errors::database::DatabaseError;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, ConnectOptions};
 use sqlx::{FromRow, PgPool};

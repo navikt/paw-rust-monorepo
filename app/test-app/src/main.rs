@@ -6,10 +6,10 @@ mod http_apis;
 use crate::config::{read_database_config, read_kafka_config};
 use crate::http_apis::register_http_apis;
 use anyhow::Result;
+use errors::database::DatabaseError;
 use health_and_monitoring::nais_otel_setup::setup_nais_otel;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rust_base::error::ServerError;
-use paw_sqlx::error::DatabaseError;
 use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
 use tracing::info;
@@ -26,7 +26,10 @@ async fn main() -> Result<()> {
     let db_config = read_database_config()?;
     let pg_pool = init_db(db_config).await?;
     clear_db(&pg_pool).await?;
-    sqlx::migrate!("./migrations").run(&pg_pool).await.map_err(DatabaseError::MigrateSchema)?;
+    sqlx::migrate!("./migrations")
+        .run(&pg_pool)
+        .await
+        .map_err(DatabaseError::MigrateSchema)?;
     info!("Database migrert");
 
     let kafka_config = read_kafka_config()?;

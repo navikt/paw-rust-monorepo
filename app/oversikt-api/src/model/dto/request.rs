@@ -1,5 +1,5 @@
 use crate::model::dto::response::SortOrder;
-use crate::model::error::validation_error::ValidationError;
+use errors::validation::ValidationError;
 use serde::Deserialize;
 use utoipa::ToSchema;
 

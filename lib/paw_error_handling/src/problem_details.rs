@@ -1,27 +1,31 @@
-use crate::model::error::validation_error::ValidationError;
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use chrono::{DateTime, Utc};
-use paw_sqlx::error::DatabaseError;
+use errors::auth::AuthError;
+use errors::database::DatabaseError;
+use errors::validation::ValidationError;
 use serde::Serialize;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, ToSchema)]
-pub(crate) struct ProblemDetails {
+pub struct ProblemDetails {
+    pub id: Uuid,
     #[serde(rename = "type")]
-    pub(crate) problem_type: String,
-    pub(crate) title: String,
-    pub(crate) status: u16,
+    pub problem_type: String,
+    pub title: String,
+    pub status: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) detail: Option<String>,
-    pub(crate) instance: String,
-    pub(crate) timestamp: DateTime<Utc>,
+    pub detail: Option<String>,
+    pub instance: String,
+    pub timestamp: DateTime<Utc>,
 }
 
 impl ProblemDetails {
-    pub(crate) fn validation_error(instance: String, error: ValidationError) -> Self {
+    pub fn validation_error(instance: String, error: ValidationError) -> Self {
         Self {
+            id: Uuid::new_v4(),
             problem_type: "urn:paw:http:validation-error".to_string(),
             title: "Bad Request".to_string(),
             status: 400u16,
@@ -30,8 +34,21 @@ impl ProblemDetails {
             timestamp: Utc::now(),
         }
     }
-    pub(crate) fn internal_server_error(instance: String) -> Self {
+    pub fn unauthorized(instance: String, error: AuthError) -> Self {
         Self {
+            id: Uuid::new_v4(),
+            problem_type: "urn:paw:http:unauthorized".to_string(),
+            title: "Unauthorized".to_string(),
+            status: 401u16,
+            detail: Some(error.to_string()),
+            instance,
+            timestamp: Utc::now(),
+        }
+    }
+
+    pub fn internal_server_error(instance: String) -> Self {
+        Self {
+            id: Uuid::new_v4(),
             problem_type: "urn:paw:default:unhandled-error".to_string(),
             title: "Internal Server Error".to_string(),
             status: 500u16,
@@ -51,6 +68,20 @@ impl IntoResponse for ProblemDetails {
             HeaderValue::from_static("application/problem+json"),
         );
         response
+    }
+}
+
+impl From<ValidationError> for ProblemDetails {
+    fn from(e: ValidationError) -> Self {
+        tracing::warn!(error = %e, "Validering feilet");
+        Self::validation_error("/".to_string(), e)
+    }
+}
+
+impl From<AuthError> for ProblemDetails {
+    fn from(e: AuthError) -> Self {
+        tracing::warn!(error = %e, "Autentisering feilet");
+        Self::unauthorized("/".to_string(), e)
     }
 }
 

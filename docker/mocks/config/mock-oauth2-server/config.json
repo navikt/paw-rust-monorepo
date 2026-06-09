@@ -10,6 +10,7 @@
                     "requestParam": "client_id",
                     "match": "paw-kafka-key-generator",
                     "claims": {
+                        "iss": "http://localhost:8081/azure",
                         "sub": "admin@paw-kafka-key-generator",
                         "aud": [
                             "paw-kafka-key-generator"
@@ -25,6 +26,7 @@
                     "requestParam": "client_id",
                     "match": "paw-arbeidssoekerregisteret-api-oversikt",
                     "claims": {
+                        "iss": "http://localhost:8081/azure",
                         "sub": "admin@paw-arbeidssoekerregisteret-api-oversikt",
                         "aud": [
                             "paw-arbeidssoekerregisteret-api-oversikt"

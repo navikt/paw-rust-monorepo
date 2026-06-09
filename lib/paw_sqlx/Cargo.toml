@@ -4,10 +4,11 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+errors = { path = "../../domain/errors" }
+
 sqlx = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde-env-field = { workspace = true }
-thiserror = { workspace = true }
 anyhow = { workspace = true }

@@ -1,10 +1,10 @@
-use crate::model::error::problem_details::ProblemDetails;
 use crate::logic::query;
 use crate::model::context::AppContext;
 use crate::model::dto::request::QueryRequest;
 use crate::model::dto::response::OversiktResponse;
 use axum::extract::State;
 use axum::Json;
+use paw_error_handling::problem_details::ProblemDetails;
 use tracing::instrument;
 
 #[utoipa::path(
@@ -21,15 +21,11 @@ use tracing::instrument;
 pub(crate) async fn finn_oversikt(
     State(state): State<AppContext>,
     Json(request): Json<QueryRequest>,
-) -> Result<Json<OversiktResponse>, ProblemDetails> {
-    if let Err(error) = request.validate() {
-        Err(ProblemDetails::validation_error(
-            "/api/v1/oversikt".to_string(),
-            error
-        ))
-    } else {
-        let response = query::finn_oversikt(&state.db, &request).await?;
-        tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
-        Ok(Json(response))
-    }
+) -> anyhow::Result<Json<OversiktResponse>, ProblemDetails> {
+    request
+        .validate()
+        .map_err(|e| ProblemDetails::validation_error("/api/v1/oversikt".to_string(), e))?;
+    let response = query::finn_oversikt(&state.db, &request).await?;
+    tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
+    Ok(Json(response))
 }
