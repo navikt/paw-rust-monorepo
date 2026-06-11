@@ -23,7 +23,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .map_err(DatabaseError::MigrateSchema)?;
 
-    let context = AppContext { db };
+    // Om det legges flere felter inn i context må den wrappes i en Arc. Trengs ikke nå siden PgPool allerede er en Arc.
+    let context = AppContext::new(db);
 
     let auth_config = read_auth_config()?;
     let auth_state = AuthState::new(auth_config)

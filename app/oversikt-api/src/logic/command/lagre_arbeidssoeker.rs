@@ -1,7 +1,6 @@
-use crate::model::dao::arbeidssoekere::{
-    insert, select_by_identitetsnummer, ArbeidssoekerRow,
-};
-use crate::model::dto::response::{Bekreftelsesloesning, SortOrder};
+use crate::model::dao::arbeidssoekere::{insert, select_by_identitetsnummer, ArbeidssoekerRow};
+use crate::model::dto::bekreftelse::Bekreftelsesloesning;
+use crate::model::sort::SortOrder;
 use eksterne_hendelser::periode::Periode;
 use sqlx::PgPool;
 

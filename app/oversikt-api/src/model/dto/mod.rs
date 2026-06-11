@@ -1,2 +1,9 @@
+pub mod arbeidssoeker;
+pub mod bekreftelse;
+pub mod egenvurdering;
+pub mod kontor;
+pub mod opplysninger;
+pub mod periode;
+pub mod profilering;
 pub mod request;
 pub mod response;

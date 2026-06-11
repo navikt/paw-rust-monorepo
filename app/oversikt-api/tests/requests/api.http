@@ -1,10 +1,27 @@
-### POST /api/v1/oversikt
+### POST /api/v1/oversikt for IDENTITETSNUMMER
 POST {{baseUrl}}/api/v1/oversikt
 Accept: application/json
 Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}
 
 {
+    "type": "IDENTITETSNUMMER",
+    "identitetsnummer": "{{identitetsnummer}}",
+    "paging": {
+        "page": 1,
+        "page_size": 10,
+        "sort_order": "DESC"
+    }
+}
+
+### POST /api/v1/oversikt for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v1/oversikt
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "TILKNYTTET_KONTOR",
     "identitetsnummer": "{{identitetsnummer}}",
     "paging": {
         "page": 1,

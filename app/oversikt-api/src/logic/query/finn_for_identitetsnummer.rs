@@ -1,16 +1,20 @@
 use crate::model::dao::{arbeidssoekere, tilknyttet_kontor};
-use crate::model::dto::request::{PagingRequest, QueryRequest};
-use crate::model::dto::response::{
-    Arbeidssoeker, Bekreftelse, Bekreftelsesloesning, Egenvurdering, Opplysninger,
-    OversiktResponse, PagingResponse, Periode, Profilering, ProfilertTil, SortOrder,
-    TilknyttetKontor,
-};
+use crate::model::dto::arbeidssoeker::Arbeidssoeker;
+use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
+use crate::model::dto::egenvurdering::Egenvurdering;
+use crate::model::dto::kontor::TilknyttetKontor;
+use crate::model::dto::opplysninger::Opplysninger;
+use crate::model::dto::periode::Periode;
+use crate::model::dto::profilering::{Profilering, ProfilertTil};
+use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
+use crate::model::dto::response::{OversiktResponse, PagingResponse};
+use crate::model::sort::SortOrder;
 use sqlx::PgPool;
 use std::str::FromStr;
 
-pub async fn finn_oversikt(
+pub async fn finn_for_identitetsnummer(
     pool: &PgPool,
-    request: &QueryRequest,
+    request: &IdentitetsnummerQueryRequest,
 ) -> anyhow::Result<OversiktResponse> {
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,

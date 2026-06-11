@@ -1,4 +1,4 @@
-use crate::model::dto::response::SortOrder;
+use crate::model::sort::SortOrder;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;

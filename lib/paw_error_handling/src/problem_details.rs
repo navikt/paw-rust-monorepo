@@ -23,13 +23,13 @@ pub struct ProblemDetails {
 }
 
 impl ProblemDetails {
-    pub fn validation_error(instance: String, error: ValidationError) -> Self {
+    pub fn validation_error(instance: String, detail: String) -> Self {
         Self {
             id: Uuid::new_v4(),
             problem_type: "urn:paw:http:validation-error".to_string(),
             title: "Bad Request".to_string(),
             status: 400u16,
-            detail: Some(error.to_string()),
+            detail: Some(detail),
             instance,
             timestamp: Utc::now(),
         }
@@ -74,7 +74,7 @@ impl IntoResponse for ProblemDetails {
 impl From<ValidationError> for ProblemDetails {
     fn from(e: ValidationError) -> Self {
         tracing::warn!(error = %e, "Validering feilet");
-        Self::validation_error("/".to_string(), e)
+        Self::validation_error("/".to_string(), e.to_string())
     }
 }
 

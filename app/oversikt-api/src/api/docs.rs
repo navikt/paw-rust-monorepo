@@ -1,7 +1,11 @@
+use crate::model::dto::arbeidssoeker::Arbeidssoeker;
+use crate::model::dto::bekreftelse::Bekreftelse;
+use crate::model::dto::egenvurdering::Egenvurdering;
+use crate::model::dto::kontor::TilknyttetKontor;
+use crate::model::dto::opplysninger::Opplysninger;
+use crate::model::dto::periode::Periode;
+use crate::model::dto::profilering::Profilering;
 use crate::model::dto::request::QueryRequest;
-use crate::model::dto::response::{
-    Arbeidssoeker, Bekreftelse, Egenvurdering, Profilering, TilknyttetKontor,
-};
 use axum::response::IntoResponse;
 use axum::Json;
 use paw_error_handling::problem_details::ProblemDetails;
@@ -18,9 +22,11 @@ use utoipa::OpenApi;
     components(schemas(
         QueryRequest,
         Arbeidssoeker,
-        Bekreftelse,
+        Periode,
+        Opplysninger,
         Profilering,
         Egenvurdering,
+        Bekreftelse,
         TilknyttetKontor,
         ProblemDetails,
     )),
