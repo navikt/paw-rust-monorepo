@@ -15,6 +15,7 @@ pub struct OversiktResponse {
 pub struct PagingResponse {
     pub page: i32,
     pub page_size: i32,
-    pub total_items: i64,
+    pub hit_size: i32,
+    pub total_count: i64,
     pub sort_order: SortOrder,
 }

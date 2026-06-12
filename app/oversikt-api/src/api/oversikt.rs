@@ -6,7 +6,6 @@ use crate::model::dto::response::OversiktResponse;
 use axum::extract::State;
 use axum::Json;
 use paw_error_handling::problem_details::ProblemDetails;
-use serde_json::Value;
 use tracing::instrument;
 
 #[utoipa::path(

@@ -1,1 +1,1 @@
-mod lagre_arbeidssoeker;
+pub mod lagre_arbeidssoeker;

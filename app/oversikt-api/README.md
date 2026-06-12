@@ -11,6 +11,7 @@ ledighet og egenvurdering nyere enn en gitt dato.
 * Periode
 * Kontortilhørlighet
   * Liste
+  * [DAB datamodell](https://ao-oppfolgingskontor.intern.dev.nav.no/sdl)
 * Ledighet
   * Ledig siden dato
     * nulles ved "har jobbet"

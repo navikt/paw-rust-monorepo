@@ -74,6 +74,44 @@ impl ArbeidssoekerRow {
     }
 }
 
+pub async fn count_by_identitetsnummer(
+    tx: &mut Transaction<'_, Postgres>,
+    identitetsnummer: &str,
+) -> anyhow::Result<i64> {
+    let count = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) AS count
+        FROM arbeidssoekere a
+        WHERE a.identitetsnummer = $1
+        "#,
+    )
+    .bind(identitetsnummer)
+    .fetch_one(&mut **tx)
+    .await?;
+    Ok(count)
+}
+
+pub async fn count_by_tilknyttet_kontor(
+    tx: &mut Transaction<'_, Postgres>,
+    kontor_id: &str,
+    kontor_typer: &Vec<String>,
+    ledig_siden: &DateTime<Utc>,
+) -> anyhow::Result<i64> {
+    let count = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) AS count
+        FROM arbeidssoekere a LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
+        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND a.ledig_siden NOTNULL AND a.ledig_siden > $3
+        "#,
+    )
+    .bind(kontor_id)
+    .bind(&kontor_typer[..])
+    .bind(ledig_siden)
+    .fetch_one(&mut **tx)
+    .await?;
+    Ok(count)
+}
+
 pub async fn select_by_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -100,34 +138,34 @@ async fn select_by_identitetsnummer_asc(
     let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
         r#"
         SELECT
-            id,
-            arbeidssoeker_id,
-            identitetsnummer,
-            fornavn,
-            mellomnavn,
-            etternavn,
-            ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
-            periode_id,
-            periode_startet AT TIME ZONE 'UTC' AS periode_startet,
-            periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
-            opplysninger_id,
-            opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
-            profilering_id,
-            profilert_til,
-            profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
-            egenvurdering_id,
-            egenvurdert_til,
-            egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
-            bekreftelse_id,
-            bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
-            bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
-            bekreftelse_har_jobbet,
-            bekreftelse_vil_fortsette,
-            bekreftelsesloesning,
-            bekreftelse_paa_vegne_av
-        FROM arbeidssoekere
-        WHERE identitetsnummer = $1
-        ORDER BY periode_startet ASC
+            a.id,
+            a.arbeidssoeker_id,
+            a.identitetsnummer,
+            a.fornavn,
+            a.mellomnavn,
+            a.etternavn,
+            a.ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
+            a.periode_id,
+            a.periode_startet AT TIME ZONE 'UTC' AS periode_startet,
+            a.periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
+            a.opplysninger_id,
+            a.opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
+            a.profilering_id,
+            a.profilert_til,
+            a.profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
+            a.egenvurdering_id,
+            a.egenvurdert_til,
+            a.egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
+            a.bekreftelse_id,
+            a.bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
+            a.bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
+            a.bekreftelse_har_jobbet,
+            a.bekreftelse_vil_fortsette,
+            a.bekreftelsesloesning,
+            a.bekreftelse_paa_vegne_av
+        FROM arbeidssoekere a
+        WHERE a.identitetsnummer = $1
+        ORDER BY a.periode_startet
         OFFSET $2
         LIMIT $3
         "#,
@@ -149,34 +187,34 @@ async fn select_by_identitetsnummer_desc(
     let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
         r#"
         SELECT
-            id,
-            arbeidssoeker_id,
-            identitetsnummer,
-            fornavn,
-            mellomnavn,
-            etternavn,
-            ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
-            periode_id,
-            periode_startet AT TIME ZONE 'UTC' AS periode_startet,
-            periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
-            opplysninger_id,
-            opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
-            profilering_id,
-            profilert_til,
-            profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
-            egenvurdering_id,
-            egenvurdert_til,
-            egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
-            bekreftelse_id,
-            bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
-            bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
-            bekreftelse_har_jobbet,
-            bekreftelse_vil_fortsette,
-            bekreftelsesloesning,
-            bekreftelse_paa_vegne_av
-        FROM arbeidssoekere
-        WHERE identitetsnummer = $1
-        ORDER BY periode_startet DESC
+            a.id,
+            a.arbeidssoeker_id,
+            a.identitetsnummer,
+            a.fornavn,
+            a.mellomnavn,
+            a.etternavn,
+            a.ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
+            a.periode_id,
+            a.periode_startet AT TIME ZONE 'UTC' AS periode_startet,
+            a.periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
+            a.opplysninger_id,
+            a.opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
+            a.profilering_id,
+            a.profilert_til,
+            a.profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
+            a.egenvurdering_id,
+            a.egenvurdert_til,
+            a.egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
+            a.bekreftelse_id,
+            a.bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
+            a.bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
+            a.bekreftelse_har_jobbet,
+            a.bekreftelse_vil_fortsette,
+            a.bekreftelsesloesning,
+            a.bekreftelse_paa_vegne_av
+        FROM arbeidssoekere a
+        WHERE a.identitetsnummer = $1
+        ORDER BY a.periode_startet DESC
         OFFSET $2
         LIMIT $3
         "#,
@@ -189,21 +227,138 @@ async fn select_by_identitetsnummer_desc(
     Ok(rows)
 }
 
-pub async fn count_by_identitetsnummer(
+pub async fn select_by_tilknyttet_kontor(
     tx: &mut Transaction<'_, Postgres>,
-    identitetsnummer: &str,
-) -> anyhow::Result<i64> {
-    let count = sqlx::query_scalar(
+    kontor_id: &str,
+    kontor_typer: &Vec<String>,
+    ledig_siden: &DateTime<Utc>,
+    offset: i32,
+    limit: i32,
+    sort_order: &SortOrder,
+) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
+    match sort_order {
+        SortOrder::Ascending => {
+            select_by_tilknyttet_kontor_asc(tx, kontor_id, kontor_typer, ledig_siden, offset, limit)
+                .await
+        }
+        SortOrder::Descending => {
+            select_by_tilknyttet_kontor_desc(
+                tx,
+                kontor_id,
+                kontor_typer,
+                ledig_siden,
+                offset,
+                limit,
+            )
+            .await
+        }
+    }
+}
+
+async fn select_by_tilknyttet_kontor_asc(
+    tx: &mut Transaction<'_, Postgres>,
+    kontor_id: &str,
+    kontor_typer: &Vec<String>,
+    ledig_siden: &DateTime<Utc>,
+    offset: i32,
+    limit: i32,
+) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
+    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
         r#"
-        SELECT COUNT(*) AS count
-        FROM arbeidssoekere
-        WHERE identitetsnummer = $1
+        SELECT
+            a.id,
+            a.arbeidssoeker_id,
+            a.identitetsnummer,
+            a.fornavn,
+            a.mellomnavn,
+            a.etternavn,
+            a.ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
+            a.periode_id,
+            a.periode_startet AT TIME ZONE 'UTC' AS periode_startet,
+            a.periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
+            a.opplysninger_id,
+            a.opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
+            a.profilering_id,
+            a.profilert_til,
+            a.profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
+            a.egenvurdering_id,
+            a.egenvurdert_til,
+            a.egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
+            a.bekreftelse_id,
+            a.bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
+            a.bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
+            a.bekreftelse_har_jobbet,
+            a.bekreftelse_vil_fortsette,
+            a.bekreftelsesloesning,
+            a.bekreftelse_paa_vegne_av
+        FROM arbeidssoekere a LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
+        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND a.ledig_siden NOTNULL AND a.ledig_siden > $3
+        ORDER BY a.periode_startet
+        OFFSET $4
+        LIMIT $5
         "#,
     )
-    .bind(identitetsnummer)
-    .fetch_one(&mut **tx)
+    .bind(kontor_id)
+    .bind(kontor_typer)
+    .bind(ledig_siden)
+    .bind(offset)
+    .bind(limit)
+    .fetch_all(&mut **tx)
     .await?;
-    Ok(count)
+    Ok(rows)
+}
+
+async fn select_by_tilknyttet_kontor_desc(
+    tx: &mut Transaction<'_, Postgres>,
+    kontor_id: &str,
+    kontor_typer: &Vec<String>,
+    ledig_siden: &DateTime<Utc>,
+    offset: i32,
+    limit: i32,
+) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
+    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
+        r#"
+        SELECT
+            a.id,
+            a.arbeidssoeker_id,
+            a.identitetsnummer,
+            a.fornavn,
+            a.mellomnavn,
+            a.etternavn,
+            a.ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
+            a.periode_id,
+            a.periode_startet AT TIME ZONE 'UTC' AS periode_startet,
+            a.periode_avsluttet AT TIME ZONE 'UTC' AS periode_avsluttet,
+            a.opplysninger_id,
+            a.opplysninger_tidspunkt AT TIME ZONE 'UTC' AS opplysninger_tidspunkt,
+            a.profilering_id,
+            a.profilert_til,
+            a.profilering_tidspunkt AT TIME ZONE 'UTC' AS profilering_tidspunkt,
+            a.egenvurdering_id,
+            a.egenvurdert_til,
+            a.egenvurdering_tidspunkt AT TIME ZONE 'UTC' AS egenvurdering_tidspunkt,
+            a.bekreftelse_id,
+            a.bekreftelse_gjelder_fra AT TIME ZONE 'UTC' AS bekreftelse_gjelder_fra,
+            a.bekreftelse_gjelder_til AT TIME ZONE 'UTC' AS bekreftelse_gjelder_til,
+            a.bekreftelse_har_jobbet,
+            a.bekreftelse_vil_fortsette,
+            a.bekreftelsesloesning,
+            a.bekreftelse_paa_vegne_av
+        FROM arbeidssoekere a LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
+        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND a.ledig_siden NOTNULL AND a.ledig_siden > $3
+        ORDER BY periode_startet DESC
+        OFFSET $4
+        LIMIT $5
+        "#,
+    )
+    .bind(kontor_id)
+    .bind(kontor_typer)
+    .bind(ledig_siden)
+    .bind(offset)
+    .bind(limit)
+    .fetch_all(&mut **tx)
+    .await?;
+    Ok(rows)
 }
 
 pub async fn insert(

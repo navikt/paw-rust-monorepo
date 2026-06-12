@@ -6,7 +6,7 @@ use oversikt_api::model::context::AppContext;
 use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
 use paw_oauth2::state::AuthState;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::postgres::init_db;
+use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -18,6 +18,10 @@ async fn main() -> anyhow::Result<()> {
 
     let db_config = read_database_config()?;
     let db = init_db(db_config).await?;
+
+    // TODO: Fjern før prodsetting!!!
+    clear_db(&db).await?;
+
     sqlx::migrate!("./migrations")
         .run(&db)
         .await

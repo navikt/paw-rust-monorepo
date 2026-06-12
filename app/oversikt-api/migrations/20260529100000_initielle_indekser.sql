@@ -1,3 +1,4 @@
+CREATE INDEX arbeidssoekere_arbeidssoeker_id_idx ON arbeidssoekere(arbeidssoeker_id);
 CREATE INDEX arbeidssoekere_identitetsnummer_idx ON arbeidssoekere(identitetsnummer);
 CREATE INDEX arbeidssoekere_ledig_siden_idx ON arbeidssoekere(ledig_siden);
 CREATE INDEX arbeidssoekere_periode_id_idx ON arbeidssoekere(periode_id);
