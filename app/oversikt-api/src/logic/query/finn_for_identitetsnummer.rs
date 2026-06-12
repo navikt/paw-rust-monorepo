@@ -5,6 +5,7 @@ use crate::model::dto::response::{OversiktResponse, PagingResponse};
 use crate::model::sort::SortOrder;
 use sqlx::PgPool;
 
+#[tracing::instrument(skip(pool))]
 pub async fn finn_for_identitetsnummer(
     pool: &PgPool,
     request: &IdentitetsnummerQueryRequest,

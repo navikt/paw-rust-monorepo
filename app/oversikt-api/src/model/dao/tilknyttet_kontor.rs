@@ -9,6 +9,7 @@ pub(crate) struct TilknyttetKontorRow {
     pub kontor_type: String,
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn select_by_parent_id(
     tx: &mut Transaction<'_, Postgres>,
     parent_id: &i64,
@@ -26,20 +27,22 @@ pub async fn select_by_parent_id(
     Ok(rows)
 }
 
-pub async fn insert_rows(
+#[tracing::instrument(skip(tx))]
+pub async fn insert_many(
     tx: &mut Transaction<'_, Postgres>,
     rows: &Vec<TilknyttetKontorRow>,
 ) -> anyhow::Result<Vec<i64>> {
     let mut ids = Vec::new();
     for row in rows {
-        let id: i64 = insert_row(tx, row).await?;
+        let id: i64 = insert(tx, row).await?;
         ids.push(id);
     }
     let ids = ids;
     Ok(ids)
 }
 
-pub async fn insert_row(
+#[tracing::instrument(skip(tx))]
+pub async fn insert(
     tx: &mut Transaction<'_, Postgres>,
     row: &TilknyttetKontorRow,
 ) -> anyhow::Result<i64> {

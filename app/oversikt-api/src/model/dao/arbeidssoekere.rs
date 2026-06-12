@@ -1,5 +1,5 @@
 use crate::model::sort::SortOrder;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -74,6 +74,7 @@ impl ArbeidssoekerRow {
     }
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn count_by_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -91,11 +92,12 @@ pub async fn count_by_identitetsnummer(
     Ok(count)
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn count_by_tilknyttet_kontor(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &DateTime<Utc>,
+    ledig_siden: &NaiveDate,
 ) -> anyhow::Result<i64> {
     let count = sqlx::query_scalar(
         r#"
@@ -112,6 +114,7 @@ pub async fn count_by_tilknyttet_kontor(
     Ok(count)
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn select_by_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -129,6 +132,7 @@ pub async fn select_by_identitetsnummer(
     }
 }
 
+#[tracing::instrument(skip(tx))]
 async fn select_by_identitetsnummer_asc(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -178,6 +182,7 @@ async fn select_by_identitetsnummer_asc(
     Ok(rows)
 }
 
+#[tracing::instrument(skip(tx))]
 async fn select_by_identitetsnummer_desc(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -227,11 +232,12 @@ async fn select_by_identitetsnummer_desc(
     Ok(rows)
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn select_by_tilknyttet_kontor(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &DateTime<Utc>,
+    ledig_siden: &NaiveDate,
     offset: i32,
     limit: i32,
     sort_order: &SortOrder,
@@ -255,11 +261,12 @@ pub async fn select_by_tilknyttet_kontor(
     }
 }
 
+#[tracing::instrument(skip(tx))]
 async fn select_by_tilknyttet_kontor_asc(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &DateTime<Utc>,
+    ledig_siden: &NaiveDate,
     offset: i32,
     limit: i32,
 ) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
@@ -308,11 +315,12 @@ async fn select_by_tilknyttet_kontor_asc(
     Ok(rows)
 }
 
+#[tracing::instrument(skip(tx))]
 async fn select_by_tilknyttet_kontor_desc(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &DateTime<Utc>,
+    ledig_siden: &NaiveDate,
     offset: i32,
     limit: i32,
 ) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
@@ -361,6 +369,7 @@ async fn select_by_tilknyttet_kontor_desc(
     Ok(rows)
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn insert(
     tx: &mut Transaction<'_, Postgres>,
     row: &ArbeidssoekerRow,
@@ -427,6 +436,7 @@ pub async fn insert(
     Ok(id)
 }
 
+#[tracing::instrument(skip(tx))]
 pub async fn update(
     tx: &mut Transaction<'_, Postgres>,
     row: &ArbeidssoekerRow,

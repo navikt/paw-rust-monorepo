@@ -9,8 +9,8 @@ Authorization: Bearer {{$auth.token("azure")}}
     "identitetsnummer": "{{identitetsnummer}}",
     "paging": {
         "page": 1,
-        "page_size": 100,
-        "sort_order": "DESC"
+        "pageSize": 100,
+        "sortOrder": "DESC"
     }
 }
 
@@ -23,9 +23,10 @@ Authorization: Bearer {{$auth.token("azure")}}
 {
     "type": "TILKNYTTET_KONTOR",
     "kontorId": "4154",
+    "ledigSiden": "2026-04-01",
     "paging": {
         "page": 1,
-        "page_size": 100,
-        "sort_order": "DESC"
+        "pageSize": 100,
+        "sortOrder": "DESC"
     }
 }

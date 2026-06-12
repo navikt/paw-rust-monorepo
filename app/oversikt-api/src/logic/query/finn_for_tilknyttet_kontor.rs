@@ -4,9 +4,10 @@ use crate::model::dto::kontor::KontorType;
 use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
 use crate::model::sort::SortOrder;
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use sqlx::PgPool;
 
+#[tracing::instrument(skip(pool))]
 pub async fn finn_for_tilknyttet_kontor(
     pool: &PgPool,
     request: &TilknyttetKontorQueryRequest,
@@ -24,7 +25,9 @@ pub async fn finn_for_tilknyttet_kontor(
         .iter()
         .map(|kt| kt.as_ref().to_string())
         .collect::<Vec<String>>();
-    let ledig_side = request.ledig_siden.unwrap_or(DateTime::UNIX_EPOCH.into());
+    let ledig_side = request
+        .ledig_siden
+        .unwrap_or(NaiveDate::from_epoch_days(0).unwrap());
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
         page_size: 1000,

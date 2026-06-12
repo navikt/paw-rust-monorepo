@@ -1,7 +1,7 @@
 use crate::model::dto::kontor::KontorType;
 use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
 use crate::model::sort::SortOrder;
-use chrono::{DateTime, Utc};
+use chrono::NaiveDate;
 use errors::validation::ValidationError;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
@@ -64,7 +64,7 @@ impl IdentitetsnummerQueryRequest {
 pub struct TilknyttetKontorQueryRequest {
     pub kontor_id: String,
     pub kontor_type: Option<KontorType>,
-    pub ledig_siden: Option<DateTime<Utc>>,
+    pub ledig_siden: Option<NaiveDate>,
     pub paging: Option<PagingRequest>,
 }
 
@@ -78,6 +78,7 @@ impl TilknyttetKontorQueryRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PagingRequest {
     pub page: i32,
     pub page_size: i32,
@@ -132,8 +133,8 @@ mod tests {
             "identitetsnummer": "01017012345",
             "paging": {
                 "page": 1,
-                "page_size": 10,
-                "sort_order": "DESC"
+                "pageSize": 10,
+                "sortOrder": "DESC"
             }
         }
         "#;
@@ -159,12 +160,12 @@ mod tests {
         let json = r#"
         {
             "type": "TILKNYTTET_KONTOR",
-            "kontor_id": "12345",
-            "ledig_siden: "2026-06-11T12:11:30Z"
+            "kontorId": "12345",
+            "ledigSiden": "2026-01-01",
             "paging": {
                 "page": 3,
-                "page_size": 77,
-                "sort_order": "ASC"
+                "pageSize": 77,
+                "sortOrder": "ASC"
             }
         }
         "#;
@@ -177,7 +178,7 @@ mod tests {
                 assert_eq!(query.kontor_id, "12345");
                 assert!(query.ledig_siden.is_some());
                 let ledig_siden = query.ledig_siden.unwrap();
-                assert_eq!(ledig_siden.to_rfc3339(), "2026-06-11T12:11:30+00:00");
+                assert_eq!(ledig_siden.to_string(), "2026-01-01");
                 assert!(query.paging.is_some());
                 let paging = query.paging.unwrap();
                 assert_eq!(paging.page, 3);

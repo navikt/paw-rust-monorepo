@@ -6,7 +6,6 @@ use crate::model::dto::response::OversiktResponse;
 use axum::extract::State;
 use axum::Json;
 use paw_error_handling::problem_details::ProblemDetails;
-use tracing::instrument;
 
 #[utoipa::path(
     post,
@@ -18,7 +17,7 @@ use tracing::instrument;
         (status = 500, description = "Intern feil", body = ProblemDetails),
     ),
 )]
-#[instrument(skip(context, request), fields(arbeidssoekere_count))]
+#[tracing::instrument(skip(context, request), fields(arbeidssoekere_count))]
 pub(crate) async fn finn_oversikt(
     State(context): State<AppContext>,
     request: String,
