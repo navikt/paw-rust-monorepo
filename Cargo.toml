@@ -76,3 +76,5 @@ serde_with = { version = "3", features = ["chrono"] }
 
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
+serde_yaml = "0.9"
+jsonschema = "0.46"

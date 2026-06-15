@@ -7,22 +7,12 @@ use axum::extract::State;
 use axum::Json;
 use paw_error_handling::problem_details::ProblemDetails;
 
-#[utoipa::path(
-    post,
-    path = "/api/v1/oversikt",
-    tag = "oversikt",
-    request_body = QueryRequest,
-    responses(
-        (status = 200, description = "Oversikt over arbeidssøkere for gitt query", body = OversiktResponse),
-        (status = 500, description = "Intern feil", body = ProblemDetails),
-    ),
-)]
 #[tracing::instrument(skip(context, request), fields(arbeidssoekere_count))]
 pub(crate) async fn finn_oversikt(
     State(context): State<AppContext>,
     request: String,
 ) -> anyhow::Result<Json<OversiktResponse>, ProblemDetails> {
-    tracing::info!("Mottok request: {}", request);
+    tracing::debug!("Query request: {}", request);
     let query_request: QueryRequest = serde_json::from_str(&request).map_err(|e| {
         tracing::error!("Feil ved deserialisering av request body: {}", e);
         ProblemDetails::validation_error(

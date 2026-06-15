@@ -3,10 +3,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum::{AsRefStr, EnumString};
-use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Profilering {
     pub id: Uuid,
@@ -15,7 +14,7 @@ pub struct Profilering {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr, ToSchema,
+    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr,
 )]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",

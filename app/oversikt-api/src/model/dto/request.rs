@@ -5,10 +5,9 @@ use chrono::NaiveDate;
 use errors::validation::ValidationError;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
-use utoipa::ToSchema;
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr, ToSchema,
+    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr,
 )]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
@@ -24,7 +23,7 @@ pub enum QueryType {
     UkjentVerdi,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum QueryRequest {
     #[serde(rename = "IDENTITETSNUMMER")]
@@ -33,7 +32,7 @@ pub enum QueryRequest {
     TilknyttetKontor(TilknyttetKontorQueryRequest),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IdentitetsnummerQueryRequest {
     pub identitetsnummer: String,
@@ -59,7 +58,7 @@ impl IdentitetsnummerQueryRequest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TilknyttetKontorQueryRequest {
     pub kontor_id: String,
@@ -77,7 +76,7 @@ impl TilknyttetKontorQueryRequest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PagingRequest {
     pub page: i32,
@@ -161,6 +160,7 @@ mod tests {
         {
             "type": "TILKNYTTET_KONTOR",
             "kontorId": "12345",
+            "kontorType": "ARBEIDSOPPFOLGING",
             "ledigSiden": "2026-01-01",
             "paging": {
                 "page": 3,
@@ -176,6 +176,9 @@ mod tests {
         match request {
             QueryRequest::TilknyttetKontor(query) => {
                 assert_eq!(query.kontor_id, "12345");
+                assert!(query.kontor_type.is_some());
+                let kontor_type = query.kontor_type.unwrap();
+                assert_eq!(kontor_type, KontorType::Arbeidsoppfolging);
                 assert!(query.ledig_siden.is_some());
                 let ledig_siden = query.ledig_siden.unwrap();
                 assert_eq!(ledig_siden.to_string(), "2026-01-01");

@@ -1,3 +1,7 @@
-### GET /api/docs
+### GET /api/docs JSON
 GET {{baseUrl}}/api/docs
 Accept: application/json
+
+### GET /api/docs YAML
+GET {{baseUrl}}/api/docs
+Accept: application/yaml

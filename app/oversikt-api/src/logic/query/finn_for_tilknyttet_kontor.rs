@@ -4,7 +4,7 @@ use crate::model::dto::kontor::KontorType;
 use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
 use crate::model::sort::SortOrder;
-use chrono::{DateTime, NaiveDate};
+use chrono::NaiveDate;
 use sqlx::PgPool;
 
 #[tracing::instrument(skip(pool))]
@@ -35,7 +35,6 @@ pub async fn finn_for_tilknyttet_kontor(
     });
 
     let mut tx = pool.begin().await?;
-    tracing::info!("Henter total antall arbeidssøkere for tilknyttet kontor");
     let total_count =
         arbeidssoekere::count_by_tilknyttet_kontor(&mut tx, &kontor_id, &kontor_typer, &ledig_side)
             .await?;

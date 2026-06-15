@@ -16,7 +16,6 @@ pub async fn finn_for_identitetsnummer(
         sort_order: SortOrder::Ascending,
     });
     let mut tx = pool.begin().await?;
-    tracing::info!("Henter total antall arbeidssøkere for identitetsnummer");
     let total_count =
         arbeidssoekere::count_by_identitetsnummer(&mut tx, &request.identitetsnummer).await?;
     tracing::info!(

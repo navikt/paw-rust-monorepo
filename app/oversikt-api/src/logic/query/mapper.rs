@@ -1,5 +1,5 @@
 use crate::model::dao::arbeidssoekere::ArbeidssoekerRow;
-use crate::model::dao::{arbeidssoekere, tilknyttet_kontor};
+use crate::model::dao::tilknyttet_kontor;
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
 use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
 use crate::model::dto::egenvurdering::Egenvurdering;

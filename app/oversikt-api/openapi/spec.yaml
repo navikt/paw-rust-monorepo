@@ -1,444 +1,352 @@
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "PAW Arbeidssøkerregisteret Oversikt API",
-    "description": "API for å hente oversikt over arbeidssøkere. Kalles av saksbehandlere via Azure AD.",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/api/v1/oversikt": {
-      "post": {
-        "tags": [
-          "oversikt"
-        ],
-        "operationId": "finn_oversikt",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueryRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Oversikt over arbeidssøkere for gitt identitetsnummer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OversiktResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Intern feil",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Arbeidssoeker": {
-        "type": "object",
-        "required": [
-          "arbeidssoeker_id",
-          "identitetsnummer",
-          "fornavn",
-          "etternavn",
-          "periode",
-          "bekreftelse_paa_vegne_av",
-          "tilknyttet_kontor"
-        ],
-        "properties": {
-          "arbeidssoeker_id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "bekreftelse": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Bekreftelse"
-              }
-            ]
-          },
-          "bekreftelse_paa_vegne_av": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Bekreftelsesloesning"
-            }
-          },
-          "egenvurdering": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Egenvurdering"
-              }
-            ]
-          },
-          "etternavn": {
-            "type": "string"
-          },
-          "fornavn": {
-            "type": "string"
-          },
-          "identitetsnummer": {
-            "type": "string"
-          },
-          "ledig_siden": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "mellomnavn": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "opplysninger": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Opplysninger"
-              }
-            ]
-          },
-          "periode": {
-            "$ref": "#/components/schemas/Periode"
-          },
-          "profilering": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Profilering"
-              }
-            ]
-          },
-          "tilknyttet_kontor": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TilknyttetKontor"
-            }
-          }
-        }
-      },
-      "Bekreftelse": {
-        "type": "object",
-        "required": [
-          "id",
-          "gjelder_fra",
-          "gjelder_til",
-          "har_jobbet",
-          "vil_fortsette",
-          "bekreftelsesloesning"
-        ],
-        "properties": {
-          "bekreftelsesloesning": {
-            "$ref": "#/components/schemas/Bekreftelsesloesning"
-          },
-          "gjelder_fra": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "gjelder_til": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "har_jobbet": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vil_fortsette": {
-            "type": "boolean"
-          }
-        }
-      },
-      "Bekreftelsesloesning": {
-        "type": "string",
-        "enum": [
-          "UKJENT_VERDI",
-          "ARBEIDSSOEKERREGISTERET",
-          "DAGPENGER",
-          "FRISKMELDT_TIL_ARBEIDSFORMIDLING"
-        ]
-      },
-      "Egenvurdering": {
-        "type": "object",
-        "required": [
-          "id",
-          "egenvurdert_til",
-          "tidspunkt"
-        ],
-        "properties": {
-          "egenvurdert_til": {
-            "$ref": "#/components/schemas/ProfilertTil"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tidspunkt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "Opplysninger": {
-        "type": "object",
-        "required": [
-          "id",
-          "tidspunkt"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tidspunkt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "OversiktResponse": {
-        "type": "object",
-        "required": [
-          "arbeidssoekere",
-          "paging"
-        ],
-        "properties": {
-          "arbeidssoekere": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Arbeidssoeker"
-            }
-          },
-          "paging": {
-            "$ref": "#/components/schemas/PagingResponse"
-          }
-        }
-      },
-      "PagingRequest": {
-        "type": "object",
-        "required": [
-          "page",
-          "page_size",
-          "sort_order"
-        ],
-        "properties": {
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "page_size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "sort_order": {
-            "$ref": "#/components/schemas/SortOrder"
-          }
-        }
-      },
-      "PagingResponse": {
-        "type": "object",
-        "required": [
-          "page",
-          "page_size",
-          "total_items",
-          "sort_order"
-        ],
-        "properties": {
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "page_size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "sort_order": {
-            "$ref": "#/components/schemas/SortOrder"
-          },
-          "total_items": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "Periode": {
-        "type": "object",
-        "required": [
-          "id",
-          "startet"
-        ],
-        "properties": {
-          "avsluttet": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "startet": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ProblemDetails": {
-        "type": "object",
-        "required": [
-          "id",
-          "type",
-          "title",
-          "status",
-          "instance",
-          "timestamp"
-        ],
-        "properties": {
-          "detail": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "instance": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "title": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          }
-        }
-      },
-      "Profilering": {
-        "type": "object",
-        "required": [
-          "id",
-          "profilert_til",
-          "tidspunkt"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "profilert_til": {
-            "$ref": "#/components/schemas/ProfilertTil"
-          },
-          "tidspunkt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ProfilertTil": {
-        "type": "string",
-        "enum": [
-          "UDEFINERT",
-          "ANTATT_GODE_MULIGHETER",
-          "ANTATT_BEHOV_FOR_VEILEDNING",
-          "OPPGITT_HINDRINGER",
-          "UKJENT_VERDI"
-        ]
-      },
-      "QueryRequest": {
-        "type": "object",
-        "required": [
-          "identitetsnummer"
-        ],
-        "properties": {
-          "identitetsnummer": {
-            "type": "string"
-          },
-          "paging": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/PagingRequest"
-              }
-            ]
-          }
-        }
-      },
-      "SortOrder": {
-        "type": "string",
-        "enum": [
-          "ASC",
-          "DESC"
-        ]
-      },
-      "TilknyttetKontor": {
-        "type": "object",
-        "required": [
-          "kontor_id",
-          "kontor_navn",
-          "kontor_type"
-        ],
-        "properties": {
-          "kontor_id": {
-            "type": "string"
-          },
-          "kontor_navn": {
-            "type": "string"
-          },
-          "kontor_type": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  },
-  "tags": [
-    {
-      "name": "oversikt",
-      "description": "Henting av arbeidssøkeroversikt"
-    }
-  ]
-}
+openapi: 3.1.0
+info:
+  title: PAW Arbeidssøkerregisteret Oversikt API
+  description: >-
+    API for å hente oversikt over arbeidssøkere. Kalles av saksbehandlere via
+    Azure AD.
+  license:
+    name: 'Apache 2.0'
+    identifier: 'Apache-2.0'
+  version: 1.0.0
+paths:
+  /api/v1/oversikt:
+    post:
+      tags:
+        - oversikt
+      operationId: finn_oversikt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+        required: true
+      responses:
+        '200':
+          description: Oversikt over arbeidssøkere for gitt query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OversiktResponse'
+        '500':
+          description: Intern feil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+components:
+  schemas:
+    Arbeidssoeker:
+      type: object
+      required:
+        - arbeidssoekerId
+        - identitetsnummer
+        - fornavn
+        - etternavn
+        - periode
+        - bekreftelsePaaVegneAv
+        - tilknyttetKontor
+      properties:
+        arbeidssoekerId:
+          type: integer
+          format: int64
+        bekreftelse:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Bekreftelse'
+        bekreftelsePaaVegneAv:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bekreftelsesloesning'
+        egenvurdering:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Egenvurdering'
+        etternavn:
+          type: string
+        fornavn:
+          type: string
+        identitetsnummer:
+          type: string
+        ledigSiden:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        mellomnavn:
+          type:
+            - string
+            - 'null'
+        opplysninger:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Opplysninger'
+        periode:
+          $ref: '#/components/schemas/Periode'
+        profilering:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Profilering'
+        tilknyttetKontor:
+          type: array
+          items:
+            $ref: '#/components/schemas/TilknyttetKontor'
+    Bekreftelse:
+      type: object
+      required:
+        - id
+        - gjelderFra
+        - gjelderTil
+        - harJobbet
+        - vilFortsette
+        - bekreftelsesloesning
+      properties:
+        bekreftelsesloesning:
+          $ref: '#/components/schemas/Bekreftelsesloesning'
+        gjelderFra:
+          type: string
+          format: date-time
+        gjelderTil:
+          type: string
+          format: date-time
+        harJobbet:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        vilFortsette:
+          type: boolean
+    Bekreftelsesloesning:
+      type: string
+      enum:
+        - UKJENT_VERDI
+        - ARBEIDSSOEKERREGISTERET
+        - DAGPENGER
+        - FRISKMELDT_TIL_ARBEIDSFORMIDLING
+    Egenvurdering:
+      type: object
+      required:
+        - id
+        - egenvurdertTil
+        - tidspunkt
+      properties:
+        egenvurdertTil:
+          $ref: '#/components/schemas/ProfilertTil'
+        id:
+          type: string
+          format: uuid
+        tidspunkt:
+          type: string
+          format: date-time
+    IdentitetsnummerQueryRequest:
+      type: object
+      required:
+        - identitetsnummer
+      properties:
+        identitetsnummer:
+          type: string
+        paging:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
+    KontorType:
+      type: string
+      enum:
+        - ARBEIDSOPPFOLGING
+        - ARENA
+        - GEOGRAFISK_TILKNYTNING
+        - UKJENT_VERDI
+    Opplysninger:
+      type: object
+      required:
+        - id
+        - tidspunkt
+      properties:
+        id:
+          type: string
+          format: uuid
+        tidspunkt:
+          type: string
+          format: date-time
+    OversiktResponse:
+      type: object
+      required:
+        - arbeidssoekere
+        - paging
+      properties:
+        arbeidssoekere:
+          type: array
+          items:
+            $ref: '#/components/schemas/Arbeidssoeker'
+        paging:
+          $ref: '#/components/schemas/PagingResponse'
+    PagingRequest:
+      type: object
+      required:
+        - page
+        - pageSize
+        - sortOrder
+      properties:
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+    PagingResponse:
+      type: object
+      required:
+        - page
+        - pageSize
+        - hitSize
+        - totalCount
+        - sortOrder
+      properties:
+        hitSize:
+          type: integer
+          format: int32
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        totalCount:
+          type: integer
+          format: int64
+    Periode:
+      type: object
+      required:
+        - id
+        - startet
+      properties:
+        avsluttet:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        startet:
+          type: string
+          format: date-time
+    ProblemDetails:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - status
+        - instance
+        - timestamp
+      properties:
+        detail:
+          type:
+            - string
+            - 'null'
+        id:
+          type: string
+          format: uuid
+        instance:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        title:
+          type: string
+        type:
+          type: string
+    Profilering:
+      type: object
+      required:
+        - id
+        - profilertTil
+        - tidspunkt
+      properties:
+        id:
+          type: string
+          format: uuid
+        profilertTil:
+          $ref: '#/components/schemas/ProfilertTil'
+        tidspunkt:
+          type: string
+          format: date-time
+    ProfilertTil:
+      type: string
+      enum:
+        - UDEFINERT
+        - ANTATT_GODE_MULIGHETER
+        - ANTATT_BEHOV_FOR_VEILEDNING
+        - OPPGITT_HINDRINGER
+        - UKJENT_VERDI
+    QueryRequest:
+      oneOf:
+        - allOf:
+            - $ref: '#/components/schemas/IdentitetsnummerQueryRequest'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - IDENTITETSNUMMER
+        - allOf:
+            - $ref: '#/components/schemas/TilknyttetKontorQueryRequest'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - TILKNYTTET_KONTOR
+    SortOrder:
+      type: string
+      enum:
+        - ASC
+        - DESC
+    TilknyttetKontor:
+      type: object
+      required:
+        - kontorId
+        - kontorNavn
+        - kontorType
+      properties:
+        kontorId:
+          type: string
+        kontorNavn:
+          type: string
+        kontorType:
+          $ref: '#/components/schemas/KontorType'
+    TilknyttetKontorQueryRequest:
+      type: object
+      required:
+        - kontorId
+      properties:
+        kontorId:
+          type: string
+        kontorType:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/KontorType'
+        ledigSiden:
+          type:
+            - string
+            - 'null'
+          format: date
+        paging:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
+tags:
+  - name: oversikt
+    description: Henting av arbeidssøkeroversikt

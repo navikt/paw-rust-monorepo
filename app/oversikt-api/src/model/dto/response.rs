@@ -1,16 +1,15 @@
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
 use crate::model::sort::SortOrder;
 use serde::Serialize;
-use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OversiktResponse {
     pub arbeidssoekere: Vec<Arbeidssoeker>,
     pub paging: PagingResponse,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PagingResponse {
     pub page: i32,

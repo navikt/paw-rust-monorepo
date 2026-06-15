@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum::{AsRefStr, EnumString};
-use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]
 pub enum SortOrder {
     #[strum(serialize = "ASC")]
     #[serde(rename = "ASC")]

@@ -6,10 +6,9 @@ use crate::model::dto::periode::Periode;
 use crate::model::dto::profilering::Profilering;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use utoipa::ToSchema;
 
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Arbeidssoeker {
     pub arbeidssoeker_id: i64,

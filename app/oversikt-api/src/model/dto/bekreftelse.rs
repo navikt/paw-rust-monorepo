@@ -3,10 +3,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum::{AsRefStr, EnumString};
-use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bekreftelse {
     pub id: Uuid,
@@ -17,7 +16,7 @@ pub struct Bekreftelse {
     pub bekreftelsesloesning: Bekreftelsesloesning,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = enum_type_not_found,
