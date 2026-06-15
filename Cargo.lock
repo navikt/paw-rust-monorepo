@@ -2354,7 +2354,7 @@ dependencies = [
  "mockito",
  "paw_app_config",
  "paw_error_handling",
- "paw_oauth2",
+ "paw_oauth2_resource_server",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -2461,7 +2461,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "paw_oauth2"
+name = "paw_oauth2_resource_server"
 version = "0.1.0"
 dependencies = [
  "anyhow",

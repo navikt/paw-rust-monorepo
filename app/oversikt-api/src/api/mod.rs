@@ -9,8 +9,8 @@ use axum::routing::{get, post};
 use axum::Router;
 use axum_health::paw_tracing::add_otel_trace_layer;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_oauth2::oauth2_middleware;
-use paw_oauth2::state::AuthState;
+use paw_oauth2_resource_server::middleware::oauth2_middleware;
+use paw_oauth2_resource_server::state::AuthState;
 use std::sync::Arc;
 
 pub fn build_router(

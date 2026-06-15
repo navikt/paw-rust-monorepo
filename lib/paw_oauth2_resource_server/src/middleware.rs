@@ -12,14 +12,6 @@ use jsonwebtoken::decode_header;
 use paw_error_handling::problem_details::ProblemDetails;
 use std::sync::Arc;
 
-pub mod authorize;
-pub mod claim;
-pub mod config;
-pub mod oidc;
-pub mod principal;
-pub mod state;
-pub mod token;
-
 #[tracing::instrument]
 pub async fn oauth2_middleware(
     State(state): State<Arc<AuthState>>,
