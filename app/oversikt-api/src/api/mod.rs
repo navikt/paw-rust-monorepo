@@ -9,8 +9,8 @@ use axum::routing::{get, post};
 use axum::Router;
 use axum_health::paw_tracing::add_otel_trace_layer;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_oauth2_resource_server::middleware::oauth2_middleware;
-use paw_oauth2_resource_server::state::AuthState;
+use paw_texas_resource_server::middleware::texas_middleware;
+use paw_texas_resource_server::state::AuthState;
 use std::sync::Arc;
 
 pub fn build_router(
@@ -23,10 +23,7 @@ pub fn build_router(
     let oversikt_routes = add_otel_trace_layer(
         Router::new()
             .route("/api/v1/oversikt", post(finn_oversikt))
-            .route_layer(middleware::from_fn_with_state(
-                auth_state,
-                oauth2_middleware,
-            )),
+            .route_layer(middleware::from_fn_with_state(auth_state, texas_middleware)),
     )
     .with_state(app_context);
     health_routes.merge(docs_routes).merge(oversikt_routes)

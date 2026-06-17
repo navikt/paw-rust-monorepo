@@ -1,0 +1,24 @@
+{
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/introspection"
+    },
+    "response": {
+        "status": 200,
+        "jsonBody": {
+            "active": true,
+            "iss": "http://localhost:8081/azure",
+            "jti": "e7cbadc3-6bda-49c0-a196-c47328da880e",
+            "sub": "e015542c-0f81-40f5-bbd9-7c3d9366298f",
+            "tid": "azure",
+            "aud": "http://localhost:8080",
+            "azp": "localhost",
+            "iat": 1730977293,
+            "nbf": 1730977293,
+            "exp": 1730980893
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

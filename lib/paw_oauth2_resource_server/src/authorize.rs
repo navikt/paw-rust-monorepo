@@ -25,7 +25,7 @@ mod tests {
         let principal = Principal::NavAnsatt(NavAnsatt {
             oid: "oid".to_string(),
             ident: NavIdent::new("A123456".to_string())
-                .ok_or(AuthError::MissingNavIdent)
+                .ok_or(AuthError::MissingClaim("NavIdent".to_string()))
                 .unwrap(),
             name: None,
             roles: vec![],
@@ -37,7 +37,7 @@ mod tests {
     fn allow_all_authorizes_borger() {
         let principal = Principal::Borger(Borger {
             ident: Identitetsnummer::new("12345678901".to_string())
-                .ok_or(AuthError::MissingPid)
+                .ok_or(AuthError::MissingClaim("pid".to_string()))
                 .unwrap(),
         });
         assert!(AllowAll.is_authorized(&principal));

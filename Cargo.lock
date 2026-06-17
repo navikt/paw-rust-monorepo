@@ -2354,10 +2354,10 @@ dependencies = [
  "mockito",
  "paw_app_config",
  "paw_error_handling",
- "paw_oauth2_resource_server",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
+ "paw_texas_resource_server",
  "serde",
  "serde-env-field",
  "serde_json",
@@ -2549,6 +2549,25 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "paw_texas_resource_server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "errors",
+ "jsonwebtoken",
+ "paw_error_handling",
+ "reqwest 0.13.4",
+ "serde",
+ "serde-env-field",
+ "strum 0.28.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]

@@ -4,10 +4,10 @@ use oversikt_api::api::build_router;
 use oversikt_api::config::{read_auth_config, read_database_config};
 use oversikt_api::model::context::AppContext;
 use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
-use paw_oauth2_resource_server::state::AuthState;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::{clear_db, init_db};
 use std::sync::Arc;
+use paw_texas_resource_server::state::AuthState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

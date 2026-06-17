@@ -61,13 +61,13 @@ impl IssuerState {
             }
         }
 
-        self.cache
-            .read()
-            .await
-            .keys
-            .get(kid)
-            .cloned()
-            .ok_or(AuthError::InvalidToken("Kunne ikke hente token fra cache".to_string()).into())
+        let decoding_key = self.cache.read().await.keys.get(kid).cloned();
+        match decoding_key {
+            None => {
+                Err(AuthError::InvalidToken("Kunne ikke hente token fra cache".to_string()).into())
+            }
+            Some(key) => Ok(key),
+        }
     }
 }
 

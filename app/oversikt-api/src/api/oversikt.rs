@@ -24,13 +24,13 @@ pub(crate) async fn finn_oversikt(
         QueryRequest::Identitetsnummer(query) => {
             query.validate()?;
             let response = finn_for_identitetsnummer(&context.db, &query).await?;
-            tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
+            tracing::Span::current().record("query_hit_count", response.arbeidssoekere.len());
             Ok(Json(response))
         }
         QueryRequest::TilknyttetKontor(query) => {
             query.validate()?;
             let response = finn_for_tilknyttet_kontor(&context.db, &query).await?;
-            tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
+            tracing::Span::current().record("query_hit_count", response.arbeidssoekere.len());
             Ok(Json(response))
         }
     }

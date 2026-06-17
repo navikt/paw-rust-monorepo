@@ -57,7 +57,8 @@ jobs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
   deploy-dev:
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev')
+    if: false
+    #if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev')
     name: Deploy to dev-gcp
     needs: [ test, build ]
     permissions:
@@ -73,7 +74,8 @@ jobs:
           VAR: image=${{ needs.build.outputs.image }}
 
   deploy-prod:
-     if: github.ref == 'refs/heads/main'
+     if: false
+     #if: github.ref == 'refs/heads/main'
      name: Deploy to prod-gcp
      needs: [test, build, deploy-dev]
      permissions:
