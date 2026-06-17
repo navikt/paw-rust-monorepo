@@ -69,7 +69,7 @@ En bakgrunnsjobb kjører hvert minutt og behandler oppgaver med status `UBEHANDL
 5. Ved suksess: oppdaterer `ekstern_oppgave_id` og logger `EKSTERN_OPPGAVE_OPPRETTET`
 6. Ved feil: setter status tilbake til `UBEHANDLET` og logger `EKSTERN_OPPGAVE_OPPRETTELSE_FEILET`
 
-Oppgaver som feiler ≥ 5 ganger logger en advarsel om mulig kork.
+Oppgaver som feiler ≥ 5 ganger logger en advarsel om mulig kork
 
 ### 3. Ferdigstilling av oppgaver (`oppgavehandtering.oppgavehendelse-v1`)
 
