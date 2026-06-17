@@ -17,7 +17,7 @@ Arbeidssøkere under 18 år avvises automatisk ved registrering. Appen lytter p�
 - Startet hendelse
   - Skal være innsendt av sluttbruker 
   - Relevante opplysninger:
-    - utflyttet eller ikke bosatt, sjekk dette.
+    - utflyttet eller ikke bosatt, sjekk dette
     - EU/EØS borger
     - Ikke norsk statsborger
   - Lag oppgave i Oppgave API
