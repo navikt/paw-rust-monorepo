@@ -1,1 +1,6 @@
+[texas]
 introspection_endpoint = "http://localhost:8090/introspection"
+
+[[issuers]]
+issuer = "http://localhost:8081/azure"
+identity_provider = "entra_id"

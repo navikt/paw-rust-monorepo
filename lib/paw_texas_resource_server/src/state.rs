@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct AuthState {
-    pub introspection_endpoint: String,
+    pub config: AuthConfig,
     pub http_client: Client,
 }
 
@@ -17,7 +17,7 @@ impl AuthState {
             .map_err(|_| AppError::AppInitFailed("Kunne ikke opprette HTTP-klient".to_string()))?;
 
         Ok(Arc::new(Self {
-            introspection_endpoint: config.introspection_endpoint.into_inner(),
+            config,
             http_client,
         }))
     }

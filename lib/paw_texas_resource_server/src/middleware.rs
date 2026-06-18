@@ -1,4 +1,4 @@
-use crate::model::{IdentityProvider, IntrospectRequest, IntrospectResponse};
+use crate::model::IntrospectRequest;
 use crate::principal::{Anonym, Principal};
 use crate::state::AuthState;
 use crate::token::{extract_bearer_token, peek_issuer};
@@ -31,20 +31,21 @@ pub async fn texas_middleware(
 
     tracing::info!("Validerer token fra issuer '{}'", peeked_iss);
 
-    let identity_provider = if peeked_iss.contains("tokenx") {
-        IdentityProvider::TokenX.as_ref()
-    } else if peeked_iss.contains("entra") {
-        IdentityProvider::EntraId.as_ref()
-    } else if peeked_iss.contains("azure") {
-        IdentityProvider::EntraId.as_ref()
-    } else {
-        return Err(AuthError::UnknownIssuer.into());
+    let identity_provider = match state.config.identity_provider(&peeked_iss) {
+        None => return Err(AuthError::UnknownIssuer.into()),
+        Some(ip) => ip,
     };
+    let introspection_endpoint = state
+        .config
+        .texas
+        .introspection_endpoint
+        .clone()
+        .into_inner();
 
     let request_body = IntrospectRequest::new(identity_provider, token.to_string());
     let response = state
         .http_client
-        .post(&state.introspection_endpoint)
+        .post(introspection_endpoint)
         .json(&request_body)
         .send()
         .await
