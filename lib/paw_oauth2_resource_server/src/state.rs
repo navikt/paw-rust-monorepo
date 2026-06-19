@@ -3,7 +3,6 @@ use crate::oidc::{fetch_jwks, JwksCache};
 use errors::app::AppError;
 use errors::auth::AuthError;
 use jsonwebtoken::DecodingKey;
-use paw_error_handling::problem_details::ProblemDetails;
 use reqwest::Client;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -41,7 +40,7 @@ impl IssuerState {
         }
     }
 
-    pub async fn get_decoding_key(&self, kid: &str) -> Result<DecodingKey, ProblemDetails> {
+    pub async fn get_decoding_key(&self, kid: &str) -> Result<DecodingKey, AuthError> {
         let needs_refresh = {
             let cache = self.cache.read().await;
             cache.fetched_at.elapsed() > JWKS_TTL || !cache.keys.contains_key(kid)
@@ -57,15 +56,17 @@ impl IssuerState {
                 let jwks = fetch_jwks(&self.well_known_url, &self.http_client).await?;
                 *cache = jwks.cache;
             } else if kid_missing && !can_refresh {
-                return Err(AuthError::InvalidToken("Kan ikke oppdatere cache".to_string()).into());
+                return Err(AuthError::InvalidToken(
+                    "Kan ikke oppdatere cache".to_string(),
+                ));
             }
         }
 
         let decoding_key = self.cache.read().await.keys.get(kid).cloned();
         match decoding_key {
-            None => {
-                Err(AuthError::InvalidToken("Kunne ikke hente token fra cache".to_string()).into())
-            }
+            None => Err(AuthError::InvalidToken(
+                "Kunne ikke hente token fra cache".to_string(),
+            )),
             Some(key) => Ok(key),
         }
     }

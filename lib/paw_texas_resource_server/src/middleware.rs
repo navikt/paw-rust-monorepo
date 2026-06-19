@@ -1,12 +1,14 @@
-use crate::model::IntrospectRequest;
-use crate::principal::{Anonym, Principal};
+use crate::model::{IntrospectRequest, IntrospectResponse};
 use crate::state::AuthState;
-use crate::token::{extract_bearer_token, peek_issuer};
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
 use errors::auth::AuthError;
 use jsonwebtoken::decode_header;
+use oauth2::claim::{EntraIdClaims, IdPortenClaims, MaskinportenClaims, TokenXClaims};
+use oauth2::issuer::IdentityProvider;
+use oauth2::principal::{Anonym, AsPrincipal, Principal};
+use oauth2::token::{extract_bearer_token, peek_issuer};
 use paw_error_handling::problem_details::ProblemDetails;
 use std::sync::Arc;
 
@@ -16,7 +18,15 @@ pub async fn texas_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, ProblemDetails> {
+    let start = std::time::Instant::now();
     let path = request.uri().path();
+    tracing::event!(
+        tracing::Level::INFO,
+        path = path,
+        duration = 0,
+        "Starter OAuth2-middleware for path"
+    );
+
     let token = extract_bearer_token(&request)?;
     let header = decode_header(token)
         .map_err(|_| AuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
@@ -32,7 +42,7 @@ pub async fn texas_middleware(
     tracing::info!("Validerer token fra issuer '{}'", peeked_iss);
 
     let identity_provider = match state.config.identity_provider(&peeked_iss) {
-        None => return Err(AuthError::UnknownIssuer.into()),
+        None => return Err(AuthError::InvalidIssuer.into()),
         Some(ip) => ip,
     };
     let introspection_endpoint = state
@@ -42,7 +52,7 @@ pub async fn texas_middleware(
         .clone()
         .into_inner();
 
-    let request_body = IntrospectRequest::new(identity_provider, token.to_string());
+    let request_body = IntrospectRequest::new(identity_provider.as_ref(), token.to_string());
     let response = state
         .http_client
         .post(introspection_endpoint)
@@ -50,30 +60,101 @@ pub async fn texas_middleware(
         .send()
         .await
         .map_err(|e| {
-            ProblemDetails::unauthorized(path.to_string(), AuthError::InvalidToken(e.to_string()))
+            ProblemDetails::unauthorized(
+                path.to_string(),
+                AuthError::IntrospectionFailed(e.to_string()),
+            )
         })?;
 
-    let principal: Option<Principal> = if response.status().is_success() {
-        /*let response_body = response.json::<IntrospectResponse>().await.map_err(|e| {
-            ProblemDetails::unauthorized(path, AuthError::InvalidToken(e.to_string()))
-        })?;*/
-        let response_body = response.text().await.map_err(|e| {
-            ProblemDetails::unauthorized(path.to_string(), AuthError::InvalidToken(e.to_string()))
+    let response_status = response.status();
+    let response_body = response.text().await.map_err(|e| {
+        ProblemDetails::unauthorized(
+            path.to_string(),
+            AuthError::IntrospectionFailed(e.to_string()),
+        )
+    })?;
+    let introspect_response = serde_json::from_str::<IntrospectResponse>(response_body.as_str())
+        .map_err(|e| {
+            ProblemDetails::unauthorized(
+                path.to_string(),
+                AuthError::IntrospectionFailed(e.to_string()),
+            )
         })?;
-        tracing::info!("TEXAS RESPONSE: {}", response_body);
-        Some(Principal::Anonym(Anonym))
-    } else {
-        let response_body = response.text().await.map_err(|e| {
-            ProblemDetails::unauthorized(path.to_string(), AuthError::InvalidToken(e.to_string()))
-        })?;
-        tracing::error!("TEXAS RESPONSE: {}", response_body);
-        None
-    };
 
-    if let Some(p) = principal {
-        request.extensions_mut().insert(p);
+    let was_success = response_status.is_success();
+    let was_active_token = introspect_response.active;
+
+    if was_success && was_active_token {
+        let principal = match identity_provider {
+            IdentityProvider::TokenX => {
+                let claims =
+                    serde_json::from_str::<TokenXClaims>(response_body.as_str()).map_err(|e| {
+                        ProblemDetails::unauthorized(
+                            path.to_string(),
+                            AuthError::InvalidToken(e.to_string()),
+                        )
+                    })?;
+                claims.as_principal()?
+            }
+            IdentityProvider::EntraId => {
+                let claims = serde_json::from_str::<EntraIdClaims>(response_body.as_str())
+                    .map_err(|e| {
+                        ProblemDetails::unauthorized(
+                            path.to_string(),
+                            AuthError::InvalidToken(e.to_string()),
+                        )
+                    })?;
+                claims.as_principal()?
+            }
+            IdentityProvider::IdPorten => {
+                let claims = serde_json::from_str::<IdPortenClaims>(response_body.as_str())
+                    .map_err(|e| {
+                        ProblemDetails::unauthorized(
+                            path.to_string(),
+                            AuthError::InvalidToken(e.to_string()),
+                        )
+                    })?;
+                claims.as_principal()?
+            }
+            IdentityProvider::Maskinporten => {
+                let claims = serde_json::from_str::<MaskinportenClaims>(response_body.as_str())
+                    .map_err(|e| {
+                        ProblemDetails::unauthorized(
+                            path.to_string(),
+                            AuthError::InvalidToken(e.to_string()),
+                        )
+                    })?;
+                claims.as_principal()?
+            }
+        };
+
+        tracing::event!(
+            tracing::Level::INFO,
+            path = path,
+            duration = 0,
+            "Fullførte OAuth2-middleware for path"
+        );
+        tracing::debug!("Successful authentication for principal: {:?}", principal);
+        request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
+    } else if was_success && !was_active_token {
+        tracing::event!(
+            tracing::Level::ERROR,
+            path = path,
+            duration = start.elapsed().as_millis(),
+            "Fullførte OAuth2-middleware for path med feil"
+        );
+        Err(AuthError::InvalidToken("Gyldighet er utløpt".to_string()).into())
     } else {
-        Err(AuthError::UnknownIssuer.into())
+        tracing::event!(
+            tracing::Level::ERROR,
+            path = path,
+            duration = start.elapsed().as_millis(),
+            "Fullførte OAuth2-middleware for path med feil"
+        );
+        let error = introspect_response
+            .error
+            .unwrap_or("Ukjent feil".to_string());
+        Err(AuthError::IntrospectionFailed(error).into())
     }
 }

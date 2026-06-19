@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "domain/types",
     "domain/errors",
+    "domain/oauth2",
     "domain/interne_hendelser",
     "domain/eksterne_hendelser",
     "domain/regler_arbeidssoeker",

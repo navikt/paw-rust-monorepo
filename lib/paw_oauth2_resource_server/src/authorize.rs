@@ -1,4 +1,4 @@
-use crate::principal::Principal;
+use oauth2::principal::Principal;
 
 pub trait Authorize: Send + Sync {
     fn is_authorized(&self, principal: &Principal) -> bool;
@@ -15,8 +15,8 @@ impl Authorize for AllowAll {
 #[cfg(test)]
 mod tests {
     use crate::authorize::{AllowAll, Authorize};
-    use crate::principal::{Borger, NavAnsatt, Principal};
     use errors::auth::AuthError;
+    use oauth2::principal::{Borger, NavAnsatt, Principal};
     use types::identitetsnummer::Identitetsnummer;
     use types::nav_ident::NavIdent;
 

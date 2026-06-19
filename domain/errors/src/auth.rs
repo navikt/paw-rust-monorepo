@@ -6,6 +6,8 @@ pub enum AuthError {
     MissingToken,
     #[error("Ugyldig token: {0}")]
     InvalidToken(String),
+    #[error("Ugyldig token issuer")]
+    InvalidIssuer,
     #[error("Ukjent token issuer")]
     UnknownIssuer,
     #[error("Token inneholdt ikke claim {0}")]

@@ -1,17 +1,17 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct AzureClaims {
+pub struct TokenXClaims {
+    pub pid: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EntraIdClaims {
     pub oid: String,
     pub name: Option<String>,
     #[serde(rename = "NAVident")]
     pub nav_ident: Option<String>,
     pub roles: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenXClaims {
-    pub pid: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -2381,6 +2381,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "oauth2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "errors",
+ "jsonwebtoken",
+ "serde",
+ "strum 0.28.0",
+ "thiserror 2.0.18",
+ "types",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2661,15 +2675,14 @@ dependencies = [
 name = "paw_oauth2_resource_server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "axum",
  "errors",
  "jsonwebtoken",
+ "oauth2",
  "paw_error_handling",
  "reqwest 0.13.4",
  "serde",
  "serde-env-field",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
  "types",
@@ -2752,19 +2765,16 @@ dependencies = [
 name = "paw_texas_resource_server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "axum",
  "errors",
  "jsonwebtoken",
+ "oauth2",
  "paw_error_handling",
  "reqwest 0.13.4",
  "serde",
  "serde-env-field",
- "strum 0.28.0",
- "thiserror 2.0.18",
- "tokio",
+ "serde_json",
  "tracing",
- "types",
 ]
 
 [[package]]

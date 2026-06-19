@@ -1,14 +1,14 @@
-use crate::principal::{
-    build_azure_principal, build_idporten_principal, build_maskinporten_principal,
-    build_tokenx_principal,
-};
 use crate::state::AuthState;
-use crate::token::{extract_bearer_token, peek_issuer};
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
 use errors::auth::AuthError;
 use jsonwebtoken::decode_header;
+use oauth2::principal::{
+    build_azure_principal, build_idporten_principal, build_maskinporten_principal,
+    build_tokenx_principal,
+};
+use oauth2::token::{extract_bearer_token, peek_issuer};
 use paw_error_handling::problem_details::ProblemDetails;
 use std::sync::Arc;
 
@@ -18,6 +18,15 @@ pub async fn oauth2_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, ProblemDetails> {
+    let start = std::time::Instant::now();
+    let path = request.uri().path();
+    tracing::event!(
+        tracing::Level::INFO,
+        path = path,
+        duration = 0,
+        "Starter OAuth2-middleware for path"
+    );
+
     let token = extract_bearer_token(&request)?;
     let header = decode_header(token)
         .map_err(|_| AuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
@@ -32,20 +41,7 @@ pub async fn oauth2_middleware(
 
     tracing::info!("Tolker og validerer token fra issuer '{}'", peeked_iss);
 
-    let principal = if let Some(azure_state) = &state.azure {
-        if peeked_iss == azure_state.expected_issuer {
-            let key = azure_state.get_decoding_key(&kid).await?;
-            Some(build_azure_principal(
-                token,
-                alg,
-                &key,
-                &azure_state.expected_issuer,
-                &azure_state.client_id,
-            )?)
-        } else {
-            None
-        }
-    } else if let Some(tokenx_state) = &state.tokenx {
+    let mapped_principal = if let Some(tokenx_state) = &state.tokenx {
         if peeked_iss == tokenx_state.expected_issuer {
             let key = tokenx_state.get_decoding_key(&kid).await?;
             Some(build_tokenx_principal(
@@ -54,6 +50,19 @@ pub async fn oauth2_middleware(
                 &key,
                 &tokenx_state.expected_issuer,
                 &tokenx_state.client_id,
+            )?)
+        } else {
+            None
+        }
+    } else if let Some(azure_state) = &state.azure {
+        if peeked_iss == azure_state.expected_issuer {
+            let key = azure_state.get_decoding_key(&kid).await?;
+            Some(build_azure_principal(
+                token,
+                alg,
+                &key,
+                &azure_state.expected_issuer,
+                &azure_state.client_id,
             )?)
         } else {
             None
@@ -88,10 +97,23 @@ pub async fn oauth2_middleware(
         None
     };
 
-    if let Some(p) = principal {
-        request.extensions_mut().insert(p);
+    if let Some(principal) = mapped_principal {
+        tracing::event!(
+            tracing::Level::INFO,
+            path = path,
+            duration = 0,
+            "Fullførte OAuth2-middleware for path"
+        );
+        tracing::debug!("Successful authentication for principal: {:?}", principal);
+        request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
     } else {
+        tracing::event!(
+            tracing::Level::ERROR,
+            path = path,
+            duration = start.elapsed().as_millis(),
+            "Fullførte OAuth2-middleware for path med feil"
+        );
         Err(AuthError::UnknownIssuer.into())
     }
 }

@@ -6,12 +6,11 @@ edition.workspace = true
 [dependencies]
 types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
+oauth2 = { path = "../../domain/oauth2" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 
-anyhow = { workspace = true }
 axum = { workspace = true }
 jsonwebtoken = { workspace = true }
-thiserror = { workspace = true }
 serde = { workspace = true }
 serde-env-field = { workspace = true }
 tokio = { workspace = true }
