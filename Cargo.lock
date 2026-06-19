@@ -2769,12 +2769,14 @@ dependencies = [
  "errors",
  "jsonwebtoken",
  "oauth2",
+ "opentelemetry",
  "paw_error_handling",
  "reqwest 0.13.4",
  "serde",
  "serde-env-field",
  "serde_json",
  "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]

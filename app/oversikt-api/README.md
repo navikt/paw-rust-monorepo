@@ -31,6 +31,47 @@ ledighet og egenvurdering nyere enn en gitt dato.
   Arbeidssøkerregisteret har ansvaret selv.
     * Liste
 
+### Hendelser
+Logikk for mottak av hendelser.
+
+```mermaid
+graph LR
+    periode_startet((Periode startet)) --> lagre_periode[Lagre periode]
+    lagre_periode --> hent_pdl_data[Hent PDL-data]
+    hent_pdl_data --> lagre_navn[Lagre navn]
+    lagre_navn --> done((Ferdig))
+    
+    opplysninger((Opplysninger)) --> ledig_siden_satt{Er ledig_siden satt?}
+    ledig_siden_satt -->|Ja| lagre_opplysninger_for_ja[Lagre opplysninger]
+    ledig_siden_satt -->|Nei| lagre_opplysninger_for_nei[Lagre opplysninger]
+    lagre_opplysninger_for_ja --> done
+    lagre_opplysninger_for_nei --> kalkulere_ledig_siden_for_opplysninger[Kalkuler ledig_siden]
+    kalkulere_ledig_siden_for_opplysninger --> done
+    
+    bekreftelse((Bekreftelse)) --> har_jobbet_siste_periode{Har jobbet siste periode?}
+    har_jobbet_siste_periode -->|Ja| lagre_bekreftelse_for_ja[Lagre bekreftelse]
+    har_jobbet_siste_periode -->|Nei| lagre_bekreftelse_for_nei[Lagre bekreftelse]
+    lagre_bekreftelse_for_ja --> kalkulere_ledig_siden_for_bekreftelse[Kalkuler ledig_siden]
+    kalkulere_ledig_siden_for_bekreftelse --> done
+    lagre_bekreftelse_for_nei --> done
+
+    profilering((Profilering)) --> har_eldre_egenvurdering{Har eldre egenvurdering?}
+    har_eldre_egenvurdering -->|Ja| lagre_profilering_for_ja[Lagre profilering]
+    har_eldre_egenvurdering -->|Nei| lagre_profilering_for_nei[Lagre profilering]
+    lagre_profilering_for_ja --> slett_egenvurdering[Slett egenvurdering]
+    slett_egenvurdering --> done
+    lagre_profilering_for_nei --> done
+
+    egenvurdering(("Egenvurdering")) --> lagre_egenvurdering[Lagre egenvurdering]
+    lagre_egenvurdering --> done
+
+    bekreftelse_paa_vegne_av(("Bekreftelse på-vegne-av")) --> lagre_bekreftelse_paa_vegne_av[Lagre bekreftelse på-vegne-av]
+    lagre_bekreftelse_paa_vegne_av --> done
+
+    tilknyttet_kontor(("Kontortilhørlighet")) --> lagre_tilknyttet_kontor[Lagre kontortilhørlighet]
+    lagre_tilknyttet_kontor --> done
+```
+
 ## Spørre
 
 * Ledighet nyere/eldre enn

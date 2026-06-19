@@ -9,8 +9,10 @@ use oauth2::claim::{EntraIdClaims, IdPortenClaims, MaskinportenClaims, TokenXCla
 use oauth2::issuer::IdentityProvider;
 use oauth2::principal::AsPrincipal;
 use oauth2::token::{extract_bearer_token, peek_issuer};
+use opentelemetry::KeyValue;
 use paw_error_handling::problem_details::ProblemDetails;
 use std::sync::Arc;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[tracing::instrument]
 pub async fn texas_middleware(
@@ -19,12 +21,14 @@ pub async fn texas_middleware(
     next: Next,
 ) -> Result<Response, ProblemDetails> {
     let start = std::time::Instant::now();
-    let path = request.uri().path();
-    tracing::event!(
-        tracing::Level::INFO,
-        path = path,
-        duration = 0,
-        "Starter OAuth2-middleware for path"
+    let path = request.uri().path().to_string();
+    let span = tracing::Span::current();
+    span.add_event(
+        "texas_middleware started",
+        vec![
+            KeyValue::new("path", path.to_string()),
+            KeyValue::new("elapsed", 0i64),
+        ],
     );
 
     let token = extract_bearer_token(&request)?;
@@ -132,29 +136,35 @@ pub async fn texas_middleware(
             }
         };
 
-        tracing::event!(
-            tracing::Level::INFO,
-            path = path,
-            duration = 0,
-            "Fullførte OAuth2-middleware for path"
+        let elapsed = start.elapsed().as_millis() as i64;
+        span.add_event(
+            "texas_middleware completed",
+            vec![
+                KeyValue::new("path", path),
+                KeyValue::new("elapsed", elapsed),
+            ],
         );
         tracing::debug!("Successful authentication for principal: {:?}", principal);
         request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
     } else if was_success && !was_active_token {
-        tracing::event!(
-            tracing::Level::ERROR,
-            path = path,
-            duration = start.elapsed().as_millis(),
-            "Fullførte OAuth2-middleware for path med feil"
+        let elapsed = start.elapsed().as_millis() as i64;
+        span.add_event(
+            "texas_middleware completed with error",
+            vec![
+                KeyValue::new("path", path),
+                KeyValue::new("elapsed", elapsed),
+            ],
         );
         Err(AuthError::InvalidToken("Gyldighet er utløpt".to_string()).into())
     } else {
-        tracing::event!(
-            tracing::Level::ERROR,
-            path = path,
-            duration = start.elapsed().as_millis(),
-            "Fullførte OAuth2-middleware for path med feil"
+        let elapsed = start.elapsed().as_millis() as i64;
+        span.add_event(
+            "texas_middleware completed with error",
+            vec![
+                KeyValue::new("path", path),
+                KeyValue::new("elapsed", elapsed),
+            ],
         );
         let error = introspect_response
             .error
