@@ -35,9 +35,13 @@ pub async fn oauth2_middleware(
     ))?;
     let alg = header.alg;
 
-    tracing::info!("Finner token issuer for token med KID '{}'", kid);
+    tracing::info!(
+        "Finner token issuer for token med KID '{}' og ALG '{:?}'",
+        kid,
+        alg
+    );
 
-    let peeked_iss = peek_issuer(token, alg)?;
+    let peeked_iss = peek_issuer(token)?;
 
     tracing::info!("Tolker og validerer token fra issuer '{}'", peeked_iss);
 

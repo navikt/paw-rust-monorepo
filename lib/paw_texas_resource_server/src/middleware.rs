@@ -7,7 +7,7 @@ use errors::auth::AuthError;
 use jsonwebtoken::decode_header;
 use oauth2::claim::{EntraIdClaims, IdPortenClaims, MaskinportenClaims, TokenXClaims};
 use oauth2::issuer::IdentityProvider;
-use oauth2::principal::{Anonym, AsPrincipal, Principal};
+use oauth2::principal::AsPrincipal;
 use oauth2::token::{extract_bearer_token, peek_issuer};
 use paw_error_handling::problem_details::ProblemDetails;
 use std::sync::Arc;
@@ -35,9 +35,13 @@ pub async fn texas_middleware(
     ))?;
     let alg = header.alg;
 
-    tracing::info!("Finner token issuer for token med KID '{}'", kid);
+    tracing::info!(
+        "Finner token issuer for token med KID '{}' og ALG '{:?}'",
+        kid,
+        alg
+    );
 
-    let peeked_iss = peek_issuer(token, alg)?;
+    let peeked_iss = peek_issuer(token)?;
 
     tracing::info!("Validerer token fra issuer '{}'", peeked_iss);
 

@@ -2,7 +2,7 @@ use crate::claim::IssClaim;
 use axum::extract::Request;
 use axum::http::header;
 use errors::auth::AuthError;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{dangerous::insecure_decode, decode, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
 
 pub fn extract_bearer_token(request: &Request) -> Result<&str, AuthError> {
@@ -14,15 +14,8 @@ pub fn extract_bearer_token(request: &Request) -> Result<&str, AuthError> {
         .ok_or(AuthError::MissingToken)
 }
 
-pub fn peek_issuer(token: &str, alg: Algorithm) -> Result<String, AuthError> {
-    let mut validation = Validation::new(alg);
-    validation.insecure_disable_signature_validation();
-    validation.set_required_spec_claims::<String>(&[]);
-    validation.validate_exp = false;
-    validation.validate_nbf = false;
-    validation.validate_aud = false;
-
-    decode::<IssClaim>(token, &DecodingKey::from_secret(&[]), &validation)
+pub fn peek_issuer(token: &str) -> Result<String, AuthError> {
+    insecure_decode::<IssClaim>(token)
         .map(|data| data.claims.iss)
         .map_err(|e| {
             AuthError::InvalidToken(format!("Kunne ikke trekke ut 'iss' claim pga {}", &e))
@@ -82,14 +75,14 @@ mod tests {
     fn peek_issuer_extracts_iss() {
         let token = make_hs256_token("https://issuer.example.com");
         assert_eq!(
-            peek_issuer(&token, Algorithm::HS256).unwrap(),
+            peek_issuer(&token).unwrap(),
             "https://issuer.example.com"
         );
     }
 
     #[test]
     fn peek_issuer_fails_on_malformed_token() {
-        assert!(peek_issuer("not-a-jwt", Algorithm::HS256).is_err());
-        assert!(peek_issuer("only.two", Algorithm::HS256).is_err());
+        assert!(peek_issuer("not-a-jwt").is_err());
+        assert!(peek_issuer("only.two").is_err());
     }
 }
