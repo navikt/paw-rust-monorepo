@@ -72,6 +72,9 @@ graph LR
     lagre_tilknyttet_kontor --> done
 ```
 
+* Etablere en ny domene-entitet ledighet-periode
+  * 
+
 ## Spørre
 
 * Ledighet nyere/eldre enn

@@ -23,8 +23,8 @@ pub async fn oauth2_middleware(
     tracing::event!(
         tracing::Level::INFO,
         path = path,
-        duration = 0,
-        "Starter OAuth2-middleware for path"
+        elapsed = "0ms",
+        "Kjører OAuth2-middleware"
     );
 
     let token = extract_bearer_token(&request)?;
@@ -102,21 +102,23 @@ pub async fn oauth2_middleware(
     };
 
     if let Some(principal) = mapped_principal {
+        let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
             tracing::Level::INFO,
             path = path,
-            duration = 0,
-            "Fullførte OAuth2-middleware for path"
+            elapsed = elapsed,
+            "Fullførte OAuth2-middleware"
         );
         tracing::debug!("Successful authentication for principal: {:?}", principal);
         request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
     } else {
+        let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
             tracing::Level::ERROR,
             path = path,
-            duration = start.elapsed().as_millis(),
-            "Fullførte OAuth2-middleware for path med feil"
+            elapsed = elapsed,
+            "Fullførte OAuth2-middleware med unknown-issuer-error"
         );
         Err(AuthError::UnknownIssuer.into())
     }
