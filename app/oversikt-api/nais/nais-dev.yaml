@@ -58,6 +58,8 @@ spec:
       claims:
         extra:
           - NAVident
+  kafka:
+    pool: nav-dev
   gcp:
     sqlInstances:
       - type: POSTGRES_18
