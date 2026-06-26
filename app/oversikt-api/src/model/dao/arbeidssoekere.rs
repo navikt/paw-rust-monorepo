@@ -354,7 +354,7 @@ async fn select_by_tilknyttet_kontor_desc(
             a.bekreftelse_paa_vegne_av
         FROM arbeidssoekere a LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
         WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND a.ledig_siden NOTNULL AND a.ledig_siden > $3
-        ORDER BY periode_startet DESC
+        ORDER BY a.periode_startet DESC
         OFFSET $4
         LIMIT $5
         "#,
@@ -406,28 +406,28 @@ pub async fn insert(
         RETURNING id
         "#,
     )
-            .bind(row.arbeidssoeker_id)
+            .bind(&row.arbeidssoeker_id)
             .bind(&row.identitetsnummer)
             .bind(&row.fornavn)
             .bind(&row.mellomnavn)
             .bind(&row.etternavn)
-            .bind(row.ledig_siden)
-            .bind(row.periode_id)
-            .bind(row.periode_startet)
-            .bind(row.periode_avsluttet)
-            .bind(row.opplysninger_id)
-            .bind(row.opplysninger_tidspunkt)
-            .bind(row.profilering_id)
+            .bind(&row.ledig_siden)
+            .bind(&row.periode_id)
+            .bind(&row.periode_startet)
+            .bind(&row.periode_avsluttet)
+            .bind(&row.opplysninger_id)
+            .bind(&row.opplysninger_tidspunkt)
+            .bind(&row.profilering_id)
             .bind(&row.profilert_til)
-            .bind(row.profilering_tidspunkt)
-            .bind(row.egenvurdering_id)
+            .bind(&row.profilering_tidspunkt)
+            .bind(&row.egenvurdering_id)
             .bind(&row.egenvurdert_til)
-            .bind(row.egenvurdering_tidspunkt)
-            .bind(row.bekreftelse_id)
-            .bind(row.bekreftelse_gjelder_fra)
-            .bind(row.bekreftelse_gjelder_til)
-            .bind(row.bekreftelse_har_jobbet)
-            .bind(row.bekreftelse_vil_fortsette)
+            .bind(&row.egenvurdering_tidspunkt)
+            .bind(&row.bekreftelse_id)
+            .bind(&row.bekreftelse_gjelder_fra)
+            .bind(&row.bekreftelse_gjelder_til)
+            .bind(&row.bekreftelse_har_jobbet)
+            .bind(&row.bekreftelse_vil_fortsette)
             .bind(&row.bekreftelsesloesning)
             .bind(&row.bekreftelse_paa_vegne_av)
             .bind(Utc::now())
@@ -467,34 +467,36 @@ pub async fn update(
             bekreftelse_har_jobbet,
             bekreftelse_vil_fortsette,
             bekreftelsesloesning,
-            bekreftelse_paa_vegne_av
+            bekreftelse_paa_vegne_av,
+            updated_timestamp
         ) = ($1, $2, $3, $4)
         RETURNING id
         "#,
     )
-    .bind(row.arbeidssoeker_id)
+    .bind(&row.arbeidssoeker_id)
     .bind(&row.identitetsnummer)
     .bind(&row.fornavn)
     .bind(&row.mellomnavn)
     .bind(&row.etternavn)
-    .bind(row.ledig_siden)
-    .bind(row.periode_id)
-    .bind(row.periode_startet)
-    .bind(row.periode_avsluttet)
-    .bind(row.opplysninger_id)
-    .bind(row.opplysninger_tidspunkt)
-    .bind(row.profilering_id)
+    .bind(&row.ledig_siden)
+    .bind(&row.periode_id)
+    .bind(&row.periode_startet)
+    .bind(&row.periode_avsluttet)
+    .bind(&row.opplysninger_id)
+    .bind(&row.opplysninger_tidspunkt)
+    .bind(&row.profilering_id)
     .bind(&row.profilert_til)
-    .bind(row.profilering_tidspunkt)
-    .bind(row.egenvurdering_id)
+    .bind(&row.profilering_tidspunkt)
+    .bind(&row.egenvurdering_id)
     .bind(&row.egenvurdert_til)
-    .bind(row.egenvurdering_tidspunkt)
-    .bind(row.bekreftelse_id)
-    .bind(row.bekreftelse_gjelder_fra)
-    .bind(row.bekreftelse_gjelder_til)
-    .bind(row.bekreftelse_har_jobbet)
-    .bind(row.bekreftelse_vil_fortsette)
+    .bind(&row.egenvurdering_tidspunkt)
+    .bind(&row.bekreftelse_id)
+    .bind(&row.bekreftelse_gjelder_fra)
+    .bind(&row.bekreftelse_gjelder_til)
+    .bind(&row.bekreftelse_har_jobbet)
+    .bind(&row.bekreftelse_vil_fortsette)
     .bind(&row.bekreftelse_paa_vegne_av)
+    .bind(Utc::now())
     .fetch_one(&mut **tx)
     .await?;
     Ok(id)

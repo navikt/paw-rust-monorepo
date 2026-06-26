@@ -1,9 +1,8 @@
-use anyhow::Result;
 use axum::Router;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::task::{JoinError, JoinHandle};
 
-pub async fn web_server_task(routes: Router) -> JoinHandle<Result<()>> {
+pub async fn web_server_task(routes: Router) -> JoinHandle<anyhow::Result<()>> {
     tracing::info!("Starter webserver på adresse 0.0.0.0:8080");
     tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
@@ -12,7 +11,7 @@ pub async fn web_server_task(routes: Router) -> JoinHandle<Result<()>> {
     })
 }
 
-pub async fn shutdown_signal_task() -> Result<String> {
+pub async fn shutdown_signal_task() -> anyhow::Result<String> {
     let mut term_signal = signal(SignalKind::terminate())?;
     let mut interrupt_signal = signal(SignalKind::interrupt())?;
     tokio::select! {
@@ -21,7 +20,10 @@ pub async fn shutdown_signal_task() -> Result<String> {
     }
 }
 
-pub fn async_task_handler(name: &str, res: Result<Result<()>, JoinError>) -> Result<()> {
+pub fn async_task_handler(
+    name: &str,
+    res: Result<anyhow::Result<()>, JoinError>,
+) -> anyhow::Result<()> {
     match res {
         Ok(Ok(())) => {
             tracing::info!("{} avsluttet normalt", name);

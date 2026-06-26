@@ -1,48 +1,62 @@
 use errors::database::DatabaseError;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use oversikt_api::api::build_router;
-use oversikt_api::config::{read_auth_config, read_database_config};
-use oversikt_api::model::context::AppContext;
+use oversikt_api::config::{read_auth_config, read_database_config, read_kafka_config};
+use oversikt_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
+use oversikt_api::logic::process::message_processor::OversiktMessageProcessor;
+use oversikt_api::logic::process::periode_processor::ARBEIDSSOKERPERIODER_TOPIC;
 use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
+use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::{clear_db, init_db};
-use std::sync::Arc;
 use paw_texas_resource_server::state::AuthState;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
 
-    let app_state = Arc::new(simple_app_state::AppState::new());
+    let topics = [ARBEIDSSOKERPERIODER_TOPIC];
+    let database_config = read_database_config()?;
+    let auth_config = read_auth_config()?;
+    let kafka_config = read_kafka_config()?;
+    let hwm_version = *kafka_config.hwm_version;
 
-    let db_config = read_database_config()?;
-    let db = init_db(db_config).await?;
+    let app_state = Arc::new(simple_app_state::AppState::new());
+    let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
-    clear_db(&db).await?;
+    clear_db(&pg_pool).await?;
 
+    tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
-        .run(&db)
+        .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
 
-    // Om det legges flere felter inn i context må den wrappes i en Arc. Trengs ikke nå siden PgPool allerede er en Arc.
-    let context = AppContext::new(db);
-
-    let auth_config = read_auth_config()?;
     let auth_state = AuthState::new(auth_config)
         .await
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-    let router = build_router(app_state.clone(), context, auth_state);
+    /*
+        let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
+            .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
+        let message_processor = OversiktMessageProcessor::new(pg_pool.clone())?;
+        let consumer_task =
+            kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
+    */
+
+    let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
+
     let signal_task = shutdown_signal_task();
 
     app_state.set_has_started(true);
 
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
+        //result = consumer_task => async_task_handler("KafkaConsumer", result),
         signal = signal_task => {
             tracing::info!("Mottok shutdown-signal: {}", signal?);
             Ok(())

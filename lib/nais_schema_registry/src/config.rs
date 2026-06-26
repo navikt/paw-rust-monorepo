@@ -3,7 +3,7 @@ use paw_rust_base::env::nais_cluster_name;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use std::env;
 
-pub fn create_nais_schema_registry_settings() -> Result<SrSettings, SchemaRegistryConfigError> {
+fn create_nais_schema_registry_settings() -> Result<SrSettings, SchemaRegistryConfigError> {
     let schema_registry_url = env::var("KAFKA_SCHEMA_REGISTRY").map_err(|_| {
         SchemaRegistryConfigError::MissingEnvVar("KAFKA_SCHEMA_REGISTRY".to_string())
     })?;
@@ -24,9 +24,9 @@ pub fn create_nais_schema_registry_settings() -> Result<SrSettings, SchemaRegist
     Ok(sr_settings)
 }
 
-pub fn create_local_schema_registry_settings() -> SrSettings {
+fn create_local_schema_registry_settings() -> SrSettings {
     let schema_registry_url =
-        env::var("KAFKA_SCHEMA_REGISTRY").unwrap_or_else(|_| "http://localhost:8081".to_string());
+        env::var("KAFKA_SCHEMA_REGISTRY").unwrap_or_else(|_| "http://localhost:8082".to_string());
     SrSettings::new(schema_registry_url)
 }
 

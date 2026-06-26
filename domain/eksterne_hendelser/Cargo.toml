@@ -8,9 +8,9 @@ serde = { workspace = true, features = ["derive"] }
 uuid = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, features = ["serde"] }
 serde_with = { workspace = true }
-schema_registry_converter = { workspace = true }
 thiserror = { workspace = true }
 apache-avro = { workspace = true }
+schema_registry_converter = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

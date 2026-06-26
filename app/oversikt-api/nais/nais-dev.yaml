@@ -65,6 +65,11 @@ spec:
         databases:
           - name: oversikt
   accessPolicy:
+    outbound:
+      rules:
+        - application: paw-kafka-key-generator
+      external:
+        - host: pdl-api.dev-fss-pub.nais.io
     inbound:
       rules:
         - application: azure-token-generator

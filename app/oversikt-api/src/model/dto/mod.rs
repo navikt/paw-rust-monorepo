@@ -1,9 +1,12 @@
 pub mod arbeidssoeker;
+pub mod arbeidssoeker_v2;
 pub mod bekreftelse;
 pub mod egenvurdering;
 pub mod kontor;
+pub mod ledighetsperiode;
 pub mod opplysninger;
 pub mod periode;
 pub mod profilering;
 pub mod request;
 pub mod response;
+pub mod response_v2;

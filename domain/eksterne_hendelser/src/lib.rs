@@ -8,4 +8,5 @@ pub mod periode;
 pub mod periode_serde;
 pub mod profilering;
 pub mod profilert_til;
+pub mod serde;
 pub mod tidspunkt_fra_kilde;
