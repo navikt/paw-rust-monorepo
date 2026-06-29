@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 #[derive(sqlx::FromRow)]
 pub struct TestPeriodeRow {
+    pub arbeidssoeker_id: Option<i64>,
     pub sist_oppdatert: chrono::NaiveDateTime,
     pub trenger_kontroll: bool,
     pub stoppet: Option<serde_json::Value>,
@@ -35,7 +36,7 @@ pub async fn setup() -> PgPool {
 
 pub async fn les_rad(pool: &PgPool, id: Uuid) -> Option<TestPeriodeRow> {
     sqlx::query_as(
-        "SELECT sist_oppdatert, trenger_kontroll, stoppet, tilstand, bekreftet \
+        "SELECT arbeidssoeker_id, sist_oppdatert, trenger_kontroll, stoppet, tilstand, bekreftet \
          FROM perioder WHERE id = $1",
     )
     .bind(id)

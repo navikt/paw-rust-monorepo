@@ -45,13 +45,8 @@ async fn skriv_startet_hendelse_setter_korrekt_arbeidssoeker_id() {
     skriv_startet_hendelse(&mut tx, startet).await.unwrap();
     tx.commit().await.unwrap();
 
-    let (arbeidssoeker_id,): (Option<i64>,) =
-        sqlx::query_as("SELECT arbeidssoeker_id FROM perioder WHERE id = $1")
-            .bind(id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(arbeidssoeker_id, Some(42));
+    let rad = les_rad(&pool, id).await.unwrap();
+    assert_eq!(rad.arbeidssoeker_id, Some(42));
 }
 
 #[tokio::test]
