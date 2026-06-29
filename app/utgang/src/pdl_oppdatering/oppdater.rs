@@ -48,6 +48,10 @@ impl PdlDataOppdatering {
         let mut tx = self.inner.pg_pool.begin().await?;
         let trenger_oppdatering =
             hent_utdaterte_perioder(&mut tx, vannmerke, self.inner.batch_size).await?;
+        if trenger_oppdatering.is_empty() {
+            tx.commit().await?;
+            return Ok(false);
+        }
         let identitetsnummer: Vec<Identitetsnummer> = trenger_oppdatering
             .iter()
             .map(|periode| periode.identitetsnummer.clone())
