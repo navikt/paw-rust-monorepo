@@ -1,21 +1,24 @@
-use crate::periode::Periode;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
+use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
+use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PeriodeDeserializerError {
+pub enum AvroSerdeError {
+    #[error("Failed to serialize Avro message: {0}")]
+    AvroSerializationFailed(String),
     #[error("Failed to deserialize Avro message: {0}")]
     AvroDeserializationFailed(String),
     #[error("Avro deserialization error: {0}")]
     AvroError(#[from] apache_avro::Error),
 }
 
-pub struct PeriodeDeserializer {
+pub struct AvroDeserializer {
     decoder: Arc<schema_registry_converter::async_impl::avro::AvroDecoder<'static>>,
 }
 
-impl PeriodeDeserializer {
+impl AvroDeserializer {
     pub fn new(schema_reg_settings: SrSettings) -> Self {
         let decoder =
             schema_registry_converter::async_impl::avro::AvroDecoder::new(schema_reg_settings);
@@ -24,18 +27,51 @@ impl PeriodeDeserializer {
         }
     }
 
-    pub async fn deserialize(&self, payload: &[u8]) -> Result<Periode, PeriodeDeserializerError> {
-        // Decode using schema registry
+    pub async fn deserialize<D: DeserializeOwned>(
+        &self,
+        payload: &[u8],
+    ) -> Result<D, AvroSerdeError> {
         let decoded = self.decoder.decode(Some(payload)).await.map_err(|e| {
-            PeriodeDeserializerError::AvroDeserializationFailed(format!(
-                "Failed to decode Avro message with schema registry: {}",
+            AvroSerdeError::AvroDeserializationFailed(format!(
+                "Failed to deserialize Avro message with schema registry: {}",
                 e
             ))
         })?;
 
-        // Convert Avro value to Periode struct using apache_avro's built-in serde support
-        let periode: Periode = apache_avro::from_value(&decoded.value)?;
+        let avro: D = apache_avro::from_value(&decoded.value)?;
+        Ok(avro)
+    }
+}
 
-        Ok(periode)
+pub struct AvroSerializer {
+    encoder: Arc<schema_registry_converter::async_impl::avro::AvroEncoder<'static>>,
+}
+
+impl AvroSerializer {
+    pub fn new(schema_reg_settings: SrSettings) -> Self {
+        let encoder =
+            schema_registry_converter::async_impl::avro::AvroEncoder::new(schema_reg_settings);
+        Self {
+            encoder: Arc::new(encoder),
+        }
+    }
+
+    pub async fn serialize(
+        &self,
+        avro: impl Serialize,
+        strategy: &SubjectNameStrategy,
+    ) -> Result<Vec<u8>, AvroSerdeError> {
+        let payload = self
+            .encoder
+            .encode_struct(avro, strategy)
+            .await
+            .map_err(|e| {
+                AvroSerdeError::AvroSerializationFailed(format!(
+                    "Failed to serialize Avro message with schema registry: {}",
+                    e
+                ))
+            })?;
+
+        Ok(payload)
     }
 }

@@ -1,10 +1,10 @@
+use eksterne_hendelser::periode::PERIODE_TOPIC;
 use errors::database::DatabaseError;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use oversikt_api::api::build_router;
 use oversikt_api::config::{read_auth_config, read_database_config, read_kafka_config};
 use oversikt_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
 use oversikt_api::logic::process::message_processor::OversiktMessageProcessor;
-use oversikt_api::logic::process::periode_processor::ARBEIDSSOKERPERIODER_TOPIC;
 use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     register_panic_logger();
     setup_nais_otel()?;
 
-    let topics = [ARBEIDSSOKERPERIODER_TOPIC];
+    let topics = [PERIODE_TOPIC];
     let database_config = read_database_config()?;
     let auth_config = read_auth_config()?;
     let kafka_config = read_kafka_config()?;

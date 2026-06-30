@@ -1,0 +1,11 @@
+### GET /subjects/paw.arbeidssokerperioder-v1-value/versions/latest
+GET {{baseUrl}}/subjects/paw.arbeidssokerperioder-v1-value/versions/latest
+Accept: application/json
+
+### GET /subjects/paw.arbeidssoker-profilering-v1-value/versions/latest
+GET {{baseUrl}}/subjects/paw.arbeidssoker-profilering-v1-value/versions/latest
+Accept: application/json
+
+### GET /schemas/ids/1?deleted=true
+GET {{baseUrl}}/schemas/ids/1?deleted=true
+Accept: application/json

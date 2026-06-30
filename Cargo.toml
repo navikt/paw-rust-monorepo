@@ -29,6 +29,7 @@ members = [
     "app/veileder-oppgave",
     "app/utgang",
     "app/oversikt-api",
+    "test/schema_registry_mock",
 ]
 
 [workspace.package]

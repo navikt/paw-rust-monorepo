@@ -1,5 +1,6 @@
 use crate::kafka::error::OversiktProcessorError;
-use crate::logic::process::periode_processor::{PeriodeProcessor, ARBEIDSSOKERPERIODER_TOPIC};
+use crate::logic::process::periode_processor::PeriodeProcessor;
+use eksterne_hendelser::periode::PERIODE_TOPIC;
 use nais_schema_registry::config::create_schema_registry_settings;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::message::OwnedMessage;
@@ -46,7 +47,7 @@ impl MessageProcessor for OversiktMessageProcessor {
                             offset: message.offset(),
                         }
                         .into()),
-                        (topic, Some(payload)) if topic == ARBEIDSSOKERPERIODER_TOPIC => {
+                        (topic, Some(payload)) if topic == PERIODE_TOPIC => {
                             self.periode_processor.process_payload(tx, payload).await
                         }
                         (topic, _) => {

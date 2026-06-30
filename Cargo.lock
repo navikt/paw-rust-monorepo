@@ -951,11 +951,14 @@ version = "0.1.0"
 dependencies = [
  "apache-avro",
  "chrono",
+ "mockito",
  "schema_registry_converter",
+ "schema_registry_mock",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 2.0.18",
+ "tokio",
  "uuid",
 ]
 
@@ -3617,6 +3620,15 @@ dependencies = [
  "futures",
  "reqwest 0.13.4",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schema_registry_mock"
+version = "0.1.0"
+dependencies = [
+ "mockito",
+ "schema_registry_converter",
  "serde_json",
 ]
 
