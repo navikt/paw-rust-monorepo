@@ -76,6 +76,7 @@ schema_registry_converter = { version = "4", default-features = false, features 
 apache-avro = "0.21"
 strum = { version = "0.28", features = ["derive"] }
 serde_with = { version = "3", features = ["chrono"] }
+utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }

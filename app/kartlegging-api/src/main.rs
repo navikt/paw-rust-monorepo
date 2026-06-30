@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
             kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
     */
 
-    let router = build_router(app_state.clone(), auth_state);
+    let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
 
     let signal_task = shutdown_signal_task();

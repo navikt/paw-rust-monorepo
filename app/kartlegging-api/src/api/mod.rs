@@ -18,13 +18,12 @@ use std::sync::Arc;
 
 pub fn build_router(
     app_state: Arc<AppState>,
-    //pg_pool: PgPool,
+    pg_pool: PgPool,
     auth_state: Arc<AuthState>,
 ) -> Router {
     let health_routes = axum_health::routes(app_state);
     let docs_routes = Router::new().route("/api/docs", get(api_docs));
 
-    /*
     let oversikt_routes = add_otel_trace_layer(
         Router::new()
             .route("/api/v1/oversikt", post(finn_oversikt))
@@ -43,9 +42,9 @@ pub fn build_router(
             )),
     )
     .with_state(RouterState::new(pg_pool.clone()));
-     */
+
     health_routes
         .merge(docs_routes)
-        //.merge(oversikt_routes)
-        //.merge(kartlegging_routes)
+        .merge(oversikt_routes)
+        .merge(kartlegging_routes)
 }

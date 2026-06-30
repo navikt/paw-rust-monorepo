@@ -13,16 +13,16 @@ use std::num::NonZeroU16;
 use std::{sync::Arc, time::Duration};
 use texas_client::token_client::create_token_client;
 use tokio::{
-    signal::{unix::signal, unix::SignalKind},
+    signal::{unix::SignalKind, unix::signal},
     task::{JoinError, JoinHandle},
 };
 use utgang::consumer_function::UtgangMessageProcessor;
 use utgang::kafka::kafka_consumer::create_kafka_consumer;
 use utgang::kafka::periode_processor::PeriodeProcessorError::ProcessingError;
-use utgang::kontroll::{start_kontroll_task, KontrollTask};
+use utgang::kontroll::{KontrollTask, start_kontroll_task};
 use utgang::pdl::pdl_config::PDLClientConfig;
 use utgang::pdl::pdl_query::PDLClient;
-use utgang::pdl_oppdatering::{start_pdl_oppdatering_task, PdlDataOppdatering};
+use utgang::pdl_oppdatering::{PdlDataOppdatering, start_pdl_oppdatering_task};
 use utgang::{ARBEIDSSOKERPERIODER_TOPIC, HENDELSELOGG_TOPIC};
 
 const PDL_BATCH_SIZE: NonZeroU16 = NonZeroU16::new(1000).expect("Batch size must be non-zero u16");
@@ -48,10 +48,6 @@ async fn main() -> Result<()> {
     });
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
     let pg_pool = init_db(db_config).await?;
-
-    // TODO: Fjern før prodsetting!!!
-    clear_db(&pg_pool).await?;
-
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let kafka_config = toml::from_str::<KafkaConfig>(read_config_file!("kafka_config.toml"))?;
     let hwm_version = *kafka_config.hwm_version;
