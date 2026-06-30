@@ -22,7 +22,11 @@ pub(crate) async fn api_docs(headers: HeaderMap) -> impl IntoResponse {
         .unwrap_or("");
     tracing::info!("API docs type: {}", accept);
     if accept.contains("application/yaml") {
-        ([(CONTENT_TYPE, "application/yaml; charset=utf-8")], SPEC_YAML).into_response()
+        (
+            [(CONTENT_TYPE, "application/yaml; charset=utf-8")],
+            SPEC_YAML,
+        )
+            .into_response()
     } else {
         let value: serde_json::Value =
             serde_json::from_str(spec_json()).expect("spec_json() er gyldig JSON");
@@ -73,7 +77,7 @@ mod tests {
             .cloned()
             .collect();
 
-        let registered = ["/api/v1/oversikt"];
+        let registered = ["/api/v1/oversikt", "/api/v1/kartlegging"];
 
         for path in &spec_paths {
             assert!(
