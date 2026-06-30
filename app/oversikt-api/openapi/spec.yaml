@@ -1,9 +1,8 @@
 openapi: 3.1.0
 info:
-  title: PAW Arbeidssøkerregisteret Oversikt API
+  title: PAW Arbeidssøkerregisteret Kartlegging API
   description: >-
-    API for å hente oversikt over arbeidssøkere. Kalles av saksbehandlere via
-    Azure AD.
+    API for å hente kartlegging av arbeidssøkere. Kalles av saksbehandlere via Azure AD.
   license:
     name: 'Apache 2.0'
     identifier: 'Apache-2.0'
@@ -33,8 +32,151 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/kartlegging:
+    post:
+      tags:
+        - kartlegging
+      operationId: finn_kartlegging
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+        required: true
+      responses:
+        '200':
+          description: Oversikt over arbeidssøkere for gitt query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KartleggingResponse'
+        '500':
+          description: Intern feil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   schemas:
+
+    # REQUESTS
+    QueryRequest:
+      oneOf:
+        - allOf:
+            - $ref: '#/components/schemas/IdentitetsnummerQueryRequest'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - IDENTITETSNUMMER
+        - allOf:
+            - $ref: '#/components/schemas/TilknyttetKontorQueryRequest'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - TILKNYTTET_KONTOR
+    IdentitetsnummerQueryRequest:
+      type: object
+      required:
+        - identitetsnummer
+      properties:
+        identitetsnummer:
+          type: string
+        paging:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
+    TilknyttetKontorQueryRequest:
+      type: object
+      required:
+        - kontorId
+      properties:
+        kontorId:
+          type: string
+        kontorType:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/KontorType'
+        ledigSiden:
+          type:
+            - string
+            - 'null'
+          format: date
+        paging:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
+    PagingRequest:
+      type: object
+      required:
+        - page
+        - pageSize
+        - sortOrder
+      properties:
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+
+    # RESPONSES
+    OversiktResponse:
+      type: object
+      required:
+        - arbeidssoekere
+        - paging
+      properties:
+        arbeidssoekere:
+          type: array
+          items:
+            $ref: '#/components/schemas/Arbeidssoeker'
+        paging:
+          $ref: '#/components/schemas/PagingResponse'
+    KartleggingResponse:
+      type: object
+      required:
+        - arbeidssoekere
+        - paging
+      properties:
+        arbeidssoekere:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArbeidssoekerV2'
+        paging:
+          $ref: '#/components/schemas/PagingResponse'
+    PagingResponse:
+      type: object
+      required:
+        - page
+        - pageSize
+        - hitSize
+        - totalCount
+        - sortOrder
+      properties:
+        hitSize:
+          type: integer
+          format: int32
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        totalCount:
+          type: integer
+          format: int64
     Arbeidssoeker:
       type: object
       required:
@@ -90,6 +232,120 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TilknyttetKontor'
+    ArbeidssoekerV2:
+      type: object
+      required:
+        - arbeidssoekerId
+        - identitetsnummer
+        - fornavn
+        - etternavn
+        - ledighetsperioder
+        - kontortilknytninger
+      properties:
+        arbeidssoekerId:
+          type: integer
+          format: int64
+        identitetsnummer:
+          type: string
+        fornavn:
+          type: string
+        mellomnavn:
+          type:
+            - string
+            - 'null'
+        etternavn:
+          type: string
+        ledighetsperioder:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ledighetsperiode'
+        kontortilknytninger:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kontortilknytning'
+    Ledighetsperiode:
+      type: object
+      required:
+        - periode
+      properties:
+        ledigSiden:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        periode:
+          $ref: '#/components/schemas/Periode'
+        opplysninger:
+          $ref: '#/components/schemas/Opplysninger'
+        profilering:
+          $ref: '#/components/schemas/Profilering'
+        egenvurdering:
+          $ref: '#/components/schemas/Egenvurdering'
+        bekreftelse:
+          $ref: '#/components/schemas/Bekreftelse'
+        bekreftelsePaaVegneAv:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bekreftelsesloesning'
+    Periode:
+      type: object
+      required:
+        - id
+        - startet
+      properties:
+        id:
+          type: string
+          format: uuid
+        startet:
+          type: string
+          format: date-time
+        avsluttet:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    Opplysninger:
+      type: object
+      required:
+        - id
+        - tidspunkt
+      properties:
+        id:
+          type: string
+          format: uuid
+        tidspunkt:
+          type: string
+          format: date-time
+    Profilering:
+      type: object
+      required:
+        - id
+        - profilertTil
+        - tidspunkt
+      properties:
+        id:
+          type: string
+          format: uuid
+        profilertTil:
+          $ref: '#/components/schemas/ProfilertTil'
+        tidspunkt:
+          type: string
+          format: date-time
+    Egenvurdering:
+      type: object
+      required:
+        - id
+        - egenvurdertTil
+        - tidspunkt
+      properties:
+        egenvurdertTil:
+          $ref: '#/components/schemas/ProfilertTil'
+        id:
+          type: string
+          format: uuid
+        tidspunkt:
+          type: string
+          format: date-time
     Bekreftelse:
       type: object
       required:
@@ -115,6 +371,42 @@ components:
           format: uuid
         vilFortsette:
           type: boolean
+    TilknyttetKontor:
+      type: object
+      required:
+        - kontorId
+        - kontorNavn
+        - kontorType
+      properties:
+        kontorId:
+          type: string
+        kontorNavn:
+          type: string
+        kontorType:
+          $ref: '#/components/schemas/KontorType'
+    Kontortilknytning:
+      type: object
+      required:
+        - kontorId
+        - kontorNavn
+        - kontorType
+      properties:
+        kontorId:
+          type: string
+        kontorNavn:
+          type: string
+        kontorType:
+          $ref: '#/components/schemas/KontorType'
+
+    # ENUMS
+    ProfilertTil:
+      type: string
+      enum:
+        - UDEFINERT
+        - ANTATT_GODE_MULIGHETER
+        - ANTATT_BEHOV_FOR_VEILEDNING
+        - OPPGITT_HINDRINGER
+        - UKJENT_VERDI
     Bekreftelsesloesning:
       type: string
       enum:
@@ -122,32 +414,6 @@ components:
         - ARBEIDSSOEKERREGISTERET
         - DAGPENGER
         - FRISKMELDT_TIL_ARBEIDSFORMIDLING
-    Egenvurdering:
-      type: object
-      required:
-        - id
-        - egenvurdertTil
-        - tidspunkt
-      properties:
-        egenvurdertTil:
-          $ref: '#/components/schemas/ProfilertTil'
-        id:
-          type: string
-          format: uuid
-        tidspunkt:
-          type: string
-          format: date-time
-    IdentitetsnummerQueryRequest:
-      type: object
-      required:
-        - identitetsnummer
-      properties:
-        identitetsnummer:
-          type: string
-        paging:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/PagingRequest'
     KontorType:
       type: string
       enum:
@@ -155,85 +421,13 @@ components:
         - ARENA
         - GEOGRAFISK_TILKNYTNING
         - UKJENT_VERDI
-    Opplysninger:
-      type: object
-      required:
-        - id
-        - tidspunkt
-      properties:
-        id:
-          type: string
-          format: uuid
-        tidspunkt:
-          type: string
-          format: date-time
-    OversiktResponse:
-      type: object
-      required:
-        - arbeidssoekere
-        - paging
-      properties:
-        arbeidssoekere:
-          type: array
-          items:
-            $ref: '#/components/schemas/Arbeidssoeker'
-        paging:
-          $ref: '#/components/schemas/PagingResponse'
-    PagingRequest:
-      type: object
-      required:
-        - page
-        - pageSize
-        - sortOrder
-      properties:
-        page:
-          type: integer
-          format: int32
-        pageSize:
-          type: integer
-          format: int32
-        sortOrder:
-          $ref: '#/components/schemas/SortOrder'
-    PagingResponse:
-      type: object
-      required:
-        - page
-        - pageSize
-        - hitSize
-        - totalCount
-        - sortOrder
-      properties:
-        hitSize:
-          type: integer
-          format: int32
-        page:
-          type: integer
-          format: int32
-        pageSize:
-          type: integer
-          format: int32
-        sortOrder:
-          $ref: '#/components/schemas/SortOrder'
-        totalCount:
-          type: integer
-          format: int64
-    Periode:
-      type: object
-      required:
-        - id
-        - startet
-      properties:
-        avsluttet:
-          type:
-            - string
-            - 'null'
-          format: date-time
-        id:
-          type: string
-          format: uuid
-        startet:
-          type: string
-          format: date-time
+
+    # COMMON
+    SortOrder:
+      type: string
+      enum:
+        - ASC
+        - DESC
     ProblemDetails:
       type: object
       required:
@@ -264,89 +458,6 @@ components:
           type: string
         type:
           type: string
-    Profilering:
-      type: object
-      required:
-        - id
-        - profilertTil
-        - tidspunkt
-      properties:
-        id:
-          type: string
-          format: uuid
-        profilertTil:
-          $ref: '#/components/schemas/ProfilertTil'
-        tidspunkt:
-          type: string
-          format: date-time
-    ProfilertTil:
-      type: string
-      enum:
-        - UDEFINERT
-        - ANTATT_GODE_MULIGHETER
-        - ANTATT_BEHOV_FOR_VEILEDNING
-        - OPPGITT_HINDRINGER
-        - UKJENT_VERDI
-    QueryRequest:
-      oneOf:
-        - allOf:
-            - $ref: '#/components/schemas/IdentitetsnummerQueryRequest'
-            - type: object
-              required:
-                - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - IDENTITETSNUMMER
-        - allOf:
-            - $ref: '#/components/schemas/TilknyttetKontorQueryRequest'
-            - type: object
-              required:
-                - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - TILKNYTTET_KONTOR
-    SortOrder:
-      type: string
-      enum:
-        - ASC
-        - DESC
-    TilknyttetKontor:
-      type: object
-      required:
-        - kontorId
-        - kontorNavn
-        - kontorType
-      properties:
-        kontorId:
-          type: string
-        kontorNavn:
-          type: string
-        kontorType:
-          $ref: '#/components/schemas/KontorType'
-    TilknyttetKontorQueryRequest:
-      type: object
-      required:
-        - kontorId
-      properties:
-        kontorId:
-          type: string
-        kontorType:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/KontorType'
-        ledigSiden:
-          type:
-            - string
-            - 'null'
-          format: date
-        paging:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/PagingRequest'
 tags:
   - name: oversikt
     description: Henting av arbeidssøkeroversikt

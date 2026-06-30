@@ -1,4 +1,4 @@
-use crate::model::dto::kontor::TilknyttetKontor;
+use crate::model::dto::kontor::Kontortilknytning;
 use crate::model::dto::ledighetsperiode::Ledighetsperiode;
 use serde::Serialize;
 
@@ -12,5 +12,5 @@ pub struct ArbeidssoekerV2 {
     pub mellomnavn: Option<String>,
     pub etternavn: String,
     pub ledighetsperioder: Vec<Ledighetsperiode>,
-    pub tilknyttet_kontor: Vec<TilknyttetKontor>,
+    pub kontortilknytninger: Vec<Kontortilknytning>,
 }

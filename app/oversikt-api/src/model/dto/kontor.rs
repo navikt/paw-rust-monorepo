@@ -2,9 +2,7 @@ use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
 
-#[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = enum_type_not_found,
@@ -23,6 +21,14 @@ pub enum KontorType {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TilknyttetKontor {
+    pub kontor_id: String,
+    pub kontor_navn: String,
+    pub kontor_type: KontorType,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Kontortilknytning {
     pub kontor_id: String,
     pub kontor_navn: String,
     pub kontor_type: KontorType,

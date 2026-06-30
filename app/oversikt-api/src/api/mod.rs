@@ -1,10 +1,10 @@
 pub(crate) mod docs;
+pub(crate) mod kartlegging;
 pub(crate) mod oversikt;
-pub(crate) mod oversikt_v2;
 
 use crate::api::docs::api_docs;
+use crate::api::kartlegging::finn_kartlegging;
 use crate::api::oversikt::finn_oversikt;
-use crate::api::oversikt_v2::finn_oversikt_v2;
 use crate::model::state::RouterState;
 use axum::middleware;
 use axum::routing::{get, post};
@@ -32,9 +32,9 @@ pub fn build_router(
             )),
     )
     .with_state(RouterState::new(pg_pool.clone()));
-    let oversikt_routes_v2 = add_otel_trace_layer(
+    let kartlegging_routes = add_otel_trace_layer(
         Router::new()
-            .route("/api/v2/oversikt", post(finn_oversikt_v2))
+            .route("/api/v1/kartlegging", post(finn_kartlegging))
             .route_layer(middleware::from_fn_with_state(
                 auth_state.clone(),
                 texas_middleware,
@@ -44,5 +44,5 @@ pub fn build_router(
     health_routes
         .merge(docs_routes)
         .merge(oversikt_routes)
-        .merge(oversikt_routes_v2)
+        .merge(kartlegging_routes)
 }

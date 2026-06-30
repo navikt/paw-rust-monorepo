@@ -3,7 +3,7 @@ use crate::model::dao::arbeidssoekere_v2;
 use crate::model::dto::kontor::KontorType;
 use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
-use crate::model::dto::response_v2::OversiktResponseV2;
+use crate::model::dto::response_v2::KartleggingResponse;
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
 use sqlx::PgPool;
@@ -12,7 +12,7 @@ use sqlx::PgPool;
 pub async fn finn_for_tilknyttet_kontor_v2(
     pool: &PgPool,
     request: &TilknyttetKontorQueryRequest,
-) -> anyhow::Result<OversiktResponseV2> {
+) -> anyhow::Result<KartleggingResponse> {
     let kontor_id = request.kontor_id.clone();
     let kontor_typer = request
         .kontor_type
@@ -69,7 +69,7 @@ pub async fn finn_for_tilknyttet_kontor_v2(
         total_count,
         sort_order: paging.sort_order,
     };
-    Ok(OversiktResponseV2 {
+    Ok(KartleggingResponse {
         arbeidssoekere,
         paging: paging_response,
     })

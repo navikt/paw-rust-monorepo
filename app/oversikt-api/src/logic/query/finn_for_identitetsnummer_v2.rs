@@ -2,7 +2,7 @@ use crate::logic::query::mapper_v2;
 use crate::model::dao::arbeidssoekere_v2;
 use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
-use crate::model::dto::response_v2::OversiktResponseV2;
+use crate::model::dto::response_v2::KartleggingResponse;
 use crate::model::sort::SortOrder;
 use sqlx::PgPool;
 
@@ -10,7 +10,7 @@ use sqlx::PgPool;
 pub async fn finn_for_identitetsnummer_v2(
     pool: &PgPool,
     request: &IdentitetsnummerQueryRequest,
-) -> anyhow::Result<OversiktResponseV2> {
+) -> anyhow::Result<KartleggingResponse> {
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
         page_size: 1000,
@@ -42,7 +42,7 @@ pub async fn finn_for_identitetsnummer_v2(
         total_count,
         sort_order: paging.sort_order,
     };
-    Ok(OversiktResponseV2 {
+    Ok(KartleggingResponse {
         arbeidssoekere,
         paging: paging_response,
     })
