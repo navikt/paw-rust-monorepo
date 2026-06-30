@@ -10,10 +10,33 @@ use oauth2::issuer::IdentityProvider;
 use oauth2::principal::AsPrincipal;
 use oauth2::token::{extract_bearer_token, peek_issuer};
 use paw_error_handling::problem_details::ProblemDetails;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
+pub fn texas_middleware(state: Arc<AuthState>) -> TexasMiddlewareLayer {
+    type F = fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>;
+    axum::middleware::from_fn_with_state(state, texas_auth_handler_boxed as F)
+}
+
+type BoxFut<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+pub type TexasMiddlewareLayer = axum::middleware::FromFnLayer<
+    fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>,
+    Arc<AuthState>,
+    (State<Arc<AuthState>>, Request),
+>;
+
+fn texas_auth_handler_boxed(
+    state: State<Arc<AuthState>>,
+    request: Request,
+    next: Next,
+) -> BoxFut<Result<Response, ProblemDetails>> {
+    Box::pin(texas_auth_handler(state, request, next))
+}
+
 #[tracing::instrument]
-pub async fn texas_middleware(
+pub async fn texas_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
     next: Next,

@@ -1,8 +1,10 @@
-use axum::http::header::{ACCEPT, CONTENT_TYPE};
+use axum::http::header::CONTENT_TYPE;
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
-use axum::Json;
+use axum::routing::get;
+use axum::{Json, Router};
 use std::sync::OnceLock;
+use utoipa_swagger_ui::{Config, SwaggerUi};
 
 static SPEC_YAML: &str = include_str!("../../openapi/spec.yaml");
 static SPEC_JSON: OnceLock<String> = OnceLock::new();
@@ -15,23 +17,28 @@ fn spec_json() -> &'static str {
     })
 }
 
-pub(crate) async fn api_docs(headers: HeaderMap) -> impl IntoResponse {
-    let accept = headers
-        .get(ACCEPT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    tracing::info!("API docs type: {}", accept);
-    if accept.contains("application/yaml") {
-        (
-            [(CONTENT_TYPE, "application/yaml; charset=utf-8")],
-            SPEC_YAML,
-        )
-            .into_response()
-    } else {
-        let value: serde_json::Value =
-            serde_json::from_str(spec_json()).expect("spec_json() er gyldig JSON");
-        Json(value).into_response()
-    }
+pub(crate) fn api_docs_routes() -> Router {
+    let docs_json_routes = Router::new().route("/api/docs.json", get(api_docs_json));
+    let docs_yaml_routes = Router::new().route("/api/docs.yaml", get(api_docs_yaml));
+    let swagger_routes =
+        Router::from(SwaggerUi::new("/api/docs").config(Config::from("/api/docs.json")));
+    docs_json_routes
+        .merge(docs_yaml_routes)
+        .merge(swagger_routes)
+}
+
+async fn api_docs_json(_: HeaderMap) -> impl IntoResponse {
+    let value: serde_json::Value =
+        serde_json::from_str(spec_json()).expect("spec_json() er gyldig JSON");
+    Json(value).into_response()
+}
+
+async fn api_docs_yaml(_: HeaderMap) -> impl IntoResponse {
+    (
+        [(CONTENT_TYPE, "application/yaml; charset=utf-8")],
+        SPEC_YAML,
+    )
+        .into_response()
 }
 
 #[cfg(test)]

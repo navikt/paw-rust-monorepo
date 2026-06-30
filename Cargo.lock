@@ -2078,6 +2078,7 @@ dependencies = [
  "nais_schema_registry",
  "paw_app_config",
  "paw_error_handling",
+ "paw_otel_tracing",
  "paw_rdkafka",
  "paw_rdkafka_hwm",
  "paw_rust_base",
@@ -2746,6 +2747,21 @@ dependencies = [
  "tokio",
  "tracing",
  "types",
+]
+
+[[package]]
+name = "paw_otel_tracing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "opentelemetry",
+ "prometheus",
+ "tokio",
+ "tower",
+ "tower-http 0.7.0",
+ "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]

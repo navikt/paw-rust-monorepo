@@ -10,10 +10,32 @@ use oauth2::principal::{
 };
 use oauth2::token::{extract_bearer_token, peek_issuer};
 use paw_error_handling::problem_details::ProblemDetails;
+use std::pin::Pin;
 use std::sync::Arc;
 
+pub fn oauth2_middleware(state: Arc<AuthState>) -> OAuth2MiddlewareLayer {
+    type F = fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>;
+    axum::middleware::from_fn_with_state(state, oauth2_auth_handler_boxed as F)
+}
+
+type BoxFut<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+pub type OAuth2MiddlewareLayer = axum::middleware::FromFnLayer<
+    fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>,
+    Arc<AuthState>,
+    (State<Arc<AuthState>>, Request),
+>;
+
+fn oauth2_auth_handler_boxed(
+    state: State<Arc<AuthState>>,
+    request: Request,
+    next: Next,
+) -> BoxFut<Result<Response, ProblemDetails>> {
+    Box::pin(oauth2_auth_handler(state, request, next))
+}
+
 #[tracing::instrument]
-pub async fn oauth2_middleware(
+pub async fn oauth2_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
     next: Next,

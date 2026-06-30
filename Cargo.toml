@@ -14,6 +14,7 @@ members = [
     "lib/axum_health",
     "lib/health_and_monitoring",
     "lib/paw_rust_base",
+    "lib/paw_otel_tracing",
     "lib/paw_sqlx",
     "lib/paw_rdkafka",
     "lib/paw_rdkafka_hwm",
