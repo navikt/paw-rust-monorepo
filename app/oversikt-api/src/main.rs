@@ -24,6 +24,11 @@ async fn main() -> anyhow::Result<()> {
     let hwm_version = *kafka_config.hwm_version;
 
     let app_state = Arc::new(simple_app_state::AppState::new());
+    let auth_state = AuthState::new(auth_config)
+        .await
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+    /*
     let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
@@ -34,10 +39,7 @@ async fn main() -> anyhow::Result<()> {
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
-
-    let auth_state = AuthState::new(auth_config)
-        .await
-        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+     */
 
     /*
         let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
@@ -47,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
             kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
     */
 
-    let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
+    let router = build_router(app_state.clone(), auth_state);
     let server_task = web_server_task(router).await;
 
     let signal_task = shutdown_signal_task();
