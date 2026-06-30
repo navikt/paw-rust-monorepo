@@ -60,13 +60,6 @@ spec:
           - NAVident
   kafka:
     pool: nav-dev
-  gcp:
-    sqlInstances:
-      - type: POSTGRES_18
-        tier: db-f1-micro
-        cascadingDelete: true
-        databases:
-          - name: oversikt
   accessPolicy:
     outbound:
       rules:
