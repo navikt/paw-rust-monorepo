@@ -1,11 +1,9 @@
 use eksterne_hendelser::periode::PERIODE_TOPIC;
 use errors::database::DatabaseError;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
-use oversikt_api::api::build_router;
-use oversikt_api::config::{read_auth_config, read_database_config, read_kafka_config};
-use oversikt_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
-use oversikt_api::logic::process::message_processor::OversiktMessageProcessor;
-use oversikt_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
+use kartlegging_api::api::build_router;
+use kartlegging_api::config::{read_auth_config, read_database_config, read_kafka_config};
+use kartlegging_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::{clear_db, init_db};
@@ -28,7 +26,6 @@ async fn main() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-    /*
     let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
@@ -39,7 +36,6 @@ async fn main() -> anyhow::Result<()> {
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
-     */
 
     /*
         let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)

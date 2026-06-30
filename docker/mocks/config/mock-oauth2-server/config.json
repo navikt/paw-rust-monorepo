@@ -24,16 +24,16 @@
                 },
                 {
                     "requestParam": "client_id",
-                    "match": "paw-arbeidssoekerregisteret-api-oversikt",
+                    "match": "paw-arbeidssoekerregisteret-api-kartlegging",
                     "claims": {
                         "iss": "http://localhost:8081/azure",
-                        "sub": "admin@paw-arbeidssoekerregisteret-api-oversikt",
+                        "sub": "admin@paw-arbeidssoekerregisteret-api-kartlegging",
                         "aud": [
-                            "paw-arbeidssoekerregisteret-api-oversikt"
+                            "paw-arbeidssoekerregisteret-api-kartlegging"
                         ],
                         "oid": "84a9421a-610d-4258-ac2c-bae144216f14",
                         "azp": "87f8731e-28bf-48c9-b1ef-585e147aa0ae",
-                        "azp_name": "local:paw:paw-arbeidssoekerregisteret-api-oversikt",
+                        "azp_name": "local:paw:paw-arbeidssoekerregisteret-api-kartlegging",
                         "name": "Nav Navesen",
                         "NAVident": "NAV12345"
                     }

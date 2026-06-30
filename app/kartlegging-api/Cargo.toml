@@ -1,5 +1,5 @@
 [package]
-name = "oversikt-api"
+name = "kartlegging-api"
 version = "0.1.0"
 edition.workspace = true
 
@@ -7,7 +7,7 @@ edition.workspace = true
 nais = ["paw_app_config/nais"]
 
 [lib]
-name = "oversikt_api"
+name = "kartlegging_api"
 path = "src/lib.rs"
 
 [dependencies]

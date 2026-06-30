@@ -1,5 +1,5 @@
-### POST /api/v1/oversikt for IDENTITETSNUMMER
-POST {{baseUrl}}/api/v1/oversikt
+### POST /api/v1/kartlegging for IDENTITETSNUMMER
+POST {{baseUrl}}/api/v1/kartlegging
 Accept: application/json
 Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}
@@ -14,25 +14,8 @@ Authorization: Bearer {{$auth.token("azure")}}
     }
 }
 
-### POST /api/v1/oversikt for TILKNYTTET_KONTOR
-POST {{baseUrl}}/api/v1/oversikt
-Accept: application/json
-Content-Type: application/json
-Authorization: Bearer {{$auth.token("azure")}}
-
-{
-    "type": "TILKNYTTET_KONTOR",
-    "kontorId": "4154",
-    "ledigSiden": "2026-04-01",
-    "paging": {
-        "page": 1,
-        "pageSize": 100,
-        "sortOrder": "DESC"
-    }
-}
-
-### POST /api/v2/oversikt for TILKNYTTET_KONTOR
-POST {{baseUrl}}/api/v2/oversikt
+### POST /api/v1/kartlegging for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v1/kartlegging
 Accept: application/json
 Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}

@@ -1,5 +1,0 @@
-host = "localhost"
-port = 5432
-username = "oversikt_api"
-password = "Paw1234"
-database = "oversikt_api"

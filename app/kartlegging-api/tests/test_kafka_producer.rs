@@ -1,8 +1,8 @@
 use eksterne_hendelser::bekreftelse::bekreftelse::BEKREFTELSE_TOPIC;
 use eksterne_hendelser::periode::PERIODE_TOPIC;
 use eksterne_hendelser::serde::AvroSerializer;
+use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
-use oversikt_api::config::read_kafka_config;
 use rdkafka::producer::FutureProducer;
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 

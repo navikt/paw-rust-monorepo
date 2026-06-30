@@ -1,6 +1,6 @@
-# Oversikt API
+# Kartlegging API
 
-API som skal gi saksbehandlere oversikt over porteføljen for sitt kontor. Det er en aggregering av data på tvers av
+API som kunne kartlegge porteføljen til saksbehandlere for sitt kontor. Det er en aggregering av data på tvers av
 Arbeidssøkerregisteret med fokus på arbeidssøkeres ledighet og andre viktige datapunkter. Skal kunne filtrere på
 ledighet og egenvurdering nyere enn en gitt dato.
 

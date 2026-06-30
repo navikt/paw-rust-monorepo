@@ -12,6 +12,6 @@ Accept: application/json
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=client_credentials&
-client_id=paw-arbeidssoekerregisteret-api-oversikt&
+client_id=paw-arbeidssoekerregisteret-api-kartlegging&
 client_secret=abcd1234&
 scope=openid pid

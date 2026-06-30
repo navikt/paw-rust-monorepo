@@ -2023,6 +2023,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "kartlegging-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "apache-avro",
+ "axum",
+ "axum_health",
+ "chrono",
+ "eksterne_hendelser",
+ "errors",
+ "health_and_monitoring",
+ "jsonschema",
+ "mockito",
+ "nais_schema_registry",
+ "paw_app_config",
+ "paw_error_handling",
+ "paw_rdkafka",
+ "paw_rdkafka_hwm",
+ "paw_rust_base",
+ "paw_sqlx",
+ "paw_test",
+ "paw_texas_resource_server",
+ "rdkafka",
+ "schema_registry_converter",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "serde_with",
+ "serde_yaml",
+ "sqlx",
+ "strum 0.28.0",
+ "temp-env",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2528,46 +2568,6 @@ name = "outref"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
-
-[[package]]
-name = "oversikt-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "apache-avro",
- "axum",
- "axum_health",
- "chrono",
- "eksterne_hendelser",
- "errors",
- "health_and_monitoring",
- "jsonschema",
- "mockito",
- "nais_schema_registry",
- "paw_app_config",
- "paw_error_handling",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
- "paw_rust_base",
- "paw_sqlx",
- "paw_test",
- "paw_texas_resource_server",
- "rdkafka",
- "schema_registry_converter",
- "serde",
- "serde-env-field",
- "serde_json",
- "serde_with",
- "serde_yaml",
- "sqlx",
- "strum 0.28.0",
- "temp-env",
- "thiserror 2.0.18",
- "tokio",
- "toml",
- "tracing",
- "uuid",
-]
 
 [[package]]
 name = "p256"

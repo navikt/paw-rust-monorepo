@@ -1,19 +1,19 @@
-name: Oversikt API - build and deploy
+name: Kartlegging API - build and deploy
 on:
   push:
     branches:
       - main
       - dev/*
     paths:
-      - ".github/workflows/oversikt-api.yml"
-      - "app/oversikt-api/**"
+      - ".github/workflows/kartlegging-api.yml"
+      - "app/kartlegging-api/**"
       - "Cargo.lock"
       - "Cargo.toml"
       - "lib/**"
       - "domain/**"
       - "Dockerfile"
 env:
-  APP_NAME: oversikt-api
+  APP_NAME: kartlegging-api
 jobs:
   test:
     name: Test

@@ -1,4 +1,4 @@
-### POST /api/v1/oversikt
+### POST /api/v1/kartlegging
 POST {{baseUrl}}/api/v1/proxy
 Accept: application/json
 Content-Type: application/json
@@ -6,7 +6,7 @@ Authorization: Bearer {{$auth.token("azure")}}
 
 {
     "method": "POST",
-    "url": "http://paw-arbeidssoekerregisteret-api-oversikt/api/v1/oversikt",
+    "url": "http://paw-arbeidssoekerregisteret-api-kartlegging/api/v1/kartlegging",
     "body": {
         "identitetsnummer": "{{identitetsnummer}}",
         "paging": {
