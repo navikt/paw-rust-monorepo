@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 errors = { path = "../../domain/errors" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
+dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 axum_health = { path = "../../lib/axum_health" }
 paw_otel_tracing = { path = "../../lib/paw_otel_tracing" }

@@ -5,11 +5,11 @@ use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
-use sqlx::PgPool;
+use sqlx::{Postgres, Transaction};
 
-#[tracing::instrument(skip(pool))]
+#[tracing::instrument(skip(tx))]
 pub async fn finn_for_tilknyttet_kontor(
-    pool: &PgPool,
+    tx: &mut Transaction<'_, Postgres>,
     request: &TilknyttetKontorQueryRequest,
 ) -> anyhow::Result<OversiktResponse> {
     let kontor_id = request.kontor_id.clone();
@@ -34,9 +34,8 @@ pub async fn finn_for_tilknyttet_kontor(
         sort_order: SortOrder::Ascending,
     });
 
-    let mut tx = pool.begin().await?;
     let total_count =
-        arbeidssoekere::count_by_tilknyttet_kontor(&mut tx, &kontor_id, &kontor_typer, &ledig_side)
+        arbeidssoekere::count_by_tilknyttet_kontor(tx, &kontor_id, &kontor_typer, &ledig_side)
             .await?;
     tracing::info!(
         "Finner arbeidssøkere for tilknyttet kontor av typer {}, offset {}, limit {}, sort_order {}",
@@ -46,7 +45,7 @@ pub async fn finn_for_tilknyttet_kontor(
         paging.sort_order.to_string()
     );
     let arbeidssoeker_rows = arbeidssoekere::select_by_tilknyttet_kontor(
-        &mut tx,
+        tx,
         &kontor_id,
         &kontor_typer,
         &ledig_side,
@@ -55,8 +54,7 @@ pub async fn finn_for_tilknyttet_kontor(
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = mapper::map_rows(&mut tx, &arbeidssoeker_rows).await?;
-    tx.commit().await?;
+    let arbeidssoekere = mapper::map_rows(tx, &arbeidssoeker_rows).await?;
     let paging_response = PagingResponse {
         page: paging.page,
         page_size: paging.page_size,

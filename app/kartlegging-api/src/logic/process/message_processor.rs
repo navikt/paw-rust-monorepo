@@ -18,11 +18,11 @@ pub trait MessageProcessorTrait {
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<(), ProcessorError>> + Send + 'a>>;
 }
 
-pub struct OversiktMessageProcessor {
+pub struct KartleggingMessageProcessor {
     periode_processor: Arc<PeriodeProcessor>,
 }
 
-impl OversiktMessageProcessor {
+impl KartleggingMessageProcessor {
     pub fn new(pg_pool: PgPool) -> anyhow::Result<Self> {
         let schema_registry_settings = create_schema_registry_settings()?;
         Ok(Self {
@@ -31,7 +31,7 @@ impl OversiktMessageProcessor {
     }
 }
 
-impl MessageProcessor for OversiktMessageProcessor {
+impl MessageProcessor for KartleggingMessageProcessor {
     fn process_message<'a>(
         &'a self,
         tx: &'a mut Transaction<'_, Postgres>,

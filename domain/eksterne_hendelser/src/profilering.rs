@@ -19,7 +19,6 @@ pub struct Profilering {
     pub sendt_inn_av: Metadata,
     pub profilert_til: ProfilertTil,
     pub jobbet_sammenhengende_seks_av_tolv_siste_mnd: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub alder: Option<i32>,
 }
 

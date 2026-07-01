@@ -46,13 +46,25 @@ impl ProblemDetails {
         }
     }
 
-    pub fn internal_server_error(instance: String) -> Self {
+    pub fn database_error(instance: String, detail: String) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            problem_type: "urn:paw:http:database-error".to_string(),
+            title: "Internal Server Error".to_string(),
+            status: 500u16,
+            detail: Some(detail),
+            instance,
+            timestamp: Utc::now(),
+        }
+    }
+
+    pub fn internal_server_error(instance: String, detail: Option<String>) -> Self {
         Self {
             id: Uuid::new_v4(),
             problem_type: "urn:paw:default:unhandled-error".to_string(),
             title: "Internal Server Error".to_string(),
             status: 500u16,
-            detail: None,
+            detail,
             instance,
             timestamp: Utc::now(),
         }
@@ -88,13 +100,19 @@ impl From<AuthError> for ProblemDetails {
 impl From<DatabaseError> for ProblemDetails {
     fn from(e: DatabaseError) -> Self {
         tracing::error!(error = %e, "Spørring mot database feilet");
-        Self::internal_server_error("/".to_string())
+        Self::internal_server_error(
+            "/".to_string(),
+            Some("Spørring mot database feilet".to_string()),
+        )
     }
 }
 
 impl From<anyhow::Error> for ProblemDetails {
     fn from(e: anyhow::Error) -> Self {
         tracing::error!(error = %e, "Det oppsto en uhåndtert feil");
-        Self::internal_server_error("/".to_string())
+        Self::internal_server_error(
+            "/".to_string(),
+            Some("Det oppsto en uhåndtert feil".to_string()),
+        )
     }
 }

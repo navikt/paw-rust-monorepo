@@ -74,7 +74,7 @@ pub async fn count_by_identitetsnummer(
         r#"
         SELECT COUNT(*) AS count
         FROM arbeidssoekere a
-        WHERE l.identitetsnummer = $1
+        WHERE a.identitetsnummer = $1
         "#,
     )
     .bind(identitetsnummer)
@@ -130,11 +130,7 @@ async fn select_by_parent_id_asc(
         r#"
         SELECT
             l.id,
-            l.arbeidssoeker_id,
-            l.identitetsnummer,
-            l.fornavn,
-            l.mellomnavn,
-            l.etternavn,
+            l.parent_id,
             l.ledig_siden AT TIME ZONE 'UTC' AS ledig_siden,
             l.periode_id,
             l.periode_startet AT TIME ZONE 'UTC' AS periode_startet,

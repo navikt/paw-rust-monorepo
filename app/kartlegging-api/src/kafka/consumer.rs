@@ -1,4 +1,4 @@
-use crate::logic::process::message_processor::OversiktMessageProcessor;
+use crate::logic::process::message_processor::KartleggingMessageProcessor;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
@@ -31,7 +31,7 @@ pub fn kafka_consumer_task(
     pg_pool: PgPool,
     hwm_version: i16,
     consumer: StreamConsumer<HwmRebalanceHandler>,
-    processor: OversiktMessageProcessor,
+    processor: KartleggingMessageProcessor,
 ) -> JoinHandle<anyhow::Result<()>> {
     tokio::spawn(async move {
         loop {

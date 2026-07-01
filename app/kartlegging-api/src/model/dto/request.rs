@@ -6,9 +6,7 @@ use errors::validation::ValidationError;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
 
-#[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = enum_type_not_found,

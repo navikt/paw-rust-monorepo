@@ -3,11 +3,11 @@ use crate::model::dao::arbeidssoekere;
 use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
 use crate::model::dto::response::{OversiktResponse, PagingResponse};
 use crate::model::sort::SortOrder;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 
-#[tracing::instrument(skip(pool))]
+#[tracing::instrument(skip(tx))]
 pub async fn finn_for_identitetsnummer(
-    pool: &PgPool,
+    tx: &mut Transaction<'_, Postgres>,
     request: &IdentitetsnummerQueryRequest,
 ) -> anyhow::Result<OversiktResponse> {
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
@@ -15,9 +15,8 @@ pub async fn finn_for_identitetsnummer(
         page_size: 1000,
         sort_order: SortOrder::Ascending,
     });
-    let mut tx = pool.begin().await?;
     let total_count =
-        arbeidssoekere::count_by_identitetsnummer(&mut tx, &request.identitetsnummer).await?;
+        arbeidssoekere::count_by_identitetsnummer(tx, &request.identitetsnummer).await?;
     tracing::info!(
         "Finner arbeidssøkere for identitetsnummer, offset {}, limit {}, sort_order {}",
         paging.offset(),
@@ -25,15 +24,14 @@ pub async fn finn_for_identitetsnummer(
         paging.sort_order.to_string()
     );
     let arbeidssoeker_rows = arbeidssoekere::select_by_identitetsnummer(
-        &mut tx,
+        tx,
         &request.identitetsnummer,
         paging.offset(),
         paging.limit(),
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = mapper::map_rows(&mut tx, &arbeidssoeker_rows).await?;
-    tx.commit().await?;
+    let arbeidssoekere = mapper::map_rows(tx, &arbeidssoeker_rows).await?;
     let paging_response = PagingResponse {
         page: paging.page,
         page_size: paging.page_size,

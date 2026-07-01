@@ -3,6 +3,8 @@ use errors::database::DatabaseError;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use kartlegging_api::api::build_router;
 use kartlegging_api::config::{read_auth_config, read_database_config, read_kafka_config};
+use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
+use kartlegging_api::logic::process::message_processor::KartleggingMessageProcessor;
 use kartlegging_api::server::{async_task_handler, shutdown_signal_task, web_server_task};
 use paw_oauth2_resource_server::state::AuthState;
 use paw_rdkafka::error::KafkaError;
@@ -36,15 +38,13 @@ async fn main() -> anyhow::Result<()> {
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
-
-    /*
-        let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
-            .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
-        let message_processor = OversiktMessageProcessor::new(pg_pool.clone())?;
-        let consumer_task =
-            kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
-    */
-
+/*
+    let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
+        .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
+    let message_processor = KartleggingMessageProcessor::new(pg_pool.clone())?;
+    let consumer_task =
+        kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
+*/
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
 

@@ -8,6 +8,7 @@ members = [
     "domain/eksterne_hendelser",
     "domain/regler_arbeidssoeker",
     "domain/dab_kontortilhorlighet",
+    "domain/dab_oppfolgingperioder",
     "domain/pdl_graphql",
     "lib/paw_error_handling",
     "lib/paw_app_config",

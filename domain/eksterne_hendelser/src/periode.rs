@@ -13,7 +13,6 @@ pub struct Periode {
     pub id: Uuid,
     pub identitetsnummer: String,
     pub startet: Metadata,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub avsluttet: Option<Metadata>,
 }
 

@@ -19,17 +19,21 @@ impl PeriodeProcessor {
 
     pub async fn process_payload<'a>(
         &'a self,
-        tx: &'a mut Transaction<'_, Postgres>,
+        tx: &mut Transaction<'_, Postgres>,
         payload: &'a [u8],
     ) -> anyhow::Result<(), ProcessorError> {
         let periode: Periode = self.deserializer.deserialize(payload).await.map_err(|e| {
             ProcessorError::from(format!("Failed to deserialize payload: {}", e.to_string()))
         })?;
-        tracing::info!(
-            "Mottok arbeidssokerperiode: {}",
-            serde_json::to_string(&periode)
-                .unwrap_or_else(|_| "Failed to serialize periode".to_string())
-        );
+        self.handle_periode(tx, &periode).await
+    }
+
+    async fn handle_periode<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        periode: &'a Periode,
+    ) -> anyhow::Result<(), ProcessorError> {
+        tracing::info!("Mottok arbeidssokerperiode: {:?}", &periode);
         Ok(())
     }
 }

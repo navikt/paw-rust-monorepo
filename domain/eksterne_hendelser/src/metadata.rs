@@ -13,6 +13,5 @@ pub struct Metadata {
     pub utfoert_av: Bruker,
     pub kilde: String,
     pub aarsak: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub tidspunkt_fra_kilde: Option<TidspunktFraKilde>,
 }

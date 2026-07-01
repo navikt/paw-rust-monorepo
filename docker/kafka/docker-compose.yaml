@@ -59,6 +59,7 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic paw.arbeidssoker-bekreftelse-paavegneav-v1 --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic paw.arbeidssoker-hendelseslogg-v1 --replication-factor 1 --partitions 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic oppgavehandtering.oppgavehendelse-v1 --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic poao.siste-oppfolgingsperiode-v3 --replication-factor 1 --partitions 1
       
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka:29092 --list

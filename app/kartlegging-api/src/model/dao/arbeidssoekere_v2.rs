@@ -54,7 +54,7 @@ pub async fn count_by_identitetsnummer(
 }
 
 #[tracing::instrument(skip(tx))]
-pub async fn count_by_tilknyttet_kontor(
+pub async fn count_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
@@ -64,9 +64,9 @@ pub async fn count_by_tilknyttet_kontor(
         r#"
         SELECT COUNT(*) AS count
         FROM arbeidssoekere_v2 a
-        LEFT JOIN ledighetsperioder lp on a.id = lp.parent_id
-        LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
-        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND lp.ledig_siden NOTNULL AND lp.ledig_siden > $3
+        LEFT JOIN ledighetsperioder l on a.id = l.parent_id
+        LEFT JOIN kontortilknytninger k on a.id = k.parent_id
+        WHERE k.kontor_id = $1 AND k.kontor_type = ANY($2) AND l.ledig_siden NOTNULL AND l.ledig_siden > $3
         "#,
     )
     .bind(kontor_id)
@@ -114,9 +114,9 @@ async fn select_by_identitetsnummer_asc(
             a.inserted_timestamp AT TIME ZONE 'UTC' AS inserted_timestamp,
             a.updated_timestamp AT TIME ZONE 'UTC' AS updated_timestamp
         FROM arbeidssoekere_v2 a
-        LEFT JOIN ledighetsperioder lp on a.id = lp.parent_id
+        LEFT JOIN ledighetsperioder l on a.id = l.parent_id
         WHERE a.identitetsnummer = $1
-        ORDER BY lp.periode_startet
+        ORDER BY l.periode_startet
         OFFSET $2
         LIMIT $3
         "#,
@@ -148,9 +148,9 @@ async fn select_by_identitetsnummer_desc(
             a.inserted_timestamp AT TIME ZONE 'UTC' AS inserted_timestamp,
             a.updated_timestamp AT TIME ZONE 'UTC' AS updated_timestamp
         FROM arbeidssoekere_v2 a
-        LEFT JOIN ledighetsperioder lp on a.id = lp.parent_id
+        LEFT JOIN ledighetsperioder l on a.id = l.parent_id
         WHERE a.identitetsnummer = $1
-        ORDER BY lp.periode_startet DESC
+        ORDER BY l.periode_startet DESC
         OFFSET $2
         LIMIT $3
         "#,
@@ -164,7 +164,7 @@ async fn select_by_identitetsnummer_desc(
 }
 
 #[tracing::instrument(skip(tx))]
-pub async fn select_by_tilknyttet_kontor(
+pub async fn select_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
@@ -175,11 +175,11 @@ pub async fn select_by_tilknyttet_kontor(
 ) -> anyhow::Result<Vec<ArbeidssoekerRowV2>> {
     match sort_order {
         SortOrder::Ascending => {
-            select_by_tilknyttet_kontor_asc(tx, kontor_id, kontor_typer, ledig_siden, offset, limit)
+            select_by_kontortilknytning_asc(tx, kontor_id, kontor_typer, ledig_siden, offset, limit)
                 .await
         }
         SortOrder::Descending => {
-            select_by_tilknyttet_kontor_desc(
+            select_by_kontortilknytning_desc(
                 tx,
                 kontor_id,
                 kontor_typer,
@@ -193,7 +193,7 @@ pub async fn select_by_tilknyttet_kontor(
 }
 
 #[tracing::instrument(skip(tx))]
-async fn select_by_tilknyttet_kontor_asc(
+async fn select_by_kontortilknytning_asc(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
@@ -213,10 +213,10 @@ async fn select_by_tilknyttet_kontor_asc(
             a.inserted_timestamp AT TIME ZONE 'UTC' AS inserted_timestamp,
             a.updated_timestamp AT TIME ZONE 'UTC' AS updated_timestamp
         FROM arbeidssoekere_v2 a
-        LEFT JOIN ledighetsperioder lp on a.id = lp.parent_id
-        LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
-        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND lp.ledig_siden NOTNULL AND lp.ledig_siden > $3
-        ORDER BY lp.periode_startet
+        LEFT JOIN ledighetsperioder l on a.id = l.parent_id
+        LEFT JOIN kontortilknytninger k on a.id = k.parent_id
+        WHERE k.kontor_id = $1 AND k.kontor_type = ANY($2) AND l.ledig_siden NOTNULL AND l.ledig_siden > $3
+        ORDER BY l.periode_startet
         OFFSET $4
         LIMIT $5
         "#,
@@ -232,7 +232,7 @@ async fn select_by_tilknyttet_kontor_asc(
 }
 
 #[tracing::instrument(skip(tx))]
-async fn select_by_tilknyttet_kontor_desc(
+async fn select_by_kontortilknytning_desc(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
@@ -252,10 +252,10 @@ async fn select_by_tilknyttet_kontor_desc(
             a.inserted_timestamp AT TIME ZONE 'UTC' AS inserted_timestamp,
             a.updated_timestamp AT TIME ZONE 'UTC' AS updated_timestamp
         FROM arbeidssoekere_v2 a
-        LEFT JOIN ledighetsperioder lp on a.id = lp.parent_id
-        LEFT JOIN tilknyttet_kontor tk on a.id = tk.parent_id
-        WHERE tk.kontor_id = $1 AND tk.kontor_type = ANY($2) AND lp.ledig_siden NOTNULL AND lp.ledig_siden > $3
-        ORDER BY lp.periode_startet DESC
+        LEFT JOIN ledighetsperioder l on a.id = l.parent_id
+        LEFT JOIN kontortilknytninger k on a.id = k.parent_id
+        WHERE k.kontor_id = $1 AND k.kontor_type = ANY($2) AND l.ledig_siden NOTNULL AND l.ledig_siden > $3
+        ORDER BY l.periode_startet DESC
         OFFSET $4
         LIMIT $5
         "#,

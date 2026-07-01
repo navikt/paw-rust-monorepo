@@ -12,26 +12,46 @@ pub(crate) async fn finn_oversikt(
     State(state): State<RouterState>,
     request: String,
 ) -> anyhow::Result<Json<OversiktResponse>, ProblemDetails> {
-    tracing::debug!("Query request: {}", request);
+    const PATH: &str = "/api/v1/kartlegging";
     let query_request: QueryRequest = serde_json::from_str(&request).map_err(|e| {
         tracing::error!("Feil ved deserialisering av request body: {}", e);
-        ProblemDetails::validation_error(
-            "/api/v1/oversikt".to_string(),
-            "Ugyldig request body".to_string(),
-        )
+        ProblemDetails::validation_error(PATH.to_string(), "Ugyldig request body".to_string())
     })?;
-    match query_request {
+
+    let mut tx = state.pg_pool.begin().await.map_err(|e| {
+        tracing::error!("Kunne ikke starte transaksjon: {}", e);
+        ProblemDetails::database_error(PATH.to_string(), "Transaksjon feilet".to_string())
+    })?;
+
+    let response = match query_request {
         QueryRequest::Identitetsnummer(query) => {
-            query.validate()?;
-            let response = finn_for_identitetsnummer(&state.pg_pool, &query).await?;
-            tracing::Span::current().record("query_hit_count", response.arbeidssoekere.len());
-            Ok(Json(response))
+            query
+                .validate()
+                .map_err(|e| ProblemDetails::validation_error(PATH.to_string(), e.to_string()))?;
+            finn_for_identitetsnummer(&mut tx, &query)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Feil ved spørring: {}", e);
+                    ProblemDetails::database_error(PATH.to_string(), "Spørring feilet".to_string())
+                })?
         }
         QueryRequest::TilknyttetKontor(query) => {
-            query.validate()?;
-            let response = finn_for_tilknyttet_kontor(&state.pg_pool, &query).await?;
-            tracing::Span::current().record("query_hit_count", response.arbeidssoekere.len());
-            Ok(Json(response))
+            query
+                .validate()
+                .map_err(|e| ProblemDetails::validation_error(PATH.to_string(), e.to_string()))?;
+            finn_for_tilknyttet_kontor(&mut tx, &query)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Feil ved spørring: {}", e);
+                    ProblemDetails::database_error(PATH.to_string(), "Spørring feilet".to_string())
+                })?
         }
-    }
+    };
+
+    tx.commit().await.map_err(|e| {
+        tracing::error!("Kunne ikke commite transaksjon: {}", e);
+        ProblemDetails::database_error(PATH.to_string(), "Transaksjon feilet".to_string())
+    })?;
+    tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
+    Ok(Json(response))
 }
