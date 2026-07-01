@@ -9,19 +9,11 @@ use utoipa_swagger_ui::{Config, SwaggerUi};
 static SPEC_YAML: &str = include_str!("../../openapi/spec.yaml");
 static SPEC_JSON: OnceLock<String> = OnceLock::new();
 
-fn spec_json() -> &'static str {
-    SPEC_JSON.get_or_init(|| {
-        let value: serde_json::Value =
-            serde_yaml::from_str(SPEC_YAML).expect("openapi/spec.yaml er gyldig YAML");
-        serde_json::to_string(&value).expect("spec kan serialiseres til JSON")
-    })
-}
-
 pub(crate) fn api_docs_routes() -> Router {
     let docs_json_routes = Router::new().route("/api/docs.json", get(api_docs_json));
     let docs_yaml_routes = Router::new().route("/api/docs.yaml", get(api_docs_yaml));
     let swagger_routes =
-        Router::from(SwaggerUi::new("/api/docs").config(Config::from("/api/docs.json")));
+        Router::from(SwaggerUi::new("/api/docs").config(Config::from("/api/docs.yaml")));
     docs_json_routes
         .merge(docs_yaml_routes)
         .merge(swagger_routes)
@@ -39,6 +31,14 @@ async fn api_docs_yaml(_: HeaderMap) -> impl IntoResponse {
         SPEC_YAML,
     )
         .into_response()
+}
+
+fn spec_json() -> &'static str {
+    SPEC_JSON.get_or_init(|| {
+        let value: serde_json::Value =
+            serde_yaml::from_str(SPEC_YAML).expect("openapi/spec.yaml er gyldig YAML");
+        serde_json::to_string(&value).expect("spec kan serialiseres til JSON")
+    })
 }
 
 #[cfg(test)]

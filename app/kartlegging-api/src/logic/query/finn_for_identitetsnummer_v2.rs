@@ -1,7 +1,7 @@
 use crate::logic::query::mapper_v2;
 use crate::model::dao::arbeidssoekere_v2;
 use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
-use crate::model::dto::response::{OversiktResponse, PagingResponse};
+use crate::model::dto::response::PagingResponse;
 use crate::model::dto::response_v2::KartleggingResponse;
 use crate::model::sort::SortOrder;
 use sqlx::PgPool;
@@ -20,7 +20,7 @@ pub async fn finn_for_identitetsnummer_v2(
     let total_count =
         arbeidssoekere_v2::count_by_identitetsnummer(&mut tx, &request.identitetsnummer).await?;
     tracing::info!(
-        "Henter arbeidssøkere for identitetsnummer, offset {}, limit {}, sort_order {}",
+        "Finner arbeidssøkere for identitetsnummer, offset {}, limit {}, sort_order {}",
         paging.offset(),
         paging.limit(),
         paging.sort_order.to_string()

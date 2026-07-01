@@ -23,12 +23,11 @@ paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_rdkafka = { path = "../../lib/paw_rdkafka" }
 paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 nais_schema_registry = { path = "../../lib/nais_schema_registry" }
-paw_texas_resource_server = { path = "../../lib/paw_texas_resource_server" }
+paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }
 
 sqlx = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
-toml = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -38,10 +37,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 serde_with = { workspace = true }
-serde-env-field = { workspace = true }
 strum = { workspace = true }
 rdkafka = { workspace = true }
-apache-avro = { workspace = true }
 schema_registry_converter = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
 

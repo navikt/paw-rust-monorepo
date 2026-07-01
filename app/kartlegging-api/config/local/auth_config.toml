@@ -1,6 +1,3 @@
-[texas]
-introspection_endpoint = "http://localhost:8090/introspection"
-
-[[issuers]]
-issuer = "http://localhost:8081/azure"
-identity_provider = "entra_id"
+[issuers.azure]
+well_known_url = "http://localhost:8081/azure/.well-known/openid-configuration"
+client_id = "paw-arbeidssoekerregisteret-api-kartlegging"

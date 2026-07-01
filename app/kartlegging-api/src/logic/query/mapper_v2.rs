@@ -1,11 +1,9 @@
-use crate::model::dao::arbeidssoekere::ArbeidssoekerRow;
 use crate::model::dao::arbeidssoekere_v2::ArbeidssoekerRowV2;
-use crate::model::dao::{ledighetsperioder, tilknyttet_kontor};
-use crate::model::dto::arbeidssoeker::Arbeidssoeker;
+use crate::model::dao::{kontortilknytninger, ledighetsperioder};
 use crate::model::dto::arbeidssoeker_v2::ArbeidssoekerV2;
 use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
 use crate::model::dto::egenvurdering::Egenvurdering;
-use crate::model::dto::kontor::{KontorType, Kontortilknytning, TilknyttetKontor};
+use crate::model::dto::kontor::{KontorType, Kontortilknytning};
 use crate::model::dto::ledighetsperiode::Ledighetsperiode;
 use crate::model::dto::opplysninger::Opplysninger;
 use crate::model::dto::periode::Periode;
@@ -22,9 +20,9 @@ pub async fn map_rows(
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
         tracing::info!("Henter tilknyttede kontorer for parent id");
-        let tilknyttet_kontor_rows = tilknyttet_kontor::select_by_parent_id(tx, &row.id).await?;
+        let kontortilknytning_rows = kontortilknytninger::select_by_parent_id(tx, &row.id).await?;
         let mut kontortilknytninger = Vec::new();
-        for kontor_row in &tilknyttet_kontor_rows {
+        for kontor_row in &kontortilknytning_rows {
             kontortilknytninger.push(Kontortilknytning {
                 kontor_id: kontor_row.kontor_id.clone(),
                 kontor_navn: kontor_row.kontor_navn.clone(),

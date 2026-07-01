@@ -19,7 +19,7 @@ pub async fn finn_for_identitetsnummer(
     let total_count =
         arbeidssoekere::count_by_identitetsnummer(&mut tx, &request.identitetsnummer).await?;
     tracing::info!(
-        "Henter arbeidssøkere for identitetsnummer, offset {}, limit {}, sort_order {}",
+        "Finner arbeidssøkere for identitetsnummer, offset {}, limit {}, sort_order {}",
         paging.offset(),
         paging.limit(),
         paging.sort_order.to_string()

@@ -79,7 +79,7 @@ CREATE TABLE tilknyttet_kontor
     FOREIGN KEY (parent_id) REFERENCES arbeidssoekere (id) ON DELETE CASCADE
 );
 
-CREATE TABLE tilknyttet_kontor_v2
+CREATE TABLE kontortilknytninger
 (
     id          BIGSERIAL PRIMARY KEY,
     parent_id   BIGINT       NOT NULL,

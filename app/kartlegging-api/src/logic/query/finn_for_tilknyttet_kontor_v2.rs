@@ -2,7 +2,7 @@ use crate::logic::query::mapper_v2;
 use crate::model::dao::arbeidssoekere_v2;
 use crate::model::dto::kontor::KontorType;
 use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
-use crate::model::dto::response::{OversiktResponse, PagingResponse};
+use crate::model::dto::response::PagingResponse;
 use crate::model::dto::response_v2::KartleggingResponse;
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
@@ -43,9 +43,14 @@ pub async fn finn_for_tilknyttet_kontor_v2(
         &ledig_side,
     )
     .await?;
+    let kontor_join = kontor_typer
+        .iter()
+        .map(|k| k.to_string())
+        .collect::<Vec<String>>()
+        .join(", ");
     tracing::info!(
-        "Henter arbeidssøkere for tilknyttet kontor av typer {}, offset {}, limit {}, sort_order {}",
-        String::from_iter(kontor_typer.clone()),
+        "Finner arbeidssøkere for tilknyttet kontor av typer {}, offset {}, limit {}, sort_order {}",
+        kontor_join,
         paging.offset(),
         paging.limit(),
         paging.sort_order.to_string()

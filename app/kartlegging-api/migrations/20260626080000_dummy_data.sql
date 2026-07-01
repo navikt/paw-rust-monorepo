@@ -1,4 +1,4 @@
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -7,7 +7,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '24849098329'
         'Nasjonal oppfølgingsenhet',
         'ARBEIDSOPPFOLGING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -16,7 +16,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '24849098329'
         'Nav Hallingdal',
         'GEOGRAFISK_TILKNYTNING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -25,7 +25,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '16488315440'
         'Nav Hallingdal',
         'ARBEIDSOPPFOLGING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -34,7 +34,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '16488315440'
         'Nav Hallingdal',
         'GEOGRAFISK_TILKNYTNING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -43,7 +43,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '09448718961'
         'Nav Hallingdal',
         'GEOGRAFISK_TILKNYTNING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -52,7 +52,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '24488623539'
         'Nav Sogn',
         'GEOGRAFISK_TILKNYTNING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)
@@ -61,7 +61,7 @@ VALUES ((SELECT id FROM arbeidssoekere_v2 WHERE identitetsnummer = '02838698800'
         'Nav Fredrikstad',
         'GEOGRAFISK_TILKNYTNING');
 
-INSERT INTO tilknyttet_kontor (parent_id,
+INSERT INTO kontortilknytninger (parent_id,
                                kontor_id,
                                kontor_navn,
                                kontor_type)

@@ -16,6 +16,6 @@ CREATE INDEX ledighetsperioder_ledig_siden_idx ON ledighetsperioder (ledig_siden
 CREATE INDEX ledighetsperioder_periode_id_idx ON ledighetsperioder (periode_id);
 CREATE INDEX ledighetsperioder_periode_startet_idx ON ledighetsperioder (periode_startet);
 
-CREATE INDEX tilknyttet_kontor_v2_parent_id_idx ON tilknyttet_kontor_v2 (parent_id);
-CREATE INDEX tilknyttet_kontor_v2_kontor_id_idx ON tilknyttet_kontor_v2 (kontor_id);
-CREATE INDEX tilknyttet_kontor_v2_kontor_type_idx ON tilknyttet_kontor_v2 (kontor_type);
+CREATE INDEX kontortilknytninger_parent_id_idx ON kontortilknytninger (parent_id);
+CREATE INDEX kontortilknytninger_kontor_id_idx ON kontortilknytninger (kontor_id);
+CREATE INDEX kontortilknytninger_kontor_type_idx ON kontortilknytninger (kontor_type);

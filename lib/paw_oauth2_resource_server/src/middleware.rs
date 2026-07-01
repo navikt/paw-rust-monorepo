@@ -57,7 +57,7 @@ pub async fn oauth2_auth_handler(
     ))?;
     let alg = header.alg;
 
-    tracing::info!(
+    tracing::debug!(
         "Finner token issuer for token med KID '{}' og ALG '{:?}'",
         kid,
         alg
@@ -65,7 +65,7 @@ pub async fn oauth2_auth_handler(
 
     let peeked_iss = peek_issuer(token)?;
 
-    tracing::info!("Tolker og validerer token fra issuer '{}'", peeked_iss);
+    tracing::debug!("Tolker og validerer token fra issuer '{}'", peeked_iss);
 
     let mapped_principal = if let Some(tokenx_state) = &state.tokenx {
         if peeked_iss == tokenx_state.expected_issuer {
@@ -131,7 +131,6 @@ pub async fn oauth2_auth_handler(
             elapsed = elapsed,
             "Fullførte OAuth2-middleware"
         );
-        tracing::debug!("Successful authentication for principal: {:?}", principal);
         request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
     } else {

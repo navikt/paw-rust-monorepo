@@ -39,7 +39,7 @@ pub async fn finn_for_tilknyttet_kontor(
         arbeidssoekere::count_by_tilknyttet_kontor(&mut tx, &kontor_id, &kontor_typer, &ledig_side)
             .await?;
     tracing::info!(
-        "Henter arbeidssøkere for tilknyttet kontor av typer {}, offset {}, limit {}, sort_order {}",
+        "Finner arbeidssøkere for tilknyttet kontor av typer {}, offset {}, limit {}, sort_order {}",
         String::from_iter(kontor_typer.clone()),
         paging.offset(),
         paging.limit(),

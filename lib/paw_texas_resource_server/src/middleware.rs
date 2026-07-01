@@ -58,7 +58,7 @@ pub async fn texas_auth_handler(
     ))?;
     let alg = header.alg;
 
-    tracing::info!(
+    tracing::debug!(
         "Finner token issuer for token med KID '{}' og ALG '{:?}'",
         kid,
         alg
@@ -66,7 +66,7 @@ pub async fn texas_auth_handler(
 
     let peeked_iss = peek_issuer(token)?;
 
-    tracing::info!("Validerer token fra issuer '{}'", peeked_iss);
+    tracing::debug!("Validerer token fra issuer '{}'", peeked_iss);
 
     let identity_provider = match state.config.identity_provider(&peeked_iss) {
         None => return Err(AuthError::InvalidIssuer.into()),
@@ -162,7 +162,6 @@ pub async fn texas_auth_handler(
             elapsed = elapsed,
             "Fullførte OAuth2-middleware"
         );
-        tracing::debug!("Successful authentication for principal: {:?}", principal);
         request.extensions_mut().insert(principal);
         Ok(next.run(request).await)
     } else if was_success && !was_active_token {
