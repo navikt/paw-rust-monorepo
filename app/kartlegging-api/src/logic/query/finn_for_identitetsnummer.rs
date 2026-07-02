@@ -3,7 +3,7 @@ use crate::model::dao::arbeidssoekere;
 use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
 use crate::model::dto::response::{KartleggingResponse, PagingResponse};
 use crate::model::sort::SortOrder;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 
 #[tracing::instrument(skip(tx))]
 pub async fn finn_for_identitetsnummer_v2(

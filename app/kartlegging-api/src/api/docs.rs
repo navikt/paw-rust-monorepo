@@ -84,7 +84,7 @@ mod tests {
             .cloned()
             .collect();
 
-        let registered = ["/api/v1/oversikt", "/api/v1/kartlegging"];
+        let registered = ["/api/v1/kartlegging"];
 
         for path in &spec_paths {
             assert!(
@@ -105,7 +105,7 @@ mod tests {
         let spec = spec();
         assert_conforms(
             &spec,
-            "OversiktResponse",
+            "KartleggingResponse",
             json!({
                 "arbeidssoekere": [],
                 "paging": {
@@ -127,7 +127,12 @@ mod tests {
             "QueryRequest",
             json!({
                 "type": "IDENTITETSNUMMER",
-                "identitetsnummer": "01017012345"
+                "identitetsnummer": "01017012345",
+                "paging": {
+                    "page": 1,
+                    "pageSize": 10,
+                    "sortOrder": "ASC"
+                }
             }),
         );
     }
@@ -140,7 +145,12 @@ mod tests {
             "QueryRequest",
             json!({
                 "type": "TILKNYTTET_KONTOR",
-                "kontorId": "0301"
+                "kontorId": "0301",
+                "paging": {
+                    "page": 1,
+                    "pageSize": 10,
+                    "sortOrder": "ASC"
+                }
             }),
         );
     }
@@ -156,12 +166,45 @@ mod tests {
                 "identitetsnummer": "01017012345",
                 "fornavn": "Ola",
                 "etternavn": "Nordmann",
-                "periode": {
-                    "id": "00000000-0000-0000-0000-000000000001",
-                    "startet": "2026-01-01T00:00:00Z"
-                },
-                "bekreftelsePaaVegneAv": [],
-                "tilknyttetKontor": []
+                "ledighetsperioder": [
+                    {
+                        "ledigSiden": "2021-01-01T12:00:00.000Z",
+                        "periode": {
+                            "id": "069f40c9-c47c-4ee2-9105-bc87bdb58af2",
+                            "startet": "2021-01-01T12:00:00.000Z"
+                        },
+                        "opplysninger": {
+                            "id": "47c4b16b-5d34-4658-9705-ab90e6d0db9b",
+                            "tidspunkt": "2021-01-01T12:00:00.000Z"
+                        },
+                        "profilering": {
+                            "id": "6d084994-d0b9-4466-9c1f-6126a3b3c2a8",
+                            "profilertTil": "ANTATT_GODE_MULIGHETER",
+                            "tidspunkt": "2021-01-01T12:01:00.000Z"
+                        },
+                        "egenvurdering": {
+                            "id": "7778ba2d-cbb5-4263-a49b-a4719821f0a5",
+                            "egenvurdertTil": "ANTATT_GODE_MULIGHETER",
+                            "tidspunkt": "2021-01-02T12:00:00.000Z"
+                        },
+                        "bekreftelse": {
+                            "id": "d8672838-145e-44d1-9334-dc6a706fa85c",
+                            "gjelderFra": "2021-01-01T12:00:00.000Z",
+                            "gjelderTil": "2021-01-14T12:00:00.000Z",
+                            "harJobbet": false,
+                            "vilFortsette": true,
+                            "bekreftelsesloesning": "ARBEIDSSOEKERREGISTERET",
+                        },
+                        "bekreftelsePaaVegneAv": [],
+                    }
+                ],
+                "kontortilknytninger": [
+                    {
+                        "kontorId": "0301",
+                        "kontorNavn": "NAV Bouvetøya",
+                        "kontorType": "ARBEIDSOPPFOLGING"
+                    }
+                ]
             }),
         );
     }

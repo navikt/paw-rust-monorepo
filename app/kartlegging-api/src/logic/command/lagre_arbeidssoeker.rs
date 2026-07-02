@@ -3,7 +3,7 @@ use crate::model::dao::arbeidssoekere::ArbeidssoekerRow;
 use crate::model::dao::ledighetsperioder::LedighetsperiodeRow;
 use crate::model::sort::SortOrder;
 use eksterne_hendelser::periode::Periode;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 
 pub async fn lagre_arbeidssoeker<'a>(
     tx: &mut Transaction<'_, Postgres>,
