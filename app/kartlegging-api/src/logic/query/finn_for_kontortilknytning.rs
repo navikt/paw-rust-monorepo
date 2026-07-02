@@ -1,9 +1,8 @@
-use crate::logic::query::mapper_v2;
-use crate::model::dao::arbeidssoekere_v2;
+use crate::logic::query::mapper;
+use crate::model::dao::arbeidssoekere;
 use crate::model::dto::kontor::KontorType;
 use crate::model::dto::request::{PagingRequest, TilknyttetKontorQueryRequest};
-use crate::model::dto::response::PagingResponse;
-use crate::model::dto::response_v2::KartleggingResponse;
+use crate::model::dto::response::{KartleggingResponse, PagingResponse};
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
@@ -36,7 +35,7 @@ pub async fn finn_for_kontortilknytning(
     });
 
     let total_count =
-        arbeidssoekere_v2::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_side)
+        arbeidssoekere::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_side)
             .await?;
     let kontor_join = kontor_typer
         .iter()
@@ -50,7 +49,7 @@ pub async fn finn_for_kontortilknytning(
         paging.limit(),
         paging.sort_order.to_string()
     );
-    let arbeidssoeker_rows = arbeidssoekere_v2::select_by_kontortilknytning(
+    let arbeidssoeker_rows = arbeidssoekere::select_by_kontortilknytning(
         tx,
         &kontor_id,
         &kontor_typer,
@@ -60,7 +59,7 @@ pub async fn finn_for_kontortilknytning(
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = mapper_v2::map_rows(tx, &paging, &arbeidssoeker_rows).await?;
+    let arbeidssoekere = mapper::map_rows(tx, &paging, &arbeidssoeker_rows).await?;
     let paging_response = PagingResponse {
         page: paging.page,
         page_size: paging.page_size,

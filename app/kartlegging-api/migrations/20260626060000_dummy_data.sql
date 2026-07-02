@@ -1,4 +1,4 @@
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,
@@ -11,7 +11,7 @@ VALUES (545,
         'VESTIBYLE',
         CURRENT_TIMESTAMP);
 
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,
@@ -24,7 +24,7 @@ VALUES (142894,
         'KAKAOBØNNE',
         CURRENT_TIMESTAMP);
 
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,
@@ -37,7 +37,7 @@ VALUES (147226,
         'RØDFOTSULE',
         CURRENT_TIMESTAMP);
 
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,
@@ -50,7 +50,7 @@ VALUES (143517,
         'SKORPION',
         CURRENT_TIMESTAMP);
 
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,
@@ -63,7 +63,7 @@ VALUES (137414,
         'KLISJÉ',
         CURRENT_TIMESTAMP);
 
-INSERT INTO arbeidssoekere_v2 (arbeidssoeker_id,
+INSERT INTO arbeidssoekere (arbeidssoeker_id,
                                identitetsnummer,
                                fornavn,
                                mellomnavn,

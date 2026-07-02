@@ -20,14 +20,6 @@ pub enum KontorType {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TilknyttetKontor {
-    pub kontor_id: String,
-    pub kontor_navn: String,
-    pub kontor_type: KontorType,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Kontortilknytning {
     pub kontor_id: String,
     pub kontor_navn: String,

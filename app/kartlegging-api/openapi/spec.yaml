@@ -7,31 +7,12 @@ info:
     name: 'Apache 2.0'
     identifier: 'Apache-2.0'
   version: 1.0.0
+
+tags:
+  - name: kartlegging
+    description: Hente kartlegging av arbeidssøkere
+
 paths:
-  /api/v1/oversikt:
-    post:
-      tags:
-        - oversikt
-      operationId: finn_oversikt
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QueryRequest'
-        required: true
-      responses:
-        '200':
-          description: Oversikt over arbeidssøkere for gitt query
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OversiktResponse'
-        '500':
-          description: Intern feil
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/kartlegging:
     post:
       tags:
@@ -56,48 +37,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-components:
-  schemas:
 
+components:
+  # SECURITY
+  securitySchemes:
+    BearerAuth:
+      scheme: bearer
+      type: http
+
+  # REQUESTS & RESPONSES
+  schemas:
     # REQUESTS
     QueryRequest:
       oneOf:
-        - allOf:
-            - $ref: '#/components/schemas/IdentitetsnummerQueryRequest'
-            - type: object
-              required:
-                - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - IDENTITETSNUMMER
-        - allOf:
-            - $ref: '#/components/schemas/TilknyttetKontorQueryRequest'
-            - type: object
-              required:
-                - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - TILKNYTTET_KONTOR
+        - $ref: '#/components/schemas/IdentitetsnummerQueryRequest'
+        - $ref: '#/components/schemas/TilknyttetKontorQueryRequest'
     IdentitetsnummerQueryRequest:
       type: object
       required:
+        - type
         - identitetsnummer
+        - paging
       properties:
+        type:
+          type: string
+          enum:
+            - IDENTITETSNUMMER
         identitetsnummer:
           type: string
         paging:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/PagingRequest'
+          $ref: '#/components/schemas/PagingRequest'
+      example:
+        type: 'IDENTITETSNUMMER'
+        identitetsnummer: "01017012345"
+        paging:
+            page: 1
+            pageSize: 1000
+            sortOrder: "DESC"
     TilknyttetKontorQueryRequest:
       type: object
       required:
+        - type
         - kontorId
+        - paging
       properties:
+        type:
+          type: string
+          enum:
+            - TILKNYTTET_KONTOR
         kontorId:
           type: string
         kontorType:
@@ -110,9 +97,15 @@ components:
             - 'null'
           format: date
         paging:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/PagingRequest'
+          $ref: '#/components/schemas/PagingRequest'
+      example:
+        type: 'TILKNYTTET_KONTOR'
+        kontorId: 1337
+        ledigSiden: "2021-01-01"
+        paging:
+          page: 1
+          pageSize: 1000
+          sortOrder: "DESC"
     PagingRequest:
       type: object
       required:
@@ -128,9 +121,13 @@ components:
           format: int32
         sortOrder:
           $ref: '#/components/schemas/SortOrder'
+      example:
+        page: 1
+        pageSize: 1000
+        sortOrder: "DESC"
 
     # RESPONSES
-    OversiktResponse:
+    KartleggingResponse:
       type: object
       required:
         - arbeidssoekere
@@ -142,18 +139,6 @@ components:
             $ref: '#/components/schemas/Arbeidssoeker'
         paging:
           $ref: '#/components/schemas/PagingResponse'
-    KartleggingResponse:
-      type: object
-      required:
-        - arbeidssoekere
-        - paging
-      properties:
-        arbeidssoekere:
-          type: array
-          items:
-            $ref: '#/components/schemas/ArbeidssoekerV2'
-        paging:
-          $ref: '#/components/schemas/PagingResponse'
     PagingResponse:
       type: object
       required:
@@ -163,9 +148,6 @@ components:
         - totalCount
         - sortOrder
       properties:
-        hitSize:
-          type: integer
-          format: int32
         page:
           type: integer
           format: int32
@@ -174,65 +156,19 @@ components:
           format: int32
         sortOrder:
           $ref: '#/components/schemas/SortOrder'
+        hitSize:
+          type: integer
+          format: int32
         totalCount:
           type: integer
           format: int64
+      example:
+        page: 1
+        pageSize: 1000
+        sortOrder: "DESC"
+        hitSize: 42
+        totalCount: 10000
     Arbeidssoeker:
-      type: object
-      required:
-        - arbeidssoekerId
-        - identitetsnummer
-        - fornavn
-        - etternavn
-        - periode
-        - bekreftelsePaaVegneAv
-        - tilknyttetKontor
-      properties:
-        arbeidssoekerId:
-          type: integer
-          format: int64
-        bekreftelse:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/Bekreftelse'
-        bekreftelsePaaVegneAv:
-          type: array
-          items:
-            $ref: '#/components/schemas/Bekreftelsesloesning'
-        egenvurdering:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/Egenvurdering'
-        etternavn:
-          type: string
-        fornavn:
-          type: string
-        identitetsnummer:
-          type: string
-        ledigSiden:
-          type:
-            - string
-            - 'null'
-          format: date-time
-        mellomnavn:
-          type:
-            - string
-            - 'null'
-        opplysninger:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/Opplysninger'
-        periode:
-          $ref: '#/components/schemas/Periode'
-        profilering:
-          oneOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/Profilering'
-        tilknyttetKontor:
-          type: array
-          items:
-            $ref: '#/components/schemas/TilknyttetKontor'
-    ArbeidssoekerV2:
       type: object
       required:
         - arbeidssoekerId
@@ -263,6 +199,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Kontortilknytning'
+      example:
+        arbeidssoekerId: 1337
+        identitetsnummer: "01017012345"
+        fornavn: "Kari"
+        etternavn: "Nordmann"
+        ledighetsperioder: []
+        kontortilknytninger: [
+          {
+            kontorId: "1337",
+            kontorNavn: "NAV Bouvetøya",
+            kontorType: "ARBEIDSOPPFOLGING"
+          }
+        ]
     Ledighetsperiode:
       type: object
       required:
@@ -371,19 +320,6 @@ components:
           format: uuid
         vilFortsette:
           type: boolean
-    TilknyttetKontor:
-      type: object
-      required:
-        - kontorId
-        - kontorNavn
-        - kontorType
-      properties:
-        kontorId:
-          type: string
-        kontorNavn:
-          type: string
-        kontorType:
-          $ref: '#/components/schemas/KontorType'
     Kontortilknytning:
       type: object
       required:
@@ -397,6 +333,10 @@ components:
           type: string
         kontorType:
           $ref: '#/components/schemas/KontorType'
+      example:
+        kontorId: "1337"
+        kontorNavn: "NAV Bouvetøya"
+        kontorType: "ARBEIDSOPPFOLGING"
 
     # ENUMS
     ProfilertTil:
@@ -417,8 +357,8 @@ components:
     KontorType:
       type: string
       enum:
-        - ARBEIDSOPPFOLGING
         - ARENA
+        - ARBEIDSOPPFOLGING
         - GEOGRAFISK_TILKNYTNING
         - UKJENT_VERDI
 
@@ -458,6 +398,11 @@ components:
           type: string
         type:
           type: string
-tags:
-  - name: oversikt
-    description: Henting av arbeidssøkeroversikt
+      example:
+        id: "3cd944fb-6187-41a8-91b2-b172f2baf890"
+        type: "urn:paw:default:ukjent-feil"
+        status: 500
+        title: "Internal Server Error"
+        detail: "Ukjent feil"
+        instance: "/api/v1/kartlegging"
+        timestamp: "2021-01-01T12:00:00.000Z"

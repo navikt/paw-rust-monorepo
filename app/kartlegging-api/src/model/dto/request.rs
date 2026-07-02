@@ -2,7 +2,7 @@ use crate::model::dto::kontor::KontorType;
 use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
-use errors::validation::ValidationError;
+use paw_error_handling::problem_details::ProblemDetails;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
 
@@ -38,18 +38,21 @@ pub struct IdentitetsnummerQueryRequest {
 }
 
 impl IdentitetsnummerQueryRequest {
-    pub fn validate(&self) -> Result<(), ValidationError> {
+    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
         if let Some(paging) = &self.paging {
-            if let Err(error) = paging.validate() {
+            if let Err(error) = paging.validate(path.clone()) {
                 return Err(error);
             }
         }
-        if self.identitetsnummer.len() < 11 {
-            Err(ValidationError::StrengLengde(
-                "identitetsnummer".to_string(),
-                self.identitetsnummer.len() as i64,
-            )
-            .into())
+        if self.identitetsnummer.len() != 11 {
+            let error = ProblemDetails::validation_error(
+                path.clone(),
+                format!(
+                    "Felt 'identitetsnummer' har feil lengde: {}",
+                    self.identitetsnummer.len()
+                ),
+            );
+            Err(error)
         } else {
             Ok(())
         }
@@ -66,9 +69,9 @@ pub struct TilknyttetKontorQueryRequest {
 }
 
 impl TilknyttetKontorQueryRequest {
-    pub fn validate(&self) -> Result<(), ValidationError> {
+    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
         if let Some(paging) = &self.paging {
-            paging.validate()?
+            paging.validate(path)?
         }
         Ok(())
     }
@@ -91,14 +94,19 @@ impl PagingRequest {
         self.page_size
     }
 
-    pub fn validate(&self) -> Result<(), ValidationError> {
+    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
         if self.page < 1 {
-            Err(ValidationError::TallStoerelse("page".to_string(), self.page as i64).into())
+            let error = ProblemDetails::validation_error(
+                path,
+                format!("Felt 'page' har feil størrelse: {}", self.page),
+            );
+            Err(error)
         } else if self.page_size < 1 {
-            Err(
-                ValidationError::TallStoerelse("page_size".to_string(), self.page_size as i64)
-                    .into(),
-            )
+            let error = ProblemDetails::validation_error(
+                path,
+                format!("Felt 'page_size' har feil størrelse: {}", self.page_size),
+            );
+            Err(error)
         } else {
             Ok(())
         }

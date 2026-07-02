@@ -4,7 +4,6 @@ use axum::Json;
 use chrono::{DateTime, Utc};
 use errors::auth::AuthError;
 use errors::database::DatabaseError;
-use errors::validation::ValidationError;
 use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -80,13 +79,6 @@ impl IntoResponse for ProblemDetails {
             HeaderValue::from_static("application/problem+json"),
         );
         response
-    }
-}
-
-impl From<ValidationError> for ProblemDetails {
-    fn from(e: ValidationError) -> Self {
-        tracing::warn!(error = %e, "Validering feilet");
-        Self::validation_error("/".to_string(), e.to_string())
     }
 }
 

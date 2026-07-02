@@ -1,15 +1,15 @@
 use crate::logic::query::mapper;
 use crate::model::dao::arbeidssoekere;
 use crate::model::dto::request::{IdentitetsnummerQueryRequest, PagingRequest};
-use crate::model::dto::response::{OversiktResponse, PagingResponse};
+use crate::model::dto::response::{KartleggingResponse, PagingResponse};
 use crate::model::sort::SortOrder;
 use sqlx::{PgPool, Postgres, Transaction};
 
 #[tracing::instrument(skip(tx))]
-pub async fn finn_for_identitetsnummer(
+pub async fn finn_for_identitetsnummer_v2(
     tx: &mut Transaction<'_, Postgres>,
     request: &IdentitetsnummerQueryRequest,
-) -> anyhow::Result<OversiktResponse> {
+) -> anyhow::Result<KartleggingResponse> {
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
         page_size: 1000,
@@ -31,7 +31,7 @@ pub async fn finn_for_identitetsnummer(
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = mapper::map_rows(tx, &arbeidssoeker_rows).await?;
+    let arbeidssoekere = mapper::map_rows(tx, &paging, &arbeidssoeker_rows).await?;
     let paging_response = PagingResponse {
         page: paging.page,
         page_size: paging.page_size,
@@ -39,7 +39,7 @@ pub async fn finn_for_identitetsnummer(
         total_count,
         sort_order: paging.sort_order,
     };
-    Ok(OversiktResponse {
+    Ok(KartleggingResponse {
         arbeidssoekere,
         paging: paging_response,
     })

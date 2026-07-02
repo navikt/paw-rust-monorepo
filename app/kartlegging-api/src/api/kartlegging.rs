@@ -1,11 +1,25 @@
-use crate::logic::query::finn_for_identitetsnummer_v2::finn_for_identitetsnummer_v2;
+use crate::logic::query::finn_for_identitetsnummer::finn_for_identitetsnummer_v2;
 use crate::logic::query::finn_for_kontortilknytning::finn_for_kontortilknytning;
 use crate::model::dto::request::QueryRequest;
-use crate::model::dto::response_v2::KartleggingResponse;
+use crate::model::dto::response::KartleggingResponse;
 use crate::model::state::RouterState;
 use axum::extract::State;
-use axum::Json;
+use axum::routing::post;
+use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
+use paw_oauth2_resource_server::middleware::oauth2_middleware;
+use paw_oauth2_resource_server::state::AuthState;
+use paw_otel_tracing::otel_middleware::otel_middleware;
+use sqlx::PgPool;
+use std::sync::Arc;
+
+pub(crate) fn kartlegging_routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
+    Router::new()
+        .route("/api/v1/kartlegging", post(finn_kartlegging))
+        .route_layer(otel_middleware())
+        .route_layer(oauth2_middleware(auth_state.clone()))
+        .with_state(RouterState::new(pg_pool.clone()))
+}
 
 #[tracing::instrument(skip(state, request), fields(arbeidssoekere_count))]
 pub(crate) async fn finn_kartlegging(
@@ -25,9 +39,7 @@ pub(crate) async fn finn_kartlegging(
 
     let response = match query_request {
         QueryRequest::Identitetsnummer(query) => {
-            query
-                .validate()
-                .map_err(|e| ProblemDetails::validation_error(PATH.to_string(), e.to_string()))?;
+            query.validate(PATH.to_string())?;
             finn_for_identitetsnummer_v2(&mut tx, &query)
                 .await
                 .map_err(|e| {
@@ -36,9 +48,7 @@ pub(crate) async fn finn_kartlegging(
                 })?
         }
         QueryRequest::TilknyttetKontor(query) => {
-            query
-                .validate()
-                .map_err(|e| ProblemDetails::validation_error(PATH.to_string(), e.to_string()))?;
+            query.validate(PATH.to_string())?;
             finn_for_kontortilknytning(&mut tx, &query)
                 .await
                 .map_err(|e| {

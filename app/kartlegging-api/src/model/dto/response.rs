@@ -4,7 +4,7 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OversiktResponse {
+pub struct KartleggingResponse {
     pub arbeidssoekere: Vec<Arbeidssoeker>,
     pub paging: PagingResponse,
 }
