@@ -1,4 +1,4 @@
-use crate::metadata::Metadata;
+use crate::vo::metadata::Metadata;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, TimestampMilliSeconds};

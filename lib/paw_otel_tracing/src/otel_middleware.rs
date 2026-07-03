@@ -1,9 +1,7 @@
 use crate::header_extractor::extract_trace_context;
 use axum::extract::MatchedPath;
-use axum::http::{HeaderMap, Request};
-use opentelemetry::propagation::Extractor;
+use axum::http::Request;
 use opentelemetry::trace::Status;
-use opentelemetry::Context;
 use std::time::Duration;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::trace::{

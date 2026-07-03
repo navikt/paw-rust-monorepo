@@ -1,5 +1,5 @@
-use crate::metadata::Metadata;
-use crate::profilert_til::ProfilertTil;
+use crate::vo::metadata::Metadata;
+use crate::vo::profilert_til::ProfilertTil;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use uuid::Uuid;
@@ -24,9 +24,9 @@ pub struct Egenvurdering {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bruker::Bruker;
-    use crate::brukertype::BrukerType;
-    use crate::metadata::Metadata;
+    use crate::vo::bruker::Bruker;
+    use crate::vo::brukertype::BrukerType;
+    use crate::vo::metadata::Metadata;
     use crate::serde::{AvroDeserializer, AvroSerializer};
     use chrono::{DateTime, Utc};
     use mockito::Server;

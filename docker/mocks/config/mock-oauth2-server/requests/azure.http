@@ -6,7 +6,7 @@ Accept: application/json
 GET {{baseUrl}}/azure/jwks
 Accept: application/json
 
-### POST /tokenx/token
+### POST /azure/token
 POST {{baseUrl}}/azure/token
 Accept: application/json
 Content-Type: application/x-www-form-urlencoded

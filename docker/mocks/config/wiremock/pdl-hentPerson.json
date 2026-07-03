@@ -1,7 +1,15 @@
 {
   "request": {
     "method": "POST",
-    "urlPathPattern": "/pdl"
+    "urlPathPattern": "/pdl",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.operationName",
+          "equalTo": "HentPerson"
+        }
+      }
+    ]
   },
   "response": {
     "status": 200,

@@ -1,0 +1,9 @@
+[package]
+name = "test_data_generator"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
+uuid = { workspace = true, features = ["serde"] }
+chrono = { workspace = true, features = ["serde"] }

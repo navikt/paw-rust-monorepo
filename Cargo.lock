@@ -997,6 +997,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "strum 0.28.0",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
@@ -2089,6 +2090,7 @@ dependencies = [
  "nais_schema_registry",
  "paw_app_config",
  "paw_error_handling",
+ "paw_key_gen_client",
  "paw_oauth2_resource_server",
  "paw_otel_tracing",
  "paw_rdkafka",
@@ -2096,7 +2098,9 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
+ "pdl_client",
  "rdkafka",
+ "reqwest 0.13.4",
  "schema_registry_converter",
  "serde",
  "serde_json",
@@ -2105,6 +2109,8 @@ dependencies = [
  "sqlx",
  "strum 0.28.0",
  "temp-env",
+ "test_data_generator",
+ "texas_client",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2739,6 +2745,22 @@ dependencies = [
  "eksterne_hendelser",
  "schema_registry_converter",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "paw_key_gen_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "reqwest 0.13.4",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "strum 0.28.0",
+ "texas_client",
+ "thiserror 2.0.18",
+ "tracing",
+ "types",
 ]
 
 [[package]]
@@ -4546,6 +4568,15 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "test_data_generator"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "eksterne_hendelser",
+ "uuid",
 ]
 
 [[package]]

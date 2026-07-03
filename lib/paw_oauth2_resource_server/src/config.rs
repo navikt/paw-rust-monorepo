@@ -2,7 +2,6 @@ use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::time::Duration;
 
-pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 pub const JWKS_TTL: Duration = Duration::from_secs(3600);
 pub const JWKS_MIN_REFRESH_INTERVAL: Duration = Duration::from_secs(30);
 

@@ -6,7 +6,7 @@ use crate::model::sort::SortOrder;
 use sqlx::{Postgres, Transaction};
 
 #[tracing::instrument(skip(tx))]
-pub async fn finn_for_identitetsnummer_v2(
+pub async fn finn_for_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     request: &IdentitetsnummerQueryRequest,
 ) -> anyhow::Result<KartleggingResponse> {

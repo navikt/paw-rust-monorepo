@@ -1,6 +1,6 @@
-use crate::bekreftelse::bekreftelsesloesning::Bekreftelsesloesning;
-use crate::bekreftelse::start::Start;
-use crate::bekreftelse::stopp::Stopp;
+use crate::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
+use crate::bekreftelse::vo::start::Start;
+use crate::bekreftelse::vo::stopp::Stopp;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use uuid::Uuid;

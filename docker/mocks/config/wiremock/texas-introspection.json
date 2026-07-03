@@ -1,7 +1,7 @@
 {
     "request": {
         "method": "POST",
-        "urlPathPattern": "/introspection"
+        "urlPathPattern": "/api/v1/introspection"
     },
     "response": {
         "status": 200,

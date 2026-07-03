@@ -1,0 +1,79 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/pdl",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.operationName",
+          "equalTo": "HentPersonBolk"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "data": {
+        "hentPersonBolk": [
+          {
+            "ident": "{{jsonPath request.body '$.variables.identer[0]'}}",
+            "person": {
+              "foedselsdato": [
+                {
+                  "foedselsdato": "1986-11-26",
+                  "foedselsaar": "1986"
+                }
+              ],
+              "statsborgerskap": [
+                {
+                  "land": "NOR",
+                  "metadata": {
+                    "endringer": []
+                  }
+                }
+              ],
+              "opphold": [
+                {
+                  "oppholdFra": "2010-01-20",
+                  "oppholdTil": null,
+                  "type": "PERMANENT",
+                  "metadata": {
+                    "endringer": []
+                  }
+                }
+              ],
+              "folkeregisterpersonstatus": [
+                {
+                  "forenkletStatus": "bosattEtterFolkeregisterloven",
+                  "metadata": {
+                    "endringer": []
+                  }
+                }
+              ],
+              "bostedsadresse": [
+                {
+                  "angittFlyttedato": "2010-01-20",
+                  "gyldigFraOgMed": "2010-01-20",
+                  "gyldigTilOgMed": null,
+                  "vegadresse": {
+                    "kommunenummer": "0301"
+                  },
+                  "matrikkeladresse": null,
+                  "ukjentBosted": null,
+                  "utenlandskAdresse": null
+                }
+              ],
+              "innflyttingTilNorge": [],
+              "utflyttingFraNorge": []
+            },
+            "code": "ok"
+          }
+        ]
+      }
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

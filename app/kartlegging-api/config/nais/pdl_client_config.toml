@@ -1,0 +1,2 @@
+url = "${PDL_URL}"
+target_scope = "${PDL_SCOPE}"

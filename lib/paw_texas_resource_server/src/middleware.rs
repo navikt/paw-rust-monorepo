@@ -88,22 +88,19 @@ pub async fn texas_auth_handler(
         .await
         .map_err(|e| {
             ProblemDetails::unauthorized(
-                path.to_string(),
+                path.as_str(),
                 AuthError::IntrospectionFailed(e.to_string()),
             )
         })?;
 
     let response_status = response.status();
     let response_body = response.text().await.map_err(|e| {
-        ProblemDetails::unauthorized(
-            path.to_string(),
-            AuthError::IntrospectionFailed(e.to_string()),
-        )
+        ProblemDetails::unauthorized(path.as_str(), AuthError::IntrospectionFailed(e.to_string()))
     })?;
     let introspect_response = serde_json::from_str::<IntrospectResponse>(response_body.as_str())
         .map_err(|e| {
             ProblemDetails::unauthorized(
-                path.to_string(),
+                path.as_str(),
                 AuthError::IntrospectionFailed(e.to_string()),
             )
         })?;
@@ -117,7 +114,7 @@ pub async fn texas_auth_handler(
                 let claims =
                     serde_json::from_str::<TokenXClaims>(response_body.as_str()).map_err(|e| {
                         ProblemDetails::unauthorized(
-                            path.to_string(),
+                            path.as_str(),
                             AuthError::InvalidToken(e.to_string()),
                         )
                     })?;
@@ -127,7 +124,7 @@ pub async fn texas_auth_handler(
                 let claims = serde_json::from_str::<EntraIdClaims>(response_body.as_str())
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
-                            path.to_string(),
+                            path.as_str(),
                             AuthError::InvalidToken(e.to_string()),
                         )
                     })?;
@@ -137,7 +134,7 @@ pub async fn texas_auth_handler(
                 let claims = serde_json::from_str::<IdPortenClaims>(response_body.as_str())
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
-                            path.to_string(),
+                            path.as_str(),
                             AuthError::InvalidToken(e.to_string()),
                         )
                     })?;
@@ -147,7 +144,7 @@ pub async fn texas_auth_handler(
                 let claims = serde_json::from_str::<MaskinportenClaims>(response_body.as_str())
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
-                            path.to_string(),
+                            path.as_str(),
                             AuthError::InvalidToken(e.to_string()),
                         )
                     })?;

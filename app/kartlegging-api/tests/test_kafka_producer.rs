@@ -1,18 +1,30 @@
-use chrono::{Duration, Utc};
-use eksterne_hendelser::bekreftelse::bekreftelse::{Bekreftelse, BEKREFTELSE_TOPIC};
-use eksterne_hendelser::bekreftelse::bekreftelsesloesning::Bekreftelsesloesning;
-use eksterne_hendelser::bekreftelse::svar::Svar;
-use eksterne_hendelser::bruker::Bruker;
-use eksterne_hendelser::brukertype::BrukerType;
-use eksterne_hendelser::metadata::Metadata;
-use eksterne_hendelser::periode::{Periode, PERIODE_TOPIC};
+use eksterne_hendelser::bekreftelse::bekreftelse::BEKREFTELSE_TOPIC;
+use eksterne_hendelser::bekreftelse::paa_vegne_av::BEKREFTELSE_PAAVEGNEAV_TOPIC;
+use eksterne_hendelser::egenvurdering::EGENVURDERING_TOPIC;
+use eksterne_hendelser::opplysninger::OPPLYSNINGER_TOPIC;
+use eksterne_hendelser::periode::PERIODE_TOPIC;
+use eksterne_hendelser::profilering::PROFILERING_TOPIC;
 use eksterne_hendelser::serde::AvroSerializer;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
+use serde::Serialize;
 use std::str::FromStr;
+use std::time::Duration;
+use test_data_generator::eksterne_hendelser::{
+    create_dummy_bekreftelse, create_dummy_egenvurdering, create_dummy_opplysninger,
+    create_dummy_paavegneav_start, create_dummy_profilering, create_dummy_startet_periode,
+};
 use uuid::Uuid;
+
+struct Ids {
+    periode_id: Uuid,
+    opplysninger_id: Uuid,
+    profilering_id: Uuid,
+    egenvurdering_id: Uuid,
+    bekreftelse_id: Uuid,
+}
 
 #[ignore]
 #[tokio::test]
@@ -23,89 +35,86 @@ async fn test_send_messages() -> anyhow::Result<()> {
     let schema_registry_settings = create_schema_registry_settings()?;
     let serializer = AvroSerializer::new(schema_registry_settings);
 
-    let _ = send_dummy_perioder(&producer, &serializer).await?;
+    let ids = gen_ids();
+
+    for id in &ids {
+        let message = create_dummy_startet_periode(id.periode_id);
+        send_messages(&producer, &serializer, PERIODE_TOPIC, message).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for id in &ids {
+        let message = create_dummy_opplysninger(id.periode_id, id.opplysninger_id);
+        send_messages(&producer, &serializer, OPPLYSNINGER_TOPIC, message).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for id in &ids {
+        let message =
+            create_dummy_profilering(id.periode_id, id.opplysninger_id, id.profilering_id);
+        send_messages(&producer, &serializer, PROFILERING_TOPIC, message).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for id in &ids {
+        let message =
+            create_dummy_egenvurdering(id.periode_id, id.profilering_id, id.egenvurdering_id);
+        send_messages(&producer, &serializer, EGENVURDERING_TOPIC, message).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for id in &ids {
+        let message = create_dummy_bekreftelse(id.periode_id, id.bekreftelse_id);
+        send_messages(&producer, &serializer, BEKREFTELSE_TOPIC, message).await?;
+    }
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    for id in &ids {
+        let message = create_dummy_paavegneav_start(id.periode_id);
+        send_messages(
+            &producer,
+            &serializer,
+            BEKREFTELSE_PAAVEGNEAV_TOPIC,
+            message,
+        )
+        .await?;
+    }
 
     Ok(())
 }
 
-async fn send_dummy_perioder(
-    producer: &FutureProducer,
-    serializer: &AvroSerializer,
-) -> anyhow::Result<Vec<Periode>> {
-    let naming_strategy = SubjectNameStrategy::TopicNameStrategy(PERIODE_TOPIC.to_string(), false);
-    let messages = vec![Periode {
-        id: Uuid::from_str("16b58697-131f-4715-9559-40a0644158f6")?,
-        identitetsnummer: "01017012345".to_string(),
-        startet: Metadata {
-            tidspunkt: Utc::now(),
-            utfoert_av: Bruker {
-                bruker_type: BrukerType::Sluttbruker,
-                id: "01017012345".to_string(),
-                sikkerhetsnivaa: Some("tokenx:Level4".to_string()),
-            },
-            kilde: "testing".to_string(),
-            aarsak: "Test".to_string(),
-            tidspunkt_fra_kilde: None,
-        },
-        avsluttet: None,
-    }];
-    for message in &messages {
-        let payload = serializer.serialize(message, &naming_strategy).await?;
-        producer
-            .send(
-                FutureRecord::to(PERIODE_TOPIC)
-                    .payload(&payload)
-                    .key(&1i64.to_be_bytes()),
-                std::time::Duration::ZERO,
-            )
-            .await
-            .map_err(|(e, _)| anyhow::anyhow!(e))?;
-    }
-
-    Ok(messages)
+fn gen_ids() -> Vec<Ids> {
+    vec![Ids {
+        periode_id: Uuid::from_str("16b58697-131f-4715-9559-40a0644158f6").unwrap(),
+        opplysninger_id: Uuid::from_str("e1c3d0e2-4b7b-4f1a-ae3b-2f5c6d7e8f9a").unwrap(),
+        profilering_id: Uuid::from_str("da5f8f47-0a48-4553-98b6-aa4afa9cb059").unwrap(),
+        egenvurdering_id: Uuid::from_str("c3d0e2e1-4b7b-4f1a-ae3b-2f5c6d7e8f9a").unwrap(),
+        bekreftelse_id: Uuid::from_str("e1c3d0e2-4b7b-4f1a-ae3b-2f5c6d7e8f9a").unwrap(),
+    }]
 }
 
-async fn send_dummy_bekreftelser(
+async fn send_messages(
     producer: &FutureProducer,
     serializer: &AvroSerializer,
-    perioder: Vec<Periode>,
+    topic: &str,
+    message: impl Serialize,
 ) -> anyhow::Result<()> {
-    let naming_strategy =
-        SubjectNameStrategy::TopicNameStrategy(BEKREFTELSE_TOPIC.to_string(), false);
-    let messages = vec![Bekreftelse {
-        id: Uuid::from_str("da5f8f47-0a48-4553-98b6-aa4afa9cb059")?,
-        periode_id: Uuid::from_str("16b58697-131f-4715-9559-40a0644158f6")?,
-        bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
-        svar: Svar {
-            sendt_inn_av: Metadata {
-                tidspunkt: Utc::now(),
-                utfoert_av: Bruker {
-                    bruker_type: BrukerType::Sluttbruker,
-                    id: "01017012345".to_string(),
-                    sikkerhetsnivaa: None,
-                },
-                kilde: "testing".to_string(),
-                aarsak: "Test".to_string(),
-                tidspunkt_fra_kilde: None,
-            },
-            gjelder_fra: Utc::now() - Duration::days(6),
-            gjelder_til: Utc::now() - Duration::days(20),
-            har_jobbet_i_denne_perioden: false,
-            vil_fortsette_som_arbeidssoeker: true,
-        },
-    }];
-    for message in messages {
-        let payload = serializer.serialize(&message, &naming_strategy).await?;
-        producer
-            .send(
-                FutureRecord::to(BEKREFTELSE_TOPIC)
-                    .payload(&payload)
-                    .key(&1i64.to_be_bytes()),
-                std::time::Duration::ZERO,
-            )
-            .await
-            .map_err(|(e, _)| anyhow::anyhow!(e))?;
-    }
+    let naming_strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
+    let payload = serializer.serialize(message, &naming_strategy).await?;
+    producer
+        .send(
+            FutureRecord::to(topic)
+                .payload(&payload)
+                .key(&1i64.to_be_bytes()),
+            Duration::ZERO,
+        )
+        .await
+        .map_err(|(e, _)| anyhow::anyhow!(e))?;
 
     Ok(())
 }

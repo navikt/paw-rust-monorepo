@@ -230,6 +230,6 @@ pub struct HentPersonBolk;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "graphql/pdl-schema.graphql",
-    query_path = "graphql/hentNavn.graphql"
+    query_path = "graphql/hentPersonNavn.graphql"
 )]
-pub struct HentNavn;
+pub struct HentPersonNavn;

@@ -23,6 +23,14 @@ spec:
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_KARTLEGGING_KARTLEGGING_SSLCERT)"
     - name: PGSSLKEY
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_KARTLEGGING_KARTLEGGING_SSLKEY)"
+    - name: KAFKA_KEY_GEN_URL
+      value: "http://paw-kafka-key-generator"
+    - name: KAFKA_KEY_GEN_SCOPE
+      value: "api://dev-gcp.paw.paw-kafka-key-generator/.default"
+    - name: PDL_URL
+      value: "https://pdl-api.dev-fss-pub.nais.io/graphql"
+    - name: PDL_SCOPE
+      value: "api://dev-fss.pdl.pdl-api/.default"
   replicas:
     min: 1
     max: 1

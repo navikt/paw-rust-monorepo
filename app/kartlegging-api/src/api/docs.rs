@@ -44,7 +44,23 @@ fn spec_json() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{spec_json, SPEC_YAML};
+    use crate::api::kartlegging::API_KARTLEGGING_PATH;
+    use crate::model::dto::arbeidssoeker::Arbeidssoeker;
+    use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
+    use crate::model::dto::egenvurdering::Egenvurdering;
+    use crate::model::dto::kontor::{KontorType, Kontortilknytning};
+    use crate::model::dto::ledighetsperiode::Ledighetsperiode;
+    use crate::model::dto::opplysninger::Opplysninger;
+    use crate::model::dto::periode::Periode;
+    use crate::model::dto::profilering::{Profilering, ProfilertTil};
+    use crate::model::dto::request::{
+        IdentitetsnummerQueryRequest, PagingRequest, QueryRequest, TilknyttetKontorQueryRequest,
+    };
+    use crate::model::dto::response::{KartleggingResponse, PagingResponse};
+    use crate::model::sort::SortOrder;
+    use chrono::DateTime;
     use serde_json::json;
+    use uuid::Uuid;
 
     fn spec() -> serde_json::Value {
         serde_json::from_str(spec_json()).expect("spec_json() er gyldig JSON")
@@ -84,7 +100,7 @@ mod tests {
             .cloned()
             .collect();
 
-        let registered = ["/api/v1/kartlegging"];
+        let registered = [API_KARTLEGGING_PATH];
 
         for path in &spec_paths {
             assert!(
@@ -101,111 +117,117 @@ mod tests {
     }
 
     #[test]
-    fn tom_oversikt_response_konformerer() {
-        let spec = spec();
-        assert_conforms(
-            &spec,
-            "KartleggingResponse",
-            json!({
-                "arbeidssoekere": [],
-                "paging": {
-                    "page": 1,
-                    "pageSize": 10,
-                    "hitSize": 0,
-                    "totalCount": 0,
-                    "sortOrder": "ASC"
-                }
-            }),
-        );
-    }
-
-    #[test]
     fn query_request_identitetsnummer_konformerer() {
         let spec = spec();
-        assert_conforms(
-            &spec,
-            "QueryRequest",
-            json!({
-                "type": "IDENTITETSNUMMER",
-                "identitetsnummer": "01017012345",
-                "paging": {
-                    "page": 1,
-                    "pageSize": 10,
-                    "sortOrder": "ASC"
-                }
+        let dto = QueryRequest::Identitetsnummer(IdentitetsnummerQueryRequest {
+            identitetsnummer: "01017012345".to_string(),
+            paging: Some(PagingRequest {
+                page: 1,
+                page_size: 10,
+                sort_order: SortOrder::Ascending,
             }),
-        );
+        });
+        let instance = serde_json::to_value(&dto).unwrap();
+        assert_conforms(&spec, "QueryRequest", instance);
     }
 
     #[test]
     fn query_request_tilknyttet_kontor_konformerer() {
         let spec = spec();
-        assert_conforms(
-            &spec,
-            "QueryRequest",
-            json!({
-                "type": "TILKNYTTET_KONTOR",
-                "kontorId": "0301",
-                "paging": {
-                    "page": 1,
-                    "pageSize": 10,
-                    "sortOrder": "ASC"
-                }
+        let dto = QueryRequest::TilknyttetKontor(TilknyttetKontorQueryRequest {
+            kontor_id: "1337".to_string(),
+            kontor_type: None,
+            ledig_siden: None,
+            paging: Some(PagingRequest {
+                page: 1,
+                page_size: 10,
+                sort_order: SortOrder::Descending,
             }),
-        );
+        });
+        let instance = serde_json::to_value(&dto).unwrap();
+        assert_conforms(&spec, "QueryRequest", instance);
+    }
+
+    #[test]
+    fn tom_kartlegging_response_konformerer() {
+        let spec = spec();
+        let dto = KartleggingResponse {
+            arbeidssoekere: vec![],
+            paging: PagingResponse {
+                page: 1,
+                page_size: 100,
+                hit_size: 42,
+                total_count: 1000,
+                sort_order: SortOrder::Ascending,
+            },
+        };
+        let instance = serde_json::to_value(&dto).unwrap();
+        assert_conforms(&spec, "KartleggingResponse", instance);
     }
 
     #[test]
     fn arbeidssoeker_konformerer() {
         let spec = spec();
-        assert_conforms(
-            &spec,
-            "Arbeidssoeker",
-            json!({
-                "arbeidssoekerId": 1_i64,
-                "identitetsnummer": "01017012345",
-                "fornavn": "Ola",
-                "etternavn": "Nordmann",
-                "ledighetsperioder": [
-                    {
-                        "ledigSiden": "2021-01-01T12:00:00.000Z",
-                        "periode": {
-                            "id": "069f40c9-c47c-4ee2-9105-bc87bdb58af2",
-                            "startet": "2021-01-01T12:00:00.000Z"
-                        },
-                        "opplysninger": {
-                            "id": "47c4b16b-5d34-4658-9705-ab90e6d0db9b",
-                            "tidspunkt": "2021-01-01T12:00:00.000Z"
-                        },
-                        "profilering": {
-                            "id": "6d084994-d0b9-4466-9c1f-6126a3b3c2a8",
-                            "profilertTil": "ANTATT_GODE_MULIGHETER",
-                            "tidspunkt": "2021-01-01T12:01:00.000Z"
-                        },
-                        "egenvurdering": {
-                            "id": "7778ba2d-cbb5-4263-a49b-a4719821f0a5",
-                            "egenvurdertTil": "ANTATT_GODE_MULIGHETER",
-                            "tidspunkt": "2021-01-02T12:00:00.000Z"
-                        },
-                        "bekreftelse": {
-                            "id": "d8672838-145e-44d1-9334-dc6a706fa85c",
-                            "gjelderFra": "2021-01-01T12:00:00.000Z",
-                            "gjelderTil": "2021-01-14T12:00:00.000Z",
-                            "harJobbet": false,
-                            "vilFortsette": true,
-                            "bekreftelsesloesning": "ARBEIDSSOEKERREGISTERET",
-                        },
-                        "bekreftelsePaaVegneAv": [],
-                    }
-                ],
-                "kontortilknytninger": [
-                    {
-                        "kontorId": "0301",
-                        "kontorNavn": "NAV Bouvetøya",
-                        "kontorType": "ARBEIDSOPPFOLGING"
-                    }
-                ]
-            }),
-        );
+        let dto = Arbeidssoeker {
+            arbeidssoeker_id: 1337,
+            identitetsnummer: "01017012345".to_string(),
+            fornavn: "Kari".to_string(),
+            mellomnavn: None,
+            etternavn: "Nordmann".to_string(),
+            ledighetsperioder: vec![Ledighetsperiode {
+                ledig_siden: Some(
+                    DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                ),
+                periode: Periode {
+                    id: Uuid::parse_str("069f40c9-c47c-4ee2-9105-bc87bdb58af2").unwrap(),
+                    startet: DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                    avsluttet: None,
+                },
+                opplysninger: Some(Opplysninger {
+                    id: Uuid::parse_str("47c4b16b-5d34-4658-9705-ab90e6d0db9b").unwrap(),
+                    tidspunkt: DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                }),
+                profilering: Some(Profilering {
+                    id: Uuid::parse_str("6d084994-d0b9-4466-9c1f-6126a3b3c2a8").unwrap(),
+                    profilert_til: ProfilertTil::AntattGodeMuligheter,
+                    tidspunkt: DateTime::parse_from_rfc3339("2021-01-01T12:02:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                }),
+                egenvurdering: Some(Egenvurdering {
+                    id: Uuid::parse_str("7778ba2d-cbb5-4263-a49b-a4719821f0a5").unwrap(),
+                    egenvurdert_til: ProfilertTil::OppgittHindringer,
+                    tidspunkt: DateTime::parse_from_rfc3339("2021-01-02T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                }),
+                bekreftelse: Some(Bekreftelse {
+                    id: Uuid::parse_str("d8672838-145e-44d1-9334-dc6a706fa85c").unwrap(),
+                    gjelder_fra: DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                    gjelder_til: DateTime::parse_from_rfc3339("2021-01-14T12:00:00.000Z")
+                        .unwrap()
+                        .to_utc(),
+                    har_jobbet: false,
+                    vil_fortsette: true,
+                    bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
+                }),
+                bekreftelse_paa_vegne_av: vec![],
+            }],
+            kontortilknytninger: vec![Kontortilknytning {
+                kontor_id: "1337".to_string(),
+                kontor_navn: "NAV Bouvetøya".to_string(),
+                kontor_type: KontorType::Arbeidsoppfolging,
+            }],
+        };
+        let instance = serde_json::to_value(&dto).unwrap();
+        assert_conforms(&spec, "Arbeidssoeker", instance);
     }
 }

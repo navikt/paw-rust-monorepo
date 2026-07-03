@@ -1,5 +1,5 @@
-use crate::bekreftelse::bekreftelsesloesning::Bekreftelsesloesning;
-use crate::bekreftelse::svar::Svar;
+use crate::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
+use crate::bekreftelse::vo::svar::Svar;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use uuid::Uuid;
@@ -21,9 +21,9 @@ pub struct Bekreftelse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bruker::Bruker;
-    use crate::brukertype::BrukerType;
-    use crate::metadata::Metadata;
+    use crate::vo::bruker::Bruker;
+    use crate::vo::brukertype::BrukerType;
+    use crate::vo::metadata::Metadata;
     use crate::serde::{AvroDeserializer, AvroSerializer};
     use chrono::{DateTime, Utc};
     use mockito::Server;

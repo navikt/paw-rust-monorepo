@@ -1,11 +1,8 @@
-pub mod avvikstype;
 pub mod bekreftelse;
-pub mod bruker;
-pub mod brukertype;
 pub mod egenvurdering;
-pub mod metadata;
+pub mod opplysninger;
+pub mod parse;
 pub mod periode;
 pub mod profilering;
-pub mod profilert_til;
 pub mod serde;
-pub mod tidspunkt_fra_kilde;
+pub mod vo;

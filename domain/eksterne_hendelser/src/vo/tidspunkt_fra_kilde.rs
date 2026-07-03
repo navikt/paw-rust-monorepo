@@ -1,4 +1,4 @@
-use crate::avvikstype::AvviksType;
+use crate::vo::avvikstype::AvviksType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, TimestampMilliSeconds};

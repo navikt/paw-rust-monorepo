@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/pdl",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.operationName",
+          "equalTo": "HentPersonNavn"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "data": {
+        "hentPerson": {
+          "navn": [
+            {
+              "fornavn": "Ola",
+              "mellomnavn": null,
+              "etternavn": "Nordmann"
+            }
+          ]
+        }
+      }
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

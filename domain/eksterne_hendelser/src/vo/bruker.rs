@@ -1,4 +1,4 @@
-use crate::brukertype::BrukerType;
+use crate::vo::brukertype::BrukerType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

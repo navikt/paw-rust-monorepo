@@ -1,0 +1,11 @@
+pub mod annet;
+pub mod avvikstype;
+pub mod bruker;
+pub mod brukertype;
+pub mod helse;
+pub mod ja_nei_vet_ikke;
+pub mod jobbsituasjon;
+pub mod metadata;
+pub mod profilert_til;
+pub mod tidspunkt_fra_kilde;
+pub mod utdanning;

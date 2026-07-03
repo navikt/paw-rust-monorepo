@@ -25,7 +25,7 @@ pub async fn finn_for_kontortilknytning(
         .iter()
         .map(|kt| kt.as_ref().to_string())
         .collect::<Vec<String>>();
-    let ledig_side = request
+    let ledig_siden = request
         .ledig_siden
         .unwrap_or(NaiveDate::from_epoch_days(0).unwrap());
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
@@ -35,7 +35,7 @@ pub async fn finn_for_kontortilknytning(
     });
 
     let total_count =
-        arbeidssoekere::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_side)
+        arbeidssoekere::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_siden)
             .await?;
     let kontor_join = kontor_typer
         .iter()
@@ -53,7 +53,7 @@ pub async fn finn_for_kontortilknytning(
         tx,
         &kontor_id,
         &kontor_typer,
-        &ledig_side,
+        &ledig_siden,
         paging.offset(),
         paging.limit(),
         &paging.sort_order,

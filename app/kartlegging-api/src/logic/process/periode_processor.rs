@@ -1,18 +1,27 @@
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
+use paw_key_gen_client::client::PawKeyGenClient;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use pdl_client::pdl_query::PDLClient;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
+use std::sync::Arc;
 
 pub struct PeriodeProcessor {
-    pub pg_pool: PgPool,
+    pub key_gen_client: Arc<PawKeyGenClient>,
+    pub pdl_client: Arc<PDLClient>,
     pub deserializer: AvroDeserializer,
 }
 
 impl PeriodeProcessor {
-    pub fn new(pg_pool: PgPool, schema_registry_setting: SrSettings) -> Self {
+    pub fn new(
+        key_gen_client: Arc<PawKeyGenClient>,
+        pdl_client: Arc<PDLClient>,
+        schema_registry_setting: SrSettings,
+    ) -> Self {
         Self {
-            pg_pool,
+            key_gen_client,
+            pdl_client,
             deserializer: AvroDeserializer::new(schema_registry_setting),
         }
     }
@@ -22,18 +31,23 @@ impl PeriodeProcessor {
         tx: &mut Transaction<'_, Postgres>,
         payload: &'a [u8],
     ) -> anyhow::Result<(), ProcessorError> {
-        let periode: Periode = self.deserializer.deserialize(payload).await.map_err(|e| {
+        let hendelse: Periode = self.deserializer.deserialize(payload).await.map_err(|e| {
             ProcessorError::from(format!("Failed to deserialize payload: {}", e.to_string()))
         })?;
-        self.handle_periode(tx, &periode).await
+        self.handle_event(tx, &hendelse).await
     }
 
-    async fn handle_periode<'a>(
+    async fn handle_event<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
-        periode: &'a Periode,
+        hendelse: &'a Periode,
     ) -> anyhow::Result<(), ProcessorError> {
-        tracing::info!("Mottok arbeidssokerperiode: {:?}", &periode);
+        tracing::info!("Mottok hendelse: {:?}", &hendelse);
+        let identiteter_response = self
+            .key_gen_client
+            .finn_identiteter(hendelse.identitetsnummer.clone())
+            .await?;
+        tracing::info!("Fant identiteter: {:?}", &identiteter_response);
         Ok(())
     }
 }

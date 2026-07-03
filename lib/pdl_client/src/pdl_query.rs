@@ -1,9 +1,9 @@
 use crate::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
 use anyhow::Result;
 use graphql_client::{GraphQLQuery, QueryBody};
-use pdl_graphql::pdl::hent_navn::HentNavnHentPerson;
 use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
-use pdl_graphql::pdl::{hent_navn, hent_person_bolk, HentNavn, HentPersonBolk};
+use pdl_graphql::pdl::hent_person_navn::HentPersonNavnHentPerson;
+use pdl_graphql::pdl::{hent_person_bolk, hent_person_navn, HentPersonBolk, HentPersonNavn};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
 use tracing::instrument;
@@ -81,13 +81,13 @@ impl PDLClient {
     pub async fn hent_navn(
         &self,
         identitetsnummer: Identitetsnummer,
-    ) -> Result<Option<HentNavnHentPerson>> {
-        let variables = hent_navn::Variables {
+    ) -> Result<Option<HentPersonNavnHentPerson>> {
+        let variables = hent_person_navn::Variables {
             ident: identitetsnummer.into(),
             historisk: Some(false),
         };
-        let request_body = HentNavn::build_query(variables);
-        let response: graphql_client::Response<hent_navn::ResponseData> =
+        let request_body = HentPersonNavn::build_query(variables);
+        let response: graphql_client::Response<hent_person_navn::ResponseData> =
             self.hent_data(request_body).await?;
         if let Some(errors) = response.errors {
             let messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();

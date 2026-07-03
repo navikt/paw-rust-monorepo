@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "urlPathPattern": "/token"
+    "urlPathPattern": "/api/v1/token"
   },
   "response": {
     "status": 200,

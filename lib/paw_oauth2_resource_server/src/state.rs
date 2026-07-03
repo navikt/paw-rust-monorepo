@@ -1,4 +1,4 @@
-use crate::config::{AuthConfig, IssuerConfig, HTTP_TIMEOUT, JWKS_MIN_REFRESH_INTERVAL, JWKS_TTL};
+use crate::config::{AuthConfig, IssuerConfig, JWKS_MIN_REFRESH_INTERVAL, JWKS_TTL};
 use crate::oidc::{fetch_jwks, JwksCache};
 use errors::app::AppError;
 use errors::auth::AuthError;
@@ -81,7 +81,7 @@ pub struct AuthState {
 }
 
 impl AuthState {
-    pub async fn new(config: AuthConfig) -> Result<Arc<Self>, AppError> {
+    pub async fn new(config: AuthConfig, http_client: Client) -> Result<Arc<Self>, AppError> {
         let azure_config = config.issuers.azure;
         let tokenx_config = config.issuers.tokenx;
         let idporten_config = config.issuers.idporten;
@@ -93,11 +93,6 @@ impl AuthState {
         {
             return Err(AppError::MissingConfig("".to_string()));
         }
-
-        let http_client = Client::builder()
-            .timeout(HTTP_TIMEOUT)
-            .build()
-            .map_err(|_| AppError::AppInitFailed("Kunne ikke opprette HTTP-klient".to_string()))?;
 
         let azure_issuer_state = IssuerState::new(http_client.clone(), azure_config).await?;
         let tokenx_issuer_state = IssuerState::new(http_client.clone(), tokenx_config).await?;

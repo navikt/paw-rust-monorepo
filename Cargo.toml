@@ -22,6 +22,7 @@ members = [
     "lib/nais_schema_registry",
     "lib/paw_hendelse_processor",
     "lib/paw_test",
+    "lib/paw_key_gen_client",
     "lib/pdl_client",
     "lib/texas_client",
     "lib/paw_oauth2_resource_server",
@@ -31,6 +32,7 @@ members = [
     "app/veileder-oppgave",
     "app/utgang",
     "app/kartlegging-api",
+    "test/test_data_generator",
     "test/schema_registry_mock",
 ]
 

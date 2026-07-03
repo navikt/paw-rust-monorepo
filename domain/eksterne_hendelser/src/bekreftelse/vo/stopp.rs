@@ -9,7 +9,7 @@ pub struct Stopp {
 
 #[cfg(test)]
 mod tests {
-    use crate::bekreftelse::stopp::Stopp;
+    use crate::bekreftelse::vo::stopp::Stopp;
 
     #[test]
     fn test_serialize_stopp() {

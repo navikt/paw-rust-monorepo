@@ -1,4 +1,4 @@
-use crate::config::{AuthConfig, HTTP_TIMEOUT};
+use crate::config::AuthConfig;
 use errors::app::AppError;
 use reqwest::Client;
 use std::sync::Arc;
@@ -10,12 +10,7 @@ pub struct AuthState {
 }
 
 impl AuthState {
-    pub async fn new(config: AuthConfig) -> Result<Arc<Self>, AppError> {
-        let http_client = Client::builder()
-            .timeout(HTTP_TIMEOUT)
-            .build()
-            .map_err(|_| AppError::AppInitFailed("Kunne ikke opprette HTTP-klient".to_string()))?;
-
+    pub async fn new(config: AuthConfig, http_client: Client) -> Result<Arc<Self>, AppError> {
         Ok(Arc::new(Self {
             config,
             http_client,

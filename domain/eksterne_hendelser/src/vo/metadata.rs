@@ -1,5 +1,5 @@
-use crate::bruker::Bruker;
-use crate::tidspunkt_fra_kilde::TidspunktFraKilde;
+use crate::vo::bruker::Bruker;
+use crate::vo::tidspunkt_fra_kilde::TidspunktFraKilde;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, TimestampMilliSeconds};

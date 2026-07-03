@@ -1,0 +1,2 @@
+url = "${KAFKA_KEY_GEN_URL}"
+target_scope = "${KAFKA_KEY_GEN_SCOPE}"

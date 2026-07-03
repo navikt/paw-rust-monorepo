@@ -6,6 +6,8 @@
     "response": {
         "status": 200,
         "jsonBody": {
+            "recordKey": -1,
+            "arbeidssoekerId": 1,
             "identiteter": [
                 {
                     "identitet": "{{jsonPath request.body '$.ident'}}",

@@ -38,19 +38,20 @@ pub struct IdentitetsnummerQueryRequest {
 }
 
 impl IdentitetsnummerQueryRequest {
-    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
+    pub fn validate(&self, path: &str) -> Result<(), ProblemDetails> {
         if let Some(paging) = &self.paging {
-            if let Err(error) = paging.validate(path.clone()) {
+            if let Err(error) = paging.validate(path) {
                 return Err(error);
             }
         }
         if self.identitetsnummer.len() != 11 {
             let error = ProblemDetails::validation_error(
-                path.clone(),
+                path,
                 format!(
                     "Felt 'identitetsnummer' har feil lengde: {}",
                     self.identitetsnummer.len()
-                ),
+                )
+                .as_str(),
             );
             Err(error)
         } else {
@@ -69,7 +70,7 @@ pub struct TilknyttetKontorQueryRequest {
 }
 
 impl TilknyttetKontorQueryRequest {
-    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
+    pub fn validate(&self, path: &str) -> Result<(), ProblemDetails> {
         if let Some(paging) = &self.paging {
             paging.validate(path)?
         }
@@ -94,17 +95,17 @@ impl PagingRequest {
         self.page_size
     }
 
-    pub fn validate(&self, path: String) -> Result<(), ProblemDetails> {
+    pub fn validate(&self, path: &str) -> Result<(), ProblemDetails> {
         if self.page < 1 {
             let error = ProblemDetails::validation_error(
                 path,
-                format!("Felt 'page' har feil størrelse: {}", self.page),
+                format!("Felt 'page' har feil størrelse: {}", self.page).as_str(),
             );
             Err(error)
         } else if self.page_size < 1 {
             let error = ProblemDetails::validation_error(
                 path,
-                format!("Felt 'page_size' har feil størrelse: {}", self.page_size),
+                format!("Felt 'page_size' har feil størrelse: {}", self.page_size).as_str(),
             );
             Err(error)
         } else {
