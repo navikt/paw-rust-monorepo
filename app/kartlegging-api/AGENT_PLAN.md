@@ -16,7 +16,7 @@ datapunkter. Skal kunne filtrere på kontor og ledighet nyere enn en gitt dato.
     * bekreftelse.bekreftelsesloesning - Hvilken løsning som er brukt for å sende inn bekreftelsen (f.eks. "ARBEIDSSOEKERREGISTERET", "DAGPENGER", "FRISKMELDT_TIL_ARBEIDSFORMIDLING").
     * bekreftelse.svar.gjelder_fra - Tidspunkt for når bekreftelsen gjelder fra.
     * bekreftelse.svar.gjelder_til - Tidspunkt for når bekreftelsen gjelder til. Vil typisk være 14 dager etter gjelder fra tidspunkt.
-    * bekreftelse.svar.har_jobbet_i_denne_perioden - Boolean som indikerer om arbeidssøker har jobbet i forrige bekreftelseperiode.
+    * bekreftelse.svar.har_jobbet_i_denne_perioden - Boolean som indikerer om arbeidssøker har jobbet i bekreftelseperioden.
 * På-vegne-av (paa-vegne-av) - Kafka-hendelser kommer på paw.arbeidssoker-bekreftelse-paavegneav-v1 topic. Inneholder informasjon om hvem som har ansvar for å innhente bekreftelser fra spesifikke arbeidssøkere.
     * paa-vegne-av.periode_id - Identifikator for perioden på-vegne-av gjelder for.
     * paa-vegne-av.bekreftelsesloesning - Hvilken løsning som tar over ansvar for å hente inn bekreftelser for gitt periode.
@@ -24,37 +24,71 @@ datapunkter. Skal kunne filtrere på kontor og ledighet nyere enn en gitt dato.
     * kontortilhoerighet.kontor_id - Unik identifikator for kontor.
     * kontortilhoerighet.kontor_navn - Navn på kontor.
     * kontortilhoerighet.kontor_type - Type kontor (f.eks. "ARBEIDSOPPFOLGING", "ARENA", "GEOGRAFISK_TILKNYTNING").
+  * Identiteter (identiteter) - REST-kall til kafka-key-generator for å hente response med alle identiteter (gjeldende og historiske) for identitetsnummer.
+      * response.arbeidssoeker_id - Unik identifikator for arbeidssøker.
+      * response.identiteter - Identiteter for arbeidssøker. Gjeldende identitet har identitet.gjeldende==true. Andre identiteter er historiske og har identitet.gjeldende==false.
+  * Persondata (persondata) - REST-kall til PDL for å hente response med persondata for identitetsnummer.
+      * response.fornavn - Fornavn til arbeidssøker.
+      * response.mellomnavn - Mellomnavn til arbeidssøker. Kan være null.
+      * response.etternavn - Etternavn til arbeidssøker.
 
-## Datamodell
-Oversikt over arbeidssøkere, hvor det er én rad per arbeidssøker.
-* arbeidssoeker.identitetsnummer - Hentes fra periode.identitetsnummer ved periode start.
-* arbeidssoeker.arbeidssoeker_id - Hentes via REST-kall til kafka-key-generator ved periode start.
-* arbeidssoeker.fornavn - Hentes via REST-kall til PDL ved periode start.
-* arbeidssoeker.mellomnavn - Hentes via REST-kall til PDL ved periode start. Kan være null.
-* arbeidssoeker.etternavn - Hentes via REST-kall til PDL ved periode start.
-* Ledighetsperioder (ledighetsperiode) - Liste over ledighetsperioder per arbeidssøker. Hver ledighetsperiode inneholder:
-    * ledighetsperiode.periode_id - Hentes fra periode.id ved periode start.
-    * ledighetsperiode.periode_startet_tidspunkt - Hentes fra periode.startet.tidspunkt ved periode start.
-    * ledighetsperiode.periode_avsluttet_tidspunkt - Hentes fra periode.avsluttet.tidspunkt ved periode avsluttet. Kan være null.
-    * ledighetsperiode.bekreftelse_id - ID til siste bekreftelse for perioden. Kan være null om ingen bekreftelser er sendt inn.
-    * ledighetsperiode.bekreftelsesløsning - Hvilken løsning som er brukt for å sende inn siste bekreftelse. Kan være null om ingen bekreftelser er sendt inn.
-    * ledighetsperiode.bekreftelse_fra_tidspunkt - Hentes fra bekreftelse.svar.gjelder_fra for siste bekreftelse. Kan være null om ingen bekreftelser er sendt inn.
-    * ledighetsperiode.har_jobbet_siste_periode - Hentes fra bekreftelse.svar.har_jobbet_i_denne_perioden for siste bekreftelse. Kan være null om ingen bekreftelser er sendt inn.
-    * ledighetsperiode.ledig_fra_tidspunkt - Kalkulert tidspunkt for når arbeidssøker har vært ledig siden.
-* Kontortilhørligheter (kontortilhoerighet) - Liste over kontor arbeidssøker tilhører. Hver kontortilhørlighet inneholder:
-    * kontortilhoerighet.kontor_id
-    * kontortilhoerighet.kontor_navn
-    * kontortilhoerighet.kontor_type
+## Databasemodell
+* Arbeidssoekere-tabell - Oversikt over arbeidssøkere, hvor det er én rad per arbeidssøker.
+  * arbeidssoeker.id - Unik ID for rad.
+  * arbeidssoeker.identitetsnummer - Hentes fra periode.identitetsnummer ved periode start.
+  * arbeidssoeker.arbeidssoeker_id - Hentes via REST-kall til kafka-key-generator ved periode start.
+  * arbeidssoeker.fornavn - Hentes via REST-kall til PDL ved periode start.
+  * arbeidssoeker.mellomnavn - Hentes via REST-kall til PDL ved periode start. Kan være null.
+  * arbeidssoeker.etternavn - Hentes via REST-kall til PDL ved periode start.
+* Kartlegginger-tabell - Liste over kartlegginger per arbeidssøker. Hver kartlegging inneholder:
+    * kartlegging.parent_id - Fremmednøkkel til arbeidssoeker.id.
+    * kartlegging.periode_id - Hentes fra periode.id ved periode start.
+    * kartlegging.arbeidssoeker_siden - Hentes fra periode.startet.tidspunkt ved periode start.
+    * kartlegging.arbeidsledig_siden - Kalkulert tidspunkt for når arbeidssøker har vært ledig siden.
+* Perioder-tabell - Liste over perioder per arbeidssøker. Hver periode inneholder:
+      * periode.periode_id - Unik id for hver periode.
+      * periode.startet_tidspunkt - Tidspunkt for når perioden startet.
+      * periode.avsluttet_tidspunkt - Tidspunkt for når perioden ble avsluttet. Er null om perioden er aktiv.
+* Bekreftelser-tabell - Liste over bekreftelser per arbeidssøker. Hver bekreftelse inneholder:
+      * bekreftelse.bekreftelse_id - Unik id for hver bekreftelse.
+      * bekreftelse.periode_id - Id til perioden bekreftelsen gjelder for.
+      * bekreftelse.gjelder_fra_tidspunkt - Tidspunkt for når bekreftelsen gjelder fra.
+      * bekreftelse.gjelder_til_tidspunkt - Tidspunkt for når bekreftelsen gjelder til.
+      * bekreftelse.bekreftelsesløsning - Hvilken løsning som er brukt for å sende inn bekreftelsen.
+      * bekreftelse.har_jobbet_i_denne_perioden - Boolean som indikerer om arbeidssøker har jobbet i bekreftelseperioden.
+      * bekreftelse.vil_fortsette_som_arbeidssoeker - Boolean som indikerer om person vil fortsette som arbeidssøker.
+* Kontortilhoerligheter-tabell - Liste over kontor arbeidssøker tilhører. Hver kontortilhørlighet inneholder:
+    * kontortilhoerighet.kontor_id - Unik identifikator for kontor.
+    * kontortilhoerighet.kontor_navn - Navn på kontor.
+    * kontortilhoerighet.kontor_type - Type kontor (f.eks. "ARBEIDSOPPFOLGING", "ARENA", "GEOGRAFISK_TILKNYTNING").
 
 ## Fakta
 * Tidspunktet i bekreftelse.svar.gjelder_fra for første bekreftelse er det samme som periode.startet.tidspunkt. Det er fundamentalt for logikken til bekreftelse.
 * Når en arbeidssøker svarer bekreftelse.svar.har_jobbet_i_denne_perioden=false så betyr det av personen ikke har jobbet i tiden mellom bekreftelse.svar.gjelder_fra og bekreftelse.svar.gjelder_til, som ligger bakover i tid.
 
 ## Forretningslogikk
-* Logikk for populering av ledighetsperiode.ledig_fra_tidspunkt:
-    * Ved ny bekreftelse:
-        * Om bekreftelse.svar.har_jobbet_i_denne_perioden=false og ledighetsperiode.ledig_fra_tidspunkt=null, sett ledighetsperiode.ledig_fra_tidspunkt=bekreftelse.svar.gjelder_fra.
-        * Om bekreftelse.svar.har_jobbet_i_denne_perioden=false og ledighetsperiode.ledig_fra_tidspunkt!=null, ikke gjør noe.
-        * Om bekreftelse.svar.har_jobbet_i_denne_perioden=true, sett ledighetsperiode.ledig_fra_tidspunkt=null.
-    * Ved ny periode (ny_ledighetsperiode):
-      * Om første bekreftelse.svar.har_jobbet_i_denne_perioden=false og forrige_ledighetsperiode.ledig_fra_tidspunkt!=null og ny_ledighetsperiode.periode_startet_tidspunkt - forrige_ledighetsperiode.periode_avsluttet_tidspunkt < "14 dager", sett ny_ledighetsperiode.ledig_fra_tidspunkt=forrige_ledighetsperiode.ledig_fra_tidspunkt.
+* Ved periode startet med periode.avsluttet==null
+    * Lagre periode, insert eller update
+    * Hent identiteter-response via REST-kall til kafka-key-generator
+    * Om det ikke finnes noen eksisterende arbeidssoeker for identiteter-response.arbeidssoeker_id
+        * Lag ny arbeidssoeker med data fra identiteter-response og PDL
+        * Opprett ny kartlegging tilknyttet arbeidssoeker med kartlegging.periode_id=periode.periode_id og arbeidsledig_siden=null
+    * Om det finnes en eksisterende arbeidssoeker for identiteter-response.arbeidssoeker_id
+      * Om det ikke finnes noen eksisterende kartlegginger
+          * Opprett ny kartlegging tilknyttet arbeidssoeker med kartlegging.periode_id=periode.periode_id og arbeidsledig_siden=null
+      * Om det finnes eksisterende kartlegginger og forrige_kartlegging.arbeidsledig_siden==null eller ny_kartlegging.periode_startet_tidspunkt - forrige_kartlegging.periode_avsluttet_tidspunkt > "14 dager"
+          * Opprett ny kartlegging tilknyttet arbeidssoeker med kartlegging.periode_id=periode.periode_id og arbeidsledig_siden=null
+      * Om det finnes eksisterende kartlegginger og forrige_kartlegging.arbeidsledig_siden!=null og ny_kartlegging.periode_startet_tidspunkt - forrige_kartlegging.periode_avsluttet_tidspunkt < "14 dager"
+          * Sett ny_kartlegging.arbeidsledig_siden=forrige_kartlegging.arbeidsledig_siden.
+* Ved ny bekreftelse:
+    * Lagre bekreftelse, insert eller update
+    * Om det ikke finnes noen eksisterende kartlegginger for bekreftelse.periode_id og bekreftelse.svar.har_jobbet_i_denne_perioden=false
+        * Opprett ny kartlegging tilknyttet arbeidssoeker med kartlegging.periode_id=bekreftelse.periode_id og arbeidsledig_siden=kartlegging.arbeidsledig_siden=bekreftelse.svar.gjelder_fra
+    * Om det ikke finnes noen eksisterende kartlegginger for bekreftelse.periode_id og bekreftelse.svar.har_jobbet_i_denne_perioden=true
+        * Opprett ny kartlegging tilknyttet arbeidssoeker med kartlegging.periode_id=bekreftelse.periode_id og arbeidsledig_siden=null
+    * Om bekreftelse.svar.har_jobbet_i_denne_perioden=false og kartlegging.arbeidsledig_siden=null
+        * Sett kartlegging.arbeidsledig_siden=bekreftelse.svar.gjelder_fra for kartlegging.periode_id=bekreftelse.periode_id
+    * Om bekreftelse.svar.har_jobbet_i_denne_perioden=false og kartlegging.arbeidsledig_siden!=null
+        * Ikke gjør noe
+    * Om bekreftelse.svar.har_jobbet_i_denne_perioden=true
+        * Sett kartlegging.arbeidsledig_siden=null for kartlegging.periode_id=bekreftelse.periode_id

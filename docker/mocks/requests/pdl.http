@@ -1,0 +1,13 @@
+### POST /pdl HentPersonNavn
+POST {{baseUrl}}/pdl
+Accept: application/json
+Content-Type: application/json
+
+{
+    "variables": {
+        "ident": "01017012345",
+        "historisk": false
+    },
+    "query": "query HentPersonNavn($ident: ID!, $historisk: Boolean = false) {\n    hentPerson(ident: $ident) {\n        navn(historikk: $historisk) {\n            fornavn\n            mellomnavn\n            etternavn\n        }\n    }\n}",
+    "operationName": "HentPersonNavn"
+}

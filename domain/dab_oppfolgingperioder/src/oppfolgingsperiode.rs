@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
 
-const SISTE_OPPFOLGINGSPERIODE_V3_TOPIC: &'static str = "poao.siste-oppfolgingsperiode-v3";
+pub const SISTE_OPPFOLGINGSPERIODE_V3_TOPIC: &'static str = "poao.siste-oppfolgingsperiode-v3";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(

@@ -1,0 +1,7 @@
+pub(crate) mod arbeidssoeker_mutation;
+pub(crate) mod bekreftelse_mutation;
+pub(crate) mod bekreftelse_paavegneav_mutation;
+pub(crate) mod egenvurdering_mutation;
+pub(crate) mod opplysninger_mutation;
+pub(crate) mod periode_mutation;
+pub(crate) mod profilering_mutation;

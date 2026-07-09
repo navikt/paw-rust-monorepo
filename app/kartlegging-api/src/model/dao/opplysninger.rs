@@ -1,0 +1,92 @@
+use chrono::{DateTime, Utc};
+use sqlx::{FromRow, Postgres, Transaction};
+use uuid::Uuid;
+
+#[derive(Debug, FromRow)]
+pub(crate) struct OpplysningerRow {
+    pub id: Uuid,
+    pub periode_id: Uuid,
+    pub jobbsituasjon: Vec<String>,
+    pub tidspunkt: DateTime<Utc>,
+}
+
+impl OpplysningerRow {
+    pub fn new(
+        id: Uuid,
+        periode_id: Uuid,
+        jobbsituasjon: Vec<String>,
+        tidspunkt: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            periode_id,
+            jobbsituasjon,
+            tidspunkt,
+        }
+    }
+}
+
+#[tracing::instrument(skip(tx))]
+pub async fn count_by_id<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &'a Uuid,
+) -> anyhow::Result<i64> {
+    let count = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM opplysninger
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_one(&mut **tx)
+    .await?;
+    Ok(count)
+}
+
+#[tracing::instrument(skip(tx))]
+pub async fn insert<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    row: &'a OpplysningerRow,
+) -> anyhow::Result<u64> {
+    let result = sqlx::query(
+        r#"
+        INSERT INTO opplysninger (
+            id,
+            periode_id,
+            jobbsituasjon,
+            tidspunkt
+        ) VALUES ($1, $2, $3, $4)
+        "#,
+    )
+    .bind(&row.id)
+    .bind(&row.periode_id)
+    .bind(&row.jobbsituasjon)
+    .bind(&row.tidspunkt)
+    .execute(&mut **tx)
+    .await?;
+    Ok(result.rows_affected())
+}
+
+#[tracing::instrument(skip(tx))]
+pub async fn update<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    row: &'a OpplysningerRow,
+) -> anyhow::Result<u64> {
+    let result = sqlx::query(
+        r#"
+        UPDATE opplysninger SET (
+            periode_id,
+            jobbsituasjon,
+            tidspunkt
+        ) = ($2, $3, $4) WHERE id = $1
+        "#,
+    )
+    .bind(&row.id)
+    .bind(&row.periode_id)
+    .bind(&row.jobbsituasjon)
+    .bind(&row.tidspunkt)
+    .execute(&mut **tx)
+    .await?;
+    Ok(result.rows_affected())
+}

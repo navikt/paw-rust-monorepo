@@ -7,9 +7,8 @@ use uuid::Uuid;
 
 pub const BEKREFTELSE_PAAVEGNEAV_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-paavegneav-v1";
 
-// TODO! Serde funker ikke
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
 pub enum Handling {
     Start(Start),
     Stopp(Stopp),
@@ -33,7 +32,6 @@ mod tests {
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
     use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
 
-    #[ignore]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_serde() {
         let mut mockito_server = Server::new_async().await;
@@ -60,8 +58,32 @@ mod tests {
         let target_start: PaaVegneAv = deserializer.deserialize(&payload_start).await.unwrap();
         let target_stopp: PaaVegneAv = deserializer.deserialize(&payload_stopp).await.unwrap();
 
-        assert_eq!(source_start, target_start);
-        assert_eq!(source_stopp, target_stopp);
+        match target_start.handling {
+            Handling::Start(start) => {
+                assert_eq!(source_start.periode_id, target_start.periode_id);
+                assert_eq!(
+                    source_start.bekreftelsesloesning,
+                    target_start.bekreftelsesloesning
+                );
+                assert_eq!(source_start.handling, Handling::Start(start));
+            }
+            Handling::Stopp(_) => {
+                assert!(false);
+            }
+        }
+        match target_stopp.handling {
+            Handling::Start(_) => {
+                assert!(false);
+            }
+            Handling::Stopp(stopp) => {
+                assert_eq!(source_stopp.periode_id, target_stopp.periode_id);
+                assert_eq!(
+                    source_stopp.bekreftelsesloesning,
+                    target_stopp.bekreftelsesloesning
+                );
+                assert_eq!(source_stopp.handling, Handling::Stopp(stopp));
+            }
+        }
     }
 
     fn create_dummy_paavegneav(handling: Handling) -> PaaVegneAv {

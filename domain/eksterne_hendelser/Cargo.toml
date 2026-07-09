@@ -14,7 +14,10 @@ apache-avro = { workspace = true }
 schema_registry_converter = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
 mockito = { workspace = true }
 schema_registry_mock = { path = "../../test/schema_registry_mock" }
+kafka_broker_testcontainer = { path = "../../test/kafka_broker_testcontainer" }
+schema_registry_testcontainer = { path = "../../test/schema_registry_testcontainer" }

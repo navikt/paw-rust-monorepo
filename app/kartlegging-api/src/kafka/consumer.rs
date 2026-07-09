@@ -1,4 +1,4 @@
-use crate::logic::process::message_processor::KartleggingMessageProcessor;
+use crate::logic::process::message_process::KartleggingMessageProcessor;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;

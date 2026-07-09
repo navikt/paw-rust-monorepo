@@ -48,9 +48,9 @@ mod tests {
     use crate::model::dto::arbeidssoeker::Arbeidssoeker;
     use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
     use crate::model::dto::egenvurdering::Egenvurdering;
-    use crate::model::dto::kontor::{KontorType, Kontortilknytning};
-    use crate::model::dto::ledighetsperiode::Ledighetsperiode;
-    use crate::model::dto::opplysninger::Opplysninger;
+    use crate::model::dto::kartlegging::Kartlegging;
+    use crate::model::dto::kontortilknytning::{KontorType, Kontortilknytning};
+    use crate::model::dto::opplysninger::{Jobbsituasjon, Opplysninger};
     use crate::model::dto::periode::Periode;
     use crate::model::dto::profilering::{Profilering, ProfilertTil};
     use crate::model::dto::request::{
@@ -174,21 +174,22 @@ mod tests {
             fornavn: "Kari".to_string(),
             mellomnavn: None,
             etternavn: "Nordmann".to_string(),
-            ledighetsperioder: vec![Ledighetsperiode {
+            ledighetsperioder: vec![Kartlegging {
                 ledig_siden: Some(
                     DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
                         .unwrap()
                         .to_utc(),
                 ),
-                periode: Periode {
+                periode: Some(Periode {
                     id: Uuid::parse_str("069f40c9-c47c-4ee2-9105-bc87bdb58af2").unwrap(),
                     startet: DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
                         .unwrap()
                         .to_utc(),
                     avsluttet: None,
-                },
+                }),
                 opplysninger: Some(Opplysninger {
                     id: Uuid::parse_str("47c4b16b-5d34-4658-9705-ab90e6d0db9b").unwrap(),
+                    jobbsituasjon: vec![Jobbsituasjon::AkkuratFullfortUtdanning],
                     tidspunkt: DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
                         .unwrap()
                         .to_utc(),

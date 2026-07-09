@@ -1,0 +1,10 @@
+[package]
+name = "schema_registry_testcontainer"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+futures = { workspace = true }
+anyhow = { workspace = true }
+testcontainers = { workspace = true }

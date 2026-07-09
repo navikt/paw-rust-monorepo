@@ -1,0 +1,16 @@
+INSERT INTO bekreftelser (id,
+                          periode_id,
+                          gjelder_fra,
+                          gjelder_til,
+                          har_jobbet,
+                          vil_fortsette,
+                          bekreftelsesloesning,
+                          tidspunkt)
+VALUES ('0150ca6d-0bb3-492a-b1fc-6b73d4deba06',
+        'db8270e6-ea64-469f-93b4-69fb07a472c2',
+        '2026-05-10 22:00:00',
+        '2026-05-24 22:00:00',
+        FALSE,
+        TRUE,
+        'ARBEIDSSOEKERREGISTERET',
+        '2026-05-24 22:00:00');

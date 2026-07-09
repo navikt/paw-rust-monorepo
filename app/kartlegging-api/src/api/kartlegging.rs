@@ -1,7 +1,7 @@
-use crate::logic::query::finn_for_identitetsnummer::finn_for_identitetsnummer;
-use crate::logic::query::finn_for_kontortilknytning::finn_for_kontortilknytning;
-use crate::model::dto::request::QueryRequest;
-use crate::model::dto::response::KartleggingResponse;
+use crate::logic::query;
+use crate::model::dto::request::{PagingRequest, QueryRequest};
+use crate::model::dto::response::{KartleggingResponse, PagingResponse};
+use crate::model::sort::SortOrder;
 use crate::model::state::RouterState;
 use axum::extract::State;
 use axum::routing::post;
@@ -41,7 +41,7 @@ pub(crate) async fn finn_kartlegging(
     let response = match query_request {
         QueryRequest::Identitetsnummer(query) => {
             query.validate(API_KARTLEGGING_PATH)?;
-            finn_for_identitetsnummer(&mut tx, &query)
+            query::arbeidssoeker_query::finn_for_identitetsnummer_query_request(&mut tx, &query)
                 .await
                 .map_err(|e| {
                     tracing::error!("Feil ved spørring: {}", e);
@@ -50,7 +50,7 @@ pub(crate) async fn finn_kartlegging(
         }
         QueryRequest::TilknyttetKontor(query) => {
             query.validate(API_KARTLEGGING_PATH)?;
-            finn_for_kontortilknytning(&mut tx, &query)
+            query::arbeidssoeker_query::finn_for_kontortilknytning_query_request(&mut tx, &query)
                 .await
                 .map_err(|e| {
                     tracing::error!("Feil ved spørring: {}", e);
@@ -63,6 +63,7 @@ pub(crate) async fn finn_kartlegging(
         tracing::error!("Kunne ikke commite transaksjon: {}", e);
         ProblemDetails::database_error(API_KARTLEGGING_PATH, "Transaksjon feilet")
     })?;
+
     tracing::Span::current().record("arbeidssoekere_count", response.arbeidssoekere.len());
     Ok(Json(response))
 }

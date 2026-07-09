@@ -34,6 +34,9 @@ members = [
     "app/kartlegging-api",
     "test/test_data_generator",
     "test/schema_registry_mock",
+    "test/postgres_testcontainer",
+    "test/kafka_broker_testcontainer",
+    "test/schema_registry_testcontainer",
 ]
 
 [workspace.package]

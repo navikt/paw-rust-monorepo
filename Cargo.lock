@@ -989,11 +989,14 @@ dependencies = [
 name = "eksterne_hendelser"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "apache-avro",
  "chrono",
+ "kafka_broker_testcontainer",
  "mockito",
  "schema_registry_converter",
  "schema_registry_mock",
+ "schema_registry_testcontainer",
  "serde",
  "serde_json",
  "serde_with",
@@ -2074,6 +2077,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kafka_broker_testcontainer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "testcontainers",
+ "testcontainers-modules",
+ "tokio",
+]
+
+[[package]]
 name = "kartlegging-api"
 version = "0.1.0"
 dependencies = [
@@ -2114,6 +2128,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "types",
  "utoipa-swagger-ui",
  "uuid",
 ]
@@ -2752,6 +2767,7 @@ name = "paw_key_gen_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "mockito",
  "reqwest 0.13.4",
  "serde",
  "serde-env-field",
@@ -2759,6 +2775,7 @@ dependencies = [
  "strum 0.28.0",
  "texas_client",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "types",
 ]
@@ -2786,13 +2803,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "opentelemetry",
- "prometheus",
- "tokio",
- "tower",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "paw_rust_base",
+ "serde",
+ "thiserror 2.0.18",
  "tower-http 0.7.0",
  "tracing",
  "tracing-opentelemetry",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2995,6 +3016,19 @@ name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
+
+[[package]]
+name = "postgres_testcontainer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "sqlx",
+ "testcontainers",
+ "testcontainers-modules",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "potential_utf"
@@ -3762,6 +3796,16 @@ dependencies = [
  "mockito",
  "schema_registry_converter",
  "serde_json",
+]
+
+[[package]]
+name = "schema_registry_testcontainer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "testcontainers",
+ "tokio",
 ]
 
 [[package]]

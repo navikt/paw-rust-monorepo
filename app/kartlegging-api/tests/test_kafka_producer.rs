@@ -39,6 +39,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
 
     for id in &ids {
         let message = create_dummy_startet_periode(id.periode_id);
+        println!("Sender melding: {:?}", message);
         send_messages(&producer, &serializer, PERIODE_TOPIC, message).await?;
     }
 
@@ -46,6 +47,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
 
     for id in &ids {
         let message = create_dummy_opplysninger(id.periode_id, id.opplysninger_id);
+        println!("Sender melding: {:?}", message);
         send_messages(&producer, &serializer, OPPLYSNINGER_TOPIC, message).await?;
     }
 
@@ -54,6 +56,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     for id in &ids {
         let message =
             create_dummy_profilering(id.periode_id, id.opplysninger_id, id.profilering_id);
+        println!("Sender melding: {:?}", message);
         send_messages(&producer, &serializer, PROFILERING_TOPIC, message).await?;
     }
 
@@ -62,6 +65,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     for id in &ids {
         let message =
             create_dummy_egenvurdering(id.periode_id, id.profilering_id, id.egenvurdering_id);
+        println!("Sender melding: {:?}", message);
         send_messages(&producer, &serializer, EGENVURDERING_TOPIC, message).await?;
     }
 
@@ -69,6 +73,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
 
     for id in &ids {
         let message = create_dummy_bekreftelse(id.periode_id, id.bekreftelse_id);
+        println!("Sender melding: {:?}", message);
         send_messages(&producer, &serializer, BEKREFTELSE_TOPIC, message).await?;
     }
 
@@ -76,6 +81,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
 
     for id in &ids {
         let message = create_dummy_paavegneav_start(id.periode_id);
+        println!("Sender melding: {:?}", message);
         send_messages(
             &producer,
             &serializer,

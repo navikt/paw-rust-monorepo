@@ -31,12 +31,19 @@ pub struct IdentitetResponse {
 }
 
 impl IdentitetResponse {
-    fn har_konflikter(&self) -> bool {
+    pub fn filter_by_type(&self, identitet_type: IdentitetType) -> Vec<Identitet> {
+        self.identiteter
+            .iter()
+            .map(|i| i.clone())
+            .filter(|i| i.identitet_type == identitet_type)
+            .collect::<Vec<Identitet>>()
+    }
+    pub fn har_konflikter(&self) -> bool {
         self.konflikter.is_some() && self.konflikter.as_ref().unwrap().len() > 0
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Default, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Identitet {
     pub identitet: String,
@@ -45,7 +52,7 @@ pub struct Identitet {
     pub gjeldende: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = enum_type_not_found,

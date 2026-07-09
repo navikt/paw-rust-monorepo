@@ -1,4 +1,4 @@
-use crate::model::dto::kontor::KontorType;
+use crate::model::dto::kontortilknytning::KontorType;
 use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;

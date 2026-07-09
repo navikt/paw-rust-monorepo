@@ -85,3 +85,88 @@ impl PawKeyGenClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::client::PawKeyGenClient;
+    use crate::model::IdentitetType;
+    use mockito::Server;
+    use serde_env_field::EnvField;
+    use serde_json::json;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use texas_client::config::TokenClientConfig;
+    use texas_client::token_client::create_token_client;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_finn_identiteter() {
+        let mut mockito_server = Server::new_async().await;
+        let _idenititeter_endpoint_mock = mockito_server
+            .mock("POST", "/api/v2/identiteter")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "recordKey": -1337,
+                    "arbeidssoekerId": 1337,
+                    "identiteter": [
+                        {
+                            "identitet": "01017012345",
+                            "type": "FOLKEREGISTERIDENT",
+                            "gjeldende": true
+                        }
+                    ]
+                })
+                .to_string(),
+            )
+            .create_async()
+            .await;
+        let _token_endpoint_mock = mockito_server
+            .mock("POST", "/api/v1/token")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "access_token": "test-token",
+                    "expires_in": 1337,
+                    "token_type": "Bearer"
+                })
+                .to_string(),
+            )
+            .create_async()
+            .await;
+
+        let token_url = format!("{}/api/v1/token", mockito_server.url());
+
+        let http_client = reqwest::Client::new();
+        let token_client_config = TokenClientConfig {
+            token_endpoint: EnvField::from_str(token_url.as_str()).unwrap(),
+            token_exchange_endpoint: None,
+        };
+        let token_client = Arc::new(create_token_client(
+            token_client_config,
+            http_client.clone(),
+        ));
+        let client = PawKeyGenClient::new(
+            mockito_server.url(),
+            "test-scope".to_string(),
+            http_client.clone(),
+            token_client,
+        );
+
+        let response = client
+            .finn_identiteter("01017012345".to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(response.record_key, Some(-1337));
+        assert_eq!(response.arbeidssoeker_id, Some(1337));
+        assert_eq!(response.identiteter.len(), 1);
+        let identitet = response.identiteter.get(0).unwrap();
+        assert_eq!(identitet.identitet, "01017012345");
+        assert_eq!(identitet.identitet_type, IdentitetType::Folkeregisterident);
+        assert_eq!(identitet.gjeldende, true);
+        assert!(response.pdl_identiteter.is_none());
+        assert!(response.konflikter.is_none());
+    }
+}

@@ -11,6 +11,7 @@ name = "kartlegging_api"
 path = "src/lib.rs"
 
 [dependencies]
+types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }

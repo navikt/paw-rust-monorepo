@@ -2,17 +2,17 @@ use crate::error::OtelError;
 use crate::otel_json_format_layer;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
-use opentelemetry::{KeyValue, global};
+use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::{Protocol, SpanExporter, WithExportConfig};
-use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::Resource;
 use paw_rust_base::env::{get_env, nais_namespace, nais_otel_service_name};
 use std::time::Duration;
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>> {
     let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
@@ -61,8 +61,8 @@ pub fn setup_nais_otel() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
-                .add_directive("sqlx::query=info".parse().unwrap()),
+                .add_directive(tracing::Level::DEBUG.into())
+                .add_directive("sqlx::query=info".parse()?),
         )
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)

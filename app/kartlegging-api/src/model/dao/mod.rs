@@ -1,3 +1,9 @@
-pub(crate) mod arbeidssoekere;
-pub(crate) mod kontortilknytninger;
-pub(crate) mod ledighetsperioder;
+pub(crate) mod arbeidssoeker;
+pub(crate) mod bekreftelse;
+pub(crate) mod bekreftelse_paavegneav;
+pub(crate) mod egenvurdering;
+pub(crate) mod kartlegging;
+pub(crate) mod kontortilknytning;
+pub(crate) mod opplysninger;
+pub(crate) mod periode;
+pub(crate) mod profilering;
