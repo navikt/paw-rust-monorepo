@@ -1,8 +1,7 @@
 pub(crate) mod docs;
 pub(crate) mod kartlegging;
+pub(crate) mod statistics;
 
-use crate::api::docs::api_docs_routes;
-use crate::api::kartlegging::kartlegging_routes;
 use axum::Router;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_oauth2_resource_server::state::AuthState;
@@ -15,8 +14,12 @@ pub fn build_router(
     auth_state: Arc<AuthState>,
 ) -> Router {
     let health_routes = axum_health::routes(app_state);
-    let docs_routes = api_docs_routes();
-    let kartlegging_routes = kartlegging_routes(pg_pool, auth_state);
+    let docs_routes = docs::routes();
+    let kartlegging_routes = kartlegging::routes(pg_pool.clone(), auth_state);
+    let statistics_routes = statistics::routes(pg_pool.clone());
 
-    health_routes.merge(docs_routes).merge(kartlegging_routes)
+    health_routes
+        .merge(docs_routes)
+        .merge(kartlegging_routes)
+        .merge(statistics_routes)
 }

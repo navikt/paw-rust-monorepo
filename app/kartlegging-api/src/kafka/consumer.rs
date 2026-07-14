@@ -1,3 +1,4 @@
+use crate::logic::metrics::kafka_metrics::register_message_metrics;
 use crate::logic::process::message_process::KartleggingMessageProcessor;
 use health_and_monitoring::simple_app_state::AppState;
 use paw_rdkafka::kafka_config::KafkaConfig;
@@ -35,8 +36,9 @@ pub fn kafka_consumer_task(
 ) -> JoinHandle<anyhow::Result<()>> {
     tokio::spawn(async move {
         loop {
-            let msg = consumer.recv().await?.detach();
-            hwm_process_message(hwm_version, pg_pool.clone(), &msg, &processor)
+            let message = consumer.recv().await?.detach();
+            register_message_metrics(&message);
+            hwm_process_message(hwm_version, pg_pool.clone(), &message, &processor)
                 .await
                 .map_err(|e| ServerError::InternalProcessTerminated {
                     process: "KafkaConsumer".to_string(),

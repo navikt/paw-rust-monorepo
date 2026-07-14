@@ -5,7 +5,7 @@
     },
     "response": {
         "status": 200,
-        "body": "{\"recordKey\": {{math (jsonPath request.body '$.identitet') '*' -1}}, \"arbeidssoekerId\": {{math (jsonPath request.body '$.identitet') '+' 0}}, \"identiteter\": [{\"identitet\": \"{{jsonPath request.body '$.identitet'}}\", \"type\": \"FOLKEREGISTERIDENT\", \"gjeldende\": true}]}",
+        "body": "{\"recordKey\": {{math (jsonPath request.body '$.identitet') '*' -1}}, \"arbeidssoekerId\": {{math (jsonPath request.body '$.identitet') '+' 0}}, \"identiteter\": [{\"identitet\": \"{{jsonPath request.body '$.identitet'}}\", \"type\": \"FOLKEREGISTERIDENT\", \"gjeldende\": true}, {\"identitet\": \"{{math (jsonPath request.body '$.identitet') '*' 100}}\", \"type\": \"AKTORID\", \"gjeldende\": true}]}",
         "headers": {
             "Content-Type": "application/json"
         }

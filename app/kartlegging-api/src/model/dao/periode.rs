@@ -26,12 +26,12 @@ impl PeriodeRow {
     }
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, id))]
 pub async fn count_by_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
-    periode_id: &'a Uuid,
+    id: &'a Uuid,
 ) -> anyhow::Result<i64> {
-    tracing::debug!("Count periode by id");
+    tracing::debug!("Count perioder by id");
     let count = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -39,13 +39,13 @@ pub async fn count_by_id<'a>(
         WHERE id = $1
         "#,
     )
-    .bind(periode_id)
+    .bind(id)
     .fetch_one(&mut **tx)
     .await?;
     Ok(count)
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a PeriodeRow,
@@ -70,7 +70,7 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a PeriodeRow,

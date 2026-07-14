@@ -13,7 +13,7 @@ pub async fn lagre_hendelse<'a>(
     let rows = bekreftelse_paavegneav::select_by_periode_id(tx, &periode_id).await?;
 
     if rows.len() > 1 {
-        panic!("Fant flere rader for samme periode ({})", rows.len());
+        panic!("Fant flere rader for periode-id ({})", rows.len());
     } else if rows.len() == 1 {
         let row = rows.first().unwrap();
         return match handling {

@@ -1,8 +1,8 @@
-use crate::model::dao::kartlegging;
-use crate::model::dao::kartlegging::KartleggingRow;
+use crate::model::dao::ledighetsperiode;
+use crate::model::dao::ledighetsperiode::LedighetsperiodeRow;
 use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
 use crate::model::dto::egenvurdering::Egenvurdering;
-use crate::model::dto::kartlegging::Kartlegging;
+use crate::model::dto::ledighetsperiode::Ledighetsperiode;
 use crate::model::dto::opplysninger::{Jobbsituasjon, Opplysninger};
 use crate::model::dto::periode::Periode;
 use crate::model::dto::profilering::{Profilering, ProfilertTil};
@@ -10,14 +10,14 @@ use crate::model::dto::request::PagingRequest;
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, parent_id, paging))]
 pub async fn finn_for_parent_id(
     tx: &mut Transaction<'_, Postgres>,
     parent_id: i64,
     paging: PagingRequest,
-) -> anyhow::Result<Vec<Kartlegging>> {
+) -> anyhow::Result<Vec<Ledighetsperiode>> {
     tracing::info!("Henter kartlegging for parent id");
-    let rows = kartlegging::select_by_parent_id(
+    let rows = ledighetsperiode::select_by_parent_id(
         tx,
         parent_id,
         paging.offset(),
@@ -34,7 +34,7 @@ pub async fn finn_for_parent_id(
     Ok(kartlegginger)
 }
 
-fn map_row(row: &KartleggingRow) -> anyhow::Result<Kartlegging> {
+fn map_row(row: &LedighetsperiodeRow) -> anyhow::Result<Ledighetsperiode> {
     let periode = Some(Periode {
         id: row.periode_id,
         startet: row.periode_startet,
@@ -109,7 +109,7 @@ fn map_row(row: &KartleggingRow) -> anyhow::Result<Kartlegging> {
     }
     let bekreftelse_paa_vegne_av = bekreftelse_paa_vegne_av; // Fjern mut ref
 
-    Ok(Kartlegging {
+    Ok(Ledighetsperiode {
         ledig_siden: row.arbeidsledig_siden,
         periode,
         opplysninger,

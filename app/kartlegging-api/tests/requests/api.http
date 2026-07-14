@@ -30,3 +30,7 @@ Authorization: Bearer {{$auth.token("azure")}}
         "sortOrder": "DESC"
     }
 }
+
+### GET /api/v1/statistics
+GET {{baseUrl}}/api/v1/statistics
+Accept: application/json

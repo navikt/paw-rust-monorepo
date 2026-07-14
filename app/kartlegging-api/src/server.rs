@@ -22,9 +22,9 @@ pub async fn shutdown_signal_task() -> anyhow::Result<String> {
 
 pub fn async_task_handler(
     name: &str,
-    res: Result<anyhow::Result<()>, JoinError>,
+    result: Result<anyhow::Result<()>, JoinError>,
 ) -> anyhow::Result<()> {
-    match res {
+    match result {
         Ok(Ok(())) => {
             tracing::info!("{} avsluttet normalt", name);
             Ok(())
@@ -38,4 +38,9 @@ pub fn async_task_handler(
             Err(e.into())
         }
     }
+}
+
+pub fn shutdown_handler(signal: anyhow::Result<String>) -> anyhow::Result<()> {
+    tracing::info!("Mottok shutdown-signal: {}", signal?);
+    Ok(())
 }

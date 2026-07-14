@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use uuid::Uuid;
 
-pub const BEKREFTELSE_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-v1";
+pub const PAW_BEKREFTELSE_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-v1";
 
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -40,7 +40,7 @@ mod tests {
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
         let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy(BEKREFTELSE_TOPIC.to_string(), false);
+            SubjectNameStrategy::TopicNameStrategy(PAW_BEKREFTELSE_TOPIC.to_string(), false);
 
         let source_avro = create_dummy_bekreftelse();
 

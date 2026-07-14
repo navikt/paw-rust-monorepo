@@ -44,7 +44,7 @@ pub async fn texas_auth_handler(
     let start = std::time::Instant::now();
     let path = request.uri().path().to_string();
     tracing::event!(
-        tracing::Level::INFO,
+        tracing::Level::DEBUG,
         path = path,
         elapsed = 0i64,
         "Kjører OAuth2-middleware"
@@ -154,7 +154,7 @@ pub async fn texas_auth_handler(
 
         let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             path = path,
             elapsed = elapsed,
             "Fullførte OAuth2-middleware"
@@ -164,7 +164,7 @@ pub async fn texas_auth_handler(
     } else if was_success && !was_active_token {
         let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             path = path,
             elapsed = elapsed,
             "Fullførte OAuth2-middleware med invalid-token-error"
@@ -173,7 +173,7 @@ pub async fn texas_auth_handler(
     } else {
         let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             path = path,
             elapsed = elapsed,
             "Fullførte OAuth2-middleware med token-introspection-error"

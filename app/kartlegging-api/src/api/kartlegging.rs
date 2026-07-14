@@ -1,7 +1,6 @@
 use crate::logic::query;
-use crate::model::dto::request::{PagingRequest, QueryRequest};
-use crate::model::dto::response::{KartleggingResponse, PagingResponse};
-use crate::model::sort::SortOrder;
+use crate::model::dto::request::QueryRequest;
+use crate::model::dto::response::KartleggingResponse;
 use crate::model::state::RouterState;
 use axum::extract::State;
 use axum::routing::post;
@@ -15,7 +14,7 @@ use std::sync::Arc;
 
 pub const API_KARTLEGGING_PATH: &str = "/api/v1/kartlegging";
 
-pub(crate) fn kartlegging_routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
+pub(crate) fn routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
     Router::new()
         .route(API_KARTLEGGING_PATH, post(finn_kartlegging))
         .route_layer(otel_middleware())
@@ -24,7 +23,7 @@ pub(crate) fn kartlegging_routes(pg_pool: PgPool, auth_state: Arc<AuthState>) ->
 }
 
 #[tracing::instrument(skip(state, request), fields(arbeidssoekere_count))]
-pub(crate) async fn finn_kartlegging(
+async fn finn_kartlegging(
     State(state): State<RouterState>,
     request: String,
 ) -> Result<Json<KartleggingResponse>, ProblemDetails> {

@@ -9,7 +9,7 @@ use serde::Serialize;
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Kartlegging {
+pub struct Ledighetsperiode {
     pub ledig_siden: Option<DateTime<Utc>>,
     pub periode: Option<Periode>,
     pub opplysninger: Option<Opplysninger>,

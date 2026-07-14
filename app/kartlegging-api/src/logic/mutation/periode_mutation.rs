@@ -14,7 +14,9 @@ pub async fn lagre_hendelse<'a>(
         hendelse.avsluttet.as_ref().map(|m| m.tidspunkt),
     );
     let count = periode::count_by_id(tx, &hendelse.id).await?;
-    let rows_affected = if count > 0 {
+    let rows_affected = if count > 1 {
+        panic!("Fant flere rader for id ({})", count);
+    } else if count == 1 {
         periode::update(tx, &row).await?
     } else {
         periode::insert(tx, &row).await?

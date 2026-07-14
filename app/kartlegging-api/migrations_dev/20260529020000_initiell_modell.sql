@@ -1,8 +1,9 @@
 CREATE TABLE arbeidssoekere
 (
     id               BIGSERIAL PRIMARY KEY,
+    aktor_id         VARCHAR(20)  NOT NULL,
     arbeidssoeker_id BIGINT       NOT NULL,
-    identitetsnummer CHAR(11)     NOT NULL,
+    identitetsnummer VARCHAR(20)  NOT NULL,
     fornavn          VARCHAR(255) NOT NULL,
     mellomnavn       VARCHAR(255),
     etternavn        VARCHAR(255) NOT NULL
@@ -10,18 +11,16 @@ CREATE TABLE arbeidssoekere
 
 CREATE TABLE kartlegginger
 (
-    id                  BIGSERIAL PRIMARY KEY,
+    periode_id          UUID PRIMARY KEY,
     parent_id           BIGINT       NOT NULL,
-    periode_id          UUID         NOT NULL,
     arbeidssoeker_siden TIMESTAMP(6) NOT NULL,
-    arbeidsledig_siden  TIMESTAMP(6),
-    FOREIGN KEY (parent_id) REFERENCES arbeidssoekere (id) ON DELETE CASCADE
+    arbeidsledig_siden  TIMESTAMP(6)
 );
 
 CREATE TABLE perioder
 (
     id                  UUID PRIMARY KEY,
-    identitetsnummer    CHAR(11)     NOT NULL,
+    identitetsnummer    VARCHAR(20)  NOT NULL,
     startet_tidspunkt   TIMESTAMP(6) NOT NULL,
     avsluttet_tidspunkt TIMESTAMP(6)
 );
@@ -65,7 +64,7 @@ CREATE TABLE bekreftelser
     tidspunkt            TIMESTAMP(6) NOT NULL
 );
 
-CREATE TABLE bekreftelse_paa_vegne_av
+CREATE TABLE bekreftelse_paavegneav
 (
     periode_id             UUID PRIMARY KEY,
     bekreftelsesloesninger VARCHAR[] NOT NULL DEFAULT '{}'
@@ -73,10 +72,11 @@ CREATE TABLE bekreftelse_paa_vegne_av
 
 CREATE TABLE kontortilknytninger
 (
-    id          BIGSERIAL PRIMARY KEY,
-    parent_id   BIGINT       NOT NULL,
-    kontor_id   VARCHAR(30)  NOT NULL,
-    kontor_navn VARCHAR(255) NOT NULL,
-    kontor_type VARCHAR(30)  NOT NULL,
-    FOREIGN KEY (parent_id) REFERENCES arbeidssoekere (id) ON DELETE CASCADE
+    id               UUID PRIMARY KEY,
+    aktor_id         VARCHAR(20)  NOT NULL,
+    identitetsnummer VARCHAR(20)  NOT NULL,
+    kontor_id        VARCHAR(30)  NOT NULL,
+    kontor_navn      VARCHAR(255) NOT NULL,
+    kontor_type      VARCHAR(30)  NOT NULL,
+    tidspunkt        TIMESTAMP(6) NOT NULL
 );

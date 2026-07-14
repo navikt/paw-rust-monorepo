@@ -18,7 +18,9 @@ pub async fn lagre_hendelse<'a>(
         hendelse.svar.sendt_inn_av.tidspunkt,
     );
     let count = bekreftelse::count_by_id(tx, &hendelse.id).await?;
-    let rows_affected = if count > 0 {
+    let rows_affected = if count > 1 {
+        panic!("Fant flere rader for id ({})", count);
+    } else if count == 1 {
         bekreftelse::update(tx, &row).await?
     } else {
         bekreftelse::insert(tx, &row).await?

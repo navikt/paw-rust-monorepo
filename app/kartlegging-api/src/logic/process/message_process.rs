@@ -6,13 +6,13 @@ use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcess
 use crate::logic::process::opplysninger_process::OpplysningerProcessor;
 use crate::logic::process::periode_process::PeriodeProcessor;
 use crate::logic::process::profilering_process::ProfileringProcessor;
-use dab_oppfolgingperioder::oppfolgingsperiode::SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
-use eksterne_hendelser::bekreftelse::bekreftelse::BEKREFTELSE_TOPIC;
-use eksterne_hendelser::bekreftelse::paa_vegne_av::BEKREFTELSE_PAAVEGNEAV_TOPIC;
-use eksterne_hendelser::egenvurdering::EGENVURDERING_TOPIC;
-use eksterne_hendelser::opplysninger::OPPLYSNINGER_TOPIC;
-use eksterne_hendelser::periode::PERIODE_TOPIC;
-use eksterne_hendelser::profilering::PROFILERING_TOPIC;
+use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
+use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
+use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
+use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
+use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
+use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
+use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
 use nais_schema_registry::config::create_schema_registry_settings;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
@@ -95,35 +95,35 @@ impl MessageProcessor for KartleggingMessageProcessor {
                         offset: message.offset(),
                     }
                     .into()),
-                    (topic, Some(payload)) if topic == PERIODE_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_PERIODE_TOPIC => {
                         self.periode_processor.process_payload(tx, payload).await
                     }
-                    (topic, Some(payload)) if topic == OPPLYSNINGER_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_OPPLYSNINGER_TOPIC => {
                         self.opplysninger_processor
                             .process_payload(tx, payload)
                             .await
                     }
-                    (topic, Some(payload)) if topic == PROFILERING_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_PROFILERING_TOPIC => {
                         self.profilering_processor
                             .process_payload(tx, payload)
                             .await
                     }
-                    (topic, Some(payload)) if topic == EGENVURDERING_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_EGENVURDERING_TOPIC => {
                         self.egenvurdering_processor
                             .process_payload(tx, payload)
                             .await
                     }
-                    (topic, Some(payload)) if topic == BEKREFTELSE_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_BEKREFTELSE_TOPIC => {
                         self.bekreftelse_processor
                             .process_payload(tx, payload)
                             .await
                     }
-                    (topic, Some(payload)) if topic == BEKREFTELSE_PAAVEGNEAV_TOPIC => {
+                    (topic, Some(payload)) if topic == PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC => {
                         self.bekreftelse_paavegneav_processor
                             .process_payload(tx, payload)
                             .await
                     }
-                    (topic, Some(payload)) if topic == SISTE_OPPFOLGINGSPERIODE_V3_TOPIC => {
+                    (topic, Some(payload)) if topic == POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC => {
                         self.oppfolgingsperiode_processor
                             .process_payload(tx, payload)
                             .await

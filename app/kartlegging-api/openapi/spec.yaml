@@ -171,6 +171,7 @@ components:
     Arbeidssoeker:
       type: object
       required:
+        - aktorId
         - arbeidssoekerId
         - identitetsnummer
         - fornavn
@@ -178,6 +179,8 @@ components:
         - ledighetsperioder
         - kontortilknytninger
       properties:
+        aktorId:
+          type: string
         arbeidssoekerId:
           type: integer
           format: int64
@@ -200,6 +203,7 @@ components:
           items:
             $ref: '#/components/schemas/Kontortilknytning'
       example:
+        aktorId: "101701234500"
         arbeidssoekerId: 1337
         identitetsnummer: "01017012345"
         fornavn: "Kari"

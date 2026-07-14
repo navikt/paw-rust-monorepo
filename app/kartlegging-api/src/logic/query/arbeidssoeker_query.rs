@@ -1,4 +1,4 @@
-use crate::logic::query::{kartlegging_query, kontortilknytning_query};
+use crate::logic::query::{kontortilknytning_query, ledighetsperioder_query};
 use crate::model::dao::arbeidssoeker;
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
@@ -51,7 +51,7 @@ pub async fn finn_for_identitetsnummer_query_request(
     })
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, request))]
 pub async fn finn_for_kontortilknytning_query_request(
     tx: &mut Transaction<'_, Postgres>,
     request: &TilknyttetKontorQueryRequest,
@@ -117,7 +117,6 @@ pub async fn finn_for_kontortilknytning_query_request(
     })
 }
 
-#[tracing::instrument(skip(tx))]
 async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
     paging: &PagingRequest,
@@ -125,16 +124,18 @@ async fn map_rows(
 ) -> anyhow::Result<Vec<Arbeidssoeker>> {
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
-        let kartlegginger =
-            kartlegging_query::finn_for_parent_id(tx, row.id, paging.clone()).await?;
-        let kontortilknytninger = kontortilknytning_query::finn_for_parent_id(tx, row.id).await?;
+        let ledighetsperioder =
+            ledighetsperioder_query::finn_for_parent_id(tx, row.id, paging.clone()).await?;
+        let kontortilknytninger =
+            kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
         arbeidssoekere.push(Arbeidssoeker {
-            arbeidssoeker_id: row.arbeidssoeker_id,
+            aktor_id: row.aktor_id.clone(),
+            arbeidssoeker_id: row.arbeidssoeker_id.clone(),
             identitetsnummer: row.identitetsnummer.clone(),
             fornavn: row.fornavn.clone(),
             mellomnavn: row.mellomnavn.clone(),
             etternavn: row.etternavn.clone(),
-            ledighetsperioder: kartlegginger,
+            ledighetsperioder,
             kontortilknytninger,
         })
     }

@@ -21,32 +21,33 @@ use eksterne_hendelser::vo::utdanning::Utdanning;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub fn create_dummy_startet_periode(periode_id: Uuid) -> Periode {
-    let identitetsnummer = "01017012345";
+pub fn create_dummy_startet_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
     Periode {
         id: periode_id,
         identitetsnummer: identitetsnummer.to_string(),
-        startet: create_dummy_metadata(identitetsnummer.to_string()),
+        startet: create_dummy_metadata(identitetsnummer),
         avsluttet: None,
     }
 }
 
-pub fn create_dummy_avsluttet_periode(periode_id: Uuid) -> Periode {
-    let identitetsnummer = "01017012345";
+pub fn create_dummy_avsluttet_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
     Periode {
         id: periode_id,
-        identitetsnummer: "01017012345".to_string(),
-        startet: create_dummy_metadata(identitetsnummer.to_string()),
-        avsluttet: Some(create_dummy_metadata(identitetsnummer.to_string())),
+        identitetsnummer: identitetsnummer.to_string(),
+        startet: create_dummy_metadata(identitetsnummer),
+        avsluttet: Some(create_dummy_metadata(identitetsnummer)),
     }
 }
 
-pub fn create_dummy_opplysninger(periode_id: Uuid, opplysninger_id: Uuid) -> Opplysninger {
-    let identitetsnummer = "01017012345";
+pub fn create_dummy_opplysninger(
+    identitetsnummer: &str,
+    periode_id: Uuid,
+    opplysninger_id: Uuid,
+) -> Opplysninger {
     Opplysninger {
         id: opplysninger_id,
         periode_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer.to_string()),
+        sendt_inn_av: create_dummy_metadata(identitetsnummer),
         utdanning: Some(Utdanning {
             nus: "1234".to_string(),
             bestaatt: Some(JaNeiVetIkke::Ja),
@@ -71,16 +72,16 @@ pub fn create_dummy_opplysninger(periode_id: Uuid, opplysninger_id: Uuid) -> Opp
 }
 
 pub fn create_dummy_profilering(
+    identitetsnummer: &str,
     periode_id: Uuid,
     opplysninger_id: Uuid,
     profilering_id: Uuid,
 ) -> Profilering {
-    let identitetsnummer = "01017012345";
     Profilering {
         id: profilering_id,
         periode_id,
         opplysninger_om_arbeidssoker_id: opplysninger_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer.to_string()),
+        sendt_inn_av: create_dummy_metadata(identitetsnummer),
         profilert_til: ProfilertTil::AntattGodeMuligheter,
         jobbet_sammenhengende_seks_av_tolv_siste_mnd: false,
         alder: Some(42),
@@ -88,34 +89,37 @@ pub fn create_dummy_profilering(
 }
 
 pub fn create_dummy_egenvurdering(
+    identitetsnummer: &str,
     periode_id: Uuid,
     profilering_id: Uuid,
     egenvurdering_id: Uuid,
 ) -> Egenvurdering {
-    let identitetsnummer = "01017012345";
     Egenvurdering {
         id: egenvurdering_id,
         periode_id,
         profilering_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer.to_string()),
+        sendt_inn_av: create_dummy_metadata(identitetsnummer),
         profilert_til: ProfilertTil::AntattGodeMuligheter,
         egenvurdering: ProfilertTil::OppgittHindringer,
     }
 }
 
-pub fn create_dummy_bekreftelse(periode_id: Uuid, bekreftelse_id: Uuid) -> Bekreftelse {
+pub fn create_dummy_bekreftelse(
+    identitetsnummer: &str,
+    periode_id: Uuid,
+    bekreftelse_id: Uuid,
+) -> Bekreftelse {
     Bekreftelse {
         id: bekreftelse_id,
         periode_id,
         bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
-        svar: create_dummy_svar(),
+        svar: create_dummy_svar(identitetsnummer),
     }
 }
 
-pub fn create_dummy_svar() -> Svar {
-    let identitetsnummer = "01017012345";
+pub fn create_dummy_svar(identitetsnummer: &str) -> Svar {
     Svar {
-        sendt_inn_av: create_dummy_metadata(identitetsnummer.to_string()),
+        sendt_inn_av: create_dummy_metadata(identitetsnummer),
         gjelder_fra: datetime_rfc3339("2026-06-16T12:00:00Z"),
         gjelder_til: datetime_rfc3339("2026-06-30T12:00:00Z"),
         har_jobbet_i_denne_perioden: false,
@@ -142,12 +146,12 @@ pub fn create_dummy_paavegneav_stopp(periode_id: Uuid) -> PaaVegneAv {
     }
 }
 
-pub fn create_dummy_metadata(identitetsnummer: String) -> Metadata {
+pub fn create_dummy_metadata(identitetsnummer: &str) -> Metadata {
     Metadata {
         tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
         utfoert_av: Bruker {
             bruker_type: BrukerType::Sluttbruker,
-            id: identitetsnummer,
+            id: identitetsnummer.to_string(),
             sikkerhetsnivaa: Some("tokenx:Level4".to_string()),
         },
         kilde: "test-system".to_string(),

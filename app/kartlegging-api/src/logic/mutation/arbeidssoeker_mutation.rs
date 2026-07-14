@@ -6,11 +6,11 @@ use sqlx::{Postgres, Transaction};
 
 pub async fn lagre_dto<'a>(
     tx: &mut Transaction<'_, Postgres>,
-    hendelse: &'a Arbeidssoeker,
+    dto: &'a Arbeidssoeker,
 ) -> anyhow::Result<i64> {
     let rows = arbeidssoeker::select_by_identitetsnummer(
         tx,
-        &hendelse.identitetsnummer,
+        &dto.identitetsnummer,
         0,
         10,
         &SortOrder::Descending,
@@ -18,17 +18,18 @@ pub async fn lagre_dto<'a>(
     .await?;
 
     let parent_id = if rows.len() > 1 {
-        panic!("Fant flere rader for samme arbeidssøker ({})", rows.len());
+        panic!("Fant flere rader for identitetsnummer ({})", rows.len());
     } else if rows.len() == 1 {
         let arbeidssoeker_row = rows.first().unwrap();
         arbeidssoeker_row.id
     } else {
         let arbeidssoeker_row = ArbeidssoekerRow::new(
-            hendelse.arbeidssoeker_id,
-            hendelse.identitetsnummer.clone(),
-            hendelse.fornavn.clone(),
-            hendelse.mellomnavn.clone(),
-            hendelse.etternavn.clone(),
+            dto.aktor_id.clone(),
+            dto.arbeidssoeker_id.clone(),
+            dto.identitetsnummer.clone(),
+            dto.fornavn.clone(),
+            dto.mellomnavn.clone(),
+            dto.etternavn.clone(),
         );
         arbeidssoeker::insert(tx, &arbeidssoeker_row).await?
     };

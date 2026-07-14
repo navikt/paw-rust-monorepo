@@ -26,11 +26,12 @@ impl OpplysningerRow {
     }
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, id))]
 pub async fn count_by_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     id: &'a Uuid,
 ) -> anyhow::Result<i64> {
+    tracing::debug!("Count opplysninger by id");
     let count = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -44,11 +45,12 @@ pub async fn count_by_id<'a>(
     Ok(count)
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a OpplysningerRow,
 ) -> anyhow::Result<u64> {
+    tracing::debug!("Insert opplysninger");
     let result = sqlx::query(
         r#"
         INSERT INTO opplysninger (
@@ -68,11 +70,12 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a OpplysningerRow,
 ) -> anyhow::Result<u64> {
+    tracing::debug!("Update opplysninger");
     let result = sqlx::query(
         r#"
         UPDATE opplysninger SET (

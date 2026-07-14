@@ -29,11 +29,12 @@ impl ProfileringRow {
     }
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, id))]
 pub async fn count_by_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     id: &'a Uuid,
 ) -> anyhow::Result<i64> {
+    tracing::debug!("Count profileringer by id");
     let count = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -47,11 +48,12 @@ pub async fn count_by_id<'a>(
     Ok(count)
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ProfileringRow,
 ) -> anyhow::Result<u64> {
+    tracing::debug!("Insert profilering");
     let result = sqlx::query(
         r#"
         INSERT INTO profileringer (
@@ -73,11 +75,12 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, row))]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ProfileringRow,
 ) -> anyhow::Result<u64> {
+    tracing::debug!("Update profilering");
     let result = sqlx::query(
         r#"
         UPDATE profileringer SET (

@@ -1,5 +1,5 @@
-use crate::model::dao::egenvurdering::EgenvurderingRow;
 use crate::model::dao::egenvurdering;
+use crate::model::dao::egenvurdering::EgenvurderingRow;
 use eksterne_hendelser::egenvurdering::Egenvurdering;
 use sqlx::{Postgres, Transaction};
 
@@ -16,7 +16,9 @@ pub async fn lagre_hendelse<'a>(
         hendelse.sendt_inn_av.tidspunkt,
     );
     let count = egenvurdering::count_by_id(tx, &hendelse.id).await?;
-    let rows_affected = if count > 0 {
+    let rows_affected = if count > 1 {
+        panic!("Fant flere rader for id ({})", count);
+    } else if count == 1 {
         egenvurdering::update(tx, &row).await?
     } else {
         egenvurdering::insert(tx, &row).await?

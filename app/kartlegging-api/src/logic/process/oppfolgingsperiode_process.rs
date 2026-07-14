@@ -1,3 +1,4 @@
+use crate::logic::mutation::kontortilknytning_mutation;
 use dab_oppfolgingperioder::oppfolgingsperiode::Oppfolgingsperiode;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use sqlx::{Postgres, Transaction};
@@ -19,6 +20,7 @@ impl OppfolgingsperiodeProcessor {
         })?;
 
         tracing::info!("Mottok hendelse: {:?}", &hendelse);
+        kontortilknytning_mutation::lagre_hendelse(tx, &hendelse).await?;
         Ok(())
     }
 }

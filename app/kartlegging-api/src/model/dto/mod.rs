@@ -2,7 +2,7 @@ pub mod arbeidssoeker;
 pub mod bekreftelse;
 pub mod egenvurdering;
 pub mod kontortilknytning;
-pub mod kartlegging;
+pub mod ledighetsperiode;
 pub mod opplysninger;
 pub mod periode;
 pub mod profilering;

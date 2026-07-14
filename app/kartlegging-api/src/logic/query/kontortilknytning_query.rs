@@ -3,14 +3,14 @@ use crate::model::dto::kontortilknytning::{KontorType, Kontortilknytning};
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
-#[tracing::instrument(skip(tx))]
-pub async fn finn_for_parent_id(
+#[tracing::instrument(skip(tx, aktor_id))]
+pub async fn finn_for_aktor_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
-    parent_id: i64,
+    aktor_id: &'a str,
 ) -> anyhow::Result<Vec<Kontortilknytning>> {
     tracing::info!("Henter tilknyttede kontorer for parent id");
 
-    let rows = kontortilknytning::select_by_parent_id(tx, &parent_id).await?;
+    let rows = kontortilknytning::select_by_aktor_id(tx, aktor_id).await?;
     let mut kontortilknytninger = Vec::new();
     for row in &rows {
         kontortilknytninger.push(Kontortilknytning {

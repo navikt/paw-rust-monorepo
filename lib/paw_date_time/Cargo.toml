@@ -1,0 +1,12 @@
+[package]
+name = "paw_date_time"
+version = "0.1.0"
+edition.workspace = true
+
+[features]
+nais = []
+
+[dependencies]
+toml = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }

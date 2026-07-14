@@ -34,7 +34,7 @@ fn oauth2_auth_handler_boxed(
     Box::pin(oauth2_auth_handler(state, request, next))
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(state, request, next), fields(path = %request.uri().path()))]
 pub async fn oauth2_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
@@ -43,7 +43,7 @@ pub async fn oauth2_auth_handler(
     let start = std::time::Instant::now();
     let path = request.uri().path();
     tracing::event!(
-        tracing::Level::INFO,
+        tracing::Level::DEBUG,
         path = path,
         elapsed = "0ms",
         "Kjører OAuth2-middleware"
@@ -126,7 +126,7 @@ pub async fn oauth2_auth_handler(
     if let Some(principal) = mapped_principal {
         let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
-            tracing::Level::INFO,
+            tracing::Level::DEBUG,
             path = path,
             elapsed = elapsed,
             "Fullførte OAuth2-middleware"

@@ -11,6 +11,19 @@ pub struct KartleggingResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct StatisticsResponse {
+    pub total: i64,
+    pub is_null: i64,
+    pub is_not_null: i64,
+    pub over_30_days: i64,
+    pub over_60_days: i64,
+    pub over_90_days: i64,
+    pub over_180_days: i64,
+    pub over_365_days: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PagingResponse {
     pub page: i32,
     pub page_size: i32,

@@ -739,6 +739,7 @@ dependencies = [
  "serde_json",
  "strum 0.28.0",
  "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -2103,6 +2104,7 @@ dependencies = [
  "mockito",
  "nais_schema_registry",
  "paw_app_config",
+ "paw_date_time",
  "paw_error_handling",
  "paw_key_gen_client",
  "paw_oauth2_resource_server",
@@ -2113,6 +2115,7 @@ dependencies = [
  "paw_sqlx",
  "paw_test",
  "pdl_client",
+ "prometheus",
  "rdkafka",
  "reqwest 0.13.4",
  "schema_registry_converter",
@@ -2731,6 +2734,15 @@ dependencies = [
 
 [[package]]
 name = "paw_app_config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.18",
+ "toml",
+]
+
+[[package]]
+name = "paw_date_time"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4619,6 +4631,7 @@ name = "test_data_generator"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dab_oppfolgingperioder",
  "eksterne_hendelser",
  "uuid",
 ]

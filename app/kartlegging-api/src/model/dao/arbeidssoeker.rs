@@ -5,6 +5,7 @@ use sqlx::{FromRow, Postgres, Transaction};
 #[derive(Debug, FromRow)]
 pub(crate) struct ArbeidssoekerRow {
     pub id: i64,
+    pub aktor_id: String,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
     pub fornavn: String,
@@ -14,6 +15,7 @@ pub(crate) struct ArbeidssoekerRow {
 
 impl ArbeidssoekerRow {
     pub fn new(
+        aktor_id: String,
         arbeidssoeker_id: i64,
         identitetsnummer: String,
         fornavn: String,
@@ -22,6 +24,7 @@ impl ArbeidssoekerRow {
     ) -> Self {
         Self {
             id: -1,
+            aktor_id,
             arbeidssoeker_id,
             identitetsnummer,
             fornavn,
@@ -31,7 +34,7 @@ impl ArbeidssoekerRow {
     }
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip(tx, identitetsnummer))]
 pub async fn count_by_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -63,7 +66,7 @@ pub async fn count_by_kontortilknytning(
         SELECT COUNT(*) AS count
         FROM arbeidssoekere a
         LEFT JOIN kartlegginger k on a.id = k.parent_id
-        LEFT JOIN kontortilknytninger kt on a.id = kt.parent_id
+        LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
         WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_siden NOTNULL AND k.arbeidsledig_siden > $3
         "#,
     )
@@ -85,6 +88,7 @@ pub async fn select_by_arbeidssoeker_id(
         r#"
         SELECT
             a.id,
+            a.aktor_id,
             a.arbeidssoeker_id,
             a.identitetsnummer,
             a.fornavn,
@@ -110,27 +114,13 @@ pub async fn select_by_identitetsnummer(
     sort_order: &SortOrder,
 ) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
     tracing::debug!("Select arbeidssøkere by identitetsnummer");
-    match sort_order {
-        SortOrder::Ascending => {
-            select_by_identitetsnummer_asc(tx, identitetsnummer, offset, limit).await
-        }
-        SortOrder::Descending => {
-            select_by_identitetsnummer_desc(tx, identitetsnummer, offset, limit).await
-        }
-    }
-}
-
-#[tracing::instrument(skip(tx, identitetsnummer))]
-async fn select_by_identitetsnummer_asc(
-    tx: &mut Transaction<'_, Postgres>,
-    identitetsnummer: &str,
-    offset: i32,
-    limit: i32,
-) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
-    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
+    let dir = sort_order.as_ref();
+    // language=SQL
+    let sql = format!(
         r#"
         SELECT
             a.id,
+            a.aktor_id,
             a.arbeidssoeker_id,
             a.identitetsnummer,
             a.fornavn,
@@ -139,48 +129,18 @@ async fn select_by_identitetsnummer_asc(
         FROM arbeidssoekere a
         LEFT JOIN kartlegginger k on a.id = k.parent_id
         WHERE a.identitetsnummer = $1
-        ORDER BY k.arbeidssoeker_siden
+        ORDER BY k.arbeidssoeker_siden {}
         OFFSET $2
         LIMIT $3
         "#,
-    )
-    .bind(identitetsnummer)
-    .bind(offset)
-    .bind(limit)
-    .fetch_all(&mut **tx)
-    .await?;
-    Ok(rows)
-}
-
-#[tracing::instrument(skip(tx, identitetsnummer))]
-async fn select_by_identitetsnummer_desc(
-    tx: &mut Transaction<'_, Postgres>,
-    identitetsnummer: &str,
-    offset: i32,
-    limit: i32,
-) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
-    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
-        r#"
-        SELECT
-            a.id,
-            a.arbeidssoeker_id,
-            a.identitetsnummer,
-            a.fornavn,
-            a.mellomnavn,
-            a.etternavn
-        FROM arbeidssoekere a
-        LEFT JOIN kartlegginger k on a.id = k.parent_id
-        WHERE a.identitetsnummer = $1
-        ORDER BY k.arbeidssoeker_siden DESC
-        OFFSET $2
-        LIMIT $3
-        "#,
-    )
-    .bind(identitetsnummer)
-    .bind(offset)
-    .bind(limit)
-    .fetch_all(&mut **tx)
-    .await?;
+        dir
+    );
+    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
+        .bind(identitetsnummer)
+        .bind(offset)
+        .bind(limit)
+        .fetch_all(&mut **tx)
+        .await?;
     Ok(rows)
 }
 
@@ -195,38 +155,13 @@ pub async fn select_by_kontortilknytning(
     sort_order: &SortOrder,
 ) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
     tracing::debug!("Select arbeidssøkere by kontortilknytning");
-    match sort_order {
-        SortOrder::Ascending => {
-            select_by_kontortilknytning_asc(tx, kontor_id, kontor_typer, ledig_siden, offset, limit)
-                .await
-        }
-        SortOrder::Descending => {
-            select_by_kontortilknytning_desc(
-                tx,
-                kontor_id,
-                kontor_typer,
-                ledig_siden,
-                offset,
-                limit,
-            )
-            .await
-        }
-    }
-}
-
-#[tracing::instrument(skip(tx))]
-async fn select_by_kontortilknytning_asc(
-    tx: &mut Transaction<'_, Postgres>,
-    kontor_id: &str,
-    kontor_typer: &Vec<String>,
-    ledig_siden: &NaiveDate,
-    offset: i32,
-    limit: i32,
-) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
-    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
+    let dir = sort_order.as_ref();
+    // language=SQL
+    let sql = format!(
         r#"
         SELECT
             a.id,
+            a.aktor_id,
             a.arbeidssoeker_id,
             a.identitetsnummer,
             a.fornavn,
@@ -234,79 +169,46 @@ async fn select_by_kontortilknytning_asc(
             a.etternavn
         FROM arbeidssoekere a
         LEFT JOIN kartlegginger k on a.id = k.parent_id
-        LEFT JOIN kontortilknytninger kt on a.id = kt.parent_id
+        LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
         WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_siden NOTNULL AND k.arbeidsledig_siden > $3
-        ORDER BY k.arbeidssoeker_siden
+        ORDER BY k.arbeidssoeker_siden {}
         OFFSET $4
         LIMIT $5
         "#,
-    )
-    .bind(kontor_id)
-    .bind(kontor_typer)
-    .bind(ledig_siden)
-    .bind(offset)
-    .bind(limit)
-    .fetch_all(&mut **tx)
-    .await?;
+        dir
+    );
+    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
+        .bind(kontor_id)
+        .bind(kontor_typer)
+        .bind(ledig_siden)
+        .bind(offset)
+        .bind(limit)
+        .fetch_all(&mut **tx)
+        .await?;
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx))]
-async fn select_by_kontortilknytning_desc(
+#[tracing::instrument(skip(tx, row))]
+pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
-    kontor_id: &str,
-    kontor_typer: &Vec<String>,
-    ledig_siden: &NaiveDate,
-    offset: i32,
-    limit: i32,
-) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
-    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
-        r#"
-        SELECT
-            a.id,
-            a.arbeidssoeker_id,
-            a.identitetsnummer,
-            a.fornavn,
-            a.mellomnavn,
-            a.etternavn
-        FROM arbeidssoekere a
-        LEFT JOIN kartlegginger k on a.id = k.parent_id
-        LEFT JOIN kontortilknytninger kt on a.id = kt.parent_id
-        WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_siden NOTNULL AND k.arbeidsledig_siden > $3
-        ORDER BY k.arbeidssoeker_siden DESC
-        OFFSET $4
-        LIMIT $5
-        "#,
-    )
-    .bind(kontor_id)
-    .bind(kontor_typer)
-    .bind(ledig_siden)
-    .bind(offset)
-    .bind(limit)
-    .fetch_all(&mut **tx)
-    .await?;
-    Ok(rows)
-}
-
-#[tracing::instrument(skip(tx))]
-pub async fn insert(
-    tx: &mut Transaction<'_, Postgres>,
-    row: &ArbeidssoekerRow,
+    row: &'a ArbeidssoekerRow,
 ) -> anyhow::Result<i64> {
     tracing::debug!("Insert arbeidssøker");
     let id = sqlx::query_scalar(
         r#"
         INSERT INTO arbeidssoekere (
+            aktor_id,
             arbeidssoeker_id,
             identitetsnummer,
             fornavn,
             mellomnavn,
             etternavn
-        ) VALUES ($1, $2, $3, $4, $5)
+        ) VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
         "#,
     )
-    .bind(row.arbeidssoeker_id)
+    .bind(&row.aktor_id)
+    .bind(&row.arbeidssoeker_id)
     .bind(&row.identitetsnummer)
     .bind(&row.fornavn)
     .bind(&row.mellomnavn)
@@ -316,10 +218,10 @@ pub async fn insert(
     Ok(id)
 }
 
-#[tracing::instrument(skip(tx))]
-pub async fn update(
+#[tracing::instrument(skip(tx, row))]
+pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
-    row: &ArbeidssoekerRow,
+    row: &'a ArbeidssoekerRow,
 ) -> anyhow::Result<i64> {
     tracing::debug!("Update arbeidssøker");
     let id = sqlx::query_scalar(

@@ -9,7 +9,7 @@ use utoipa_swagger_ui::{Config, SwaggerUi};
 static SPEC_YAML: &str = include_str!("../../openapi/spec.yaml");
 static SPEC_JSON: OnceLock<String> = OnceLock::new();
 
-pub(crate) fn api_docs_routes() -> Router {
+pub(crate) fn routes() -> Router {
     let docs_json_routes = Router::new().route("/api/docs.json", get(api_docs_json));
     let docs_yaml_routes = Router::new().route("/api/docs.yaml", get(api_docs_yaml));
     let swagger_routes =
@@ -48,8 +48,8 @@ mod tests {
     use crate::model::dto::arbeidssoeker::Arbeidssoeker;
     use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
     use crate::model::dto::egenvurdering::Egenvurdering;
-    use crate::model::dto::kartlegging::Kartlegging;
     use crate::model::dto::kontortilknytning::{KontorType, Kontortilknytning};
+    use crate::model::dto::ledighetsperiode::Ledighetsperiode;
     use crate::model::dto::opplysninger::{Jobbsituasjon, Opplysninger};
     use crate::model::dto::periode::Periode;
     use crate::model::dto::profilering::{Profilering, ProfilertTil};
@@ -169,12 +169,13 @@ mod tests {
     fn arbeidssoeker_konformerer() {
         let spec = spec();
         let dto = Arbeidssoeker {
+            aktor_id: "101701234500".to_string(),
             arbeidssoeker_id: 1337,
             identitetsnummer: "01017012345".to_string(),
             fornavn: "Kari".to_string(),
             mellomnavn: None,
             etternavn: "Nordmann".to_string(),
-            ledighetsperioder: vec![Kartlegging {
+            ledighetsperioder: vec![Ledighetsperiode {
                 ledig_siden: Some(
                     DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")
                         .unwrap()

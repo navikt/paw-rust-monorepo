@@ -7,7 +7,7 @@ Content-Type: application/json
     "ident": "01017012345"
 }
 
-### POST /api/v2/hentEllerOpprett
+### POST /api/v2/identiteter
 POST {{baseUrl}}/api/v2/identiteter
 Accept: application/json
 Content-Type: application/json
