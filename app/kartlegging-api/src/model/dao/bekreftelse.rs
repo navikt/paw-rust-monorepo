@@ -57,6 +57,34 @@ pub async fn count_by_id<'a>(
     Ok(count)
 }
 
+#[allow(unused)]
+#[tracing::instrument(skip(tx, id))]
+pub async fn select_by_id<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &'a Uuid,
+) -> anyhow::Result<Option<BekreftelseRow>> {
+    tracing::debug!("Select bekreftelse by id");
+    let row = sqlx::query_as::<_, BekreftelseRow>(
+        r#"
+        SELECT
+            id,
+            periode_id,
+            gjelder_fra AT TIME ZONE 'UTC' AS gjelder_fra,
+            gjelder_til AT TIME ZONE 'UTC' AS gjelder_til,
+            har_jobbet,
+            vil_fortsette,
+            bekreftelsesloesning,
+            tidspunkt   AT TIME ZONE 'UTC' AS tidspunkt
+        FROM bekreftelser
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Ok(row)
+}
+
 #[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,

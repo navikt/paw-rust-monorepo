@@ -54,6 +54,33 @@ pub async fn count_by_id<'a>(
     Ok(count)
 }
 
+#[allow(unused)]
+#[tracing::instrument(skip(tx, id))]
+pub async fn select_by_id<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &'a Uuid,
+) -> anyhow::Result<Option<KontortilknytningRow>> {
+    tracing::debug!("Select kontortilknytning by id");
+    let rows = sqlx::query_as::<_, KontortilknytningRow>(
+        r#"
+        SELECT
+            id,
+            aktor_id,
+            identitetsnummer,
+            kontor_id,
+            kontor_navn,
+            kontor_type,
+            tidspunkt  AT TIME ZONE 'UTC' AS tidspunkt
+        FROM kontortilknytninger
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Ok(rows)
+}
+
 #[tracing::instrument(skip(tx, aktor_id))]
 pub async fn select_by_aktor_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
@@ -135,6 +162,7 @@ pub async fn update<'a>(
     .bind(&row.kontor_id)
     .bind(&row.kontor_navn)
     .bind(&row.kontor_type)
+    .bind(&row.tidspunkt)
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

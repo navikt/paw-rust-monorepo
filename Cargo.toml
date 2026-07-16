@@ -35,6 +35,9 @@ members = [
     "app/kartlegging-api",
     "test/test_data_generator",
     "test/schema_registry_mock",
+    "test/token_client_stub",
+    "test/pdl_api_mock",
+    "test/kafka_key_gen_mock",
     "test/postgres_testcontainer",
     "test/kafka_broker_testcontainer",
     "test/schema_registry_testcontainer",
@@ -54,6 +57,7 @@ chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3.32"
 log = "0.4.29"
 log4rs = "1.4.0"
+env_logger = "0.11"
 opentelemetry = { version = "0.32", features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace"] }
 opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }

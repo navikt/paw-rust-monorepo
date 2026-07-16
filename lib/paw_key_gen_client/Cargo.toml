@@ -18,5 +18,6 @@ strum = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
-serde_json = { workspace = true }
 mockito = { workspace = true }
+kafka_key_gen_mock = { path = "../../test/kafka_key_gen_mock" }
+token_client_stub = { path = "../../test/token_client_stub" }

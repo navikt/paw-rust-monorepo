@@ -48,6 +48,31 @@ pub async fn count_by_id<'a>(
     Ok(count)
 }
 
+#[allow(unused)]
+#[tracing::instrument(skip(tx, id))]
+pub async fn select_by_id<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &'a Uuid,
+) -> anyhow::Result<Option<ProfileringRow>> {
+    tracing::debug!("Select profileringer by id");
+    let row = sqlx::query_as::<_, ProfileringRow>(
+        r#"
+        SELECT
+            id,
+            periode_id,
+            opplysninger_id,
+            profilert_til,
+            tidspunkt AT TIME ZONE 'UTC' AS tidspunkt
+        FROM profileringer
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    Ok(row)
+}
+
 #[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,

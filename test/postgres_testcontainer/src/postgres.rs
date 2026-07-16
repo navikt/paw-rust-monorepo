@@ -1,9 +1,5 @@
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, PgPool};
-use testcontainers::core::logs::consumer::LogConsumer;
-use testcontainers::core::logs::LogFrame;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
@@ -64,24 +60,4 @@ static CONTAINER_PORT: OnceCell<u16> = OnceCell::const_new();
 
 pub struct TestContainerGuard {
     pub pg_pool: PgPool,
-}
-
-struct PrintlnConsumer;
-
-impl PrintlnConsumer {
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-impl LogConsumer for PrintlnConsumer {
-    fn accept<'a>(&'a self, record: &'a LogFrame) -> BoxFuture<'a, ()> {
-        async move {
-            match record {
-                LogFrame::StdOut(bytes) => println!("{}", String::from_utf8_lossy(bytes)),
-                LogFrame::StdErr(bytes) => eprintln!("{}", String::from_utf8_lossy(bytes)),
-            }
-        }
-        .boxed()
-    }
 }

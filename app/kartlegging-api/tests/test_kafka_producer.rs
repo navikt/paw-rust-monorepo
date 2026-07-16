@@ -1,6 +1,7 @@
 use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
 use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
 use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
+use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
 use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
 use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
 use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
@@ -13,7 +14,7 @@ use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use serde::Serialize;
 use std::str::FromStr;
 use std::time::Duration;
-use test_data_generator::dab_oppfolgingsperiode::create_dummy_startet_oppfolgingsperiode;
+use test_data_generator::dab_oppfolgingsperiode::create_dummy_oppfolgingsperiode_startet;
 use test_data_generator::eksterne_hendelser::{
     create_dummy_bekreftelse, create_dummy_egenvurdering, create_dummy_opplysninger,
     create_dummy_paavegneav_start, create_dummy_profilering, create_dummy_startet_periode,
@@ -95,7 +96,10 @@ async fn test_send_messages() -> anyhow::Result<()> {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     for id in &ids {
-        let message = create_dummy_paavegneav_start(id.periode_id);
+        let message = create_dummy_paavegneav_start(
+            id.periode_id,
+            Bekreftelsesloesning::Arbeidssoekerregisteret,
+        );
         println!("Sender melding: {:?}", message);
         send_avro_messages(
             &producer,
@@ -109,7 +113,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     for id in &ids {
-        let message = create_dummy_startet_oppfolgingsperiode(
+        let message = create_dummy_oppfolgingsperiode_startet(
             id.oppfolgingsperiode_id,
             id.aktor_id,
             id.identitetsnummer,

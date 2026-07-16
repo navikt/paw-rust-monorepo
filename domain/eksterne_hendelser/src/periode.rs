@@ -25,10 +25,10 @@ impl Periode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::serde::{AvroDeserializer, AvroSerializer};
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
     use crate::vo::metadata::Metadata;
-    use crate::serde::{AvroDeserializer, AvroSerializer};
     use chrono::{DateTime, Utc};
     use mockito::Server;
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
@@ -46,9 +46,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_serde() {
         let mut mockito_server = Server::new_async().await;
-        let schema_registry_settings = create_schema_registry_mock(&mut mockito_server)
+        let guard = create_schema_registry_mock(&mut mockito_server)
             .await
             .unwrap();
+        let schema_registry_settings = guard.schema_registry_settings;
 
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());

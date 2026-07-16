@@ -127,10 +127,13 @@ pub fn create_dummy_svar(identitetsnummer: &str) -> Svar {
     }
 }
 
-pub fn create_dummy_paavegneav_start(periode_id: Uuid) -> PaaVegneAv {
+pub fn create_dummy_paavegneav_start(
+    periode_id: Uuid,
+    bekreftelsesloesning: Bekreftelsesloesning,
+) -> PaaVegneAv {
     PaaVegneAv {
         periode_id,
-        bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
+        bekreftelsesloesning,
         handling: Handling::Start(Start {
             interval_ms: 5,
             grace_ms: 3,
@@ -138,10 +141,13 @@ pub fn create_dummy_paavegneav_start(periode_id: Uuid) -> PaaVegneAv {
     }
 }
 
-pub fn create_dummy_paavegneav_stopp(periode_id: Uuid) -> PaaVegneAv {
+pub fn create_dummy_paavegneav_stopp(
+    periode_id: Uuid,
+    bekreftelsesloesning: Bekreftelsesloesning,
+) -> PaaVegneAv {
     PaaVegneAv {
         periode_id,
-        bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
+        bekreftelsesloesning,
         handling: Handling::Stopp(Stopp { frist_brutt: true }),
     }
 }

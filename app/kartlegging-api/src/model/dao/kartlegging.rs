@@ -73,8 +73,8 @@ pub async fn select_by_periode_id<'a>(
         SELECT
             periode_id,
             parent_id,
-            arbeidssoeker_siden,
-            arbeidsledig_siden
+            arbeidssoeker_siden AT TIME ZONE 'UTC' AS arbeidssoeker_siden,
+            arbeidsledig_siden  AT TIME ZONE 'UTC' AS arbeidsledig_siden
         FROM kartlegginger
         WHERE periode_id = $1
         "#,
@@ -110,6 +110,7 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
+#[allow(unused)]
 #[tracing::instrument(skip(tx, row))]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,

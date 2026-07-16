@@ -1,0 +1,10 @@
+[package]
+name = "pdl_api_mock"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+chrono = { workspace = true }
+env_logger = { workspace = true }
+mockito = { workspace = true }
+serde_json = { workspace = true }

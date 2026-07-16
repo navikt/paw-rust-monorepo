@@ -1,5 +1,5 @@
 use crate::pdl::hent_person_bolk::{
-    HentPersonBolkHentPersonBolk, HentPersonBolkHentPersonBolkPerson,
+    HentPersonBolkHentPersonBolkPerson,
     HentPersonBolkHentPersonBolkPersonBostedsadresse,
     HentPersonBolkHentPersonBolkPersonBostedsadresseMatrikkeladresse,
     HentPersonBolkHentPersonBolkPersonBostedsadresseUkjentBosted,
@@ -23,7 +23,6 @@ use graphql_client::GraphQLQuery;
 
 pub type Date = String;
 pub type DateTime = String;
-pub type HentPerson = HentPersonBolkHentPersonBolk;
 pub type Person = HentPersonBolkHentPersonBolkPerson;
 pub type Foedselsdato = HentPersonBolkHentPersonBolkPersonFoedselsdato;
 pub type Bostedsadresse = HentPersonBolkHentPersonBolkPersonBostedsadresse;
@@ -219,6 +218,13 @@ impl Clone for UtflyttingFraNorgeFolkeregistermetadata {
         }
     }
 }
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/pdl-schema.graphql",
+    query_path = "graphql/hentPerson.graphql"
+)]
+pub struct HentPerson;
 
 #[derive(GraphQLQuery)]
 #[graphql(

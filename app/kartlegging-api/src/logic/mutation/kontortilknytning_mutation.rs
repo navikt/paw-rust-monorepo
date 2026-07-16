@@ -28,7 +28,7 @@ async fn upsert_kontortilknytning<'a>(
         data.ident.clone(),
         data.kontor.kontor_id.clone(),
         data.kontor.kontor_navn.clone(),
-        KontorType::Arbeidsoppfolging.as_ref().to_string(),
+        KontorType::Arbeidsoppfolging.as_ref().to_string(), // Akkurat nå vil alle kontortilknytninger være av type Arbeidsoppfolging. Feltet åpner for å kunne ta imot andre typer tilknytninger i fremtiden
         data.start_tidspunkt.clone(),
     );
     let count = kontortilknytning::count_by_id(tx, &data.oppfolgingsperiode_id).await?;

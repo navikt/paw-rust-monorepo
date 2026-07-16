@@ -19,7 +19,7 @@ use paw_otel_tracing::otel_setup::setup_otel;
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::{clear_db, init_db};
-use pdl_client::pdl_query::PDLClient;
+use pdl_client::client::PDLClient;
 use reqwest::Client;
 use std::sync::Arc;
 use texas_client::token_client::create_token_client;
@@ -79,10 +79,11 @@ async fn main() -> anyhow::Result<()> {
         token_client.clone(),
     ));
 /*
+    let schema_registry_settings = create_schema_registry_settings()?;
     let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &TOPICS)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
     let message_processor =
-        KartleggingMessageProcessor::new(key_gen_client.clone(), pdl_client.clone())?;
+        KartleggingMessageProcessor::new(schema_registry_settings, key_gen_client.clone(), pdl_client.clone())?;
     let consumer_task =
         kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
 */

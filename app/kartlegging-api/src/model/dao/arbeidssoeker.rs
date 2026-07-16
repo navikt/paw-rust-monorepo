@@ -218,6 +218,7 @@ pub async fn insert<'a>(
     Ok(id)
 }
 
+#[allow(unused)]
 #[tracing::instrument(skip(tx, row))]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,

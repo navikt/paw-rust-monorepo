@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 #[derive(Debug, FromRow)]
 pub(crate) struct LedighetsperiodeRow {
+    #[allow(unused)]
     pub parent_id: i64,
     pub periode_id: Uuid,
     pub arbeidssoeker_siden: DateTime<Utc>,
@@ -27,40 +28,6 @@ pub(crate) struct LedighetsperiodeRow {
     pub bekreftelse_vil_fortsette: Option<bool>,
     pub bekreftelsesloesning: Option<String>,
     pub bekreftelse_paa_vegne_av: Vec<String>,
-}
-
-impl LedighetsperiodeRow {
-    pub fn new(
-        parent_id: i64,
-        periode_id: Uuid,
-        periode_startet: DateTime<Utc>,
-        periode_avsluttet: Option<DateTime<Utc>>,
-    ) -> Self {
-        Self {
-            parent_id,
-            periode_id,
-            arbeidssoeker_siden: periode_startet,
-            arbeidsledig_siden: None,
-            periode_startet,
-            periode_avsluttet,
-            opplysninger_id: None,
-            opplysninger_jobbsituasjon: Vec::new(),
-            opplysninger_tidspunkt: None,
-            profilering_id: None,
-            profilert_til: None,
-            profilering_tidspunkt: None,
-            egenvurdering_id: None,
-            egenvurdert_til: None,
-            egenvurdering_tidspunkt: None,
-            bekreftelse_id: None,
-            bekreftelse_gjelder_fra: None,
-            bekreftelse_gjelder_til: None,
-            bekreftelse_har_jobbet: None,
-            bekreftelse_vil_fortsette: None,
-            bekreftelsesloesning: None,
-            bekreftelse_paa_vegne_av: Vec::new(),
-        }
-    }
 }
 
 #[tracing::instrument(skip(tx, parent_id))]

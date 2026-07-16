@@ -66,9 +66,9 @@ pub async fn update<'a>(
     tracing::debug!("Update bekreftelse_paavegneav");
     let result = sqlx::query(
         r#"
-        UPDATE bekreftelse_paavegneav SET (
-            bekreftelsesloesninger
-        ) = ($2, $3, $4, $5, $6, $7, $8) WHERE periode_id = $1
+        UPDATE bekreftelse_paavegneav SET
+            bekreftelsesloesninger = $2
+        WHERE periode_id = $1
         "#,
     )
     .bind(&row.periode_id)
