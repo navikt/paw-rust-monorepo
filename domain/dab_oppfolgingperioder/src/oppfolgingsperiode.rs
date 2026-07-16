@@ -65,7 +65,7 @@ mod tests {
         let source_json = r#"
         {
             "sisteEndringsType": "OPPFOLGING_STARTET",
-            "oppfolgingsperiodeId": "366004e8-9bfc-47bb-8469-7818bc21b6df",
+            "oppfolgingsperiodeUuid": "366004e8-9bfc-47bb-8469-7818bc21b6df",
             "aktorId": "12345",
             "ident": "01017012345",
             "kontor": {
@@ -111,7 +111,7 @@ mod tests {
         let source_json = r#"
         {
             "sisteEndringsType": "ARBEIDSOPPFOLGINGSKONTOR_ENDRET",
-            "oppfolgingsperiodeId": "366004e8-9bfc-47bb-8469-7818bc21b6df",
+            "oppfolgingsperiodeUuid": "366004e8-9bfc-47bb-8469-7818bc21b6df",
             "aktorId": "12345",
             "ident": "01017012345",
             "kontor": {
@@ -157,7 +157,7 @@ mod tests {
         let source_json = r#"
         {
             "sisteEndringsType": "OPPFOLGING_AVSLUTTET",
-            "oppfolgingsperiodeId": "366004e8-9bfc-47bb-8469-7818bc21b6df",
+            "oppfolgingsperiodeUuid": "366004e8-9bfc-47bb-8469-7818bc21b6df",
             "aktorId": "12345",
             "ident": "01017012345",
             "startTidspunkt": "2026-07-01T13:37:00Z",
