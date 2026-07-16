@@ -294,9 +294,8 @@ mod tests {
         .await
     }
 
-    #[should_panic]
     #[tokio::test]
-    async fn test_process_message_ukjent_topic() {
+    async fn test_process_illegal_message() {
         let context = init().await;
 
         let message = OwnedMessage::new(
@@ -309,14 +308,13 @@ mod tests {
             None,
         );
 
-        let mut tx = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx, &message).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
+        let result = tokio::task::spawn(async move {
+            let mut tx = context.start_tx().await;
+            context.processor.process_message(&mut tx, &message).await
+        })
+        .await;
 
-        assert!(result.is_err_and(|e| {
-            e.to_string()
-                .contains("Mottok melding på ukjent topic: dummy-topic")
-        }));
+        assert!(result.is_err(), "Forventet panic for ukjent topic");
     }
 
     #[tokio::test]
@@ -331,24 +329,33 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode_1.clone())
             .await;
 
-        let mut tx = context.start_tx().await;
-        let result_1 = context.processor.process_message(&mut tx, &message_1).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
+        let mut tx_1_1 = context.start_tx().await;
+        let result_1 = context
+            .processor
+            .process_message(&mut tx_1_1, &message_1)
+            .await;
+        tx_1_1
+            .commit()
+            .await
+            .expect("Kunne ikke commit transaksjon");
 
         assert!(result_1.is_ok());
 
-        let mut tx = context.start_tx().await;
+        let mut tx_1_2 = context.start_tx().await;
         let arbeidssoeker_rows_1 =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_1_2, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows_1 = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+        let kartlegging_rows_1 = kartlegging::select_by_periode_id(&mut tx_1_2, &periode_id)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row_1 = periode::select_by_id(&mut tx, &periode_id)
+        let optional_periode_row_1 = periode::select_by_id(&mut tx_1_2, &periode_id)
             .await
             .expect("Kunne ikke hente periode");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
+        tx_1_2
+            .commit()
+            .await
+            .expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row_1.is_some());
         let periode_row_1 = optional_periode_row_1.expect("Ingen periode funnet");
