@@ -122,8 +122,9 @@ pub async fn insert<'a>(
             kontor_id,
             kontor_navn,
             kontor_type,
-            tidspunkt
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            tidspunkt,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#,
     )
     .bind(&row.id)
@@ -133,6 +134,7 @@ pub async fn insert<'a>(
     .bind(&row.kontor_navn)
     .bind(&row.kontor_type)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -152,8 +154,9 @@ pub async fn update<'a>(
             kontor_id,
             kontor_navn,
             kontor_type,
-            tidspunkt
-        ) = ($2, $3, $4, $5, $6, $7) WHERE id = $1
+            tidspunkt,
+            updated_timestamp
+        ) = ($2, $3, $4, $5, $6, $7, $8) WHERE id = $1
         "#,
     )
     .bind(&row.id)
@@ -163,6 +166,7 @@ pub async fn update<'a>(
     .bind(&row.kontor_navn)
     .bind(&row.kontor_type)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

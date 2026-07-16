@@ -101,8 +101,9 @@ pub async fn insert<'a>(
             har_jobbet,
             vil_fortsette,
             bekreftelsesloesning,
-            tidspunkt
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            tidspunkt,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         "#,
     )
     .bind(&row.id)
@@ -113,6 +114,7 @@ pub async fn insert<'a>(
     .bind(&row.vil_fortsette)
     .bind(&row.bekreftelsesloesning)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -133,8 +135,9 @@ pub async fn update<'a>(
             har_jobbet,
             vil_fortsette,
             bekreftelsesloesning,
-            tidspunkt
-        ) = ($2, $3, $4, $5, $6, $7, $8) WHERE id = $1
+            tidspunkt,
+            updated_timestamp
+        ) = ($2, $3, $4, $5, $6, $7, $8, $9) WHERE id = $1
         "#,
     )
     .bind(&row.id)
@@ -145,6 +148,7 @@ pub async fn update<'a>(
     .bind(&row.vil_fortsette)
     .bind(&row.bekreftelsesloesning)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

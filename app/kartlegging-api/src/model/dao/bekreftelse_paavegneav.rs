@@ -1,3 +1,4 @@
+use chrono::Utc;
 use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -47,12 +48,14 @@ pub async fn insert<'a>(
         r#"
         INSERT INTO bekreftelse_paavegneav (
             periode_id,
-            bekreftelsesloesninger
-        ) VALUES ($1, $2)
+            bekreftelsesloesninger,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3)
         "#,
     )
     .bind(&row.periode_id)
     .bind(&row.bekreftelsesloesninger)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -66,13 +69,15 @@ pub async fn update<'a>(
     tracing::debug!("Update bekreftelse_paavegneav");
     let result = sqlx::query(
         r#"
-        UPDATE bekreftelse_paavegneav SET
-            bekreftelsesloesninger = $2
-        WHERE periode_id = $1
+        UPDATE bekreftelse_paavegneav SET (
+            bekreftelsesloesninger,
+            updated_timestamp
+        ) = ($2, $3) WHERE periode_id = $1
         "#,
     )
     .bind(&row.periode_id)
     .bind(&row.bekreftelsesloesninger)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

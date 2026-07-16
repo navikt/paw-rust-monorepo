@@ -91,8 +91,9 @@ pub async fn insert<'a>(
             profilering_id,
             profilert_til,
             egenvurdert_til,
-            tidspunkt
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+            tidspunkt,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         "#,
     )
     .bind(&row.id)
@@ -101,6 +102,7 @@ pub async fn insert<'a>(
     .bind(&row.profilert_til)
     .bind(&row.egenvurdert_til)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -119,8 +121,9 @@ pub async fn update<'a>(
             profilering_id,
             profilert_til,
             egenvurdert_til,
-            tidspunkt
-        ) = ($2, $3, $4, $5, $6) WHERE id = $1
+            tidspunkt,
+            updated_timestamp
+        ) = ($2, $3, $4, $5, $6, $7) WHERE id = $1
         "#,
     )
     .bind(&row.id)
@@ -129,6 +132,7 @@ pub async fn update<'a>(
     .bind(&row.profilert_til)
     .bind(&row.egenvurdert_til)
     .bind(&row.tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

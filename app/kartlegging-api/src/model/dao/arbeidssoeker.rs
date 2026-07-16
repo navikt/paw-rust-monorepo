@@ -1,5 +1,5 @@
 use crate::model::sort::SortOrder;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 
 #[derive(Debug, FromRow)]
@@ -202,8 +202,9 @@ pub async fn insert<'a>(
             identitetsnummer,
             fornavn,
             mellomnavn,
-            etternavn
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+            etternavn,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
         "#,
     )
@@ -213,6 +214,7 @@ pub async fn insert<'a>(
     .bind(&row.fornavn)
     .bind(&row.mellomnavn)
     .bind(&row.etternavn)
+    .bind(Utc::now())
     .fetch_one(&mut **tx)
     .await?;
     Ok(id)
@@ -231,7 +233,8 @@ pub async fn update<'a>(
             identitetsnummer,
             fornavn,
             mellomnavn,
-            etternavn
+            etternavn,
+            updated_timestamp
         ) = ($2, $3, $4, $5, $6) WHERE arbeidssoeker_id = $1
         RETURNING id
         "#,
@@ -241,6 +244,7 @@ pub async fn update<'a>(
     .bind(&row.fornavn)
     .bind(&row.mellomnavn)
     .bind(&row.etternavn)
+    .bind(Utc::now())
     .fetch_one(&mut **tx)
     .await?;
     Ok(id)

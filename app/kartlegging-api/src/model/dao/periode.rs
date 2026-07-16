@@ -81,14 +81,16 @@ pub async fn insert<'a>(
             id,
             identitetsnummer,
             startet_tidspunkt,
-            avsluttet_tidspunkt
-        ) VALUES ($1, $2, $3, $4)
+            avsluttet_tidspunkt,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5)
         "#,
     )
     .bind(&row.id)
     .bind(&row.identitetsnummer)
     .bind(&row.startet_tidspunkt)
     .bind(&row.avsluttet_tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -104,13 +106,15 @@ pub async fn update<'a>(
         r#"
         UPDATE perioder SET (
             identitetsnummer,
-            avsluttet_tidspunkt
-        ) = ($2, $3) WHERE id = $1
+            avsluttet_tidspunkt,
+            updated_timestamp
+        ) = ($2, $3, $4) WHERE id = $1
         "#,
     )
     .bind(&row.id)
     .bind(&row.identitetsnummer)
     .bind(&row.avsluttet_tidspunkt)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())

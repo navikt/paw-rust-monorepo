@@ -34,4 +34,12 @@ VALUES (1, 'paw.arbeidssokerperioder-v1', 0, 5292),               -- 5340 - a685
        (1, 'paw.arbeidssoker-bekreftelse-paavegneav-v1', 2, 386), -- 386
        (1, 'paw.arbeidssoker-bekreftelse-paavegneav-v1', 3, 498), -- 533
        (1, 'paw.arbeidssoker-bekreftelse-paavegneav-v1', 4, 412), -- 418
-       (1, 'paw.arbeidssoker-bekreftelse-paavegneav-v1', 5, 458); -- 458
+       (1, 'paw.arbeidssoker-bekreftelse-paavegneav-v1', 5, 458), -- 458
+       (1, 'poao.siste-oppfolgingsperiode-v3', 0, 8403),          -- 9403
+       (1, 'poao.siste-oppfolgingsperiode-v3', 1, 8224),          -- 9224
+       (1, 'poao.siste-oppfolgingsperiode-v3', 2, 8069),          -- 9069
+       (1, 'poao.siste-oppfolgingsperiode-v3', 3, 8321),          -- 9321
+       (1, 'poao.siste-oppfolgingsperiode-v3', 4, 8148),          -- 9148
+       (1, 'poao.siste-oppfolgingsperiode-v3', 5, 8105),          -- 9105
+       (1, 'poao.siste-oppfolgingsperiode-v3', 6, 8202),          -- 9202
+       (1, 'poao.siste-oppfolgingsperiode-v3', 7, 8210);          -- 9210

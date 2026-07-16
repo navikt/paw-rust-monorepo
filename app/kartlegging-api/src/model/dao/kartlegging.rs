@@ -97,14 +97,16 @@ pub async fn insert<'a>(
             periode_id,
             parent_id,
             arbeidssoeker_siden,
-            arbeidsledig_siden
-        ) VALUES ($1, $2, $3, $4)
+            arbeidsledig_siden,
+            inserted_timestamp
+        ) VALUES ($1, $2, $3, $4, $5)
         "#,
     )
     .bind(&row.periode_id)
     .bind(&row.parent_id)
     .bind(&row.arbeidssoeker_siden)
     .bind(&row.arbeidsledig_siden)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
@@ -121,13 +123,15 @@ pub async fn update<'a>(
         r#"
         UPDATE kartlegginger SET (
             arbeidssoeker_siden,
-            arbeidsledig_siden
-        ) = ($2, $3, $4, $5) WHERE periode_id = $1
+            arbeidsledig_siden,
+            updated_timestamp
+        ) = ($2, $3, $4) WHERE periode_id = $1
         "#,
     )
     .bind(&row.periode_id)
     .bind(&row.arbeidssoeker_siden)
     .bind(&row.arbeidsledig_siden)
+    .bind(Utc::now())
     .execute(&mut **tx)
     .await?;
     Ok(result.rows_affected())
