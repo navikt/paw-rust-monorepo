@@ -187,13 +187,17 @@ components:
         identitetsnummer:
           type: string
         fornavn:
-          type: string
+          type:
+            - string
+            - 'null'
         mellomnavn:
           type:
             - string
             - 'null'
         etternavn:
-          type: string
+          type:
+            - string
+            - 'null'
         ledighetsperioder:
           type: array
           items:

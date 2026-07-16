@@ -172,9 +172,9 @@ mod tests {
             aktor_id: "101701234500".to_string(),
             arbeidssoeker_id: 1337,
             identitetsnummer: "01017012345".to_string(),
-            fornavn: "Kari".to_string(),
+            fornavn: Some("Kari".to_string()),
             mellomnavn: None,
-            etternavn: "Nordmann".to_string(),
+            etternavn: Some("Nordmann".to_string()),
             ledighetsperioder: vec![Ledighetsperiode {
                 ledig_siden: Some(
                     DateTime::parse_from_rfc3339("2021-01-01T12:00:00.000Z")

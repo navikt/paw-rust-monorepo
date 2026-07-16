@@ -8,3 +8,4 @@ pub mod periode;
 pub mod profilering;
 pub mod request;
 pub mod response;
+pub mod navn;

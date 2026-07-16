@@ -1,12 +1,12 @@
 CREATE TABLE arbeidssoekere
 (
     id               BIGSERIAL PRIMARY KEY,
-    aktor_id         VARCHAR(20)  NOT NULL,
-    arbeidssoeker_id BIGINT       NOT NULL,
-    identitetsnummer VARCHAR(20)  NOT NULL,
-    fornavn          VARCHAR(255) NOT NULL,
+    aktor_id         VARCHAR(20) NOT NULL,
+    arbeidssoeker_id BIGINT      NOT NULL,
+    identitetsnummer VARCHAR(20) NOT NULL,
+    fornavn          VARCHAR(255),
     mellomnavn       VARCHAR(255),
-    etternavn        VARCHAR(255) NOT NULL
+    etternavn        VARCHAR(255)
 );
 
 CREATE TABLE kartlegginger

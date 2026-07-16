@@ -8,9 +8,9 @@ pub(crate) struct ArbeidssoekerRow {
     pub aktor_id: String,
     pub arbeidssoeker_id: i64,
     pub identitetsnummer: String,
-    pub fornavn: String,
+    pub fornavn: Option<String>,
     pub mellomnavn: Option<String>,
-    pub etternavn: String,
+    pub etternavn: Option<String>,
 }
 
 impl ArbeidssoekerRow {
@@ -18,9 +18,9 @@ impl ArbeidssoekerRow {
         aktor_id: String,
         arbeidssoeker_id: i64,
         identitetsnummer: String,
-        fornavn: String,
+        fornavn: Option<String>,
         mellomnavn: Option<String>,
-        etternavn: String,
+        etternavn: Option<String>,
     ) -> Self {
         Self {
             id: -1,

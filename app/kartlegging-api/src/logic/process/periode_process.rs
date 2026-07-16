@@ -1,6 +1,7 @@
 use crate::logic::mutation::{arbeidssoeker_mutation, kartlegging_mutation, periode_mutation};
 use crate::model::dao::arbeidssoeker;
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
+use crate::model::dto::navn::Navn;
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_key_gen_client::client::PawKeyGenClient;
@@ -70,17 +71,28 @@ impl PeriodeProcessor {
             // PDL data
             let pdl_navn_response = self.pdl_client.hent_person_navn(identitetsnummer).await?;
             let pdl_navn = pdl_navn_response.expect("Fant ingen person for identitetsnummer i PDL");
-            let navn = pdl_navn
-                .navn
-                .first()
-                .expect("Fant ingen navn for person i PDL");
+            let navn = if pdl_navn.navn.is_empty() {
+                tracing::warn!("Fant ingen navn for person i PDL, setter alle navn til null");
+                Navn::default()
+            } else {
+                let navn = pdl_navn
+                    .navn
+                    .first()
+                    .expect("Fant ingen navn for person i PDL");
+                Navn::new(
+                    navn.fornavn.clone(),
+                    navn.mellomnavn.clone(),
+                    navn.etternavn.clone(),
+                )
+            };
+
             let arbeidssoeker = Arbeidssoeker {
                 aktor_id: aktor_id.identitet.clone(),
                 arbeidssoeker_id,
                 identitetsnummer: identitet.identitet.clone(),
-                fornavn: navn.fornavn.clone(),
-                mellomnavn: navn.mellomnavn.clone(),
-                etternavn: navn.etternavn.clone(),
+                fornavn: navn.fornavn,
+                mellomnavn: navn.mellomnavn,
+                etternavn: navn.etternavn,
                 ledighetsperioder: vec![],
                 kontortilknytninger: vec![],
             };
