@@ -15,7 +15,7 @@ pub async fn lagre_hendelse<'a>(
     if rows.len() > 1 {
         panic!("Fant flere rader for periode-id ({})", rows.len());
     } else if rows.len() == 1 {
-        let row = rows.first().unwrap();
+        let row = rows.first().expect("Ingen rad funnet");
         return match handling {
             Handling::Start(_) => {
                 let mut bekreftelsesloesninger = row.bekreftelsesloesninger.clone();

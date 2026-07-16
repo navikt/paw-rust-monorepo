@@ -12,7 +12,7 @@ pub async fn lagre_hendelse<'a>(
     if kartlegginger.len() > 1 {
         panic!("Fant flere rader for periode-id ({})", kartlegginger.len());
     } else if kartlegginger.len() == 1 {
-        let kartlegging = kartlegginger.first().unwrap();
+        let kartlegging = kartlegginger.first().expect("Ingen rad funnet");
     } else {
         let kartlegging_row = KartleggingRow::new(
             hendelse.id.clone(),

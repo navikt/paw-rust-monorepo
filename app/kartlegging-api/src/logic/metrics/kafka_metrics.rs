@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 static KAFKA_OFFSET_GAUGE: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "kafka_consumer_message_offset",
+        "paw_kafka_consumer_message_offset",
         "Siste offset for Kafka consumer",
         &["topic", "partition"]
     )

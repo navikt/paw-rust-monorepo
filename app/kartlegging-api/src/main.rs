@@ -12,7 +12,10 @@ use kartlegging_api::kafka::topics::TOPICS;
 use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
 use kartlegging_api::logic::process::message_process::KartleggingMessageProcessor;
-use kartlegging_api::server::{async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task};
+use kartlegging_api::server::{
+    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
+};
+use nais_schema_registry::config::create_schema_registry_settings;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_otel_tracing::otel_setup::setup_otel;
@@ -78,15 +81,18 @@ async fn main() -> anyhow::Result<()> {
         http_client.clone(),
         token_client.clone(),
     ));
-/*
+
     let schema_registry_settings = create_schema_registry_settings()?;
     let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &TOPICS)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
-    let message_processor =
-        KartleggingMessageProcessor::new(schema_registry_settings, key_gen_client.clone(), pdl_client.clone())?;
+    let message_processor = KartleggingMessageProcessor::new(
+        schema_registry_settings,
+        key_gen_client.clone(),
+        pdl_client.clone(),
+    )?;
     let consumer_task =
         kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
-*/
+
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
 
@@ -98,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
-        //result = consumer_task => async_task_handler("KafkaConsumer", result),
+        result = consumer_task => async_task_handler("KafkaConsumer", result),
         result = metrics_task => async_task_handler("Metrics", result),
         signal = signal_task => shutdown_handler(signal),
     }?;

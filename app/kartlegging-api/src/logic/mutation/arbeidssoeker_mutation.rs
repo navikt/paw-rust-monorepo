@@ -20,7 +20,7 @@ pub async fn lagre_dto<'a>(
     let parent_id = if rows.len() > 1 {
         panic!("Fant flere rader for identitetsnummer ({})", rows.len());
     } else if rows.len() == 1 {
-        let arbeidssoeker_row = rows.first().unwrap();
+        let arbeidssoeker_row = rows.first().expect("Ingen rad funnet");
         arbeidssoeker_row.id
     } else {
         let arbeidssoeker_row = ArbeidssoekerRow::new(

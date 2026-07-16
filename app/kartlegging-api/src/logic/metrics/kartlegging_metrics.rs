@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 static KARTLEGGING_GAUGE: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "kartlegging_arbeidssoekere",
+        "paw_kartlegging_arbeidssoekere",
         "Kartlegging av arbeidssøkere",
         &["type"]
     )

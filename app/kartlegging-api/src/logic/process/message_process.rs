@@ -88,7 +88,8 @@ impl MessageProcessor for KartleggingMessageProcessor {
                     message.partition(),
                     message.offset()
                 );
-                match (message.topic(), message.payload()) {
+
+                let result = match (message.topic(), message.payload()) {
                     (topic, None) => Err(OversiktProcessorError::NoPayload {
                         topic: topic.to_string(),
                         partition: message.partition(),
@@ -131,7 +132,18 @@ impl MessageProcessor for KartleggingMessageProcessor {
                     (topic, _) => {
                         panic!("Mottok melding på ukjent topic: {}", topic);
                     }
-                }
+                };
+
+                result.map_err(|e| {
+                    tracing::error!(
+                        error = e,
+                        "Prosessering av melding på topic: {}, partition: {}, offset: {} feilet",
+                        message.topic(),
+                        message.partition(),
+                        message.offset()
+                    );
+                    e
+                })
             }
             .instrument(tracing::Span::current()),
         )
@@ -308,7 +320,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_process_message_periode_start() {
+    async fn test_process_messages() {
         let context = init().await;
 
         let arbeidssoeker_id = 12345i64;
