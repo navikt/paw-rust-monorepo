@@ -23,7 +23,7 @@ async fn upsert_kontortilknytning<'a>(
     data: &'a OppfolgingsperiodeEndret,
 ) -> anyhow::Result<u64> {
     let row = KontortilknytningRow::new(
-        data.oppfolgingsperiode_id.clone(),
+        data.id.clone(),
         data.aktor_id.clone(),
         data.ident.clone(),
         data.kontor.kontor_id.clone(),
@@ -31,7 +31,7 @@ async fn upsert_kontortilknytning<'a>(
         KontorType::Arbeidsoppfolging.as_ref().to_string(), // Akkurat nå vil alle kontortilknytninger være av type Arbeidsoppfolging. Feltet åpner for å kunne ta imot andre typer tilknytninger i fremtiden
         data.start_tidspunkt.clone(),
     );
-    let count = kontortilknytning::count_by_id(tx, &data.oppfolgingsperiode_id).await?;
+    let count = kontortilknytning::count_by_id(tx, &data.id).await?;
     let rows_affected = if count > 1 {
         panic!("Fant flere rader for id ({})", count);
     } else if count == 1 {
@@ -46,5 +46,5 @@ async fn delete_kontortilknytning<'a>(
     tx: &mut Transaction<'_, Postgres>,
     data: &'a OppfolgingsperiodeAvsluttet,
 ) -> anyhow::Result<u64> {
-    kontortilknytning::delete(tx, &data.oppfolgingsperiode_id).await
+    kontortilknytning::delete(tx, &data.id).await
 }

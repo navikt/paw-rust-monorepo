@@ -39,7 +39,7 @@ pub fn create_dummy_oppfolgingsperiode_avsluttet<'a>(
     identitetsnummer: &'a str,
 ) -> Oppfolgingsperiode {
     Oppfolgingsperiode::Avsluttet(OppfolgingsperiodeAvsluttet {
-        oppfolgingsperiode_id,
+        id: oppfolgingsperiode_id,
         aktor_id: aktor_id.to_string(),
         ident: identitetsnummer.to_string(),
         start_tidspunkt: Utc::now(),
@@ -54,7 +54,7 @@ fn oppfolgingsperiode_endret<'a>(
     kontor_id: &'a str,
 ) -> OppfolgingsperiodeEndret {
     OppfolgingsperiodeEndret {
-        oppfolgingsperiode_id,
+        id: oppfolgingsperiode_id,
         aktor_id: aktor_id.to_string(),
         ident: identitetsnummer.to_string(),
         kontor: Kontor {

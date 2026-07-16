@@ -106,7 +106,7 @@ mod tests {
         match oppfolgingsperiode_1 {
             Oppfolgingsperiode::Startet(hendelse) => {
                 let row = optional_row_1.expect("Ingen oppfolgingsperiode funnet");
-                assert_eq!(row.id, hendelse.oppfolgingsperiode_id);
+                assert_eq!(row.id, hendelse.id);
                 assert_eq!(row.aktor_id, hendelse.aktor_id);
                 assert_eq!(row.kontor_id, hendelse.kontor.kontor_id);
                 assert_eq!(
@@ -151,7 +151,7 @@ mod tests {
             }
             Oppfolgingsperiode::Endret(hendelse) => {
                 let row = optional_row_2.expect("Ingen oppfolgingsperiode funnet");
-                assert_eq!(row.id, hendelse.oppfolgingsperiode_id);
+                assert_eq!(row.id, hendelse.id);
                 assert_eq!(row.aktor_id, hendelse.aktor_id);
                 assert_eq!(row.kontor_id, hendelse.kontor.kontor_id);
                 assert_eq!(

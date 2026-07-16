@@ -37,7 +37,8 @@ pub enum Oppfolgingsperiode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OppfolgingsperiodeEndret {
-    pub oppfolgingsperiode_id: Uuid,
+    #[serde(rename = "oppfolgingsperiodeUuid")]
+    pub id: Uuid,
     pub aktor_id: String,
     pub ident: String,
     pub kontor: Kontor,
@@ -47,7 +48,8 @@ pub struct OppfolgingsperiodeEndret {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OppfolgingsperiodeAvsluttet {
-    pub oppfolgingsperiode_id: Uuid,
+    #[serde(rename = "oppfolgingsperiodeUuid")]
+    pub id: Uuid,
     pub aktor_id: String,
     pub ident: String,
     pub start_tidspunkt: DateTime<Utc>,
@@ -78,10 +80,7 @@ mod tests {
 
         match oppfolgingsperiode {
             Oppfolgingsperiode::Startet(data) => {
-                assert_eq!(
-                    data.oppfolgingsperiode_id.to_string(),
-                    "366004e8-9bfc-47bb-8469-7818bc21b6df"
-                );
+                assert_eq!(data.id.to_string(), "366004e8-9bfc-47bb-8469-7818bc21b6df");
                 assert_eq!(data.aktor_id, "12345");
                 assert_eq!(data.ident, "01017012345");
                 assert_eq!(data.kontor.kontor_id, "1234");
@@ -130,10 +129,7 @@ mod tests {
                 panic!("Feil type")
             }
             Oppfolgingsperiode::Endret(data) => {
-                assert_eq!(
-                    data.oppfolgingsperiode_id.to_string(),
-                    "366004e8-9bfc-47bb-8469-7818bc21b6df"
-                );
+                assert_eq!(data.id.to_string(), "366004e8-9bfc-47bb-8469-7818bc21b6df");
                 assert_eq!(data.aktor_id, "12345");
                 assert_eq!(data.ident, "01017012345");
                 assert_eq!(data.kontor.kontor_id, "4321");
@@ -179,10 +175,7 @@ mod tests {
                 panic!("Feil type")
             }
             Oppfolgingsperiode::Avsluttet(data) => {
-                assert_eq!(
-                    data.oppfolgingsperiode_id.to_string(),
-                    "366004e8-9bfc-47bb-8469-7818bc21b6df"
-                );
+                assert_eq!(data.id.to_string(), "366004e8-9bfc-47bb-8469-7818bc21b6df");
                 assert_eq!(data.aktor_id, "12345");
                 assert_eq!(data.ident, "01017012345");
                 assert_eq!(
