@@ -61,8 +61,8 @@ async fn main() -> anyhow::Result<()> {
     clear_db(&pg_pool).await?;
 
     tracing::info!("Migrerer endringer for databasen");
-    sqlx::migrate!("./migrations")
-    //sqlx::migrate!("./migrations_dev") // TODO: Endre før prodsetting!!!
+    //sqlx::migrate!("./migrations")
+    sqlx::migrate!("./migrations_dev") // TODO: Endre før prodsetting!!!
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
