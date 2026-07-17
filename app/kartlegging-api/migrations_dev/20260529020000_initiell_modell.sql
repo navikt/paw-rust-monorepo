@@ -91,7 +91,7 @@ CREATE TABLE kontortilknytninger
     id                 UUID PRIMARY KEY,
     aktor_id           VARCHAR(20)  NOT NULL,
     identitetsnummer   VARCHAR(20)  NOT NULL,
-    kontor_id          VARCHAR(30)  NOT NULL,
+    kontor_id          VARCHAR(50)  NOT NULL,
     kontor_navn        VARCHAR(255) NOT NULL,
     kontor_type        VARCHAR(30)  NOT NULL,
     tidspunkt          TIMESTAMP(6) NOT NULL,
