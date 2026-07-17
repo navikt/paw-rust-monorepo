@@ -72,7 +72,7 @@ CREATE TABLE bekreftelser
     gjelder_til          TIMESTAMP(6) NOT NULL,
     har_jobbet           BOOLEAN      NOT NULL,
     vil_fortsette        BOOLEAN      NOT NULL,
-    bekreftelsesloesning VARCHAR(30)  NOT NULL,
+    bekreftelsesloesning VARCHAR(50)  NOT NULL,
     tidspunkt            TIMESTAMP(6) NOT NULL,
     inserted_timestamp   TIMESTAMP(6) NOT NULL,
     updated_timestamp    TIMESTAMP(6)
@@ -91,7 +91,7 @@ CREATE TABLE kontortilknytninger
     id                 UUID PRIMARY KEY,
     aktor_id           VARCHAR(20)  NOT NULL,
     identitetsnummer   VARCHAR(20)  NOT NULL,
-    kontor_id          VARCHAR(50)  NOT NULL,
+    kontor_id          VARCHAR(30)  NOT NULL,
     kontor_navn        VARCHAR(255) NOT NULL,
     kontor_type        VARCHAR(30)  NOT NULL,
     tidspunkt          TIMESTAMP(6) NOT NULL,
