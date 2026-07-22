@@ -1,10 +1,11 @@
 use crate::config::AppConfig;
 use crate::logic::metrics::kartlegging_metrics::register_kartlegging_metrics;
 use sqlx::PgPool;
+use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 #[tracing::instrument(skip(app_config, pg_pool))]
-pub fn metrics_task(app_config: AppConfig, pg_pool: PgPool) -> JoinHandle<anyhow::Result<()>> {
+pub fn metrics_task(app_config: Arc<AppConfig>, pg_pool: PgPool) -> JoinHandle<anyhow::Result<()>> {
     tokio::spawn(async move {
         loop {
             tracing::debug!("Kjører task for oppdatering av metrikker");

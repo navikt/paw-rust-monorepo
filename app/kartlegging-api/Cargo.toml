@@ -60,3 +60,4 @@ kafka_key_gen_mock = { path = "../../test/kafka_key_gen_mock" }
 token_client_stub = { path = "../../test/token_client_stub" }
 mockito = { workspace = true }
 jsonschema = { workspace = true }
+tracing-test = { workspace = true }

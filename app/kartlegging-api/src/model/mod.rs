@@ -3,3 +3,4 @@ pub mod dto;
 pub mod parse;
 pub mod sort;
 pub mod state;
+pub mod error;

@@ -87,8 +87,13 @@ async fn test_send_messages() -> anyhow::Result<()> {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     for id in &ids {
-        let message =
-            create_dummy_bekreftelse(id.identitetsnummer, id.periode_id, id.bekreftelse_id);
+        let message = create_dummy_bekreftelse(
+            id.identitetsnummer,
+            id.periode_id,
+            id.bekreftelse_id,
+            false,
+            true,
+        );
         println!("Sender melding: {:?}", message);
         send_avro_messages(&producer, &serializer, PAW_BEKREFTELSE_TOPIC, message).await?;
     }

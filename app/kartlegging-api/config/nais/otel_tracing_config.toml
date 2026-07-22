@@ -1,2 +1,5 @@
-level = "INFO"
 format = "OTEL_JSON"
+directives = [
+    "WARN",
+    "kartlegging_api=INFO"
+]

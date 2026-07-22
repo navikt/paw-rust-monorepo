@@ -71,9 +71,9 @@ components:
         type: 'IDENTITETSNUMMER'
         identitetsnummer: "01017012345"
         paging:
-            page: 1
-            pageSize: 1000
-            sortOrder: "DESC"
+          page: 1
+          pageSize: 1000
+          sortOrder: "DESC"
     TilknyttetKontorQueryRequest:
       type: object
       required:
@@ -171,19 +171,19 @@ components:
     Arbeidssoeker:
       type: object
       required:
+        - id
         - aktorId
-        - arbeidssoekerId
         - identitetsnummer
         - fornavn
         - etternavn
         - ledighetsperioder
         - kontortilknytninger
       properties:
-        aktorId:
-          type: string
-        arbeidssoekerId:
+        id:
           type: integer
           format: int64
+        aktorId:
+          type: string
         identitetsnummer:
           type: string
         fornavn:
@@ -207,8 +207,8 @@ components:
           items:
             $ref: '#/components/schemas/Kontortilknytning'
       example:
+        id: 1337
         aktorId: "101701234500"
-        arbeidssoekerId: 1337
         identitetsnummer: "01017012345"
         fornavn: "Kari"
         etternavn: "Nordmann"
@@ -247,26 +247,26 @@ components:
       example:
         ledigSiden: "2021-01-01T12:00:00.000Z"
         periode:
-            id: "069f40c9-c47c-4ee2-9105-bc87bdb58af2"
-            startet: "2021-01-01T12:00:00.000Z"
+          id: "069f40c9-c47c-4ee2-9105-bc87bdb58af2"
+          startet: "2021-01-01T12:00:00.000Z"
         opplysninger:
-            id: "47c4b16b-5d34-4658-9705-ab90e6d0db9b"
-            tidspunkt: "2021-01-01T12:00:00.000Z"
+          id: "47c4b16b-5d34-4658-9705-ab90e6d0db9b"
+          tidspunkt: "2021-01-01T12:00:00.000Z"
         profilering:
-            id: "6d084994-d0b9-4466-9c1f-6126a3b3c2a8"
-            profilertTil: "ANTATT_GODE_MULIGHETER"
-            tidspunkt: "2021-01-01T12:01:00.000Z"
+          id: "6d084994-d0b9-4466-9c1f-6126a3b3c2a8"
+          profilertTil: "ANTATT_GODE_MULIGHETER"
+          tidspunkt: "2021-01-01T12:01:00.000Z"
         egenvurdering:
-            id: "7778ba2d-cbb5-4263-a49b-a4719821f0a5"
-            egenvurdertTil: "ANTATT_GODE_MULIGHETER"
-            tidspunkt: "2021-01-02T12:00:00.000Z"
+          id: "7778ba2d-cbb5-4263-a49b-a4719821f0a5"
+          egenvurdertTil: "ANTATT_GODE_MULIGHETER"
+          tidspunkt: "2021-01-02T12:00:00.000Z"
         bekreftelse:
-            id: "d8672838-145e-44d1-9334-dc6a706fa85c"
-            gjelderFra: "2021-01-01T12:00:00.000Z"
-            gjelderTil: "2021-01-14T12:00:00.000Z"
-            harJobbet: false
-            vilFortsette: true
-            bekreftelsesloesning: "ARBEIDSSOEKERREGISTERET"
+          id: "d8672838-145e-44d1-9334-dc6a706fa85c"
+          gjelderFra: "2021-01-01T12:00:00.000Z"
+          gjelderTil: "2021-01-14T12:00:00.000Z"
+          harJobbet: false
+          vilFortsette: true
+          bekreftelsesloesning: "ARBEIDSSOEKERREGISTERET"
         bekreftelsePaaVegneAv: []
     Periode:
       type: object

@@ -60,7 +60,7 @@ pub fn create_dummy_opplysninger(
             beskrivelser: vec![BeskrivelseMedDetaljer {
                 beskrivelse: Beskrivelse::HarBlittSagtOpp,
                 detaljer: HashMap::from([
-                    ("oppsigelsesdato".to_string(), "2024-06-30".to_string()),
+                    ("oppsigelsesdato".to_string(), "2025-12-01".to_string()),
                     ("arbeidsgiver".to_string(), "Test AS".to_string()),
                 ]),
             }],
@@ -108,22 +108,24 @@ pub fn create_dummy_bekreftelse(
     identitetsnummer: &str,
     periode_id: Uuid,
     bekreftelse_id: Uuid,
+    har_jobbet: bool,
+    vil_fortsette: bool,
 ) -> Bekreftelse {
     Bekreftelse {
         id: bekreftelse_id,
         periode_id,
         bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
-        svar: create_dummy_svar(identitetsnummer),
+        svar: create_dummy_svar(identitetsnummer, har_jobbet, vil_fortsette),
     }
 }
 
-pub fn create_dummy_svar(identitetsnummer: &str) -> Svar {
+pub fn create_dummy_svar(identitetsnummer: &str, har_jobbet: bool, vil_fortsette: bool) -> Svar {
     Svar {
         sendt_inn_av: create_dummy_metadata(identitetsnummer),
-        gjelder_fra: datetime_rfc3339("2026-06-16T12:00:00Z"),
-        gjelder_til: datetime_rfc3339("2026-06-30T12:00:00Z"),
-        har_jobbet_i_denne_perioden: false,
-        vil_fortsette_som_arbeidssoeker: true,
+        gjelder_fra: datetime_rfc3339("2026-01-02T12:00:00Z"),
+        gjelder_til: datetime_rfc3339("2026-01-16T12:00:00Z"),
+        har_jobbet_i_denne_perioden: har_jobbet,
+        vil_fortsette_som_arbeidssoeker: vil_fortsette,
     }
 }
 
@@ -154,15 +156,19 @@ pub fn create_dummy_paavegneav_stopp(
 
 pub fn create_dummy_metadata(identitetsnummer: &str) -> Metadata {
     Metadata {
-        tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
-        utfoert_av: Bruker {
-            bruker_type: BrukerType::Sluttbruker,
-            id: identitetsnummer.to_string(),
-            sikkerhetsnivaa: Some("tokenx:Level4".to_string()),
-        },
+        tidspunkt: datetime_rfc3339("2026-01-01T12:00:00Z"),
+        utfoert_av: create_dummy_bruker(identitetsnummer),
         kilde: "test-system".to_string(),
         aarsak: "Test".to_string(),
         tidspunkt_fra_kilde: None,
+    }
+}
+
+pub fn create_dummy_bruker(identitetsnummer: &str) -> Bruker {
+    Bruker {
+        bruker_type: BrukerType::Sluttbruker,
+        id: identitetsnummer.to_string(),
+        sikkerhetsnivaa: Some("tokenx:Level4".to_string()),
     }
 }
 

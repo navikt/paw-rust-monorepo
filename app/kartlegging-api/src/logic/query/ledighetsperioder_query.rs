@@ -10,16 +10,16 @@ use crate::model::dto::request::PagingRequest;
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
-#[tracing::instrument(skip(tx, parent_id, paging))]
-pub async fn finn_for_parent_id(
+#[tracing::instrument(skip(tx, arbeidssoeker_id, paging))]
+pub async fn finn_for_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
-    parent_id: i64,
+    arbeidssoeker_id: i64,
     paging: PagingRequest,
 ) -> anyhow::Result<Vec<Ledighetsperiode>> {
     tracing::info!("Henter kartlegging for parent id");
-    let rows = ledighetsperiode::select_by_parent_id(
+    let rows = ledighetsperiode::select_by_arbeidssoeker_id(
         tx,
-        parent_id,
+        arbeidssoeker_id,
         paging.offset(),
         paging.limit(),
         &paging.sort_order,
@@ -110,7 +110,7 @@ fn map_row(row: &LedighetsperiodeRow) -> anyhow::Result<Ledighetsperiode> {
     let bekreftelse_paa_vegne_av = bekreftelse_paa_vegne_av; // Fjern mut ref
 
     Ok(Ledighetsperiode {
-        ledig_siden: row.arbeidsledig_siden,
+        ledig_siden: row.arbeidsledig_fra,
         periode,
         opplysninger,
         profilering,

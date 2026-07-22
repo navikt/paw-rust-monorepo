@@ -74,6 +74,7 @@ tonic = { version = "0.14", features = ["transport"] }
 tower = "0.5.3"
 tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1.44"
+tracing-test = "0.2.6"
 tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3.2", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }

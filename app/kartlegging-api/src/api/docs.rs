@@ -169,8 +169,9 @@ mod tests {
     fn arbeidssoeker_konformerer() {
         let spec = spec();
         let dto = Arbeidssoeker {
-            aktor_id: "101701234500".to_string(),
+            id: 1337,
             arbeidssoeker_id: 1337,
+            aktor_id: "101701234500".to_string(),
             identitetsnummer: "01017012345".to_string(),
             fornavn: Some("Kari".to_string()),
             mellomnavn: None,

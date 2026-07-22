@@ -85,6 +85,34 @@ pub async fn select_by_id<'a>(
     Ok(row)
 }
 
+#[tracing::instrument(skip(tx, periode_id))]
+pub async fn select_by_periode_id<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    periode_id: &'a Uuid,
+) -> anyhow::Result<Vec<BekreftelseRow>> {
+    tracing::debug!("Select bekreftelser by periode_id");
+    let rows = sqlx::query_as::<_, BekreftelseRow>(
+        r#"
+        SELECT
+            id,
+            periode_id,
+            gjelder_fra AT TIME ZONE 'UTC' AS gjelder_fra,
+            gjelder_til AT TIME ZONE 'UTC' AS gjelder_til,
+            har_jobbet,
+            vil_fortsette,
+            bekreftelsesloesning,
+            tidspunkt   AT TIME ZONE 'UTC' AS tidspunkt
+        FROM bekreftelser
+        WHERE periode_id = $1
+        ORDER BY gjelder_fra
+        "#,
+    )
+    .bind(periode_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    Ok(rows)
+}
+
 #[tracing::instrument(skip(tx, row))]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,

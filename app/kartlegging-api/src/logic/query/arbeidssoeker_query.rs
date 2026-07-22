@@ -28,21 +28,14 @@ pub async fn finn_for_identitetsnummer_query_request(
         paging.limit(),
         paging.sort_order.to_string()
     );
-    let total_count = arbeidssoeker::count_by_identitetsnummer(tx, &identitetsnummer).await?;
-    let arbeidssoeker_rows = arbeidssoeker::select_by_identitetsnummer(
-        tx,
-        &identitetsnummer,
-        paging.offset(),
-        paging.limit(),
-        &paging.sort_order,
-    )
-    .await?;
+    let arbeidssoeker_rows =
+        arbeidssoeker::select_by_identitetsnummer(tx, &identitetsnummer).await?;
     let arbeidssoekere = map_rows(tx, &paging, &arbeidssoeker_rows).await?;
     let paging_response = PagingResponse {
         page: paging.page,
         page_size: paging.page_size,
         hit_size: arbeidssoekere.len() as i32,
-        total_count,
+        total_count: arbeidssoeker_rows.len() as i64,
         sort_order: paging.sort_order,
     };
     Ok(KartleggingResponse {
@@ -125,19 +118,19 @@ async fn map_rows(
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
         let ledighetsperioder =
-            ledighetsperioder_query::finn_for_parent_id(tx, row.id, paging.clone()).await?;
+            ledighetsperioder_query::finn_for_arbeidssoeker_id(tx, row.id, paging.clone()).await?;
         let kontortilknytninger =
             kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
-        arbeidssoekere.push(Arbeidssoeker {
-            aktor_id: row.aktor_id.clone(),
-            arbeidssoeker_id: row.arbeidssoeker_id.clone(),
-            identitetsnummer: row.identitetsnummer.clone(),
-            fornavn: row.fornavn.clone(),
-            mellomnavn: row.mellomnavn.clone(),
-            etternavn: row.etternavn.clone(),
+        arbeidssoekere.push(Arbeidssoeker::new(
+            row.id.clone(),
+            row.aktor_id.clone(),
+            row.identitetsnummer.clone(),
+            row.fornavn.clone(),
+            row.mellomnavn.clone(),
+            row.etternavn.clone(),
             ledighetsperioder,
             kontortilknytninger,
-        })
+        ))
     }
     Ok(arbeidssoekere)
 }

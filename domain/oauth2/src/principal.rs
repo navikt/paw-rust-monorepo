@@ -26,7 +26,7 @@ pub struct NavSystem {
 
 #[derive(Clone, Debug)]
 pub struct EksterntSystem {
-    sub: Option<String>,
+    pub sub: Option<String>,
 }
 
 #[derive(Clone, Debug)]

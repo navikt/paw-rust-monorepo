@@ -6,10 +6,13 @@ use uuid::Uuid;
 #[derive(Debug, FromRow)]
 pub(crate) struct LedighetsperiodeRow {
     #[allow(unused)]
-    pub parent_id: i64,
+    pub arbeidssoeker_id: i64,
     pub periode_id: Uuid,
-    pub arbeidssoeker_siden: DateTime<Utc>,
-    pub arbeidsledig_siden: Option<DateTime<Utc>>,
+    #[allow(unused)]
+    pub arbeidssoeker_fra: DateTime<Utc>,
+    #[allow(unused)]
+    pub arbeidssoeker_til: Option<DateTime<Utc>>,
+    pub arbeidsledig_fra: Option<DateTime<Utc>>,
     pub periode_startet: DateTime<Utc>,
     pub periode_avsluttet: Option<DateTime<Utc>>,
     pub opplysninger_id: Option<Uuid>,
@@ -30,10 +33,10 @@ pub(crate) struct LedighetsperiodeRow {
     pub bekreftelse_paa_vegne_av: Vec<String>,
 }
 
-#[tracing::instrument(skip(tx, parent_id))]
-pub async fn select_by_parent_id(
+#[tracing::instrument(skip(tx, arbeidssoeker_id))]
+pub async fn select_by_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
-    parent_id: i64,
+    arbeidssoeker_id: i64,
     offset: i32,
     limit: i32,
     sort_order: &SortOrder,
@@ -65,10 +68,11 @@ pub async fn select_by_parent_id(
             ORDER BY periode_id, tidspunkt {dir}
         )
         SELECT
-            k.parent_id,
+            k.arbeidssoeker_id,
             k.periode_id,
-            k.arbeidssoeker_siden AT TIME ZONE 'UTC'                AS arbeidssoeker_siden,
-            k.arbeidsledig_siden AT TIME ZONE 'UTC'                 AS arbeidsledig_siden,
+            k.arbeidssoeker_fra AT TIME ZONE 'UTC'                  AS arbeidssoeker_fra,
+            k.arbeidssoeker_til AT TIME ZONE 'UTC'                  AS arbeidssoeker_til,
+            k.arbeidsledig_fra AT TIME ZONE 'UTC'                   AS arbeidsledig_fra,
             p.startet_tidspunkt AT TIME ZONE 'UTC'                  AS periode_startet,
             p.avsluttet_tidspunkt AT TIME ZONE 'UTC'                AS periode_avsluttet,
             o.id                                                    AS opplysninger_id,
@@ -94,14 +98,14 @@ pub async fn select_by_parent_id(
         LEFT JOIN latest_egenvurderinger e    ON e.periode_id  = k.periode_id
         LEFT JOIN latest_bekreftelser b       ON b.periode_id  = k.periode_id
         LEFT JOIN bekreftelse_paavegneav bv ON bv.periode_id = k.periode_id
-        WHERE k.parent_id = $1
-        ORDER BY k.arbeidssoeker_siden {dir}
+        WHERE k.arbeidssoeker_id = $1
+        ORDER BY k.arbeidssoeker_fra {dir}
         OFFSET $2
         LIMIT $3
         "#
     );
     sqlx::query_as::<_, LedighetsperiodeRow>(sqlx::AssertSqlSafe(sql))
-        .bind(parent_id)
+        .bind(arbeidssoeker_id)
         .bind(offset)
         .bind(limit)
         .fetch_all(&mut **tx)

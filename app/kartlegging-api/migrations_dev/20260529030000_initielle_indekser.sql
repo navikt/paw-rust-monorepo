@@ -1,10 +1,10 @@
 CREATE INDEX arbeidssoekere_aktor_id_idx ON arbeidssoekere (aktor_id);
-CREATE INDEX arbeidssoekere_arbeidssoeker_id_idx ON arbeidssoekere (arbeidssoeker_id);
 CREATE INDEX arbeidssoekere_identitetsnummer_idx ON arbeidssoekere (identitetsnummer);
 
 CREATE INDEX kartlegging_periode_id_idx ON kartlegginger (periode_id);
-CREATE INDEX kartlegging_arbeidssoeker_siden_idx ON kartlegginger (arbeidssoeker_siden);
-CREATE INDEX kartlegging_arbeidsledig_siden_idx ON kartlegginger (arbeidsledig_siden);
+CREATE INDEX kartlegging_arbeidssoeker_id_idx ON kartlegginger (arbeidssoeker_id);
+CREATE INDEX kartlegging_arbeidssoeker_fra_idx ON kartlegginger (arbeidssoeker_fra);
+CREATE INDEX kartlegging_arbeidsledig_fra_idx ON kartlegginger (arbeidsledig_fra);
 
 CREATE INDEX opplysninger_periode_id_idx ON opplysninger (periode_id);
 

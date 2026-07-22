@@ -168,7 +168,7 @@ mod tests {
         let target_json = serde_json::to_string(&oppfolgingsperiode).unwrap();
 
         match oppfolgingsperiode {
-            Oppfolgingsperiode::Startet(data) => {
+            Oppfolgingsperiode::Startet(_) => {
                 panic!("Feil type")
             }
             Oppfolgingsperiode::Endret(_) => {

@@ -22,8 +22,7 @@ Authorization: Bearer {{$auth.token("azure")}}
 
 {
     "type": "TILKNYTTET_KONTOR",
-    "kontorId": "4154",
-    "ledigSiden": "2026-04-01",
+    "kontorId": "1234",
     "paging": {
         "page": 1,
         "pageSize": 100,

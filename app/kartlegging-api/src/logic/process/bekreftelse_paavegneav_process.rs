@@ -1,7 +1,12 @@
-use crate::logic::mutation::bekreftelse_paavegneav_mutation;
-use eksterne_hendelser::bekreftelse::paa_vegne_av::PaaVegneAv;
+use crate::logic::process::PayloadProcessor;
+use crate::model::dao::bekreftelse_paavegneav;
+use crate::model::dao::bekreftelse_paavegneav::BekreftelsePaaVegneAvRow;
+use crate::model::error::{DaoError, PayloadProcessorError};
+use eksterne_hendelser::bekreftelse::paa_vegne_av::{Handling, PaaVegneAv};
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -15,73 +20,231 @@ impl BekreftelsePaaVegneAvProcessor {
             deserializer: AvroDeserializer::new(schema_registry_settings),
         }
     }
+}
 
-    pub async fn process_payload<'a>(
+impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
+    async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
-        payload: &'a [u8],
+        message: &'a OwnedMessage,
     ) -> anyhow::Result<(), ProcessorError> {
-        let hendelse: PaaVegneAv = self.deserializer.deserialize(payload).await.map_err(|e| {
-            ProcessorError::from(format!("Failed to deserialize payload: {}", e.to_string()))
-        })?;
+        match message.payload() {
+            None => Err(PayloadProcessorError::no_payload_error(message).into()),
+            Some(payload) => {
+                let hendelse: PaaVegneAv = self
+                    .deserializer
+                    .deserialize(payload)
+                    .await
+                    .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-        tracing::info!("Mottok hendelse: {:?}", &hendelse);
+                tracing::debug!("Mottok PaaVegneAv-hendelse");
 
-        bekreftelse_paavegneav_mutation::lagre_hendelse(tx, &hendelse).await?;
+                let handling = &hendelse.handling;
+                let periode_id = hendelse.periode_id;
+                let bekreftelsesloesning = hendelse.bekreftelsesloesning.as_ref().to_string();
+                let rows = bekreftelse_paavegneav::select_by_periode_id(tx, &periode_id).await?;
+                let count = rows.len();
 
-        Ok(())
+                if count > 1 {
+                    Err(DaoError::multiple_rows(message, "bekreftelse_paavegneav", count).into())
+                } else if count == 1 {
+                    let row = rows.first().expect("Ingen rad funnet");
+                    match handling {
+                        Handling::Start(_) => {
+                            let mut bekreftelsesloesninger = row.bekreftelsesloesninger.clone();
+                            bekreftelsesloesninger.push(bekreftelsesloesning);
+                            bekreftelsesloesninger.sort_unstable();
+                            bekreftelsesloesninger.dedup();
+                            let bekreftelsesloesninger = bekreftelsesloesninger;
+                            let updated_row =
+                                BekreftelsePaaVegneAvRow::new(periode_id, bekreftelsesloesninger);
+                            bekreftelse_paavegneav::update(tx, &updated_row).await?;
+                        }
+                        Handling::Stopp(_) => {
+                            let bekreftelsesloesninger = row
+                                .bekreftelsesloesninger
+                                .iter()
+                                .filter(|&l| l != &bekreftelsesloesning)
+                                .map(|l| l.to_string())
+                                .collect();
+                            let updated_row =
+                                BekreftelsePaaVegneAvRow::new(periode_id, bekreftelsesloesninger);
+                            bekreftelse_paavegneav::update(tx, &updated_row).await?;
+                        }
+                    }
+
+                    Ok(())
+                } else {
+                    match hendelse.handling {
+                        Handling::Start(_) => {
+                            let bekreftelsesloesninger = vec![bekreftelsesloesning];
+                            let row =
+                                BekreftelsePaaVegneAvRow::new(periode_id, bekreftelsesloesninger);
+                            bekreftelse_paavegneav::insert(tx, &row).await?;
+                        }
+                        Handling::Stopp(_) => {
+                            tracing::warn!(
+                                "Mottok stopp for på-vegne-av som ikke finnes i databasen"
+                            );
+                        }
+                    }
+
+                    Ok(())
+                }
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
+    use crate::logic::process::PayloadProcessor;
     use crate::model::dao::bekreftelse_paavegneav;
     use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-    use eksterne_hendelser::serde::AvroSerializer;
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
     use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
-    use serde::Serialize;
     use sqlx::{PgPool, Postgres, Transaction};
+    use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::{
         create_dummy_paavegneav_start, create_dummy_paavegneav_stopp,
     };
     use tokio::sync::OnceCell;
     use uuid::Uuid;
 
-    struct TestContext {
-        #[allow(unused)]
-        mockito_server: ServerGuard,
-        #[allow(unused)]
-        mocks: Vec<Mock>,
-        pg_pool: PgPool,
-        avro_serializer: AvroSerializer,
-        processor: BekreftelsePaaVegneAvProcessor,
+    #[tokio::test]
+    async fn test_process_messages() {
+        let context = init().await;
+
+        test_process_paavegneav_start_1(context).await;
+        test_process_paavegneav_start_2(context).await;
+        test_process_paavegneav_stopp(context).await;
     }
 
-    impl TestContext {
-        async fn start_tx(&self) -> Transaction<'_, Postgres> {
-            self.pg_pool
-                .begin()
-                .await
-                .expect("Kunne ikke starte transaksjon")
-        }
+    async fn test_process_paavegneav_start_1(context: &TestContext) {
+        let periode_id = context.periode_id;
 
-        async fn create_avro_payload(
-            &self,
-            topic: &'static str,
-            payload: impl Serialize,
-        ) -> Vec<u8> {
-            let strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
-            self.avro_serializer
-                .serialize(payload, &strategy)
+        let paavegneav = create_dummy_paavegneav_start(
+            periode_id,
+            Bekreftelsesloesning::Arbeidssoekerregisteret,
+        );
+        let message = context
+            .avro_generator
+            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .await;
+
+        let mut tx_1 = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result_1.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let paavegneav_rows_1 =
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
                 .await
-                .expect("Kunne ikke serialisere melding")
-        }
+                .expect("Kunne ikke hente bekreftelse");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert_eq!(paavegneav_rows_1.len(), 1);
+        let paavegneav_row_1 = paavegneav_rows_1
+            .get(0)
+            .expect("Ingen bekreftelse på-vegne-av funnet");
+        assert_eq!(paavegneav_row_1.periode_id, periode_id);
+        assert_eq!(
+            paavegneav_row_1.bekreftelsesloesninger,
+            vec![
+                Bekreftelsesloesning::Arbeidssoekerregisteret
+                    .as_ref()
+                    .to_string()
+            ]
+        );
+    }
+
+    async fn test_process_paavegneav_start_2(context: &TestContext) {
+        let periode_id = context.periode_id;
+
+        let paavegneav = create_dummy_paavegneav_start(
+            periode_id,
+            Bekreftelsesloesning::FriskmeldtTilArbeidsformidling,
+        );
+        let message = context
+            .avro_generator
+            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .await;
+
+        let mut tx_1 = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result_1.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let paavegneav_rows_1 =
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+                .await
+                .expect("Kunne ikke hente bekreftelse");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert_eq!(paavegneav_rows_1.len(), 1);
+        let paavegneav_row_1 = paavegneav_rows_1
+            .get(0)
+            .expect("Ingen bekreftelse på-vegne-av funnet");
+        assert_eq!(paavegneav_row_1.periode_id, periode_id);
+        assert_eq!(
+            paavegneav_row_1.bekreftelsesloesninger,
+            vec![
+                Bekreftelsesloesning::Arbeidssoekerregisteret
+                    .as_ref()
+                    .to_string(),
+                Bekreftelsesloesning::FriskmeldtTilArbeidsformidling
+                    .as_ref()
+                    .to_string()
+            ]
+        );
+    }
+
+    async fn test_process_paavegneav_stopp(context: &TestContext) {
+        let periode_id = context.periode_id;
+
+        let paavegneav = create_dummy_paavegneav_stopp(
+            periode_id,
+            Bekreftelsesloesning::Arbeidssoekerregisteret,
+        );
+        let message = context
+            .avro_generator
+            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .await;
+
+        let mut tx_1 = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result_1.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let paavegneav_rows_1 =
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+                .await
+                .expect("Kunne ikke hente bekreftelse");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert_eq!(paavegneav_rows_1.len(), 1);
+        let paavegneav_row_1 = paavegneav_rows_1
+            .get(0)
+            .expect("Ingen bekreftelse på-vegne-av funnet");
+        assert_eq!(paavegneav_row_1.periode_id, periode_id);
+        assert_eq!(
+            paavegneav_row_1.bekreftelsesloesninger,
+            vec![
+                Bekreftelsesloesning::FriskmeldtTilArbeidsformidling
+                    .as_ref()
+                    .to_string()
+            ]
+        );
     }
 
     static INIT: OnceCell<TestContext> = OnceCell::const_new();
@@ -116,95 +279,31 @@ mod tests {
                 mockito_server,
                 mocks,
                 pg_pool: postgres_guard.pg_pool,
-                avro_serializer: AvroSerializer::new(schema_registry_settings.clone()),
+                avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
                 processor: BekreftelsePaaVegneAvProcessor::new(schema_registry_settings.clone()),
+                periode_id: Uuid::new_v4(),
             }
         })
         .await
     }
 
-    #[tokio::test]
-    async fn test_process_messages() {
-        let context = init().await;
+    struct TestContext {
+        #[allow(unused)]
+        mockito_server: ServerGuard,
+        #[allow(unused)]
+        mocks: Vec<Mock>,
+        pg_pool: PgPool,
+        avro_generator: AvroGenerator,
+        processor: BekreftelsePaaVegneAvProcessor,
+        periode_id: Uuid,
+    }
 
-        let periode_id = Uuid::new_v4();
-        let paavegneav_1 = create_dummy_paavegneav_start(
-            periode_id,
-            Bekreftelsesloesning::Arbeidssoekerregisteret,
-        );
-        let payload_1 = context
-            .create_avro_payload(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav_1.clone())
-            .await;
-
-        let mut tx = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx, &payload_1).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(result_1.is_ok());
-
-        let paavegneav_2 = create_dummy_paavegneav_start(
-            periode_id,
-            Bekreftelsesloesning::FriskmeldtTilArbeidsformidling,
-        );
-        let payload_2 = context
-            .create_avro_payload(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav_2.clone())
-            .await;
-
-        let mut tx = context.start_tx().await;
-        let result_2 = context.processor.process_payload(&mut tx, &payload_2).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-        assert!(result_2.is_ok());
-
-        let mut tx = context.start_tx().await;
-        let rows_1 = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
-            .await
-            .expect("Kunne ikke hente bekreftelse");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert_eq!(rows_1.len(), 1);
-        let row_1 = rows_1.get(0).expect("Ingen bekreftelse på-vegne-av funnet");
-        assert_eq!(row_1.periode_id, periode_id);
-        assert_eq!(
-            row_1.bekreftelsesloesninger,
-            vec![
-                Bekreftelsesloesning::Arbeidssoekerregisteret
-                    .as_ref()
-                    .to_string(),
-                Bekreftelsesloesning::FriskmeldtTilArbeidsformidling
-                    .as_ref()
-                    .to_string()
-            ]
-        );
-
-        let paavegneav_3 = create_dummy_paavegneav_stopp(
-            periode_id,
-            Bekreftelsesloesning::Arbeidssoekerregisteret,
-        );
-        let payload_3 = context
-            .create_avro_payload(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav_3.clone())
-            .await;
-
-        let mut tx = context.start_tx().await;
-        let result_3 = context.processor.process_payload(&mut tx, &payload_3).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-        assert!(result_3.is_ok());
-
-        let mut tx = context.start_tx().await;
-        let rows_2 = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
-            .await
-            .expect("Kunne ikke hente bekreftelse på-vegne-av");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert_eq!(rows_2.len(), 1);
-        let row = rows_2.get(0).expect("Ingen bekreftelse på-vegne-av funnet");
-        assert_eq!(row.periode_id, periode_id);
-        assert_eq!(
-            row.bekreftelsesloesninger,
-            vec![
-                Bekreftelsesloesning::FriskmeldtTilArbeidsformidling
-                    .as_ref()
-                    .to_string()
-            ]
-        );
+    impl TestContext {
+        async fn start_tx(&self) -> Transaction<'_, Postgres> {
+            self.pg_pool
+                .begin()
+                .await
+                .expect("Kunne ikke starte transaksjon")
+        }
     }
 }

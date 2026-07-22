@@ -1,1 +1,2 @@
 metrics_task_interval = "PT30M"
+periode_gap_grense_for_ledighet = 14

@@ -8,6 +8,7 @@ use opentelemetry_sdk::Resource;
 use paw_rust_base::env::{nais_namespace, nais_otel_service_name};
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
+
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -35,15 +36,20 @@ pub fn setup_otel(config: OtelTracingConfig) -> Result<()> {
         .build();
     global::set_text_map_propagator(TraceContextPropagator::new());
 
-    let fmt_layer = fmt::layer().event_format(config.format).with_ansi(false);
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
+
+    let filter = config
+        .directives
+        .iter()
+        .try_fold(EnvFilter::from_default_env(), |filter, directive| {
+            directive.parse().map(|d| filter.add_directive(d))
+        })?;
+
+    let fmt_layer = fmt::layer().event_format(config.format).with_ansi(false);
+
     tracing_subscriber::registry()
-        .with(
-            EnvFilter::from_default_env()
-                .add_directive(config.level.into())
-                .add_directive("sqlx::query=info".parse()?),
-        )
+        .with(filter)
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
         .init();

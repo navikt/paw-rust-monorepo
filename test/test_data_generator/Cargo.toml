@@ -8,3 +8,7 @@ eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
 uuid = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rdkafka = { workspace = true }
+schema_registry_converter = { workspace = true }

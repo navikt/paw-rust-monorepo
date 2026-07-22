@@ -1,6 +1,14 @@
-use crate::logic::mutation::kontortilknytning_mutation;
-use dab_oppfolgingperioder::oppfolgingsperiode::Oppfolgingsperiode;
+use crate::logic::process::PayloadProcessor;
+use crate::model::dao::kontortilknytning;
+use crate::model::dao::kontortilknytning::KontortilknytningRow;
+use crate::model::dto::kontortilknytning::KontorType;
+use crate::model::error::{DaoError, PayloadProcessorError};
+use dab_oppfolgingperioder::oppfolgingsperiode::{
+    Oppfolgingsperiode, OppfolgingsperiodeAvsluttet, OppfolgingsperiodeEndret,
+};
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use sqlx::{Postgres, Transaction};
 
 pub struct OppfolgingsperiodeProcessor;
@@ -10,50 +18,238 @@ impl OppfolgingsperiodeProcessor {
         Self {}
     }
 
-    pub async fn process_payload<'a>(
+    async fn upsert_kontortilknytning<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
-        payload: &'a [u8],
+        message: &OwnedMessage,
+        data: &'a OppfolgingsperiodeEndret,
+    ) -> anyhow::Result<u64> {
+        let row = KontortilknytningRow::new(
+            data.id.clone(),
+            data.aktor_id.clone(),
+            data.ident.clone(),
+            data.kontor.kontor_id.clone(),
+            data.kontor.kontor_navn.clone(),
+            KontorType::Arbeidsoppfolging.as_ref().to_string(), // Akkurat nå vil alle kontortilknytninger være av type Arbeidsoppfolging. Feltet åpner for å kunne ta imot andre typer tilknytninger i fremtiden
+            data.start_tidspunkt.clone(),
+        );
+        let count = kontortilknytning::count_by_id(tx, &data.id).await?;
+        if count > 1 {
+            Err(DaoError::multiple_rows(message, "bekreftelse_paavegneav", count as usize).into())
+        } else if count == 1 {
+            kontortilknytning::update(tx, &row).await
+        } else {
+            kontortilknytning::insert(tx, &row).await
+        }
+    }
+
+    async fn delete_kontortilknytning<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        data: &'a OppfolgingsperiodeAvsluttet,
+    ) -> anyhow::Result<u64> {
+        kontortilknytning::delete(tx, &data.id).await
+    }
+}
+
+impl PayloadProcessor for OppfolgingsperiodeProcessor {
+    async fn process_payload<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        message: &'a OwnedMessage,
     ) -> anyhow::Result<(), ProcessorError> {
-        let hendelse: Oppfolgingsperiode = serde_json::from_slice(payload).map_err(|e| {
-            ProcessorError::from(format!("Failed to deserialize payload: {}", e.to_string()))
-        })?;
+        match message.payload() {
+            None => Err(PayloadProcessorError::no_payload_error(message).into()),
+            Some(payload) => {
+                let hendelse: Oppfolgingsperiode = serde_json::from_slice(payload)
+                    .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-        tracing::info!("Mottok hendelse: {:?}", &hendelse);
+                tracing::debug!("Mottok Oppfolgingsperiode-hendelse");
 
-        kontortilknytning_mutation::lagre_hendelse(tx, &hendelse).await?;
+                match hendelse {
+                    Oppfolgingsperiode::Startet(data) => {
+                        self.upsert_kontortilknytning(tx, &message, &data).await?
+                    }
+                    Oppfolgingsperiode::Endret(data) => {
+                        self.upsert_kontortilknytning(tx, &message, &data).await?
+                    }
+                    Oppfolgingsperiode::Avsluttet(data) => {
+                        self.delete_kontortilknytning(tx, &data).await?
+                    }
+                };
 
-        Ok(())
+                Ok(())
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcessor;
+    use crate::logic::process::PayloadProcessor;
     use crate::model::dao::kontortilknytning;
     use crate::model::dto::kontortilknytning::KontorType;
-    use dab_oppfolgingperioder::oppfolgingsperiode::Oppfolgingsperiode;
+    use dab_oppfolgingperioder::oppfolgingsperiode::{
+        Oppfolgingsperiode, POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC,
+    };
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::dab_oppfolgingsperiode::{
         create_dummy_oppfolgingsperiode_avsluttet, create_dummy_oppfolgingsperiode_endret,
         create_dummy_oppfolgingsperiode_startet,
     };
+    use test_data_generator::json::JsonGenerator;
     use tokio::sync::OnceCell;
     use uuid::Uuid;
 
-    struct TestContext {
-        pg_pool: PgPool,
-        processor: OppfolgingsperiodeProcessor,
+    #[tokio::test]
+    async fn test_process_messages() {
+        let context = init().await;
+
+        test_process_oppfolgingsperiode_startet(context).await;
+        test_process_oppfolgingsperiode_endret(context).await;
+        test_process_oppfolgingsperiode_avsluttet(context).await;
     }
 
-    impl TestContext {
-        async fn start_tx(&self) -> Transaction<'_, Postgres> {
-            self.pg_pool
-                .begin()
+    async fn test_process_oppfolgingsperiode_startet(context: &TestContext) {
+        let aktor_id = context.aktor_id;
+        let identitetsnummer = context.identitetsnummer;
+        let oppfolgingsperiode_id = context.oppfolgingsperiode_id;
+        let kontor_id_1 = context.kontor_id_1;
+
+        let oppfolgingsperiode = create_dummy_oppfolgingsperiode_startet(
+            oppfolgingsperiode_id,
+            aktor_id,
+            identitetsnummer,
+            kontor_id_1,
+        );
+        let message = context
+            .json_generator
+            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+
+        let mut tx_1 = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result_1.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let optional_kontortilknytning_row =
+            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
                 .await
-                .expect("Kunne ikke starte transaksjon")
+                .expect("Kunne ikke hente kontortilknytning");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(optional_kontortilknytning_row.is_some());
+        match oppfolgingsperiode {
+            Oppfolgingsperiode::Startet(hendelse) => {
+                let kontortilknytning_row =
+                    optional_kontortilknytning_row.expect("Ingen kontortilknytning funnet");
+                assert_eq!(kontortilknytning_row.id, hendelse.id);
+                assert_eq!(kontortilknytning_row.aktor_id, hendelse.aktor_id);
+                assert_eq!(kontortilknytning_row.kontor_id, hendelse.kontor.kontor_id);
+                assert_eq!(
+                    kontortilknytning_row.kontor_type,
+                    KontorType::Arbeidsoppfolging.as_ref().to_string()
+                );
+                assert_eq!(
+                    kontortilknytning_row.kontor_navn,
+                    hendelse.kontor.kontor_navn
+                );
+            }
+            Oppfolgingsperiode::Endret(_) => {
+                panic!("Uventet hendelsetype")
+            }
+            Oppfolgingsperiode::Avsluttet(_) => {
+                panic!("Uventet hendelsetype")
+            }
         }
+    }
+
+    async fn test_process_oppfolgingsperiode_endret(context: &TestContext) {
+        let aktor_id = context.aktor_id;
+        let identitetsnummer = context.identitetsnummer;
+        let oppfolgingsperiode_id = context.oppfolgingsperiode_id;
+        let kontor_id_2 = context.kontor_id_2;
+
+        let oppfolgingsperiode = create_dummy_oppfolgingsperiode_endret(
+            oppfolgingsperiode_id,
+            aktor_id,
+            identitetsnummer,
+            kontor_id_2,
+        );
+        let message = context
+            .json_generator
+            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+
+        let mut tx_1 = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let optional_kontortilknytning_row =
+            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+                .await
+                .expect("Kunne ikke hente kontortilknytning");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(optional_kontortilknytning_row.is_some());
+        match oppfolgingsperiode {
+            Oppfolgingsperiode::Startet(_) => {
+                panic!("Uventet hendelsetype")
+            }
+            Oppfolgingsperiode::Endret(hendelse) => {
+                let kontortilknytning_row =
+                    optional_kontortilknytning_row.expect("Ingen kontortilknytning funnet");
+                assert_eq!(kontortilknytning_row.id, hendelse.id);
+                assert_eq!(kontortilknytning_row.aktor_id, hendelse.aktor_id);
+                assert_eq!(kontortilknytning_row.kontor_id, hendelse.kontor.kontor_id);
+                assert_eq!(
+                    kontortilknytning_row.kontor_type,
+                    KontorType::Arbeidsoppfolging.as_ref().to_string()
+                );
+                assert_eq!(
+                    kontortilknytning_row.kontor_navn,
+                    hendelse.kontor.kontor_navn
+                );
+            }
+            Oppfolgingsperiode::Avsluttet(_) => {
+                panic!("Uventet hendelsetype")
+            }
+        }
+    }
+
+    async fn test_process_oppfolgingsperiode_avsluttet(context: &TestContext) {
+        let aktor_id = context.aktor_id;
+        let identitetsnummer = context.identitetsnummer;
+        let oppfolgingsperiode_id = context.oppfolgingsperiode_id;
+
+        let oppfolgingsperiode = create_dummy_oppfolgingsperiode_avsluttet(
+            oppfolgingsperiode_id,
+            aktor_id,
+            identitetsnummer,
+        );
+        let message = context
+            .json_generator
+            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+
+        let mut tx_1 = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx_1, &message).await;
+        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(result.is_ok());
+
+        let mut tx_2 = context.start_tx().await;
+        let optional_kontortilknytning_row =
+            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+                .await
+                .expect("Kunne ikke hente oppfolgingsperiode");
+        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(optional_kontortilknytning_row.is_none());
     }
 
     static INIT: OnceCell<TestContext> = OnceCell::const_new();
@@ -70,121 +266,35 @@ mod tests {
             let processor = OppfolgingsperiodeProcessor::new();
             TestContext {
                 pg_pool: postgres_guard.pg_pool,
+                json_generator: JsonGenerator,
                 processor,
+                aktor_id: "101701234500",
+                identitetsnummer: "01017012345",
+                oppfolgingsperiode_id: Uuid::new_v4(),
+                kontor_id_1: "1337",
+                kontor_id_2: "1234",
             }
         })
         .await
     }
 
-    #[tokio::test]
-    async fn test_process_messages() {
-        let context = init().await;
+    struct TestContext {
+        pg_pool: PgPool,
+        json_generator: JsonGenerator,
+        processor: OppfolgingsperiodeProcessor,
+        aktor_id: &'static str,
+        identitetsnummer: &'static str,
+        oppfolgingsperiode_id: Uuid,
+        kontor_id_1: &'static str,
+        kontor_id_2: &'static str,
+    }
 
-        let oppfolgingsperiode_id = Uuid::new_v4();
-        let oppfolgingsperiode_1 = create_dummy_oppfolgingsperiode_startet(
-            oppfolgingsperiode_id,
-            "101701234500",
-            "01017012345",
-            "1337",
-        );
-        let payload_1 = serde_json::to_vec(&oppfolgingsperiode_1)
-            .expect("Kunne ikke serialisere oppfolgingsperiode");
-
-        let mut tx = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx, &payload_1).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(result_1.is_ok());
-
-        let mut tx = context.start_tx().await;
-        let optional_row_1 = kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
-            .await
-            .expect("Kunne ikke hente oppfolgingsperiode");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_row_1.is_some());
-        match oppfolgingsperiode_1 {
-            Oppfolgingsperiode::Startet(hendelse) => {
-                let row = optional_row_1.expect("Ingen oppfolgingsperiode funnet");
-                assert_eq!(row.id, hendelse.id);
-                assert_eq!(row.aktor_id, hendelse.aktor_id);
-                assert_eq!(row.kontor_id, hendelse.kontor.kontor_id);
-                assert_eq!(
-                    row.kontor_type,
-                    KontorType::Arbeidsoppfolging.as_ref().to_string()
-                );
-                assert_eq!(row.kontor_navn, hendelse.kontor.kontor_navn);
-            }
-            Oppfolgingsperiode::Endret(_) => {
-                panic!("Uventet hendelsetype")
-            }
-            Oppfolgingsperiode::Avsluttet(_) => {
-                panic!("Uventet hendelsetype")
-            }
+    impl TestContext {
+        async fn start_tx(&self) -> Transaction<'_, Postgres> {
+            self.pg_pool
+                .begin()
+                .await
+                .expect("Kunne ikke starte transaksjon")
         }
-
-        let oppfolgingsperiode_2 = create_dummy_oppfolgingsperiode_endret(
-            oppfolgingsperiode_id,
-            "101701234500",
-            "01017012345",
-            "1234",
-        );
-        let payload_2 = serde_json::to_vec(&oppfolgingsperiode_2)
-            .expect("Kunne ikke serialisere oppfolgingsperiode");
-
-        let mut tx = context.start_tx().await;
-        let result_2 = context.processor.process_payload(&mut tx, &payload_2).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(result_2.is_ok());
-
-        let mut tx = context.start_tx().await;
-        let optional_row_2 = kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
-            .await
-            .expect("Kunne ikke hente oppfolgingsperiode");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_row_2.is_some());
-        match oppfolgingsperiode_2 {
-            Oppfolgingsperiode::Startet(_) => {
-                panic!("Uventet hendelsetype")
-            }
-            Oppfolgingsperiode::Endret(hendelse) => {
-                let row = optional_row_2.expect("Ingen oppfolgingsperiode funnet");
-                assert_eq!(row.id, hendelse.id);
-                assert_eq!(row.aktor_id, hendelse.aktor_id);
-                assert_eq!(row.kontor_id, hendelse.kontor.kontor_id);
-                assert_eq!(
-                    row.kontor_type,
-                    KontorType::Arbeidsoppfolging.as_ref().to_string()
-                );
-                assert_eq!(row.kontor_navn, hendelse.kontor.kontor_navn);
-            }
-            Oppfolgingsperiode::Avsluttet(_) => {
-                panic!("Uventet hendelsetype")
-            }
-        }
-
-        let oppfolgingsperiode_3 = create_dummy_oppfolgingsperiode_avsluttet(
-            oppfolgingsperiode_id,
-            "101701234500",
-            "01017012345",
-        );
-        let payload_3 = serde_json::to_vec(&oppfolgingsperiode_3)
-            .expect("Kunne ikke serialisere oppfolgingsperiode");
-
-        let mut tx = context.start_tx().await;
-        let result_3 = context.processor.process_payload(&mut tx, &payload_3).await;
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(result_3.is_ok());
-
-        let mut tx = context.start_tx().await;
-        let optional_row_3 = kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
-            .await
-            .expect("Kunne ikke hente oppfolgingsperiode");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_row_3.is_none());
     }
 }

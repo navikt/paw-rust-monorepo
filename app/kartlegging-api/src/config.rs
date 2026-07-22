@@ -16,6 +16,7 @@ pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct AppConfig {
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
     pub metrics_task_interval: Duration,
+    pub periode_gap_grense_for_ledighet: i64,
 }
 
 pub fn read_app_config() -> anyhow::Result<AppConfig> {

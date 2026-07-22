@@ -31,7 +31,7 @@ use texas_client::token_client::create_token_client;
 async fn main() -> anyhow::Result<()> {
     register_panic_logger();
 
-    let app_config = read_app_config()?;
+    let app_config = Arc::new(read_app_config()?);
     let otel_tracing_config = read_otel_tracing_config()?;
     let database_config = read_database_config()?;
     let auth_config = read_auth_config()?;
@@ -86,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
     let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &TOPICS)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
     let message_processor = KartleggingMessageProcessor::new(
+        app_config.clone(),
         schema_registry_settings,
         key_gen_client.clone(),
         pdl_client.clone(),
@@ -96,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
 
-    let metrics_task = metrics_task(app_config, pg_pool.clone());
+    let metrics_task = metrics_task(app_config.clone(), pg_pool.clone());
 
     let signal_task = shutdown_signal_task();
 

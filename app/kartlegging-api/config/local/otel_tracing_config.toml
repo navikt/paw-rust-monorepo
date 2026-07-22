@@ -1,2 +1,6 @@
-level = "DEBUG"
 format = "COMPACT"
+directives = [
+    "INFO",
+    "kartlegging_api::logic::process=DEBUG",
+    "kartlegging_api::logic::process::message_process=INFO"
+]
