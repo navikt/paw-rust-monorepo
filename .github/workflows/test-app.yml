@@ -3,11 +3,14 @@ on:
   push:
     branches:
       - main
+      - dev/*
     paths:
-      - 'app/test-app/**'
-      - 'Cargo.lock'
-      - 'lib/**'
-      - 'Dockerfile'
+      - ".github/workflows/test-app.yml"
+      - "app/test-app/**"
+      - "Cargo.toml"
+      - "lib/**"
+      - "domain/**"
+      - "Dockerfile"
 env:
   APP_NAME: test-app
 jobs:

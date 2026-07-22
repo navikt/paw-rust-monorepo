@@ -3,10 +3,10 @@ on:
   push:
     branches:
       - main
+      - dev/*
     paths:
       - ".github/workflows/utgang.yml"
       - "app/utgang/**"
-      - "Cargo.lock"
       - "Cargo.toml"
       - "lib/**"
       - "domain/**"

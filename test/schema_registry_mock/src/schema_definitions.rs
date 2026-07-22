@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{json, Value};
 use std::fmt;
 
 pub(crate) struct AvroSchema {
@@ -9,15 +9,27 @@ pub(crate) struct AvroSchema {
 }
 
 impl AvroSchema {
-    pub(crate) fn subject_path(&self) -> String {
-        format!("/subjects/{}-value/versions/latest", self.topic)
+    pub(crate) fn subject(&self) -> String {
+        format!("{}-value", self.topic)
     }
 
-    pub(crate) fn schema_path(&self) -> String {
+    pub(crate) fn subject_config_path(&self) -> String {
+        format!("/config/{}", self.subject())
+    }
+
+    pub(crate) fn subject_version_path(&self) -> String {
+        format!("/subjects/{}/versions/latest", self.subject())
+    }
+
+    pub(crate) fn schema_id_path(&self) -> String {
         format!("/schemas/ids/{}?deleted=true", self.id)
     }
 
-    pub(crate) fn subject_response_body(&self) -> String {
+    pub(crate) fn subject_config_request_body(&self) -> Value {
+        json!({ "compatibilityLevel": "FULL_TRANSITIVE" })
+    }
+
+    pub(crate) fn subject_version_response_body(&self) -> String {
         json!({
             "subject": format!("{}-value", self.topic),
             "version": self.version,
@@ -27,7 +39,7 @@ impl AvroSchema {
         .to_string()
     }
 
-    pub(crate) fn schema_response_body(&self) -> String {
+    pub(crate) fn schema_id_response_body(&self) -> String {
         json!({ "schema": self.schema }).to_string()
     }
 }
@@ -90,7 +102,8 @@ pub const EGENVURDERING_TOPIC: &'static str = "paw.arbeidssoeker-egenvurdering-v
 pub const BEKREFTELSE_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-v1";
 pub const BEKREFTELSE_PAAVEGNEAV_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-paavegneav-v1";
 
-pub const PERIODE_AVRO_SCHEMA: &'static str = r#"
+pub const PERIODE_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "Periode",
@@ -229,7 +242,8 @@ pub const PERIODE_AVRO_SCHEMA: &'static str = r#"
 }
 "#;
 
-pub const OPPLYSNINGER_AVRO_SCHEMA: &'static str = r#"
+pub const OPPLYSNINGER_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "OpplysningerOmArbeidssoeker",
@@ -504,7 +518,8 @@ pub const OPPLYSNINGER_AVRO_SCHEMA: &'static str = r#"
 }
 "#;
 
-pub const PROFILERING_AVRO_SCHEMA: &'static str = r#"
+pub const PROFILERING_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "Profilering",
@@ -668,7 +683,8 @@ pub const PROFILERING_AVRO_SCHEMA: &'static str = r#"
 }
 "#;
 
-pub const EGENVURDERING_AVRO_SCHEMA: &'static str = r#"
+pub const EGENVURDERING_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "Egenvurdering",
@@ -827,7 +843,8 @@ pub const EGENVURDERING_AVRO_SCHEMA: &'static str = r#"
 }
 "#;
 
-pub const BEKREFTELSE_AVRO_SCHEMA: &'static str = r#"
+pub const BEKREFTELSE_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "Bekreftelse",
@@ -970,7 +987,8 @@ pub const BEKREFTELSE_AVRO_SCHEMA: &'static str = r#"
 }
 "#;
 
-pub const BEKREFTELSE_PAAVEGNEAV_AVRO_SCHEMA: &'static str = r#"
+pub const BEKREFTELSE_PAAVEGNEAV_AVRO_SCHEMA: &'static str = //language=JSON
+    r#"
 {
   "type": "record",
   "name": "PaaVegneAv",

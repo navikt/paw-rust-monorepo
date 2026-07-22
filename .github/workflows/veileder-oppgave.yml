@@ -5,10 +5,12 @@ on:
       - main
       - dev/*
     paths:
-      - 'app/veileder-oppgave/**'
-      - 'Cargo.lock'
-      - 'lib/**'
-      - 'Dockerfile'
+      - ".github/workflows/veileder-oppgave.yml"
+      - "app/veileder-oppgave/**"
+      - "Cargo.toml"
+      - "lib/**"
+      - "domain/**"
+      - "Dockerfile"
 env:
   APP_NAME: veileder-oppgave
 jobs:

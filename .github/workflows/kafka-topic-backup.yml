@@ -3,11 +3,14 @@ on:
   push:
     branches:
       - main
+      - dev/*
     paths:
-      - 'app/kafka-topic-backup/**'
-      - 'Cargo.lock'
-      - 'lib/**'
-      - 'Dockerfile'
+      - ".github/workflows/kafka-topic-backup.yml"
+      - "app/kafka-topic-backup/**"
+      - "Cargo.toml"
+      - "lib/**"
+      - "domain/**"
+      - "Dockerfile"
 env:
   APP_NAME: kafka-topic-backup
 jobs:

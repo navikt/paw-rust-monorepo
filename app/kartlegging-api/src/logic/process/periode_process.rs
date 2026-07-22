@@ -435,24 +435,20 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let arbeidssoeker_rows =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_2, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_2, &periode_id_1)
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id_1)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_2, &periode_id_1)
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id_1)
             .await
             .expect("Kunne ikke hente periode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -490,24 +486,20 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let arbeidssoeker_rows =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_2, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_2, &periode_id_1)
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id_1)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_2, &periode_id_1)
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id_1)
             .await
             .expect("Kunne ikke hente periode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -545,24 +537,20 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let arbeidssoeker_rows =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_2, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_2, &periode_id_2)
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id_2)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_2, &periode_id_2)
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id_2)
             .await
             .expect("Kunne ikke hente periode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -607,15 +595,6 @@ mod tests {
         let periode_id = context.periode_id_3;
         let periode_startet = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
 
-        let mut tx_1 = context.start_tx().await;
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx_1, &periode_id)
-            .await?;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_1.is_none());
-
         let bekreftelse_row_1 = BekreftelseRow {
             id: Uuid::new_v4(),
             periode_id,
@@ -628,21 +607,6 @@ mod tests {
                 .to_string(),
             tidspunkt: Utc::now(),
         };
-
-        let mut tx_2 = context.start_tx().await;
-        bekreftelse::insert(&mut tx_2, &bekreftelse_row_1).await?;
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
-
-        let mut tx_3 = context.start_tx().await;
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx_3, &periode_id)
-            .await?;
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_2.is_some());
-        let ledighet_2 = optional_ledighet_2.expect("Ledighet ikke satt");
-        assert_eq!(ledighet_2, periode_startet);
 
         let bekreftelse_row_2 = BekreftelseRow {
             id: Uuid::new_v4(),
@@ -657,21 +621,6 @@ mod tests {
             tidspunkt: Utc::now(),
         };
 
-        let mut tx_4 = context.start_tx().await;
-        bekreftelse::insert(&mut tx_4, &bekreftelse_row_2).await?;
-        tx_4.commit().await.expect("Kunne ikke commit transaksjon");
-
-        let mut tx_5 = context.start_tx().await;
-        let optional_ledighet_3 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx_5, &periode_id)
-            .await?;
-        tx_5.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_3.is_some());
-        let ledighet_3 = optional_ledighet_3.expect("Ledighet ikke satt");
-        assert_eq!(ledighet_3, periode_startet);
-
         let bekreftelse_row_3 = BekreftelseRow {
             id: Uuid::new_v4(),
             periode_id,
@@ -685,19 +634,43 @@ mod tests {
             tidspunkt: Utc::now(),
         };
 
-        let mut tx_6 = context.start_tx().await;
-        bekreftelse::insert(&mut tx_6, &bekreftelse_row_3).await?;
-        tx_6.commit().await.expect("Kunne ikke commit transaksjon");
+        let mut tx = context.start_tx().await;
 
-        let mut tx_7 = context.start_tx().await;
+        let optional_ledighet_1 = context
+            .processor
+            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
+            .await?;
+        assert!(optional_ledighet_1.is_none());
+
+        bekreftelse::insert(&mut tx, &bekreftelse_row_1).await?;
+
+        let optional_ledighet_2 = context
+            .processor
+            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
+            .await?;
+        assert!(optional_ledighet_2.is_some());
+        let ledighet_2 = optional_ledighet_2.expect("Ledighet ikke satt");
+        assert_eq!(ledighet_2, periode_startet);
+
+        bekreftelse::insert(&mut tx, &bekreftelse_row_2).await?;
+
+        let optional_ledighet_3 = context
+            .processor
+            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
+            .await?;
+        assert!(optional_ledighet_3.is_some());
+        let ledighet_3 = optional_ledighet_3.expect("Ledighet ikke satt");
+        assert_eq!(ledighet_3, periode_startet);
+
+        bekreftelse::insert(&mut tx, &bekreftelse_row_3).await?;
+
         let optional_ledighet_4 = context
             .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx_7, &periode_id)
+            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
             .await?;
-        tx_7.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert!(optional_ledighet_4.is_none());
 
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
         Ok(())
     }
 
@@ -706,32 +679,6 @@ mod tests {
     ) -> anyhow::Result<()> {
         let periode_id = context.periode_id_4;
         let periode_startet = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-
-        let mut tx_1 = context.start_tx().await;
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(
-                &mut tx_1,
-                &periode_id,
-                &Some(periode_startet + Duration::days(7)),
-            )
-            .await?;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_1.is_some());
-        assert_eq!(
-            optional_ledighet_1,
-            Some(periode_startet + Duration::days(7))
-        );
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx_2, &periode_id, &None)
-            .await?;
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_2.is_none());
 
         let bekreftelse_row = BekreftelseRow {
             id: Uuid::new_v4(),
@@ -746,21 +693,39 @@ mod tests {
             tidspunkt: Utc::now(),
         };
 
-        let mut tx_3 = context.start_tx().await;
-        bekreftelse::insert(&mut tx_3, &bekreftelse_row).await?;
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
+        let mut tx = context.start_tx().await;
 
-        let mut tx_4 = context.start_tx().await;
+        let optional_ledighet_1 = context
+            .processor
+            .utled_arbeidsledighet_fra_eksisterende_kartlegging(
+                &mut tx,
+                &periode_id,
+                &Some(periode_startet + Duration::days(7)),
+            )
+            .await?;
+        assert!(optional_ledighet_1.is_some());
+        assert_eq!(
+            optional_ledighet_1,
+            Some(periode_startet + Duration::days(7))
+        );
+
+        let optional_ledighet_2 = context
+            .processor
+            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx, &periode_id, &None)
+            .await?;
+        assert!(optional_ledighet_2.is_none());
+
+        bekreftelse::insert(&mut tx, &bekreftelse_row).await?;
+
         let optional_ledighet_3 = context
             .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx_4, &periode_id, &None)
+            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx, &periode_id, &None)
             .await?;
-        tx_4.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert!(optional_ledighet_3.is_some());
         let ledighet_3 = optional_ledighet_3.expect("Ledighet ikke satt");
         assert_eq!(ledighet_3, bekreftelse_row.gjelder_fra);
 
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
         Ok(())
     }
 
@@ -783,28 +748,7 @@ mod tests {
             mellomnavn: None,
             etternavn: None,
         };
-        let mut tx_1 = context.start_tx().await;
-        arbeidssoeker::insert(&mut tx_1, &arbeidssoeker_row).await?;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
 
-        // Steg 1: Ingen bekreftelser og ingen tidligere kartlegginger
-        let gjeldende_periode_startet_1 = tidligere_periode_avsluttet + Duration::days(10);
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_2,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_1,
-            )
-            .await?;
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_1.is_none());
-
-        // Steg 2: Har en tidligere kartlegging, men uten ledighet satt og periode er aktiv
         let tidligere_kartlegging_row = KartleggingRow {
             periode_id: tidligere_periode_id,
             arbeidssoeker_id,
@@ -812,118 +756,16 @@ mod tests {
             arbeidssoeker_til: None,
             arbeidsledig_fra: None,
         };
-        let mut tx_3 = context.start_tx().await;
-        kartlegging::insert(&mut tx_3, &tidligere_kartlegging_row).await?;
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
 
-        let gjeldende_periode_startet_2 = tidligere_periode_avsluttet + Duration::days(10);
-
-        let mut tx_4 = context.start_tx().await;
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_4,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_2,
-            )
-            .await?;
-        tx_4.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_2.is_none());
-
-        // Steg 3: Setter ledighet på tidligere kartlegging, men perioder er aktiv
         let arbeidsledig_fra_1 = tidligere_periode_startet + Duration::days(1);
-        let gjeldende_periode_startet_3 = tidligere_periode_avsluttet + Duration::days(10);
-
-        let mut tx_5 = context.start_tx().await;
-        kartlegging::update(
-            &mut tx_5,
-            &tidligere_periode_id,
-            &None,
-            &Some(arbeidsledig_fra_1),
-        )
-        .await?;
-        tx_5.commit().await.expect("Kunne ikke commit transaksjon");
-
-        let mut tx_6 = context.start_tx().await;
-        let optional_ledighet_3 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_6,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_3,
-            )
-            .await?;
-        tx_6.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_3.is_none());
-
-        // Steg 4: Perioder er avluttet, men gap mellom perioder er mer enn 14 dager
         let arbeidsledig_fra_2 = tidligere_periode_startet + Duration::days(2);
-        let gjeldende_periode_startet_4 = tidligere_periode_avsluttet + Duration::days(15);
-
-        let mut tx_7 = context.start_tx().await;
-        kartlegging::update(
-            &mut tx_7,
-            &tidligere_periode_id,
-            &Some(tidligere_periode_avsluttet),
-            &Some(arbeidsledig_fra_2),
-        )
-        .await?;
-        tx_7.commit().await.expect("Kunne ikke commit transaksjon");
-
-        let mut tx_8 = context.start_tx().await;
-        let optional_ledighet_4 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_8,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_4,
-            )
-            .await?;
-        tx_8.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_ledighet_4.is_none());
-
-        // Steg 5: Perioder er avluttet, og gap mellom perioder er mindre enn 14 dager
         let arbeidsledig_fra_3 = tidligere_periode_startet + Duration::days(3);
-        let gjeldende_periode_startet_5 = tidligere_periode_avsluttet + Duration::days(13);
-
-        let mut tx_9 = context.start_tx().await;
-        kartlegging::update(
-            &mut tx_9,
-            &tidligere_periode_id,
-            &Some(tidligere_periode_avsluttet),
-            &Some(arbeidsledig_fra_3),
-        )
-        .await?;
-        tx_9.commit().await.expect("Kunne ikke commit transaksjon");
-
-        let mut tx_10 = context.start_tx().await;
-        let optional_ledighet_5 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_10,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_5,
-            )
-            .await?;
-        tx_10.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert_eq!(optional_ledighet_5, Some(arbeidsledig_fra_3));
-
-        // Steg 6: Det finnes bekreftelse for gjeldende periode
-        let gjeldende_periode_startet_6 = tidligere_periode_avsluttet + Duration::days(1);
 
         let bekreftelse_row = BekreftelseRow {
             id: Uuid::new_v4(),
             periode_id: gjeldende_periode_id,
-            gjelder_fra: gjeldende_periode_startet_6,
-            gjelder_til: gjeldende_periode_startet_6 + Duration::days(14),
+            gjelder_fra: tidligere_periode_avsluttet + Duration::days(1),
+            gjelder_til: tidligere_periode_avsluttet + Duration::days(15),
             har_jobbet: false,
             vil_fortsette: true,
             bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
@@ -932,24 +774,107 @@ mod tests {
             tidspunkt: Utc::now(),
         };
 
-        let mut tx_11 = context.start_tx().await;
-        bekreftelse::insert(&mut tx_11, &bekreftelse_row).await?;
-        tx_11.commit().await.expect("Kunne ikke commit transaksjon");
+        let mut tx = context.start_tx().await;
 
-        let mut tx_12 = context.start_tx().await;
+        arbeidssoeker::insert(&mut tx, &arbeidssoeker_row).await?;
+
+        // Steg 1: Ingen bekreftelser og ingen tidligere kartlegginger
+        let optional_ledighet_1 = context
+            .processor
+            .utled_arbeidsledighet_fra_tidligere_kartlegging(
+                &mut tx,
+                &arbeidssoeker_id,
+                &gjeldende_periode_id,
+                &(tidligere_periode_avsluttet + Duration::days(10)),
+            )
+            .await?;
+        assert!(optional_ledighet_1.is_none());
+
+        // Steg 2: Har en tidligere kartlegging, men uten ledighet satt og periode er aktiv
+        kartlegging::insert(&mut tx, &tidligere_kartlegging_row).await?;
+        let optional_ledighet_2 = context
+            .processor
+            .utled_arbeidsledighet_fra_tidligere_kartlegging(
+                &mut tx,
+                &arbeidssoeker_id,
+                &gjeldende_periode_id,
+                &(tidligere_periode_avsluttet + Duration::days(10)),
+            )
+            .await?;
+        assert!(optional_ledighet_2.is_none());
+
+        // Steg 3: Setter ledighet på tidligere kartlegging, men perioder er aktiv
+        kartlegging::update(
+            &mut tx,
+            &tidligere_periode_id,
+            &None,
+            &Some(arbeidsledig_fra_1),
+        )
+        .await?;
+        let optional_ledighet_3 = context
+            .processor
+            .utled_arbeidsledighet_fra_tidligere_kartlegging(
+                &mut tx,
+                &arbeidssoeker_id,
+                &gjeldende_periode_id,
+                &(tidligere_periode_avsluttet + Duration::days(10)),
+            )
+            .await?;
+        assert!(optional_ledighet_3.is_none());
+
+        // Steg 4: Perioder er avluttet, men gap mellom perioder er mer enn 14 dager
+        kartlegging::update(
+            &mut tx,
+            &tidligere_periode_id,
+            &Some(tidligere_periode_avsluttet),
+            &Some(arbeidsledig_fra_2),
+        )
+        .await?;
+        let optional_ledighet_4 = context
+            .processor
+            .utled_arbeidsledighet_fra_tidligere_kartlegging(
+                &mut tx,
+                &arbeidssoeker_id,
+                &gjeldende_periode_id,
+                &(tidligere_periode_avsluttet + Duration::days(15)),
+            )
+            .await?;
+        assert!(optional_ledighet_4.is_none());
+
+        // Steg 5: Perioder er avluttet, og gap mellom perioder er mindre enn 14 dager
+        kartlegging::update(
+            &mut tx,
+            &tidligere_periode_id,
+            &Some(tidligere_periode_avsluttet),
+            &Some(arbeidsledig_fra_3),
+        )
+        .await?;
+        let optional_ledighet_5 = context
+            .processor
+            .utled_arbeidsledighet_fra_tidligere_kartlegging(
+                &mut tx,
+                &arbeidssoeker_id,
+                &gjeldende_periode_id,
+                &(tidligere_periode_avsluttet + Duration::days(13)),
+            )
+            .await?;
+        assert_eq!(optional_ledighet_5, Some(arbeidsledig_fra_3));
+
+        // Steg 6: Det finnes bekreftelse for gjeldende periode
+        let gjeldende_periode_startet_6 = bekreftelse_row.gjelder_fra;
+        bekreftelse::insert(&mut tx, &bekreftelse_row).await?;
         let optional_ledighet_6 = context
             .processor
             .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx_12,
+                &mut tx,
                 &arbeidssoeker_id,
                 &gjeldende_periode_id,
                 &gjeldende_periode_startet_6,
             )
             .await?;
-        tx_12.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert_eq!(optional_ledighet_6, Some(gjeldende_periode_startet_6));
 
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
         Ok(())
     }
 

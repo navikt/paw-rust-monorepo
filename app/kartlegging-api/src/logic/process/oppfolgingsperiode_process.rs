@@ -128,18 +128,14 @@ mod tests {
             .json_generator
             .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
 
-        let mut tx_1 = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let optional_kontortilknytning_row =
-            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+            kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
                 .await
                 .expect("Kunne ikke hente kontortilknytning");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_kontortilknytning_row.is_some());
         match oppfolgingsperiode {
@@ -183,18 +179,14 @@ mod tests {
             .json_generator
             .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let optional_kontortilknytning_row =
-            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+            kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
                 .await
                 .expect("Kunne ikke hente kontortilknytning");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_kontortilknytning_row.is_some());
         match oppfolgingsperiode {
@@ -236,18 +228,14 @@ mod tests {
             .json_generator
             .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let optional_kontortilknytning_row =
-            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+            kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
                 .await
                 .expect("Kunne ikke hente oppfolgingsperiode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_kontortilknytning_row.is_none());
     }

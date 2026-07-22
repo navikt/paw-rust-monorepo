@@ -2257,6 +2257,7 @@ dependencies = [
  "dab_oppfolgingperioder",
  "eksterne_hendelser",
  "errors",
+ "futures",
  "health_and_monitoring",
  "jsonschema",
  "kafka_key_gen_mock",
@@ -3994,9 +3995,12 @@ dependencies = [
 name = "schema_registry_mock"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "mockito",
+ "reqwest 0.13.4",
  "schema_registry_converter",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

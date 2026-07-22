@@ -16,20 +16,20 @@ pub async fn create_schema_registry_mock(
         println!("Creating schema registry mock for schema {:?}", schema);
         mocks.push(
             mockito_server
-                .mock("GET", schema.subject_path().as_str())
+                .mock("GET", schema.subject_version_path().as_str())
                 .with_status(200)
                 .with_header("content-type", "application/vnd.schemaregistry.v1+json")
-                .with_body(schema.subject_response_body())
+                .with_body(schema.subject_version_response_body())
                 .create_async()
                 .await,
         );
 
         mocks.push(
             mockito_server
-                .mock("GET", schema.schema_path().as_str())
+                .mock("GET", schema.schema_id_path().as_str())
                 .with_status(200)
                 .with_header("content-type", "application/vnd.schemaregistry.v1+json")
-                .with_body(schema.schema_response_body())
+                .with_body(schema.schema_id_response_body())
                 .create_async()
                 .await,
         );

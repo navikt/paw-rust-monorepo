@@ -136,18 +136,14 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
                 .await
                 .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);
         let paavegneav_row_1 = paavegneav_rows_1
@@ -176,18 +172,14 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
                 .await
                 .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);
         let paavegneav_row_1 = paavegneav_rows_1
@@ -219,18 +211,14 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result_1 = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
                 .await
                 .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);
         let paavegneav_row_1 = paavegneav_rows_1

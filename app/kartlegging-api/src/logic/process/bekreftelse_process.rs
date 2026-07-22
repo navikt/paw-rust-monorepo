@@ -168,28 +168,24 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
+        let mut tx = context.start_tx().await;
         let result = context
             .periode_processor
-            .process_payload(&mut tx_1, &message)
+            .process_payload(&mut tx, &message)
             .await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
         eprintln!("Result: {:?}", result);
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let arbeidssoeker_rows =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_2, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_2, &periode_id)
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_2, &periode_id)
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id)
             .await
             .expect("Kunne ikke hente periode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -229,20 +225,22 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
+        let mut tx = context.start_tx().await;
         let result = context
             .bekreftelse_processor
-            .process_payload(&mut tx_1, &message)
+            .process_payload(&mut tx, &message)
             .await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx_2, &bekreftelse_id)
+        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
             .await
             .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging");
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente periode");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_bekreftelse_row.is_some());
         let bekreftelse_row = optional_bekreftelse_row.expect("Ingen bekreftelse funnet");
@@ -254,15 +252,6 @@ mod tests {
                 .as_ref()
                 .to_string()
         );
-
-        let mut tx_3 = context.start_tx().await;
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_3, &periode_id)
-            .await
-            .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_3, &periode_id)
-            .await
-            .expect("Kunne ikke hente periode");
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -299,20 +288,22 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
+        let mut tx = context.start_tx().await;
         let result = context
             .bekreftelse_processor
-            .process_payload(&mut tx_1, &message)
+            .process_payload(&mut tx, &message)
             .await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx_2, &bekreftelse_id)
+        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
             .await
             .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging");
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente periode");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_bekreftelse_row.is_some());
         let bekreftelse_row = optional_bekreftelse_row.expect("Ingen bekreftelse funnet");
@@ -324,15 +315,6 @@ mod tests {
                 .as_ref()
                 .to_string()
         );
-
-        let mut tx_3 = context.start_tx().await;
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_3, &periode_id)
-            .await
-            .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_3, &periode_id)
-            .await
-            .expect("Kunne ikke hente periode");
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -357,18 +339,6 @@ mod tests {
         let periode_id = context.periode_id_3;
         let bekreftelse_id = context.bekreftelse_id_3;
 
-        let mut tx_1 = context.start_tx().await;
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_1, &periode_id)
-            .await
-            .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_1, &periode_id)
-            .await
-            .expect("Kunne ikke hente periode");
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(kartlegging_rows.is_empty());
-        assert!(optional_periode_row.is_none());
-
         let bekreftelse =
             create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
         let message = context
@@ -376,20 +346,24 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
             .await;
 
-        let mut tx_2 = context.start_tx().await;
+        let mut tx = context.start_tx().await;
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging");
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente periode");
+        assert!(kartlegging_rows.is_empty());
+        assert!(optional_periode_row.is_none());
         let result = context
             .bekreftelse_processor
-            .process_payload(&mut tx_2, &message)
+            .process_payload(&mut tx, &message)
             .await;
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
-
         assert!(result.is_ok());
-
-        let mut tx_3 = context.start_tx().await;
-        let optional_row = bekreftelse::select_by_id(&mut tx_3, &bekreftelse_id)
+        let optional_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
             .await
             .expect("Kunne ikke hente bekreftelse");
-        tx_3.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_row.is_some());
         let row = optional_row.expect("Ingen bekreftelse funnet");

@@ -95,17 +95,13 @@ mod tests {
             .create_avro_message(PAW_OPPLYSNINGER_TOPIC, opplysninger)
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_payload(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_payload(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_row = opplysninger::select_by_id(&mut tx_2, &opplysninger_id)
+        let optional_row = opplysninger::select_by_id(&mut tx, &opplysninger_id)
             .await
             .expect("Kunne ikke hente opplysninger");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_row.is_some());
         let row = optional_row.expect("Ingen opplysninger funnet");

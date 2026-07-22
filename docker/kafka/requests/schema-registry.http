@@ -1,3 +1,7 @@
+### GET /subjects
+GET {{baseUrl}}/subjects
+Accept: application/json
+
 ### GET /subjects/paw.arbeidssokerperioder-v1-value/versions/latest
 GET {{baseUrl}}/subjects/paw.arbeidssokerperioder-v1-value/versions/latest
 Accept: application/json
@@ -8,6 +12,10 @@ Accept: application/json
 
 ### GET /subjects/paw.arbeidssoker-bekreftelse-paavegneav-v1-value/versions/latest
 GET {{baseUrl}}/subjects/paw.arbeidssoker-bekreftelse-paavegneav-v1-value/versions/latest
+Accept: application/json
+
+### GET /schemas
+GET {{baseUrl}}/schemas
 Accept: application/json
 
 ### GET /schemas/ids/1?deleted=true

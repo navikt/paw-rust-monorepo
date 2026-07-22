@@ -160,6 +160,7 @@ mod tests {
     use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
+    use futures::FutureExt;
     use paw_key_gen_client::client::PawKeyGenClient;
     use paw_rdkafka_hwm::hwm_message_processor::MessageProcessor;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
@@ -197,11 +198,13 @@ mod tests {
             None,
         );
 
-        let result = tokio::task::spawn(async move {
-            let mut tx = context.start_tx().await;
-            context.processor.process_message(&mut tx, &message).await
-        })
+        let mut tx = context.start_tx().await;
+        let result = std::panic::AssertUnwindSafe(
+            context.processor.process_message(&mut tx, &message),
+        )
+        .catch_unwind()
         .await;
+        let _ = tx.rollback().await;
 
         assert!(result.is_err(), "Forventet panic for ukjent topic");
     }
@@ -230,24 +233,20 @@ mod tests {
             .create_avro_message(PAW_PERIODE_TOPIC, periode.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let arbeidssoeker_rows =
-            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx_2, &arbeidssoeker_id)
+            arbeidssoeker::select_by_arbeidssoeker_id(&mut tx, &arbeidssoeker_id)
                 .await
                 .expect("Kunne ikke hente arbeidssøkere");
-        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx_2, &periode_id)
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut tx, &periode_id)
             .await
             .expect("Kunne ikke hente kartlegging");
-        let optional_periode_row = periode::select_by_id(&mut tx_2, &periode_id)
+        let optional_periode_row = periode::select_by_id(&mut tx, &periode_id)
             .await
             .expect("Kunne ikke hente periode");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_periode_row.is_some());
         let periode_row = optional_periode_row.expect("Ingen periode funnet");
@@ -289,17 +288,13 @@ mod tests {
             .create_avro_message(PAW_OPPLYSNINGER_TOPIC, opplysninger.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_opplysninger_row = opplysninger::select_by_id(&mut tx_2, &opplysninger_id)
+        let optional_opplysninger_row = opplysninger::select_by_id(&mut tx, &opplysninger_id)
             .await
             .expect("Kunne ikke hente opplysninger");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_opplysninger_row.is_some());
         let opplysninger_row = optional_opplysninger_row.expect("Ingen opplysninger funnet");
@@ -328,17 +323,13 @@ mod tests {
             .create_avro_message(PAW_PROFILERING_TOPIC, profilering.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_profilering_row = profilering::select_by_id(&mut tx_2, &profilering_id)
+        let optional_profilering_row = profilering::select_by_id(&mut tx, &profilering_id)
             .await
             .expect("Kunne ikke hente profilering");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_profilering_row.is_some());
         let profilering_row = optional_profilering_row.expect("Ingen profilering funnet");
@@ -368,17 +359,13 @@ mod tests {
             .create_avro_message(PAW_EGENVURDERING_TOPIC, egenvurdering.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_egenvurdering_row = egenvurdering::select_by_id(&mut tx_2, &egenvurdering_id)
+        let optional_egenvurdering_row = egenvurdering::select_by_id(&mut tx, &egenvurdering_id)
             .await
             .expect("Kunne ikke hente egenvurdering");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_egenvurdering_row.is_some());
         let egenvurdering_row = optional_egenvurdering_row.expect("Ingen egenvurdering funnet");
@@ -407,17 +394,13 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx_2, &bekreftelse_id)
+        let optional_bekreftelse_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
             .await
             .expect("Kunne ikke hente bekreftelse");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_bekreftelse_row.is_some());
         let bekreftelse_row = optional_bekreftelse_row.expect("Ingen bekreftelse funnet");
@@ -442,17 +425,13 @@ mod tests {
             .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav.clone())
             .await;
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
-        let paavegneav_rows = bekreftelse_paavegneav::select_by_periode_id(&mut tx_2, &periode_id)
+        let paavegneav_rows = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
             .await
             .expect("Kunne ikke hente paavegneav");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows.len(), 1);
         let paavegneav_row = paavegneav_rows.first().expect("Ingen periode funnet");
@@ -479,18 +458,14 @@ mod tests {
             .json_generator
             .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
 
-        let mut tx_1 = context.start_tx().await;
-        let result = context.processor.process_message(&mut tx_1, &message).await;
-        tx_1.commit().await.expect("Kunne ikke commit transaksjon");
-
+        let mut tx = context.start_tx().await;
+        let result = context.processor.process_message(&mut tx, &message).await;
         assert!(result.is_ok());
-
-        let mut tx_2 = context.start_tx().await;
         let optional_kontortilknytning_row =
-            kontortilknytning::select_by_id(&mut tx_2, &oppfolgingsperiode_id)
+            kontortilknytning::select_by_id(&mut tx, &oppfolgingsperiode_id)
                 .await
                 .expect("Kunne ikke hente kontortilknytning");
-        tx_2.commit().await.expect("Kunne ikke commit transaksjon");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert!(optional_kontortilknytning_row.is_some());
         let kontortilknytning_row =

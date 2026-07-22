@@ -1,5 +1,6 @@
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, PgPool};
+use std::time::Duration;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
@@ -48,8 +49,9 @@ pub async fn setup_postgres_container(port: u16) -> anyhow::Result<TestContainer
         .options([("search_path", schema.as_str())]);
 
     let pg_pool = PgPoolOptions::new()
-        .min_connections(1)
-        .max_connections(3)
+        .min_connections(0)
+        .max_connections(10)
+        .acquire_timeout(Duration::from_secs(5))
         .connect_with(options)
         .await?;
 

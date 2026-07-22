@@ -7,7 +7,6 @@ on:
     paths:
       - ".github/workflows/kartlegging-api.yml"
       - "app/kartlegging-api/**"
-      - "Cargo.lock"
       - "Cargo.toml"
       - "lib/**"
       - "domain/**"
