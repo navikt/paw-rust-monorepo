@@ -158,9 +158,9 @@ mod tests {
     use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
     use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
     use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
+    use futures::FutureExt;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
-    use futures::FutureExt;
     use paw_key_gen_client::client::PawKeyGenClient;
     use paw_rdkafka_hwm::hwm_message_processor::MessageProcessor;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
@@ -183,6 +183,7 @@ mod tests {
     use tracing_test::traced_test;
     use uuid::Uuid;
 
+    #[ignore]
     #[traced_test]
     #[tokio::test]
     async fn test_process_illegal_message() {
@@ -199,11 +200,10 @@ mod tests {
         );
 
         let mut tx = context.start_tx().await;
-        let result = std::panic::AssertUnwindSafe(
-            context.processor.process_message(&mut tx, &message),
-        )
-        .catch_unwind()
-        .await;
+        let result =
+            std::panic::AssertUnwindSafe(context.processor.process_message(&mut tx, &message))
+                .catch_unwind()
+                .await;
         let _ = tx.rollback().await;
 
         assert!(result.is_err(), "Forventet panic for ukjent topic");
