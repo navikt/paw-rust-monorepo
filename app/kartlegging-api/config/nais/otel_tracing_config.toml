@@ -1,5 +1,6 @@
 format = "OTEL_JSON"
 directives = [
     "WARN",
-    "kartlegging_api=INFO"
+    "kartlegging_api=INFO",
+    "paw_rdkafka_hwm=INFO"
 ]

@@ -1,5 +1,6 @@
 use opentelemetry::propagation::Extractor;
 use opentelemetry::global;
+use opentelemetry::trace::TraceContextExt;
 use rdkafka::{
     message::Headers,
     Message,
@@ -31,7 +32,7 @@ pub fn extract_headers_as_map(msg: &OwnedMessage) -> HashMap<&str, HeaderValue> 
         .collect()
 }
 
-pub fn extract_remote_otel_context(headers: &HashMap<&str, HeaderValue>) -> Option<opentelemetry::Context> {
+pub fn extract_remote_trace_context(headers: &HashMap<&str, HeaderValue>) -> Option<opentelemetry::Context> {
     struct HeaderExtractor<'a>(&'a HashMap<&'a str, HeaderValue>);
 
     impl<'a> Extractor for HeaderExtractor<'a> {
@@ -52,5 +53,9 @@ pub fn extract_remote_otel_context(headers: &HashMap<&str, HeaderValue>) -> Opti
         propagator.extract(&extractor)
     });
 
-    Some(context)
+    if context.span().span_context().is_valid() {
+        Some(context)
+    } else {
+        None
+    }
 }

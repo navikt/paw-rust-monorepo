@@ -1,7 +1,7 @@
-use paw_rdkafka::headers::{extract_headers_as_map, extract_remote_otel_context};
-use prometheus::{CounterVec, register_counter_vec};
-use rdkafka::Message;
+use paw_rdkafka::headers::{extract_headers_as_map, extract_remote_trace_context};
+use prometheus::{register_counter_vec, CounterVec};
 use rdkafka::message::OwnedMessage;
+use rdkafka::Message;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::future::Future;
@@ -38,11 +38,11 @@ pub async fn hwm_process_message(
     );
     let topic = msg.topic();
     let headers = extract_headers_as_map(msg);
-    let remote_trace_context = extract_remote_otel_context(&headers);
-    if let Some(remote_ctx) = remote_trace_context {
-        match span.set_parent(remote_ctx) {
+    let remote_trace_context = extract_remote_trace_context(&headers);
+    if let Some(context) = remote_trace_context {
+        match span.set_parent(context) {
             Ok(_) => tracing::debug!("Successfully set parent context for span"),
-            Err(e) => tracing::error!("Failed to set parent context for span: {}", e),
+            Err(e) => tracing::warn!("Failed to set parent context for span: {}", e),
         }
     }
     internal_hwm_process_message(topic, hwm_version, pg_pool, msg, processor)
