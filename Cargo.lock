@@ -786,13 +786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dab_kontortilhorlighet"
-version = "0.1.0"
-dependencies = [
- "graphql_client",
-]
-
-[[package]]
 name = "dab_oppfolgingperioder"
 version = "0.1.0"
 dependencies = [
@@ -2933,15 +2926,6 @@ dependencies = [
  "tracing",
  "utoipa",
  "uuid",
-]
-
-[[package]]
-name = "paw_hendelse_processor"
-version = "0.1.0"
-dependencies = [
- "eksterne_hendelser",
- "schema_registry_converter",
- "thiserror 2.0.18",
 ]
 
 [[package]]

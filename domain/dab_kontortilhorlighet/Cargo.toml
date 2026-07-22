@@ -1,9 +1,0 @@
-[package]
-name = "dab_kontortilhorlighet"
-version = "0.1.0"
-edition.workspace = true
-
-[dependencies]
-graphql_client = { workspace = true }
-
-[dev-dependencies]
