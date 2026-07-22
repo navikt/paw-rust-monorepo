@@ -53,7 +53,6 @@ impl PDLClient {
         PDLClient { inner }
     }
 
-    //instrument excluding identitetsnummer for privacy reasons
     #[instrument(skip(self, identitetsnummer))]
     pub async fn hent_person_bolk(
         &self,
@@ -76,7 +75,6 @@ impl PDLClient {
         Ok(data.hent_person_bolk)
     }
 
-    //instrument excluding identitetsnummer for privacy reasons
     #[instrument(skip(self, identitetsnummer))]
     pub async fn hent_person_navn(
         &self,

@@ -70,11 +70,11 @@ impl PeriodeProcessor {
     async fn hent_identiteter<'a>(
         &'a self,
         message: &'a OwnedMessage,
-        hendelse: &'a Periode,
+        identitetsnummer: &'a String,
     ) -> anyhow::Result<Arbeidssoeker> {
         let identiteter_response = self
             .key_gen_client
-            .finn_identiteter(hendelse.identitetsnummer.clone())
+            .finn_identiteter(identitetsnummer.clone())
             .await?;
         let arbeidssoeker_id = identiteter_response
             .arbeidssoeker_id
@@ -99,18 +99,20 @@ impl PeriodeProcessor {
     async fn hent_navn<'a>(
         &'a self,
         message: &'a OwnedMessage,
-        hendelse: &'a Periode,
-        folkeregisterident: &String,
+        identitetsnummer: &String,
     ) -> anyhow::Result<Navn> {
-        let identitetsnummer =
-            Identitetsnummer::new(folkeregisterident.clone()).ok_or_else(|| {
+        let identitetsnummer_struct =
+            Identitetsnummer::new(identitetsnummer.clone()).ok_or_else(|| {
                 PayloadProcessorError::processing_error(
                     message,
                     "Ugyldig identitetsnummer fra kafka-key-gen",
                 )
             })?;
 
-        let pdl_navn_response = self.pdl_client.hent_person_navn(identitetsnummer).await?;
+        let pdl_navn_response = self
+            .pdl_client
+            .hent_person_navn(identitetsnummer_struct)
+            .await?;
         let pdl_navn = pdl_navn_response.ok_or_else(|| {
             PayloadProcessorError::processing_error(message, "Fant ingen person i PDL")
         })?;
@@ -246,7 +248,9 @@ impl PayloadProcessor for PeriodeProcessor {
                 self.lagre_periode(tx, message, &hendelse).await?;
 
                 // Hent identiteter fra Kafka Key Gen
-                let arbeidssoeker = self.hent_identiteter(message, &hendelse).await?;
+                let arbeidssoeker = self
+                    .hent_identiteter(message, &hendelse.identitetsnummer)
+                    .await?;
 
                 // Søk etter arbeidssøker(e)
                 let arbeidssoeker_rows =
@@ -344,7 +348,7 @@ impl PayloadProcessor for PeriodeProcessor {
 
                     // Hent navn fra PDL
                     let navn = self
-                        .hent_navn(message, &hendelse, &arbeidssoeker.identitetsnummer)
+                        .hent_navn(message, &arbeidssoeker.identitetsnummer)
                         .await?;
 
                     // Lagre ny arbeidssøker

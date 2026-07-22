@@ -1,8 +1,8 @@
-use crate::pdl::pdl_config::{BEHANDLINGSNUMMER, PDLClientConfig};
+use crate::pdl::pdl_config::{PDLClientConfig, BEHANDLINGSNUMMER};
 use anyhow::Result;
 use graphql_client::GraphQLQuery;
 use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
-use pdl_graphql::pdl::{HentPersonBolk, hent_person_bolk};
+use pdl_graphql::pdl::{hent_person_bolk, HentPersonBolk};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
 use tracing::instrument;
@@ -51,7 +51,7 @@ impl PDLClient {
         });
         PDLClient { inner }
     }
-    //instrument excluding identitetsnummer for privacy reasons
+
     #[instrument(skip(self, identitetsnummer))]
     pub async fn perform_hent_person_bolk(
         &self,
