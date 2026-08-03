@@ -45,12 +45,12 @@ members = [
 edition = "2024"
 
 [workspace.dependencies]
-syn = "2.0"
+syn = "3.0"
 quote = "1.0"
 rand = "0.10"
 async-trait = "0.1"
 axum = "0.8"
-base64 = "0.22.1"
+base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3.32"
 log = "0.4.29"
@@ -77,7 +77,7 @@ tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3.2", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
-jsonwebtoken = { version = "10.4", features = ["rust_crypto"] }
+jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 reqwest = { version = "0.13", features = ["json", "form"] }
 thiserror = "2.0"
 anyhow = "1.0"
@@ -92,4 +92,4 @@ utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serde_yaml = "0.9"
-jsonschema = "0.46"
+jsonschema = "0.49"
