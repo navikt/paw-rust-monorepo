@@ -1,4 +1,4 @@
-FROM clux/muslrust:1.96.0-stable AS builder
+FROM clux/muslrust:1.97.1-stable@sha256:4edc98b7a3a627389f6d9dbf91c0dbe9a715378239797a923c86e365bb24a435 AS builder
 WORKDIR /build
 RUN cargo --version && cargo install cargo-auditable
 COPY . .
