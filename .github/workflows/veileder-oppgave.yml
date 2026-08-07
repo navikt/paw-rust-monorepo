@@ -20,8 +20,8 @@ jobs:
     permissions:
       contents: "read"
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
       - run: cargo test -p ${{ env.APP_NAME }}
@@ -33,11 +33,11 @@ jobs:
       contents: "read"
       id-token: "write"
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-      - uses: actions/cache@v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: false
         with:
           path: |
@@ -45,7 +45,7 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-${{ github.workflow_ref }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: docker-build-push
-        uses: nais/docker-build-push@v0
+        uses: nais/docker-build-push@2d2b0a7193e65422b7f0355d4afb445e0a8b2cc3 # v0
         id: docker-build-push
         with:
           team: paw
@@ -67,8 +67,8 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: nais/deploy/actions/deploy@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nais/deploy/actions/deploy@849e900e3cfa7faf7ad1532bb3a3e6499c932199 # v2
         env:
           CLUSTER: dev-gcp
           RESOURCE: app/${{ env.APP_NAME }}/nais/nais-dev.yaml
@@ -83,8 +83,8 @@ jobs:
        id-token: write
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v6
-       - uses: nais/deploy/actions/deploy@v2
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: nais/deploy/actions/deploy@849e900e3cfa7faf7ad1532bb3a3e6499c932199 # v2
          env:
            CLUSTER: prod-gcp
            RESOURCE: app/${{ env.APP_NAME }}/nais/nais-prod.yaml
