@@ -7,7 +7,6 @@ edition.workspace = true
 uuid = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
-futures = { workspace = true }
 anyhow = { workspace = true }
 testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true, features = ["postgres"] }
