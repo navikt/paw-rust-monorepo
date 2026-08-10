@@ -1,20 +1,18 @@
-use crate::domain::kriterier::kriterium::{OppgaveKriterier, Kriterium};
+use crate::domain::kriterier::kriterium::{Kriterium, OppgaveKriterier};
 use crate::domain::oppgave_type::OppgaveType;
 use interne_hendelser::Avvist;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 
 pub const KRITERIER: OppgaveKriterier<Avvist> = OppgaveKriterier::new(
     OppgaveType::AvvistUnder18,
-    &[
-        Kriterium {
-            navn: "innsendt_av_sluttbruker",
-            sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
-        },
-        Kriterium {
-            navn: "er_under_18",
-            sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::ErUnder18Aar),
-        },
-    ],
+    Kriterium {
+        navn: "innsendt_av_sluttbruker",
+        sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
+    },
+    &[Kriterium {
+        navn: "er_under_18",
+        sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::ErUnder18Aar),
+    }],
 );
 
 #[cfg(test)]

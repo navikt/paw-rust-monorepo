@@ -1,26 +1,34 @@
-use crate::domain::kriterier::kriterium::{OppgaveKriterier, Kriterium};
+use crate::domain::kriterier::kriterium::{Kriterium, OppgaveKriterier};
 use crate::domain::oppgave_type::OppgaveType;
 use interne_hendelser::Startet;
 use interne_hendelser::vo::{BrukerType, Opplysning};
 
 pub const KRITERIER: OppgaveKriterier<Startet> = OppgaveKriterier::new(
     OppgaveType::VurderOppholdsstatus,
+    Kriterium {
+        navn: "innsendt_av_sluttbruker",
+        sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
+    },
     &[
-        Kriterium {
-            navn: "innsendt_av_sluttbruker",
-            sjekk: |hendelse| hendelse.metadata.utfoert_av.bruker_type == BrukerType::Sluttbruker,
-        },
         Kriterium {
             navn: "utflyttet",
             sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::IkkeBosatt),
         },
         Kriterium {
             navn: "eu_eoes_statsborger",
-            sjekk: |hendelse| hendelse.opplysninger.contains(&Opplysning::ErEuEoesStatsborger),
+            sjekk: |hendelse| {
+                hendelse
+                    .opplysninger
+                    .contains(&Opplysning::ErEuEoesStatsborger)
+            },
         },
         Kriterium {
             navn: "ikke_norsk_statsborger",
-            sjekk: |hendelse| !hendelse.opplysninger.contains(&Opplysning::ErNorskStatsborger),
+            sjekk: |hendelse| {
+                !hendelse
+                    .opplysninger
+                    .contains(&Opplysning::ErNorskStatsborger)
+            },
         },
     ],
 );
@@ -38,7 +46,7 @@ mod tests {
             opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErEuEoesStatsborger]),
             ..Default::default()
         }
-            .build();
+        .build();
         assert!(KRITERIER.oppfylt_av(&hendelse));
     }
 
@@ -98,10 +106,7 @@ mod tests {
     #[test]
     fn ikke_oppfylt_naar_utflyttet_med_norsk_statsborgerskap() {
         let hendelse = StartetBuilder {
-            opplysninger: HashSet::from([
-                Opplysning::IkkeBosatt,
-                Opplysning::ErNorskStatsborger,
-            ]),
+            opplysninger: HashSet::from([Opplysning::IkkeBosatt, Opplysning::ErNorskStatsborger]),
             ..Default::default()
         }
         .build();

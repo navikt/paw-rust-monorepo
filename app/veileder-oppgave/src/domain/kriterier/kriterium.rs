@@ -6,35 +6,50 @@ pub struct Kriterium<H> {
     pub sjekk: fn(&H) -> bool,
 }
 
+/// ```compile_fail
+/// use interne_hendelser::Avvist;
+/// use veileder_oppgave::domain::kriterier::kriterium::OppgaveKriterier;
+/// use veileder_oppgave::domain::oppgave_type::OppgaveType;
+///
+/// let _ = OppgaveKriterier::<Avvist>::new(OppgaveType::AvvistUnder18, &[]);
+/// ```
 pub struct OppgaveKriterier<H: Hendelse + 'static> {
     pub oppgave_type: OppgaveType,
-    kriterier: &'static [Kriterium<H>],
+    første: Kriterium<H>,
+    resterende: &'static [Kriterium<H>],
 }
 
 impl<H: Hendelse + 'static> OppgaveKriterier<H> {
     pub const fn new(
         oppgave_type: OppgaveType,
-        kriterier: &'static [Kriterium<H>],
+        første: Kriterium<H>,
+        resterende: &'static [Kriterium<H>],
     ) -> Self {
-        assert!(
-            !kriterier.is_empty(),
-            "OppgaveKriterier må inneholde minst ett kriterium"
-        );
-        Self { oppgave_type, kriterier }
+        Self {
+            oppgave_type,
+            første,
+            resterende,
+        }
     }
 
     pub fn oppfylt_av(&self, hendelse: &H) -> bool {
-        self.kriterier.iter().all(|kriterium| {
-            let oppfylt = (kriterium.sjekk)(hendelse);
-            if !oppfylt {
-                tracing::debug!(
-                    hendelse_id = %hendelse.hendelse_id(),
-                    kriterium = kriterium.navn,
-                    "kriterie ikke oppfylt"
-                );
-            }
-            oppfylt
-        })
+        self.oppfylt(&self.første, hendelse)
+            && self
+                .resterende
+                .iter()
+                .all(|kriterium| self.oppfylt(kriterium, hendelse))
+    }
+
+    fn oppfylt(&self, kriterium: &Kriterium<H>, hendelse: &H) -> bool {
+        let oppfylt = (kriterium.sjekk)(hendelse);
+        if !oppfylt {
+            tracing::debug!(
+                hendelse_id = %hendelse.hendelse_id(),
+                kriterium = kriterium.navn,
+                "kriterie ikke oppfylt"
+            );
+        }
+        oppfylt
     }
 
     pub fn ikke_oppfylt_av(&self, hendelse: &H) -> bool {
@@ -50,43 +65,53 @@ mod tests {
 
     const TO_KRITERIER: OppgaveKriterier<Avvist> = OppgaveKriterier::new(
         OppgaveType::AvvistUnder18,
-        &[
+        Kriterium {
+            navn: "alltid_sann",
+            sjekk: |_| true,
+        },
+        &[Kriterium {
+            navn: "har_arbeidssoeker_id_42",
+            sjekk: |hendelse| hendelse.id == 42,
+        }],
+    );
+
+
+    #[test]
+    fn kan_opprette_med_kun_ett_kriterium() {
+        let et_kriterie = OppgaveKriterier::new(
+            OppgaveType::AvvistUnder18,
             Kriterium {
                 navn: "alltid_sann",
                 sjekk: |_| true,
             },
-            Kriterium {
-                navn: "har_arbeidssoeker_id_42",
-                sjekk: |hendelse| hendelse.id == 42,
-            },
-        ],
-    );
-
-    #[test]
-    #[should_panic(expected = "OppgaveKriterier må inneholde minst ett kriterium")]
-    fn tom_liste_panicer() {
-        OppgaveKriterier::<Avvist>::new(OppgaveType::AvvistUnder18, &[]);
+            &[],
+        );
+        assert!(et_kriterie.oppfylt_av(&AvvistBuilder::default().build()));
     }
 
     #[test]
     fn alle_oppfylt_gir_true() {
-        assert!(TO_KRITERIER.oppfylt_av(
-            &AvvistBuilder {
-                arbeidssoeker_id: 42,
-                ..Default::default()
-            }
-            .build()
-        ));
+        assert!(
+            TO_KRITERIER.oppfylt_av(
+                &AvvistBuilder {
+                    arbeidssoeker_id: 42,
+                    ..Default::default()
+                }
+                .build()
+            )
+        );
     }
 
     #[test]
     fn ett_kriterium_ikke_oppfylt_gir_false() {
-        assert!(!TO_KRITERIER.oppfylt_av(
-            &AvvistBuilder {
-                arbeidssoeker_id: 99,
-                ..Default::default()
-            }
-            .build()
-        ));
+        assert!(
+            !TO_KRITERIER.oppfylt_av(
+                &AvvistBuilder {
+                    arbeidssoeker_id: 99,
+                    ..Default::default()
+                }
+                .build()
+            )
+        );
     }
 }
