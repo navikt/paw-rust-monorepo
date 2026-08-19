@@ -2,8 +2,8 @@ mod config;
 mod database;
 mod kafka;
 
-use crate::config::read_database_config;
 use crate::config::read_kafka_config;
+use crate::config::{read_app_config, read_database_config};
 use crate::kafka::consumer_task::spawn_kafka_consumer_task;
 use crate::kafka::kafka_connection::create_kafka_consumer;
 use crate::kafka::message_processor::BackupMessageProcessor;
@@ -43,8 +43,8 @@ async fn main() {
 }
 
 async fn run_app() -> Result<(), Box<dyn Error>> {
-    let config = config::Config::from_default_file()?;
-    info!("Konfigurasjon lastet: {:?}", config);
+    let app_config = read_app_config()?;
+    info!("App konfigurasjon lastet: {:?}", app_config);
     let kafka_config = read_kafka_config()?;
     info!("Kafka konfigurasjon lastet: {:?}", kafka_config);
 
@@ -60,7 +60,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         app_state.clone(),
         pg_pool.clone(),
         kafka_config,
-        &config.topics_as_str_slice(),
+        &app_config.topics_as_str_slice(),
     )?;
     let kafka_task = spawn_kafka_consumer_task(
         consumer,

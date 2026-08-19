@@ -64,7 +64,7 @@ impl PayloadProcessor for OppfolgingsperiodeProcessor {
                 let hendelse: Oppfolgingsperiode = serde_json::from_slice(payload)
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Oppfolgingsperiode-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 match hendelse {
                     Oppfolgingsperiode::Startet(data) => {
@@ -97,7 +97,7 @@ mod tests {
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::dab_oppfolgingsperiode::{
         create_dummy_oppfolgingsperiode_avsluttet, create_dummy_oppfolgingsperiode_endret,
-        create_dummy_oppfolgingsperiode_startet,
+        create_dummy_start_oppfolgingsperiode,
     };
     use test_data_generator::json::JsonGenerator;
     use tokio::sync::OnceCell;
@@ -118,7 +118,7 @@ mod tests {
         let oppfolgingsperiode_id = context.oppfolgingsperiode_id;
         let kontor_id_1 = context.kontor_id_1;
 
-        let oppfolgingsperiode = create_dummy_oppfolgingsperiode_startet(
+        let oppfolgingsperiode = create_dummy_start_oppfolgingsperiode(
             oppfolgingsperiode_id,
             aktor_id,
             identitetsnummer,

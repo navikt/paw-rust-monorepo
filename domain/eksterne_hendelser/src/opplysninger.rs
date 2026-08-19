@@ -4,7 +4,8 @@ use crate::vo::jobbsituasjon::Jobbsituasjon;
 use crate::vo::metadata::Metadata;
 use crate::vo::utdanning::Utdanning;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_OPPLYSNINGER_TOPIC: &'static str = "paw.opplysninger-om-arbeidssoeker-v1";
@@ -22,6 +23,12 @@ pub struct Opplysninger {
     pub helse: Option<Helse>,
     pub jobbsituasjon: Jobbsituasjon,
     pub annet: Option<Annet>,
+}
+
+impl Display for Opplysninger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Opplysninger")
+    }
 }
 
 #[cfg(test)]

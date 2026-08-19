@@ -83,7 +83,7 @@ impl PayloadProcessor for BekreftelseProcessor {
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Bekreftelse-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 self.lagre_bekreftelse(tx, &message, &hendelse).await?;
 
@@ -139,7 +139,7 @@ mod tests {
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::{
-        create_dummy_bekreftelse, create_dummy_startet_periode,
+        create_dummy_bekreftelse, create_dummy_start_periode,
     };
     use token_client_stub::TokenClientStub;
     use tokio::sync::OnceCell;
@@ -162,7 +162,7 @@ mod tests {
         let identitetsnummer = context.identitetsnummer_1;
         let periode_id = context.periode_id_1;
 
-        let periode = create_dummy_startet_periode(identitetsnummer, periode_id);
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
         let message = context
             .avro_generator
             .create_avro_message(PAW_PERIODE_TOPIC, periode)

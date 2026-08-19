@@ -1,0 +1,61 @@
+{
+  "type": "record",
+  "name": "PaaVegneAv",
+  "namespace": "no.nav.paw.bekreftelse.paavegneav.v1",
+  "fields": [
+    {
+      "name": "periodeId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "bekreftelsesloesning",
+      "type": {
+        "type": "enum",
+        "name": "Bekreftelsesloesning",
+        "namespace": "no.nav.paw.bekreftelse.paavegneav.v1.vo",
+        "symbols": [
+          "UKJENT_VERDI",
+          "ARBEIDSSOEKERREGISTERET",
+          "DAGPENGER",
+          "FRISKMELDT_TIL_ARBEIDSFORMIDLING"
+        ],
+        "default": "UKJENT_VERDI"
+      }
+    },
+    {
+      "name": "handling",
+      "type": [
+        {
+          "type": "record",
+          "name": "Start",
+          "namespace": "no.nav.paw.bekreftelse.paavegneav.v1.vo",
+          "fields": [
+            {
+              "name": "intervalMS",
+              "type": "long"
+            },
+            {
+              "name": "graceMS",
+              "type": "long"
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "Stopp",
+          "namespace": "no.nav.paw.bekreftelse.paavegneav.v1.vo",
+          "fields": [
+            {
+              "name": "fristBrutt",
+              "type": "boolean",
+              "default": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

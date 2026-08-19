@@ -1,7 +1,8 @@
 use crate::kontor::Kontor;
-use crate::parse::{enum_type_not_found, EnumTypeParseError};
+use crate::parse::{EnumTypeParseError, enum_type_not_found};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use strum::{AsRefStr, EnumString};
 use uuid::Uuid;
 
@@ -32,6 +33,17 @@ pub enum Oppfolgingsperiode {
     Endret(OppfolgingsperiodeEndret),
     #[serde(rename = "OPPFOLGING_AVSLUTTET")]
     Avsluttet(OppfolgingsperiodeAvsluttet),
+}
+
+impl Display for Oppfolgingsperiode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Oppfolgingsperiode::Startet(_) => "Oppfolgingsperiode-Startet",
+            Oppfolgingsperiode::Endret(_) => "Oppfolgingsperiode-Endret",
+            Oppfolgingsperiode::Avsluttet(_) => "Oppfolgingsperiode-Avsluttet",
+        };
+        write!(f, "{}", str)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

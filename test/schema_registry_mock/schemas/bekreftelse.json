@@ -1,0 +1,140 @@
+{
+  "type": "record",
+  "name": "Bekreftelse",
+  "namespace": "no.nav.paw.bekreftelse.melding.v1",
+  "fields": [
+    {
+      "name": "periodeId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "bekreftelsesloesning",
+      "type": {
+        "type": "enum",
+        "name": "Bekreftelsesloesning",
+        "namespace": "no.nav.paw.bekreftelse.melding.v1.vo",
+        "symbols": [
+          "UKJENT_VERDI",
+          "ARBEIDSSOEKERREGISTERET",
+          "DAGPENGER",
+          "FRISKMELDT_TIL_ARBEIDSFORMIDLING"
+        ],
+        "default": "UKJENT_VERDI"
+      }
+    },
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "svar",
+      "type": {
+        "type": "record",
+        "name": "Svar",
+        "namespace": "no.nav.paw.bekreftelse.melding.v1.vo",
+        "fields": [
+          {
+            "name": "sendtInnAv",
+            "type": {
+              "type": "record",
+              "name": "Metadata",
+              "fields": [
+                {
+                  "name": "tidspunkt",
+                  "type": {
+                    "type": "long",
+                    "logicalType": "timestamp-millis"
+                  }
+                },
+                {
+                  "name": "utfoertAv",
+                  "type": {
+                    "type": "record",
+                    "name": "Bruker",
+                    "fields": [
+                      {
+                        "name": "type",
+                        "type": {
+                          "type": "enum",
+                          "name": "BrukerType",
+                          "symbols": [
+                            "UKJENT_VERDI",
+                            "UDEFINERT",
+                            "VEILEDER",
+                            "SYSTEM",
+                            "SLUTTBRUKER"
+                          ],
+                          "default": "UKJENT_VERDI"
+                        }
+                      },
+                      {
+                        "name": "id",
+                        "type": {
+                          "type": "string",
+                          "avro.java.string": "String"
+                        }
+                      },
+                      {
+                        "name": "sikkerhetsnivaa",
+                        "type": [
+                          "null",
+                          {
+                            "type": "string",
+                            "avro.java.string": "String"
+                          }
+                        ],
+                        "default": null
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "kilde",
+                  "type": {
+                    "type": "string",
+                    "avro.java.string": "String"
+                  }
+                },
+                {
+                  "name": "aarsak",
+                  "type": {
+                    "type": "string",
+                    "avro.java.string": "String"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "gjelderFra",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "gjelderTil",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "harJobbetIDennePerioden",
+            "type": "boolean"
+          },
+          {
+            "name": "vilFortsetteSomArbeidssoeker",
+            "type": "boolean"
+          }
+        ]
+      }
+    }
+  ]
+}

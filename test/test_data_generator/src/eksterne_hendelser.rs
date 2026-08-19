@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::bekreftelse::paa_vegne_av::{Handling, PaaVegneAv};
 use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
@@ -21,7 +21,7 @@ use eksterne_hendelser::vo::utdanning::Utdanning;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub fn create_dummy_startet_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
+pub fn create_dummy_start_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
     Periode {
         id: periode_id,
         identitetsnummer: identitetsnummer.to_string(),
@@ -30,7 +30,7 @@ pub fn create_dummy_startet_periode(identitetsnummer: &str, periode_id: Uuid) ->
     }
 }
 
-pub fn create_dummy_avsluttet_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
+pub fn create_dummy_avslutt_periode(identitetsnummer: &str, periode_id: Uuid) -> Periode {
     Periode {
         id: periode_id,
         identitetsnummer: identitetsnummer.to_string(),
@@ -129,7 +129,7 @@ pub fn create_dummy_svar(identitetsnummer: &str, har_jobbet: bool, vil_fortsette
     }
 }
 
-pub fn create_dummy_paavegneav_start(
+pub fn create_dummy_start_paavegneav(
     periode_id: Uuid,
     bekreftelsesloesning: Bekreftelsesloesning,
 ) -> PaaVegneAv {
@@ -137,13 +137,13 @@ pub fn create_dummy_paavegneav_start(
         periode_id,
         bekreftelsesloesning,
         handling: Handling::Start(Start {
-            interval_ms: 5,
-            grace_ms: 3,
+            interval_ms: Duration::days(14).num_milliseconds(),
+            grace_ms: Duration::days(8).num_milliseconds(),
         }),
     }
 }
 
-pub fn create_dummy_paavegneav_stopp(
+pub fn create_dummy_stopp_paavegneav(
     periode_id: Uuid,
     bekreftelsesloesning: Bekreftelsesloesning,
 ) -> PaaVegneAv {

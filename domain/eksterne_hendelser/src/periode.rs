@@ -1,6 +1,7 @@
 use crate::vo::metadata::Metadata;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_PERIODE_TOPIC: &'static str = "paw.arbeidssokerperioder-v1";
@@ -19,6 +20,17 @@ pub struct Periode {
 impl Periode {
     pub fn is_active(&self) -> bool {
         self.avsluttet.is_none()
+    }
+}
+
+impl Display for Periode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = if self.is_active() {
+            "Periode-Startet"
+        } else {
+            "Periode-Avsluttet"
+        };
+        write!(f, "{}", str)
     }
 }
 

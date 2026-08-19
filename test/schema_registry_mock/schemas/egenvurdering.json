@@ -1,0 +1,156 @@
+{
+  "type": "record",
+  "name": "Egenvurdering",
+  "namespace": "no.nav.paw.arbeidssokerregisteret.api.v3",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "periodeId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "profileringId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "sendtInnAv",
+      "type": {
+        "type": "record",
+        "name": "Metadata",
+        "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+        "fields": [
+          {
+            "name": "tidspunkt",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "utfoertAv",
+            "type": {
+              "type": "record",
+              "name": "Bruker",
+              "fields": [
+                {
+                  "name": "type",
+                  "type": {
+                    "type": "enum",
+                    "name": "BrukerType",
+                    "symbols": [
+                      "UKJENT_VERDI",
+                      "UDEFINERT",
+                      "VEILEDER",
+                      "SYSTEM",
+                      "SLUTTBRUKER"
+                    ],
+                    "default": "UKJENT_VERDI"
+                  }
+                },
+                {
+                  "name": "id",
+                  "type": {
+                    "type": "string",
+                    "avro.java.string": "String"
+                  }
+                },
+                {
+                  "name": "sikkerhetsnivaa",
+                  "type": [
+                    "null",
+                    {
+                      "type": "string",
+                      "avro.java.string": "String"
+                    }
+                  ],
+                  "default": null
+                }
+              ]
+            }
+          },
+          {
+            "name": "kilde",
+            "type": {
+              "type": "string",
+              "avro.java.string": "String"
+            }
+          },
+          {
+            "name": "aarsak",
+            "type": {
+              "type": "string",
+              "avro.java.string": "String"
+            }
+          },
+          {
+            "name": "tidspunktFraKilde",
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "TidspunktFraKilde",
+                "fields": [
+                  {
+                    "name": "tidspunkt",
+                    "type": {
+                      "type": "long",
+                      "logicalType": "timestamp-millis"
+                    }
+                  },
+                  {
+                    "name": "avviksType",
+                    "type": {
+                      "type": "enum",
+                      "name": "AvviksType",
+                      "symbols": [
+                        "UKJENT_VERDI",
+                        "FORSINKELSE",
+                        "RETTING",
+                        "SLETTET",
+                        "TIDSPUNKT_KORRIGERT"
+                      ],
+                      "default": "UKJENT_VERDI"
+                    }
+                  }
+                ]
+              }
+            ],
+            "default": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "profilertTil",
+      "type": {
+        "type": "enum",
+        "name": "ProfilertTil",
+        "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+        "symbols": [
+          "UKJENT_VERDI",
+          "UDEFINERT",
+          "ANTATT_GODE_MULIGHETER",
+          "ANTATT_BEHOV_FOR_VEILEDNING",
+          "OPPGITT_HINDRINGER"
+        ],
+        "default": "UKJENT_VERDI"
+      }
+    },
+    {
+      "name": "egenvurdering",
+      "type": "no.nav.paw.arbeidssokerregisteret.api.v1.ProfilertTil"
+    }
+  ]
+}

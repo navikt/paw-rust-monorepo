@@ -5,8 +5,8 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use eksterne_hendelser::profilering::Profilering;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -37,7 +37,7 @@ impl PayloadProcessor for ProfileringProcessor {
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Profilering-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 let row = ProfileringRow::new(
                     hendelse.id,
@@ -63,8 +63,8 @@ impl PayloadProcessor for ProfileringProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::process::profilering_process::ProfileringProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::profilering_process::ProfileringProcessor;
     use crate::model::dao::profilering;
     use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
     use eksterne_hendelser::vo::profilert_til::ProfilertTil;

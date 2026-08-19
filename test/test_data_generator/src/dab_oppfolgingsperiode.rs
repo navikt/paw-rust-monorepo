@@ -5,7 +5,7 @@ use dab_oppfolgingperioder::oppfolgingsperiode::{
 };
 use uuid::Uuid;
 
-pub fn create_dummy_oppfolgingsperiode_startet<'a>(
+pub fn create_dummy_start_oppfolgingsperiode<'a>(
     oppfolgingsperiode_id: Uuid,
     aktor_id: &'a str,
     identitetsnummer: &'a str,

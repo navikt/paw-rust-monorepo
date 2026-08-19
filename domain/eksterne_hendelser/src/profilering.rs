@@ -1,7 +1,8 @@
 use crate::vo::metadata::Metadata;
 use crate::vo::profilert_til::ProfilertTil;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_PROFILERING_TOPIC: &'static str = "paw.arbeidssoker-profilering-v1";
@@ -20,6 +21,12 @@ pub struct Profilering {
     pub profilert_til: ProfilertTil,
     pub jobbet_sammenhengende_seks_av_tolv_siste_mnd: bool,
     pub alder: Option<i32>,
+}
+
+impl Display for Profilering {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Profilering")
+    }
 }
 
 #[cfg(test)]

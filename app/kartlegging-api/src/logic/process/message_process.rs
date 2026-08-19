@@ -172,10 +172,10 @@ mod tests {
     use sqlx::{PgPool, Postgres, Transaction};
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
-    use test_data_generator::dab_oppfolgingsperiode::create_dummy_oppfolgingsperiode_startet;
+    use test_data_generator::dab_oppfolgingsperiode::create_dummy_start_oppfolgingsperiode;
     use test_data_generator::eksterne_hendelser::{
         create_dummy_bekreftelse, create_dummy_egenvurdering, create_dummy_opplysninger,
-        create_dummy_paavegneav_start, create_dummy_profilering, create_dummy_startet_periode,
+        create_dummy_start_paavegneav, create_dummy_profilering, create_dummy_start_periode,
     };
     use test_data_generator::json::JsonGenerator;
     use token_client_stub::TokenClientStub;
@@ -183,7 +183,7 @@ mod tests {
     use tracing_test::traced_test;
     use uuid::Uuid;
 
-    #[ignore]
+    #[ignore] // TODO: Fiks eller slett test. Den feiler fordi den panikker når den mottar en melding på ukjent topic, og det er ikke mulig å fange opp panikk i async test.
     #[traced_test]
     #[tokio::test]
     async fn test_process_illegal_message() {
@@ -227,7 +227,7 @@ mod tests {
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
 
-        let periode = create_dummy_startet_periode(identitetsnummer, periode_id);
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
         let message = context
             .avro_generator
             .create_avro_message(PAW_PERIODE_TOPIC, periode.clone())
@@ -419,7 +419,7 @@ mod tests {
     async fn test_process_bekreftelse_paavegneav(context: &TestContext) {
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_paavegneav_start(periode_id, Bekreftelsesloesning::Dagpenger);
+        let paavegneav = create_dummy_start_paavegneav(periode_id, Bekreftelsesloesning::Dagpenger);
         let message = context
             .avro_generator
             .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav.clone())
@@ -448,7 +448,7 @@ mod tests {
         let oppfolgingsperiode_id = context.oppfolgingsperiode_id;
         let kontor_id = context.kontor_id;
 
-        let oppfolgingsperiode = create_dummy_oppfolgingsperiode_startet(
+        let oppfolgingsperiode = create_dummy_start_oppfolgingsperiode(
             oppfolgingsperiode_id,
             aktor_id,
             identitetsnummer,

@@ -1,7 +1,8 @@
 use crate::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
 use crate::bekreftelse::vo::svar::Svar;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_BEKREFTELSE_TOPIC: &'static str = "paw.arbeidssoker-bekreftelse-v1";
@@ -16,6 +17,12 @@ pub struct Bekreftelse {
     pub periode_id: Uuid,
     pub bekreftelsesloesning: Bekreftelsesloesning,
     pub svar: Svar,
+}
+
+impl Display for Bekreftelse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bekreftelse")
+    }
 }
 
 #[cfg(test)]

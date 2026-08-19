@@ -3,11 +3,12 @@ use errors::database::DatabaseError;
 use health_and_monitoring::simple_app_state;
 use kartlegging_api::api::build_router;
 use kartlegging_api::config::{
-    read_app_config, read_auth_config, read_database_config, read_kafka_config, read_otel_tracing_config,
-    read_paw_key_gen_client_config, read_pdl_client_config, read_token_client_config,
-    HTTP_TIMEOUT,
+    HTTP_TIMEOUT, read_app_config, read_auth_config, read_database_config, read_kafka_config,
+    read_otel_tracing_config, read_paw_key_gen_client_config, read_pdl_client_config,
+    read_token_client_config,
 };
 use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
+use kartlegging_api::kafka::bootstrap::bootstrap_missing_hwms;
 use kartlegging_api::kafka::topics::TOPICS;
 use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
@@ -61,8 +62,7 @@ async fn main() -> anyhow::Result<()> {
     clear_db(&pg_pool).await?;
 
     tracing::info!("Migrerer endringer for databasen");
-    //sqlx::migrate!("./migrations")
-    sqlx::migrate!("./migrations_dev") // TODO: Endre før prodsetting!!!
+    sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
@@ -83,6 +83,10 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
+
+    // TODO: Fjern før prodsetting!!!
+    bootstrap_missing_hwms(&pg_pool, &kafka_config, hwm_version, &TOPICS).await?;
+
     let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &TOPICS)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
     let message_processor = KartleggingMessageProcessor::new(

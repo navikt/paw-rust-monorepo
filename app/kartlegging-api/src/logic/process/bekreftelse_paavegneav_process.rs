@@ -5,8 +5,8 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use eksterne_hendelser::bekreftelse::paa_vegne_av::{Handling, PaaVegneAv};
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -36,12 +36,12 @@ impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
                     .deserialize(payload)
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
-
-                tracing::debug!("Mottok PaaVegneAv-hendelse");
-
                 let handling = &hendelse.handling;
                 let periode_id = hendelse.periode_id;
                 let bekreftelsesloesning = hendelse.bekreftelsesloesning.as_ref().to_string();
+
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
+
                 let rows = bekreftelse_paavegneav::select_by_periode_id(tx, &periode_id).await?;
                 let count = rows.len();
 
@@ -98,8 +98,8 @@ impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
     use crate::model::dao::bekreftelse_paavegneav;
     use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
@@ -110,7 +110,7 @@ mod tests {
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::{
-        create_dummy_paavegneav_start, create_dummy_paavegneav_stopp,
+        create_dummy_start_paavegneav, create_dummy_stopp_paavegneav,
     };
     use tokio::sync::OnceCell;
     use uuid::Uuid;
@@ -127,7 +127,7 @@ mod tests {
     async fn test_process_paavegneav_start_1(context: &TestContext) {
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_paavegneav_start(
+        let paavegneav = create_dummy_start_paavegneav(
             periode_id,
             Bekreftelsesloesning::Arbeidssoekerregisteret,
         );
@@ -139,10 +139,9 @@ mod tests {
         let mut tx = context.start_tx().await;
         let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-        let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
-                .await
-                .expect("Kunne ikke hente bekreftelse");
+        let paavegneav_rows_1 = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
         tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);
@@ -163,7 +162,7 @@ mod tests {
     async fn test_process_paavegneav_start_2(context: &TestContext) {
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_paavegneav_start(
+        let paavegneav = create_dummy_start_paavegneav(
             periode_id,
             Bekreftelsesloesning::FriskmeldtTilArbeidsformidling,
         );
@@ -175,10 +174,9 @@ mod tests {
         let mut tx = context.start_tx().await;
         let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-        let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
-                .await
-                .expect("Kunne ikke hente bekreftelse");
+        let paavegneav_rows_1 = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
         tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);
@@ -202,7 +200,7 @@ mod tests {
     async fn test_process_paavegneav_stopp(context: &TestContext) {
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_paavegneav_stopp(
+        let paavegneav = create_dummy_stopp_paavegneav(
             periode_id,
             Bekreftelsesloesning::Arbeidssoekerregisteret,
         );
@@ -214,10 +212,9 @@ mod tests {
         let mut tx = context.start_tx().await;
         let result_1 = context.processor.process_payload(&mut tx, &message).await;
         assert!(result_1.is_ok());
-        let paavegneav_rows_1 =
-            bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
-                .await
-                .expect("Kunne ikke hente bekreftelse");
+        let paavegneav_rows_1 = bekreftelse_paavegneav::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
         tx.commit().await.expect("Kunne ikke commit transaksjon");
 
         assert_eq!(paavegneav_rows_1.len(), 1);

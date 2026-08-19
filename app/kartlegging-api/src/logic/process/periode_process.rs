@@ -242,7 +242,7 @@ impl PayloadProcessor for PeriodeProcessor {
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Periode-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 // Lagre periode
                 self.lagre_periode(tx, message, &hendelse).await?;
@@ -411,7 +411,7 @@ mod tests {
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::{
-        create_dummy_avsluttet_periode, create_dummy_startet_periode,
+        create_dummy_avslutt_periode, create_dummy_start_periode,
     };
     use token_client_stub::TokenClientStub;
     use tokio::sync::OnceCell;
@@ -433,7 +433,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_startet_periode(identitetsnummer_1, periode_id_1);
+        let periode = create_dummy_start_periode(identitetsnummer_1, periode_id_1);
         let message = context
             .avro_generator
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
@@ -484,7 +484,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_avsluttet_periode(identitetsnummer_2, periode_id_1);
+        let periode = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1);
         let message = context
             .avro_generator
             .create_avro_message(PAW_PERIODE_TOPIC, periode)
@@ -535,7 +535,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_2 = context.periode_id_2;
 
-        let periode = create_dummy_startet_periode(identitetsnummer_2, periode_id_2);
+        let periode = create_dummy_start_periode(identitetsnummer_2, periode_id_2);
         let message = context
             .avro_generator
             .create_avro_message(PAW_PERIODE_TOPIC, periode)

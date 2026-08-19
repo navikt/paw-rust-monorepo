@@ -2,7 +2,8 @@ use crate::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
 use crate::bekreftelse::vo::start::Start;
 use crate::bekreftelse::vo::stopp::Stopp;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC: &'static str =
@@ -23,6 +24,16 @@ pub struct PaaVegneAv {
     pub periode_id: Uuid,
     pub bekreftelsesloesning: Bekreftelsesloesning,
     pub handling: Handling,
+}
+
+impl Display for PaaVegneAv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self.handling {
+            Handling::Start(_) => "PaaVegneAv-Start",
+            Handling::Stopp(_) => "PaaVegneAv-Stopp",
+        };
+        write!(f, "{}", str)
+    }
 }
 
 #[cfg(test)]

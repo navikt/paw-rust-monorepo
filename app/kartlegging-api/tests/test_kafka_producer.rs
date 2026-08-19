@@ -1,3 +1,4 @@
+use chrono::Utc;
 use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
 use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
 use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
@@ -14,10 +15,11 @@ use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use serde::Serialize;
 use std::str::FromStr;
 use std::time::Duration;
-use test_data_generator::dab_oppfolgingsperiode::create_dummy_oppfolgingsperiode_startet;
+use test_data_generator::dab_oppfolgingsperiode::create_dummy_start_oppfolgingsperiode;
 use test_data_generator::eksterne_hendelser::{
     create_dummy_bekreftelse, create_dummy_egenvurdering, create_dummy_opplysninger,
-    create_dummy_paavegneav_start, create_dummy_profilering, create_dummy_startet_periode,
+    create_dummy_profilering, create_dummy_start_paavegneav, create_dummy_start_periode,
+    create_dummy_stopp_paavegneav,
 };
 use uuid::Uuid;
 
@@ -43,50 +45,110 @@ async fn test_send_messages() -> anyhow::Result<()> {
 
     let ids = gen_ids();
 
-    for id in &ids {
-        let message = create_dummy_startet_periode(id.identitetsnummer, id.periode_id);
-        println!("Sender melding: {:?}", message);
+    send_start_perioder(&producer, &serializer, &ids).await?;
+
+    send_opplysninger(&producer, &serializer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_profileringer(&producer, &serializer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_egenvurderinger(&producer, &serializer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_bekreftelser(&producer, &serializer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_start_paavegneav(&producer, &serializer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_start_oppfolgingsperioder(&producer, &ids).await?;
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    send_stopp_paavegneav(&producer, &serializer, &ids).await?;
+
+    Ok(())
+}
+
+async fn send_start_perioder(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
+        let message = create_dummy_start_periode(id.identitetsnummer, id.periode_id);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(&producer, &serializer, PAW_PERIODE_TOPIC, message).await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
+async fn send_opplysninger(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
         let message =
             create_dummy_opplysninger(id.identitetsnummer, id.periode_id, id.opplysninger_id);
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(&producer, &serializer, PAW_OPPLYSNINGER_TOPIC, message).await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
+async fn send_profileringer(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
         let message = create_dummy_profilering(
             id.identitetsnummer,
             id.periode_id,
             id.opplysninger_id,
             id.profilering_id,
         );
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(&producer, &serializer, PAW_PROFILERING_TOPIC, message).await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
+async fn send_egenvurderinger(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
         let message = create_dummy_egenvurdering(
             id.identitetsnummer,
             id.periode_id,
             id.profilering_id,
             id.egenvurdering_id,
         );
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(&producer, &serializer, PAW_EGENVURDERING_TOPIC, message).await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
+async fn send_bekreftelser(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
         let message = create_dummy_bekreftelse(
             id.identitetsnummer,
             id.periode_id,
@@ -94,18 +156,24 @@ async fn test_send_messages() -> anyhow::Result<()> {
             false,
             true,
         );
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(&producer, &serializer, PAW_BEKREFTELSE_TOPIC, message).await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
-        let message = create_dummy_paavegneav_start(
+async fn send_start_paavegneav(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
+        let message = create_dummy_start_paavegneav(
             id.periode_id,
             Bekreftelsesloesning::Arbeidssoekerregisteret,
         );
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_avro_messages(
             &producer,
             &serializer,
@@ -115,16 +183,44 @@ async fn test_send_messages() -> anyhow::Result<()> {
         .await?;
     }
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    Ok(())
+}
 
-    for id in &ids {
-        let message = create_dummy_oppfolgingsperiode_startet(
+async fn send_stopp_paavegneav(
+    producer: &FutureProducer,
+    serializer: &AvroSerializer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
+        let message = create_dummy_stopp_paavegneav(
+            id.periode_id,
+            Bekreftelsesloesning::Arbeidssoekerregisteret,
+        );
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
+        send_avro_messages(
+            &producer,
+            &serializer,
+            PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC,
+            message,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+async fn send_start_oppfolgingsperioder(
+    producer: &FutureProducer,
+    ids: &Vec<Ids>,
+) -> anyhow::Result<()> {
+    for id in ids {
+        let message = create_dummy_start_oppfolgingsperiode(
             id.oppfolgingsperiode_id,
             id.aktor_id,
             id.identitetsnummer,
             "1234",
         );
-        println!("Sender melding: {:?}", message);
+        println!("Sender melding ({}): {:?}", Utc::now(), message);
         send_json_messages(&producer, POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, message).await?;
     }
 

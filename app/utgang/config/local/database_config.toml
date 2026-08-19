@@ -1,5 +1,5 @@
 host = "localhost"
 port = 5432
-username = "user"
-password = "password"
-database = "utgang"
+username = "utgang_pdl"
+password = "Paw1234"
+database = "utgang_pdl"

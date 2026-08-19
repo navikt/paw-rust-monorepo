@@ -1,0 +1,272 @@
+{
+  "type": "record",
+  "name": "OpplysningerOmArbeidssoeker",
+  "namespace": "no.nav.paw.arbeidssokerregisteret.api.v4",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "periodeId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "sendtInnAv",
+      "type": {
+        "type": "record",
+        "name": "Metadata",
+        "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+        "fields": [
+          {
+            "name": "tidspunkt",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-millis"
+            }
+          },
+          {
+            "name": "utfoertAv",
+            "type": {
+              "type": "record",
+              "name": "Bruker",
+              "fields": [
+                {
+                  "name": "type",
+                  "type": {
+                    "type": "enum",
+                    "name": "BrukerType",
+                    "symbols": [
+                      "UKJENT_VERDI",
+                      "UDEFINERT",
+                      "VEILEDER",
+                      "SYSTEM",
+                      "SLUTTBRUKER"
+                    ],
+                    "default": "UKJENT_VERDI"
+                  }
+                },
+                {
+                  "name": "id",
+                  "type": {
+                    "type": "string",
+                    "avro.java.string": "String"
+                  }
+                },
+                {
+                  "name": "sikkerhetsnivaa",
+                  "type": [
+                    "null",
+                    {
+                      "type": "string",
+                      "avro.java.string": "String"
+                    }
+                  ],
+                  "default": null
+                }
+              ]
+            }
+          },
+          {
+            "name": "kilde",
+            "type": {
+              "type": "string",
+              "avro.java.string": "String"
+            }
+          },
+          {
+            "name": "aarsak",
+            "type": {
+              "type": "string",
+              "avro.java.string": "String"
+            }
+          },
+          {
+            "name": "tidspunktFraKilde",
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "TidspunktFraKilde",
+                "fields": [
+                  {
+                    "name": "tidspunkt",
+                    "type": {
+                      "type": "long",
+                      "logicalType": "timestamp-millis"
+                    }
+                  },
+                  {
+                    "name": "avviksType",
+                    "type": {
+                      "type": "enum",
+                      "name": "AvviksType",
+                      "symbols": [
+                        "UKJENT_VERDI",
+                        "FORSINKELSE",
+                        "RETTING",
+                        "SLETTET",
+                        "TIDSPUNKT_KORRIGERT"
+                      ],
+                      "default": "UKJENT_VERDI"
+                    }
+                  }
+                ]
+              }
+            ],
+            "default": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "utdanning",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Utdanning",
+          "fields": [
+            {
+              "name": "nus",
+              "type": {
+                "type": "string",
+                "avro.java.string": "String"
+              }
+            },
+            {
+              "name": "bestaatt",
+              "type": [
+                "null",
+                {
+                  "type": "enum",
+                  "name": "JaNeiVetIkke",
+                  "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+                  "symbols": [
+                    "JA",
+                    "NEI",
+                    "VET_IKKE"
+                  ]
+                }
+              ],
+              "default": null
+            },
+            {
+              "name": "godkjent",
+              "type": [
+                "null",
+                "no.nav.paw.arbeidssokerregisteret.api.v1.JaNeiVetIkke"
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "helse",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Helse",
+          "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+          "fields": [
+            {
+              "name": "helsetilstandHindrerArbeid",
+              "type": "JaNeiVetIkke"
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "jobbsituasjon",
+      "type": {
+        "type": "record",
+        "name": "Jobbsituasjon",
+        "namespace": "no.nav.paw.arbeidssokerregisteret.api.v1",
+        "fields": [
+          {
+            "name": "beskrivelser",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "BeskrivelseMedDetaljer",
+                "fields": [
+                  {
+                    "name": "beskrivelse",
+                    "type": {
+                      "type": "enum",
+                      "name": "Beskrivelse",
+                      "symbols": [
+                        "UKJENT_VERDI",
+                        "UDEFINERT",
+                        "HAR_SAGT_OPP",
+                        "HAR_BLITT_SAGT_OPP",
+                        "ER_PERMITTERT",
+                        "ALDRI_HATT_JOBB",
+                        "IKKE_VAERT_I_JOBB_SISTE_2_AAR",
+                        "AKKURAT_FULLFORT_UTDANNING",
+                        "VIL_BYTTE_JOBB",
+                        "USIKKER_JOBBSITUASJON",
+                        "MIDLERTIDIG_JOBB",
+                        "DELTIDSJOBB_VIL_MER",
+                        "NY_JOBB",
+                        "KONKURS",
+                        "ANNET"
+                      ],
+                      "default": "UKJENT_VERDI"
+                    }
+                  },
+                  {
+                    "name": "detaljer",
+                    "type": {
+                      "type": "map",
+                      "values": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "avro.java.string": "String"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "annet",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Annet",
+          "namespace": "no.nav.paw.arbeidssokerregisteret.api.v2",
+          "fields": [
+            {
+              "name": "andreForholdHindrerArbeid",
+              "type": [
+                "null",
+                "no.nav.paw.arbeidssokerregisteret.api.v1.JaNeiVetIkke"
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

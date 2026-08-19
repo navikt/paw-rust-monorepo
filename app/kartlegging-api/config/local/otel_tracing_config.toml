@@ -2,5 +2,7 @@ format = "COMPACT"
 directives = [
     "INFO",
     "kartlegging_api::logic::process=DEBUG",
-    "kartlegging_api::logic::process::message_process=INFO"
+    "kartlegging_api::logic::process::message_process=INFO",
+    "paw_rdkafka_hwm::hwm_message_processor=WARN",
+    "paw_rdkafka_hwm::rebalance::hwm_rebalance_handler=DEBUG"
 ]

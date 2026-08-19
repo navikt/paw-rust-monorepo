@@ -37,7 +37,7 @@ impl PayloadProcessor for OpplysningerProcessor {
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Opplysninger-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 let row = OpplysningerRow::new(
                     hendelse.id,

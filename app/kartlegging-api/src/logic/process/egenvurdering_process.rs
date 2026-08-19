@@ -37,7 +37,7 @@ impl PayloadProcessor for EgenvurderingProcessor {
                     .await
                     .map_err(|e| PayloadProcessorError::deserialization_error(message, &e))?;
 
-                tracing::debug!("Mottok Egenvurdering-hendelse");
+                tracing::debug!("Mottok {}-hendelse", &hendelse);
 
                 let row = EgenvurderingRow::new(
                     hendelse.id,

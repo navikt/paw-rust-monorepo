@@ -1,5 +1,6 @@
 use crate::error::ServerError;
 use anyhow::Result;
+use std::fmt::Display;
 
 pub fn get_env(key: &'static str) -> Result<String> {
     let var = std::env::var(key).map_err(|_| ServerError::EnvVarNotFound(key.to_string()))?;
@@ -25,6 +26,17 @@ pub enum RuntimeEnv {
     DevGcp,
     Local,
     UnknownEnv(String),
+}
+
+impl Display for RuntimeEnv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RuntimeEnv::ProdGcp => write!(f, "prod-gcp"),
+            RuntimeEnv::DevGcp => write!(f, "dev-gcp"),
+            RuntimeEnv::Local => write!(f, "local"),
+            RuntimeEnv::UnknownEnv(cluster) => write!(f, "unknown-{}", cluster),
+        }
+    }
 }
 
 pub const PROD_GCP_CLUSTER_NAME: &str = "prod-gcp";

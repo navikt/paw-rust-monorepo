@@ -1,7 +1,8 @@
 use crate::vo::metadata::Metadata;
 use crate::vo::profilert_til::ProfilertTil;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
+use std::fmt::Display;
 use uuid::Uuid;
 
 pub const PAW_EGENVURDERING_TOPIC: &'static str = "paw.arbeidssoeker-egenvurdering-v1";
@@ -19,6 +20,12 @@ pub struct Egenvurdering {
     pub sendt_inn_av: Metadata,
     pub profilert_til: ProfilertTil,
     pub egenvurdering: ProfilertTil,
+}
+
+impl Display for Egenvurdering {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Egenvurdering")
+    }
 }
 
 #[cfg(test)]
