@@ -3,5 +3,4 @@ directives = [
     "INFO",
     "kartlegging_api::logic::process=DEBUG",
     "kartlegging_api::logic::process::message_process=INFO",
-    "paw_rdkafka_hwm::hwm_message_processor=WARN"
 ]

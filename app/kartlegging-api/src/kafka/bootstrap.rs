@@ -6,7 +6,7 @@ use rdkafka::consumer::{BaseConsumer, Consumer};
 use sqlx::PgPool;
 use std::time::Duration;
 
-const LOOKBACK: i64 = 1000;
+const LOOKBACK: i64 = 100;
 
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -36,9 +36,9 @@ pub async fn bootstrap_missing_hwms(
 
                 if get_hwm(&mut tx, version, topic, partition).await?.is_some() {
                     tracing::info!(
+                        "HWM finnes allerede, hopper over bootstrap (topic: {}, partition: {})",
                         topic,
                         partition,
-                        "HWM finnes allerede, hopper over bootstrap"
                     );
                     continue;
                 }
@@ -48,11 +48,11 @@ pub async fn bootstrap_missing_hwms(
                 let offset = (high - LOOKBACK).max(DEFAULT_HWM_OFFSET);
                 insert_hwm(&mut tx, version, topic, partition, offset).await?;
                 tracing::info!(
+                    "Setter initiell HWM (topic: {}, partition: {}, offset: {}, watermark: {})",
                     topic,
                     partition,
                     offset,
-                    watermark = high,
-                    "Setter initiell HWM"
+                    high,
                 );
             }
         }
