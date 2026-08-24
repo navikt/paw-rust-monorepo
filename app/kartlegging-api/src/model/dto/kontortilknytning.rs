@@ -1,4 +1,4 @@
-use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
+use crate::model::parse::{EnumTypeParseError, enum_type_not_found};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
 

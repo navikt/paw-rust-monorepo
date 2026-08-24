@@ -1019,6 +1019,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
+name = "dtor"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd3f6c362b2bbd7063090886afd78978f5dbf1f11da7efcc40f81d32c943fac1"
+dependencies = [
+ "linktime-proc-macro",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2261,6 +2270,7 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
+ "postgres_testcontainer",
  "rdkafka",
  "serde",
  "serde-env-field",
@@ -2319,7 +2329,6 @@ dependencies = [
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
- "paw_test",
  "pdl_api_mock",
  "pdl_client",
  "postgres_testcontainer",
@@ -2397,6 +2406,12 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "linktime-proc-macro"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e57c38c1e860fd37c604281cdfb1dd2216977fd76a50f85ba2f388ef3219616"
 
 [[package]]
 name = "linux-raw-sys"
@@ -3059,6 +3074,7 @@ dependencies = [
  "log",
  "paw_rdkafka",
  "paw_test",
+ "postgres_testcontainer",
  "prometheus",
  "rdkafka",
  "sqlx",
@@ -3260,6 +3276,7 @@ name = "postgres_testcontainer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dtor",
  "sqlx",
  "testcontainers",
  "testcontainers-modules",
@@ -5600,6 +5617,7 @@ dependencies = [
  "paw_sqlx",
  "paw_test",
  "pdl_graphql",
+ "postgres_testcontainer",
  "prometheus",
  "rdkafka",
  "regler_arbeidssoeker",
@@ -5716,6 +5734,7 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
+ "postgres_testcontainer",
  "prometheus",
  "rand 0.10.2",
  "rdkafka",

@@ -7,9 +7,8 @@ use kartlegging_api::config::{
     read_otel_tracing_config, read_paw_key_gen_client_config, read_pdl_client_config,
     read_token_client_config,
 };
-use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
 use kartlegging_api::kafka::bootstrap::bootstrap_missing_hwms;
-use kartlegging_api::kafka::topics::TOPICS;
+use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
 use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
 use kartlegging_api::logic::process::message_process::KartleggingMessageProcessor;
@@ -83,11 +82,12 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
+    let topics = app_config.kafka_topics();
 
     // TODO: Fjern før prodsetting!!!
-    bootstrap_missing_hwms(&pg_pool, &kafka_config, hwm_version, &TOPICS).await?;
+    bootstrap_missing_hwms(&pg_pool, &kafka_config, hwm_version, &topics).await?;
 
-    let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &TOPICS)
+    let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
     let message_processor = KartleggingMessageProcessor::new(
         app_config.clone(),

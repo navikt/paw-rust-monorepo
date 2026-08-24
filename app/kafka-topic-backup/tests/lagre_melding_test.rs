@@ -1,12 +1,13 @@
 use kafka_topic_backup::kafka::message_processor::lagre_melding;
-use paw_test::setup_test_db::setup_test_db;
+use postgres_testcontainer::postgres::setup_postgres_container;
 use rdkafka::message::{Header, OwnedHeaders, OwnedMessage, Timestamp};
 
 #[tokio::test]
 async fn alle_felt_lagres_korrekt() {
-    let (pool, _container) = setup_test_db()
+    let postgres_guard = setup_postgres_container()
         .await
-        .expect("Failed to setup test database");
+        .expect("Failed to start Postgres container");
+    let pool = postgres_guard.pg_pool;
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let expected_topic = "paw.test-topic";
@@ -66,9 +67,10 @@ async fn alle_felt_lagres_korrekt() {
 
 #[tokio::test]
 async fn edgecases_lagres_korrekt() {
-    let (pool, _container) = setup_test_db()
+    let postgres_guard = setup_postgres_container()
         .await
-        .expect("Failed to setup test database");
+        .expect("Failed to start Postgres container");
+    let pool = postgres_guard.pg_pool;
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let tom_key = OwnedMessage::new(

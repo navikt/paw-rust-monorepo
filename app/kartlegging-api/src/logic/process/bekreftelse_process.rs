@@ -7,8 +7,8 @@ use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -121,13 +121,11 @@ impl PayloadProcessor for BekreftelseProcessor {
 #[cfg(test)]
 mod tests {
     use crate::config::read_app_config;
+    use crate::logic::process::PayloadProcessor;
     use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
     use crate::logic::process::periode_process::PeriodeProcessor;
-    use crate::logic::process::PayloadProcessor;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
-    use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-    use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
     use paw_key_gen_client::client::PawKeyGenClient;
@@ -165,7 +163,7 @@ mod tests {
         let periode = create_dummy_start_periode(identitetsnummer, periode_id);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PERIODE_TOPIC, periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -222,7 +220,7 @@ mod tests {
             create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -285,7 +283,7 @@ mod tests {
             create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, true, true);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -343,7 +341,7 @@ mod tests {
             create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -426,7 +424,7 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             sqlx::migrate!("./migrations")

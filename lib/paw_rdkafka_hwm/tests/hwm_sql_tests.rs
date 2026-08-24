@@ -1,9 +1,12 @@
 use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm, update_hwm};
-use paw_test::setup_test_db::setup_test_db;
+use postgres_testcontainer::postgres::setup_postgres_container;
 
 #[tokio::test]
 async fn test_hwm() {
-    let (pg_pool, _db_container) = setup_test_db().await.unwrap();
+    let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+    let pg_pool = postgres_guard.pg_pool;
     sqlx::migrate!("./migrations").run(&pg_pool).await.unwrap();
     
     let mut tx = pg_pool.begin().await.unwrap();

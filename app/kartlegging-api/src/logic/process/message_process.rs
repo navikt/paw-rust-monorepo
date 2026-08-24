@@ -1,4 +1,5 @@
 use crate::config::AppConfig;
+use crate::logic::process::PayloadProcessor;
 use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
 use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
 use crate::logic::process::egenvurdering_process::EgenvurderingProcessor;
@@ -6,19 +7,11 @@ use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcess
 use crate::logic::process::opplysninger_process::OpplysningerProcessor;
 use crate::logic::process::periode_process::PeriodeProcessor;
 use crate::logic::process::profilering_process::ProfileringProcessor;
-use crate::logic::process::PayloadProcessor;
-use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
-use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
-use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
-use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
-use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
-use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
-use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use pdl_client::client::PDLClient;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 use std::pin::Pin;
@@ -26,6 +19,7 @@ use std::sync::Arc;
 use tracing::Instrument;
 
 pub struct KartleggingMessageProcessor {
+    app_config: Arc<AppConfig>,
     periode_processor: Arc<PeriodeProcessor>,
     opplysninger_processor: Arc<OpplysningerProcessor>,
     profilering_processor: Arc<ProfileringProcessor>,
@@ -43,8 +37,9 @@ impl KartleggingMessageProcessor {
         pdl_client: Arc<PDLClient>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
+            app_config: app_config.clone(),
             periode_processor: Arc::new(PeriodeProcessor::new(
-                app_config,
+                app_config.clone(),
                 schema_registry_settings.clone(),
                 key_gen_client,
                 pdl_client,
@@ -85,35 +80,38 @@ impl MessageProcessor for KartleggingMessageProcessor {
                 );
 
                 let result = match message.topic() {
-                    topic if topic == PAW_PERIODE_TOPIC => {
+                    topic if topic == self.app_config.paw_periode_topic.as_str() => {
                         self.periode_processor.process_payload(tx, message).await
                     }
-                    topic if topic == PAW_OPPLYSNINGER_TOPIC => {
+                    topic if topic == self.app_config.paw_opplysninger_topic.as_str() => {
                         self.opplysninger_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == PAW_PROFILERING_TOPIC => {
+                    topic if topic == self.app_config.paw_profilering_topic.as_str() => {
                         self.profilering_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == PAW_EGENVURDERING_TOPIC => {
+                    topic if topic == self.app_config.paw_egenvurdering_topic.as_str() => {
                         self.egenvurdering_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == PAW_BEKREFTELSE_TOPIC => {
+                    topic if topic == self.app_config.paw_bekreftelse_topic.as_str() => {
                         self.bekreftelse_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC => {
+                    topic if topic == self.app_config.paw_bekreftelse_paavegneav_topic.as_str() => {
                         self.bekreftelse_paavegneav_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC => {
+                    topic
+                        if topic
+                            == self.app_config.poao_siste_oppfolgingsperiode_topic.as_str() =>
+                    {
                         self.oppfolgingsperiode_processor
                             .process_payload(tx, message)
                             .await
@@ -150,14 +148,7 @@ mod tests {
     use crate::model::dto::kontortilknytning::KontorType;
     use crate::model::dto::opplysninger::Jobbsituasjon;
     use crate::model::dto::profilering::ProfilertTil;
-    use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
-    use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
-    use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-    use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
-    use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
-    use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
-    use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
     use futures::FutureExt;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
@@ -166,8 +157,8 @@ mod tests {
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use rdkafka::message::OwnedMessage;
     use rdkafka::Timestamp;
+    use rdkafka::message::OwnedMessage;
     use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
     use sqlx::{PgPool, Postgres, Transaction};
     use std::sync::Arc;
@@ -175,7 +166,7 @@ mod tests {
     use test_data_generator::dab_oppfolgingsperiode::create_dummy_start_oppfolgingsperiode;
     use test_data_generator::eksterne_hendelser::{
         create_dummy_bekreftelse, create_dummy_egenvurdering, create_dummy_opplysninger,
-        create_dummy_start_paavegneav, create_dummy_profilering, create_dummy_start_periode,
+        create_dummy_profilering, create_dummy_start_paavegneav, create_dummy_start_periode,
     };
     use test_data_generator::json::JsonGenerator;
     use token_client_stub::TokenClientStub;
@@ -183,7 +174,8 @@ mod tests {
     use tracing_test::traced_test;
     use uuid::Uuid;
 
-    #[ignore] // TODO: Fiks eller slett test. Den feiler fordi den panikker når den mottar en melding på ukjent topic, og det er ikke mulig å fange opp panikk i async test.
+    #[ignore]
+    // TODO: Fiks eller slett test. Den feiler fordi den panikker når den mottar en melding på ukjent topic, og det er ikke mulig å fange opp panikk i async test.
     #[traced_test]
     #[tokio::test]
     async fn test_process_illegal_message() {
@@ -230,7 +222,7 @@ mod tests {
         let periode = create_dummy_start_periode(identitetsnummer, periode_id);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PERIODE_TOPIC, periode.clone())
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode.clone())
             .await;
 
         let mut tx = context.start_tx().await;
@@ -285,7 +277,7 @@ mod tests {
         let opplysninger = create_dummy_opplysninger(identitetsnummer, periode_id, opplysninger_id);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_OPPLYSNINGER_TOPIC, opplysninger.clone())
+            .create_avro_message("paw.opplysninger-om-arbeidssoeker-v1", opplysninger.clone())
             .await;
 
         let mut tx = context.start_tx().await;
@@ -320,7 +312,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PROFILERING_TOPIC, profilering.clone())
+            .create_avro_message("paw.arbeidssoker-profilering-v1", profilering.clone())
             .await;
 
         let mut tx = context.start_tx().await;
@@ -356,7 +348,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_EGENVURDERING_TOPIC, egenvurdering.clone())
+            .create_avro_message("paw.arbeidssoeker-egenvurdering-v1", egenvurdering.clone())
             .await;
 
         let mut tx = context.start_tx().await;
@@ -391,7 +383,7 @@ mod tests {
             create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_TOPIC, bekreftelse.clone())
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse.clone())
             .await;
 
         let mut tx = context.start_tx().await;
@@ -422,7 +414,10 @@ mod tests {
         let paavegneav = create_dummy_start_paavegneav(periode_id, Bekreftelsesloesning::Dagpenger);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav.clone())
+            .create_avro_message(
+                "paw.arbeidssoker-bekreftelse-paavegneav-v1",
+                paavegneav.clone(),
+            )
             .await;
 
         let mut tx = context.start_tx().await;
@@ -456,7 +451,7 @@ mod tests {
         );
         let message = context
             .json_generator
-            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+            .create_json_message("poao.siste-oppfolgingsperiode-v3", &oppfolgingsperiode);
 
         let mut tx = context.start_tx().await;
         let result = context.processor.process_message(&mut tx, &message).await;
@@ -529,7 +524,7 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             println!("Migrerer databasemodell");

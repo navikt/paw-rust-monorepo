@@ -6,8 +6,6 @@ use std::fmt::Display;
 use strum::{AsRefStr, EnumString};
 use uuid::Uuid;
 
-pub const POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC: &'static str = "poao.siste-oppfolgingsperiode-v3";
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",

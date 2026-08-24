@@ -5,8 +5,8 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use eksterne_hendelser::egenvurdering::Egenvurdering;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -64,10 +64,9 @@ impl PayloadProcessor for EgenvurderingProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::process::egenvurdering_process::EgenvurderingProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::egenvurdering_process::EgenvurderingProcessor;
     use crate::model::dao::egenvurdering;
-    use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
     use eksterne_hendelser::vo::profilert_til::ProfilertTil;
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
@@ -95,7 +94,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_EGENVURDERING_TOPIC, egenvurdering)
+            .create_avro_message("paw.arbeidssoeker-egenvurdering-v1", egenvurdering)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -141,7 +140,7 @@ mod tests {
             let mut mocks = pdl_mock_guard.mocks;
             mocks.append(&mut schema_registry_mocks);
 
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             sqlx::migrate!("./migrations")

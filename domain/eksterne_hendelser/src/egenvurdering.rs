@@ -5,8 +5,6 @@ use serde_with::{DisplayFromStr, serde_as};
 use std::fmt::Display;
 use uuid::Uuid;
 
-pub const PAW_EGENVURDERING_TOPIC: &'static str = "paw.arbeidssoeker-egenvurdering-v1";
-
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +49,7 @@ mod tests {
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
         let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy(PAW_EGENVURDERING_TOPIC.to_string(), false);
+            SubjectNameStrategy::TopicNameStrategy("paw.arbeidssoeker-egenvurdering-v1".to_string(), false);
 
         let source_avro = create_dummy_egenvurdering();
 

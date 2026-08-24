@@ -1,6 +1,6 @@
 use paw_key_gen_client::model::IdentitetType;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use std::error::Error;
 use thiserror::Error;
 

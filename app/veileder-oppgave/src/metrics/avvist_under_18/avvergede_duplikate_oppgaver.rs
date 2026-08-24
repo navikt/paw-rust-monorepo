@@ -55,7 +55,7 @@ mod tests {
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
     use anyhow::Result;
     use chrono::{Duration, TimeZone, Utc};
-    use paw_test::setup_test_db::setup_test_db;
+    use postgres_testcontainer::postgres::setup_postgres_container;
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
     use uuid::Uuid;
@@ -63,7 +63,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_hent_antall_duplikate_oppgaver() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+                .await
+                .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 

@@ -7,8 +7,8 @@ use dab_oppfolgingperioder::oppfolgingsperiode::{
     Oppfolgingsperiode, OppfolgingsperiodeAvsluttet, OppfolgingsperiodeEndret,
 };
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
 
 pub struct OppfolgingsperiodeProcessor;
@@ -86,13 +86,11 @@ impl PayloadProcessor for OppfolgingsperiodeProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcessor;
     use crate::model::dao::kontortilknytning;
     use crate::model::dto::kontortilknytning::KontorType;
-    use dab_oppfolgingperioder::oppfolgingsperiode::{
-        Oppfolgingsperiode, POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC,
-    };
+    use dab_oppfolgingperioder::oppfolgingsperiode::Oppfolgingsperiode;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::dab_oppfolgingsperiode::{
@@ -126,7 +124,7 @@ mod tests {
         );
         let message = context
             .json_generator
-            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+            .create_json_message("poao.siste-oppfolgingsperiode-v3", &oppfolgingsperiode);
 
         let mut tx = context.start_tx().await;
         let result_1 = context.processor.process_payload(&mut tx, &message).await;
@@ -177,7 +175,7 @@ mod tests {
         );
         let message = context
             .json_generator
-            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+            .create_json_message("poao.siste-oppfolgingsperiode-v3", &oppfolgingsperiode);
 
         let mut tx = context.start_tx().await;
         let result = context.processor.process_payload(&mut tx, &message).await;
@@ -226,7 +224,7 @@ mod tests {
         );
         let message = context
             .json_generator
-            .create_json_message(POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, &oppfolgingsperiode);
+            .create_json_message("poao.siste-oppfolgingsperiode-v3", &oppfolgingsperiode);
 
         let mut tx = context.start_tx().await;
         let result = context.processor.process_payload(&mut tx, &message).await;
@@ -244,7 +242,7 @@ mod tests {
 
     async fn init() -> &'static TestContext {
         INIT.get_or_init(|| async {
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             sqlx::migrate!("./migrations")

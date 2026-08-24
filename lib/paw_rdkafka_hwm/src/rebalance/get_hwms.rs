@@ -34,8 +34,8 @@ pub(super) fn get_hwms(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use paw_test::setup_test_db::setup_test_db;
     use rdkafka::Offset;
+    use postgres_testcontainer::postgres::setup_postgres_container;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn ny_partisjon_inserter_default_hwm() {
@@ -94,8 +94,11 @@ mod tests {
     }
 
     async fn setup_db() -> PgPool {
-        let (pool, _guard) = setup_test_db().await.unwrap();
-        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-        pool
+        let postgres_guard = setup_postgres_container()
+                .await
+                .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
+        sqlx::migrate!("./migrations").run(&pg_pool).await.unwrap();
+        pg_pool
     }
 }

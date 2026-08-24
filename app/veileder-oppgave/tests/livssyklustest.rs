@@ -6,8 +6,8 @@ use interne_hendelser::vo::Opplysning::{
 use interne_hendelser::{Avvist, Startet};
 use mockito::{Matcher, Server, ServerGuard};
 use paw_test::hendelse_builder::{AsJson, AvvistBuilder, StartetBuilder, rfc3339};
-use paw_test::setup_test_db::{TestDbGuard, setup_test_db};
 use paw_test::stub_token_client::StubTokenClient;
+use postgres_testcontainer::postgres::setup_postgres_container;
 use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
@@ -355,7 +355,6 @@ async fn test_ny_hendelse_etter_ferdigbehandlet_gir_ny_oppgave() -> Result<()> {
 
 struct TestContext {
     pg_pool: PgPool,
-    _db_container: TestDbGuard,
     server: ServerGuard,
     app_config: ApplicationConfig,
     oppgave_api_client: Arc<OppgaveApiClient>,
@@ -363,7 +362,10 @@ struct TestContext {
 
 impl TestContext {
     async fn ny() -> Result<Self> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut app_config = read_application_config()?;
@@ -378,7 +380,6 @@ impl TestContext {
 
         Ok(Self {
             pg_pool,
-            _db_container,
             server,
             app_config,
             oppgave_api_client,

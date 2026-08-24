@@ -1,5 +1,5 @@
-use axum::http::header::CONTENT_TYPE;
 use axum::http::HeaderMap;
+use axum::http::header::CONTENT_TYPE;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
@@ -43,7 +43,7 @@ fn spec_json() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{spec_json, SPEC_YAML};
+    use super::{SPEC_YAML, spec_json};
     use crate::api::kartlegging::API_KARTLEGGING_PATH;
     use crate::model::dto::arbeidssoeker::Arbeidssoeker;
     use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};

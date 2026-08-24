@@ -5,8 +5,8 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use eksterne_hendelser::opplysninger::Opplysninger;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 
@@ -67,10 +67,9 @@ impl PayloadProcessor for OpplysningerProcessor {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::process::opplysninger_process::OpplysningerProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::opplysninger_process::OpplysningerProcessor;
     use crate::model::dao::opplysninger;
-    use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
     use eksterne_hendelser::vo::jobbsituasjon::Beskrivelse;
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
@@ -92,7 +91,7 @@ mod tests {
         let opplysninger = create_dummy_opplysninger("01017012345", periode_id, opplysninger_id);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_OPPLYSNINGER_TOPIC, opplysninger)
+            .create_avro_message("paw.opplysninger-om-arbeidssoeker-v1", opplysninger)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -133,7 +132,7 @@ mod tests {
             let mut mocks = pdl_mock_guard.mocks;
             mocks.append(&mut schema_registry_mocks);
 
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             sqlx::migrate!("./migrations")

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use chrono::Duration;
 use mockito::{Server, ServerGuard};
-use paw_test::setup_test_db::{TestDbGuard, setup_test_db};
 use paw_test::stub_token_client::StubTokenClient;
+use postgres_testcontainer::postgres::setup_postgres_container;
 use serde_json::json;
 use sqlx::PgPool;
 use utgang::kafka::periode_deserializer::{Bruker, BrukerType, Metadata, Periode};
@@ -24,9 +24,10 @@ pub struct TestPeriodeRow {
 }
 
 pub async fn setup() -> PgPool {
-    let (pool, _guard) = setup_test_db()
+    let postgres_guard = setup_postgres_container()
         .await
-        .expect("Failed to setup test database");
+        .expect("Failed to start Postgres container");
+    let pool = postgres_guard.pg_pool;
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
@@ -81,16 +82,18 @@ pub fn avsluttet_periode(id: Uuid) -> Periode {
 
 pub struct PdlTestContext {
     pub pool: PgPool,
-    _guard: TestDbGuard,
     pub pdl_server: ServerGuard,
 }
 
 impl PdlTestContext {
     pub async fn ny() -> Result<Self> {
-        let (pool, _guard) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pool).await?;
         let pdl_server = Server::new_async().await;
-        Ok(Self { pool, _guard, pdl_server })
+        Ok(Self { pool, pdl_server })
     }
 
     pub fn pdl_oppdatering(&self, data_gyldighet: Duration) -> PdlDataOppdatering {

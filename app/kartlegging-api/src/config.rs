@@ -17,6 +17,27 @@ pub struct AppConfig {
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
     pub metrics_task_interval: Duration,
     pub periode_gap_grense_for_ledighet: i64,
+    pub paw_periode_topic: String,
+    pub paw_opplysninger_topic: String,
+    pub paw_profilering_topic: String,
+    pub paw_egenvurdering_topic: String,
+    pub paw_bekreftelse_topic: String,
+    pub paw_bekreftelse_paavegneav_topic: String,
+    pub poao_siste_oppfolgingsperiode_topic: String,
+}
+
+impl AppConfig {
+    pub fn kafka_topics(&self) -> Vec<&str> {
+        vec![
+            self.paw_periode_topic.as_str(),
+            self.paw_opplysninger_topic.as_str(),
+            self.paw_profilering_topic.as_str(),
+            self.paw_egenvurdering_topic.as_str(),
+            self.paw_bekreftelse_topic.as_str(),
+            self.paw_bekreftelse_paavegneav_topic.as_str(),
+            self.poao_siste_oppfolgingsperiode_topic.as_str(),
+        ]
+    }
 }
 
 pub fn read_app_config() -> anyhow::Result<AppConfig> {

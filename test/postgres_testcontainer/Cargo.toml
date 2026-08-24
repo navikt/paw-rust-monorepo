@@ -10,3 +10,4 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true, features = ["postgres"] }
+dtor = { workspace = true }

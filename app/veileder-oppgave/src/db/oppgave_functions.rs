@@ -322,7 +322,6 @@ async fn hent_hendelse_logger(
     Ok(map)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,16 +329,19 @@ mod tests {
     use crate::domain::oppgave_status::OppgaveStatus;
     use crate::domain::oppgave_status::OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
     use crate::domain::oppgave_type::OppgaveType;
-    use chrono::Utc;
-    use paw_test::setup_test_db::setup_test_db;
-    use uuid::Uuid;
     use OppgaveType::AvvistUnder18;
+    use chrono::Utc;
+    use postgres_testcontainer::postgres::setup_postgres_container;
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
+    use uuid::Uuid;
 
     #[tokio::test]
     async fn test_hent_de_eldste_ubehandlede_oppgavene() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
@@ -374,7 +376,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_fra_tidspunkt_filtrerer_bort_gamle_oppgaver() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
@@ -408,7 +413,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_oppdater_ekstern_id() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
@@ -433,7 +441,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_bytt_oppgave_status() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
@@ -455,7 +466,10 @@ mod tests {
 
     #[tokio::test]
     async fn lagre_oppgave_returnerer_oppgave_id() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
@@ -469,7 +483,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_hent_nyeste_oppgave() -> Result<()> {
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut tx = pg_pool.begin().await?;

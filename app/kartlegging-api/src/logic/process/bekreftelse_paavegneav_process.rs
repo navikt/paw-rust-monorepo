@@ -101,7 +101,6 @@ mod tests {
     use crate::logic::process::PayloadProcessor;
     use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
     use crate::model::dao::bekreftelse_paavegneav;
-    use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
@@ -133,7 +132,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -168,7 +167,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -206,7 +205,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC, paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -252,7 +251,7 @@ mod tests {
             let mut mocks = pdl_mock_guard.mocks;
             mocks.append(&mut schema_registry_mocks);
 
-            let postgres_guard = setup_postgres_container(5432)
+            let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
             sqlx::migrate!("./migrations")

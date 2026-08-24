@@ -1,4 +1,4 @@
-use crate::model::parse::{enum_type_not_found, EnumTypeParseError};
+use crate::model::parse::{EnumTypeParseError, enum_type_not_found};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -13,9 +13,7 @@ pub struct Profilering {
     pub tidspunkt: DateTime<Utc>,
 }
 
-#[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(
     serialize_all = "SCREAMING_SNAKE_CASE",
     parse_err_fn = enum_type_not_found,

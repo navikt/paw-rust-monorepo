@@ -1,5 +1,5 @@
 use axum::Router;
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::task::{JoinError, JoinHandle};
 
 pub async fn web_server_task(routes: Router) -> JoinHandle<anyhow::Result<()>> {

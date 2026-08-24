@@ -1,5 +1,6 @@
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, PgPool};
+use std::sync::OnceLock;
 use std::time::Duration;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
@@ -7,8 +8,8 @@ use testcontainers_modules::postgres::Postgres;
 use tokio::sync::OnceCell;
 use uuid::Uuid;
 
-pub async fn setup_postgres_container(port: u16) -> anyhow::Result<TestContainerGuard> {
-    let host_port = *CONTAINER_PORT
+pub async fn setup_postgres_container() -> anyhow::Result<TestContainerGuard> {
+    let host_port = *EXTERNAL_CONTAINER_PORT
         .get_or_init(|| async {
             let container: &'static ContainerAsync<Postgres> = Box::leak(Box::new(
                 Postgres::default()
@@ -17,8 +18,14 @@ pub async fn setup_postgres_container(port: u16) -> anyhow::Result<TestContainer
                     .await
                     .expect("Failed to start Postgres container"),
             ));
+            // The container above is intentionally leaked so it can be shared as a
+            // 'static across every test in this process. Since it's leaked, its Drop
+            // impl (which would normally stop/remove it) never runs, so we record its
+            // id here and remove it explicitly via a process-exit hook (see
+            // `cleanup_postgres_container` below).
+            let _ = CONTAINER_ID.set(container.id().to_string());
             container
-                .get_host_port_ipv4(port)
+                .get_host_port_ipv4(INTERNAL_CONTAINER_PORT)
                 .await
                 .expect("Failed to get Postgres port")
         })
@@ -58,7 +65,21 @@ pub async fn setup_postgres_container(port: u16) -> anyhow::Result<TestContainer
     Ok(TestContainerGuard { pg_pool })
 }
 
-static CONTAINER_PORT: OnceCell<u16> = OnceCell::const_new();
+static CONTAINER_ID: OnceLock<String> = OnceLock::new();
+static EXTERNAL_CONTAINER_PORT: OnceCell<u16> = OnceCell::const_new();
+const INTERNAL_CONTAINER_PORT: u16 = 5432;
+
+/// Removes the leaked, shared Postgres testcontainer when the process exits normally.
+/// This only runs on normal termination (returning from `main`/the test harness); it
+/// does not run on a hard `SIGKILL` of the process.
+#[dtor::dtor(unsafe)]
+fn cleanup_postgres_container() {
+    if let Some(id) = CONTAINER_ID.get() {
+        let _ = std::process::Command::new("docker")
+            .args(["rm", "-f", id])
+            .output();
+    }
+}
 
 pub struct TestContainerGuard {
     pub pg_pool: PgPool,

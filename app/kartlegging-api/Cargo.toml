@@ -51,7 +51,6 @@ schema_registry_converter = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
 
 [dev-dependencies]
-paw_test = { path = "../../lib/paw_test" }
 test_data_generator = { path = "../../test/test_data_generator" }
 schema_registry_mock = { path = "../../test/schema_registry_mock" }
 postgres_testcontainer = { path = "../../test/postgres_testcontainer" }

@@ -42,3 +42,4 @@ prometheus = { workspace = true }
 [dev-dependencies]
 mockito = { workspace = true }
 paw_test = { path = "../../lib/paw_test" }
+postgres_testcontainer = { path = "../../test/postgres_testcontainer" }

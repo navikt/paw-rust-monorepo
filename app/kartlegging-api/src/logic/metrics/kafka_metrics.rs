@@ -1,6 +1,6 @@
-use prometheus::{register_gauge_vec, GaugeVec};
-use rdkafka::message::OwnedMessage;
+use prometheus::{GaugeVec, register_gauge_vec};
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use std::sync::LazyLock;
 
 static KAFKA_OFFSET_GAUGE: LazyLock<GaugeVec> = LazyLock::new(|| {

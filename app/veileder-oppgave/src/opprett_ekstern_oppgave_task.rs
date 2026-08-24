@@ -186,8 +186,8 @@ mod tests {
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use crate::domain::oppgave_type::OppgaveType;
     use mockito::{Matcher, Server};
-    use paw_test::setup_test_db::setup_test_db;
     use paw_test::stub_token_client::StubTokenClient;
+    use postgres_testcontainer::postgres::setup_postgres_container;
     use serde_json::json;
     use std::sync::Arc;
     use std::time::Duration;
@@ -247,7 +247,10 @@ mod tests {
             Arc::new(StubTokenClient),
         ));
 
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         // Tom batch: ingen oppgaver, ingen HTTP-kall forventet
@@ -353,7 +356,10 @@ mod tests {
             Arc::new(StubTokenClient),
         ));
 
-        let (pg_pool, _db_container) = setup_test_db().await?;
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
 
         let mut tx = pg_pool.begin().await?;

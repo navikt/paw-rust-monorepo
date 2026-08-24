@@ -6,9 +6,6 @@ use serde_with::{DisplayFromStr, serde_as};
 use std::fmt::Display;
 use uuid::Uuid;
 
-pub const PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC: &'static str =
-    "paw.arbeidssoker-bekreftelse-paavegneav-v1";
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Handling {
@@ -55,7 +52,7 @@ mod tests {
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
         let strategy = SubjectNameStrategy::TopicNameStrategy(
-            PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC.to_string(),
+            "paw.arbeidssoker-bekreftelse-paavegneav-v1".to_string(),
             false,
         );
         let source_start = create_dummy_paavegneav_start();

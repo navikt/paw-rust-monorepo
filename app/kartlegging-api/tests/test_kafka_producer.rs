@@ -1,12 +1,5 @@
 use chrono::Utc;
-use dab_oppfolgingperioder::oppfolgingsperiode::POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC;
-use eksterne_hendelser::bekreftelse::bekreftelse::PAW_BEKREFTELSE_TOPIC;
-use eksterne_hendelser::bekreftelse::paa_vegne_av::PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC;
 use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-use eksterne_hendelser::egenvurdering::PAW_EGENVURDERING_TOPIC;
-use eksterne_hendelser::opplysninger::PAW_OPPLYSNINGER_TOPIC;
-use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
-use eksterne_hendelser::profilering::PAW_PROFILERING_TOPIC;
 use eksterne_hendelser::serde::AvroSerializer;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
@@ -84,7 +77,13 @@ async fn send_start_perioder(
     for id in ids {
         let message = create_dummy_start_periode(id.identitetsnummer, id.periode_id);
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_avro_messages(&producer, &serializer, PAW_PERIODE_TOPIC, message).await?;
+        send_avro_messages(
+            &producer,
+            &serializer,
+            "paw.arbeidssokerperioder-v1",
+            message,
+        )
+        .await?;
     }
 
     Ok(())
@@ -99,7 +98,13 @@ async fn send_opplysninger(
         let message =
             create_dummy_opplysninger(id.identitetsnummer, id.periode_id, id.opplysninger_id);
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_avro_messages(&producer, &serializer, PAW_OPPLYSNINGER_TOPIC, message).await?;
+        send_avro_messages(
+            &producer,
+            &serializer,
+            "paw.opplysninger-om-arbeidssoeker-v1",
+            message,
+        )
+        .await?;
     }
 
     Ok(())
@@ -118,7 +123,13 @@ async fn send_profileringer(
             id.profilering_id,
         );
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_avro_messages(&producer, &serializer, PAW_PROFILERING_TOPIC, message).await?;
+        send_avro_messages(
+            &producer,
+            &serializer,
+            "paw.arbeidssoker-profilering-v1",
+            message,
+        )
+        .await?;
     }
 
     Ok(())
@@ -137,7 +148,13 @@ async fn send_egenvurderinger(
             id.egenvurdering_id,
         );
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_avro_messages(&producer, &serializer, PAW_EGENVURDERING_TOPIC, message).await?;
+        send_avro_messages(
+            &producer,
+            &serializer,
+            "paw.arbeidssoeker-egenvurdering-v1",
+            message,
+        )
+        .await?;
     }
 
     Ok(())
@@ -157,7 +174,13 @@ async fn send_bekreftelser(
             true,
         );
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_avro_messages(&producer, &serializer, PAW_BEKREFTELSE_TOPIC, message).await?;
+        send_avro_messages(
+            &producer,
+            &serializer,
+            "paw.arbeidssoker-bekreftelse-v1",
+            message,
+        )
+        .await?;
     }
 
     Ok(())
@@ -177,7 +200,7 @@ async fn send_start_paavegneav(
         send_avro_messages(
             &producer,
             &serializer,
-            PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC,
+            "paw.arbeidssoker-bekreftelse-paavegneav-v1",
             message,
         )
         .await?;
@@ -200,7 +223,7 @@ async fn send_stopp_paavegneav(
         send_avro_messages(
             &producer,
             &serializer,
-            PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC,
+            "paw.arbeidssoker-bekreftelse-paavegneav-v1",
             message,
         )
         .await?;
@@ -221,7 +244,7 @@ async fn send_start_oppfolgingsperioder(
             "1234",
         );
         println!("Sender melding ({}): {:?}", Utc::now(), message);
-        send_json_messages(&producer, POAO_SISTE_OPPFOLGINGSPERIODE_V3_TOPIC, message).await?;
+        send_json_messages(&producer, "poao.siste-oppfolgingsperiode-v3", message).await?;
     }
 
     Ok(())

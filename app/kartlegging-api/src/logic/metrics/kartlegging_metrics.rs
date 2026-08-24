@@ -1,6 +1,6 @@
 use crate::model::dao::kartlegging;
 use crate::model::dao::kartlegging::KartleggingMetricsRow;
-use prometheus::{register_gauge_vec, GaugeVec};
+use prometheus::{GaugeVec, register_gauge_vec};
 use sqlx::PgPool;
 use std::sync::LazyLock;
 

@@ -18,6 +18,7 @@ tracing-opentelemetry = { workspace = true }
 
 [dev-dependencies]
 paw_test = { path = "../paw_test" }
+postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
 tokio = { workspace = true }
 sqlx = { workspace = true }
 

@@ -14,8 +14,8 @@ use paw_key_gen_client::client::PawKeyGenClient;
 use paw_key_gen_client::model::IdentitetType;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use pdl_client::client::PDLClient;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 use std::sync::Arc;
@@ -391,15 +391,14 @@ impl PayloadProcessor for PeriodeProcessor {
 #[cfg(test)]
 mod tests {
     use crate::config::read_app_config;
-    use crate::logic::process::periode_process::PeriodeProcessor;
     use crate::logic::process::PayloadProcessor;
+    use crate::logic::process::periode_process::PeriodeProcessor;
     use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
     use crate::model::dao::bekreftelse::BekreftelseRow;
     use crate::model::dao::kartlegging::KartleggingRow;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
     use chrono::{Duration, TimeZone, Utc};
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-    use eksterne_hendelser::periode::PAW_PERIODE_TOPIC;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
     use paw_key_gen_client::client::PawKeyGenClient;
@@ -420,14 +419,20 @@ mod tests {
 
     #[traced_test]
     #[tokio::test]
-    async fn test_process_messages() {
-        let context = init().await;
-        test_process_periode_1_start(context).await;
-        test_process_periode_1_avsluttet(context).await;
-        test_process_periode_2_start(context).await;
+    async fn test_process_messages() -> anyhow::Result<()> {
+        let context = init().await?;
+        test_process_periode_1_start(context).await?;
+        test_process_periode_1_avsluttet(context).await?;
+        test_process_periode_2_start(context).await?;
+
+        test_utled_arbeidsledighet_fra_bekreftelser(context).await?;
+        test_utled_arbeidsledighet_fra_eksisterende_kartlegging(context).await?;
+        test_utled_arbeidsledighet_fra_tidligere_kartlegging(context).await?;
+
+        Ok(())
     }
 
-    async fn test_process_periode_1_start(context: &TestContext) {
+    async fn test_process_periode_1_start(context: &TestContext) -> anyhow::Result<()> {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer_1 = context.identitetsnummer_1_1;
         let identitetsnummer_2 = context.identitetsnummer_1_2;
@@ -436,7 +441,7 @@ mod tests {
         let periode = create_dummy_start_periode(identitetsnummer_1, periode_id_1);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PERIODE_TOPIC, periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -477,9 +482,11 @@ mod tests {
         );
         assert!(kartlegging_row.arbeidssoeker_til.is_none());
         assert!(kartlegging_row.arbeidsledig_fra.is_none());
+
+        Ok(())
     }
 
-    async fn test_process_periode_1_avsluttet(context: &TestContext) {
+    async fn test_process_periode_1_avsluttet(context: &TestContext) -> anyhow::Result<()> {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
@@ -487,7 +494,7 @@ mod tests {
         let periode = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PERIODE_TOPIC, periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -528,9 +535,11 @@ mod tests {
         );
         assert!(kartlegging_row.arbeidssoeker_til.is_some());
         assert!(kartlegging_row.arbeidsledig_fra.is_none());
+
+        Ok(())
     }
 
-    async fn test_process_periode_2_start(context: &TestContext) {
+    async fn test_process_periode_2_start(context: &TestContext) -> anyhow::Result<()> {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_2 = context.periode_id_2;
@@ -538,7 +547,7 @@ mod tests {
         let periode = create_dummy_start_periode(identitetsnummer_2, periode_id_2);
         let message = context
             .avro_generator
-            .create_avro_message(PAW_PERIODE_TOPIC, periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
             .await;
 
         let mut tx = context.start_tx().await;
@@ -580,16 +589,7 @@ mod tests {
         );
         assert!(kartlegging_row.arbeidssoeker_til.is_none());
         assert!(kartlegging_row.arbeidsledig_fra.is_none());
-    }
 
-    //#[traced_test]
-    #[tokio::test]
-    async fn test_utled_arbeidsledighet() -> anyhow::Result<()> {
-        let context = init().await;
-
-        test_utled_arbeidsledighet_fra_bekreftelser(context).await?;
-        test_utled_arbeidsledighet_fra_eksisterende_kartlegging(context).await?;
-        test_utled_arbeidsledighet_fra_tidligere_kartlegging(context).await?;
         Ok(())
     }
 
@@ -884,88 +884,92 @@ mod tests {
 
     static INIT: OnceCell<TestContext> = OnceCell::const_new();
 
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
-            let mut mockito_server = Server::new_async().await;
+    async fn init() -> anyhow::Result<&'static TestContext> {
+        let context = INIT
+            .get_or_init(|| async {
+                let mut mockito_server = Server::new_async().await;
 
-            let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
+                let app_config =
+                    Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
 
-            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
-                .await
-                .expect("Failed to create schema registry mock");
-            let schema_registry_settings = schema_registry_guard.schema_registry_settings;
-
-            let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
-            let kafka_key_gen_mock_guard =
-                init_kafka_key_gen_mock(&mut mockito_server, kafka_key_gen_mock_responses)
+                let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
                     .await
-                    .expect("Kunne ikke initialisere Kafka Key Gen mock");
+                    .expect("Failed to create schema registry mock");
+                let schema_registry_settings = schema_registry_guard.schema_registry_settings;
 
-            let pdl_mock_responses = default_pdl_mock_responses();
-            let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
-                .await
-                .expect("Kunne ikke initialisere PDL mock server");
+                let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
+                let kafka_key_gen_mock_guard =
+                    init_kafka_key_gen_mock(&mut mockito_server, kafka_key_gen_mock_responses)
+                        .await
+                        .expect("Kunne ikke initialisere Kafka Key Gen mock");
 
-            let mut schema_registry_mocks = schema_registry_guard.mocks;
-            let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
-            let mut mocks = pdl_mock_guard.mocks;
-            mocks.append(&mut schema_registry_mocks);
-            mocks.append(&mut kafka_key_gen_mocks);
+                let pdl_mock_responses = default_pdl_mock_responses();
+                let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
+                    .await
+                    .expect("Kunne ikke initialisere PDL mock server");
 
-            let http_client = reqwest::Client::builder()
-                .no_proxy()
-                .build()
-                .expect("Failed to build reqwest client");
+                let mut schema_registry_mocks = schema_registry_guard.mocks;
+                let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
+                let mut mocks = pdl_mock_guard.mocks;
+                mocks.append(&mut schema_registry_mocks);
+                mocks.append(&mut kafka_key_gen_mocks);
 
-            let key_gen_client = Arc::new(PawKeyGenClient::new(
-                mockito_server.url(),
-                "test-scope".to_string(),
-                http_client.clone(),
-                Arc::new(TokenClientStub::new()),
-            ));
+                let http_client = reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .expect("Failed to build reqwest client");
 
-            let pdl_client = Arc::new(PDLClient::new(
-                "test-scope".to_string(),
-                format!("{}/pdl", mockito_server.url()),
-                http_client.clone(),
-                Arc::new(TokenClientStub::new()),
-            ));
+                let key_gen_client = Arc::new(PawKeyGenClient::new(
+                    mockito_server.url(),
+                    "test-scope".to_string(),
+                    http_client.clone(),
+                    Arc::new(TokenClientStub::new()),
+                ));
 
-            let postgres_guard = setup_postgres_container(5432)
-                .await
-                .expect("Failed to start Postgres container");
-            println!("Migrerer databasemodell");
-            sqlx::migrate!("./migrations")
-                .run(&postgres_guard.pg_pool)
-                .await
-                .expect("Failed to run migrations");
+                let pdl_client = Arc::new(PDLClient::new(
+                    "test-scope".to_string(),
+                    format!("{}/pdl", mockito_server.url()),
+                    http_client.clone(),
+                    Arc::new(TokenClientStub::new()),
+                ));
 
-            TestContext {
-                mockito_server,
-                mocks,
-                pg_pool: postgres_guard.pg_pool,
-                avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
-                processor: PeriodeProcessor::new(
-                    app_config,
-                    schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
-                ),
-                arbeidssoeker_id_1: 12345,
-                arbeidssoeker_id_5: 56789,
-                aktor_id_5: "501701234500",
-                identitetsnummer_1_1: "41017012345",
-                identitetsnummer_1_2: "01017012345",
-                identitetsnummer_5: "05017012345",
-                periode_id_1: Uuid::new_v4(),
-                periode_id_2: Uuid::new_v4(),
-                periode_id_3: Uuid::new_v4(),
-                periode_id_4: Uuid::new_v4(),
-                periode_id_5_1: Uuid::new_v4(),
-                periode_id_5_2: Uuid::new_v4(),
-            }
-        })
-        .await
+                let postgres_guard = setup_postgres_container()
+                    .await
+                    .expect("Failed to start Postgres container");
+                println!("Migrerer databasemodell");
+                sqlx::migrate!("./migrations")
+                    .run(&postgres_guard.pg_pool)
+                    .await
+                    .expect("Failed to run migrations");
+
+                TestContext {
+                    mockito_server,
+                    mocks,
+                    pg_pool: postgres_guard.pg_pool,
+                    avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
+                    processor: PeriodeProcessor::new(
+                        app_config,
+                        schema_registry_settings.clone(),
+                        key_gen_client,
+                        pdl_client,
+                    ),
+                    arbeidssoeker_id_1: 12345,
+                    arbeidssoeker_id_5: 56789,
+                    aktor_id_5: "501701234500",
+                    identitetsnummer_1_1: "41017012345",
+                    identitetsnummer_1_2: "01017012345",
+                    identitetsnummer_5: "05017012345",
+                    periode_id_1: Uuid::new_v4(),
+                    periode_id_2: Uuid::new_v4(),
+                    periode_id_3: Uuid::new_v4(),
+                    periode_id_4: Uuid::new_v4(),
+                    periode_id_5_1: Uuid::new_v4(),
+                    periode_id_5_2: Uuid::new_v4(),
+                }
+            })
+            .await;
+
+        Ok(context)
     }
 
     struct TestContext {
@@ -992,6 +996,10 @@ mod tests {
 
     impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
+            println!(
+                "Starter transaksjon (antall ledige tråder: {})",
+                self.pg_pool.num_idle()
+            );
             self.pg_pool
                 .begin()
                 .await
