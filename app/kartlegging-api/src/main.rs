@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
-    let topics = app_config.kafka_topics();
+    let topics = app_config.kafka.all_topics();
 
     // TODO: Fjern før prodsetting!!!
     bootstrap_missing_hwms(&pg_pool, &kafka_config, hwm_version, &topics).await?;

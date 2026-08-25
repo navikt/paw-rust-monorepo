@@ -2338,6 +2338,7 @@ dependencies = [
  "schema_registry_converter",
  "schema_registry_mock",
  "serde",
+ "serde-env-field",
  "serde_json",
  "serde_with",
  "serde_yaml",

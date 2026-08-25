@@ -7,16 +7,23 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_sqlx::config::DatabaseConfig;
 use pdl_client::config::PDLClientConfig;
 use serde::Deserialize;
+use serde_env_field::env_field_wrap;
 use std::time::Duration;
 use texas_client::config::TokenClientConfig;
 
 pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AppConfig {
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
     pub metrics_task_interval: Duration,
     pub periode_gap_grense_for_ledighet: i64,
+    pub kafka: AppKafkaConfig,
+}
+
+#[env_field_wrap]
+#[derive(Debug, Deserialize)]
+pub struct AppKafkaConfig {
     pub paw_periode_topic: String,
     pub paw_opplysninger_topic: String,
     pub paw_profilering_topic: String,
@@ -26,8 +33,8 @@ pub struct AppConfig {
     pub poao_siste_oppfolgingsperiode_topic: String,
 }
 
-impl AppConfig {
-    pub fn kafka_topics(&self) -> Vec<&str> {
+impl AppKafkaConfig {
+    pub fn all_topics(&self) -> Vec<&str> {
         vec![
             self.paw_periode_topic.as_str(),
             self.paw_opplysninger_topic.as_str(),

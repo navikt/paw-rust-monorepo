@@ -79,39 +79,38 @@ impl MessageProcessor for KartleggingMessageProcessor {
                     message.offset()
                 );
 
+                let kafka_config = &self.app_config.kafka;
+
                 let result = match message.topic() {
-                    topic if topic == self.app_config.paw_periode_topic.as_str() => {
+                    topic if topic == kafka_config.paw_periode_topic.as_str() => {
                         self.periode_processor.process_payload(tx, message).await
                     }
-                    topic if topic == self.app_config.paw_opplysninger_topic.as_str() => {
+                    topic if topic == kafka_config.paw_opplysninger_topic.as_str() => {
                         self.opplysninger_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == self.app_config.paw_profilering_topic.as_str() => {
+                    topic if topic == kafka_config.paw_profilering_topic.as_str() => {
                         self.profilering_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == self.app_config.paw_egenvurdering_topic.as_str() => {
+                    topic if topic == kafka_config.paw_egenvurdering_topic.as_str() => {
                         self.egenvurdering_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == self.app_config.paw_bekreftelse_topic.as_str() => {
+                    topic if topic == kafka_config.paw_bekreftelse_topic.as_str() => {
                         self.bekreftelse_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic if topic == self.app_config.paw_bekreftelse_paavegneav_topic.as_str() => {
+                    topic if topic == kafka_config.paw_bekreftelse_paavegneav_topic.as_str() => {
                         self.bekreftelse_paavegneav_processor
                             .process_payload(tx, message)
                             .await
                     }
-                    topic
-                        if topic
-                            == self.app_config.poao_siste_oppfolgingsperiode_topic.as_str() =>
-                    {
+                    topic if topic == kafka_config.poao_siste_oppfolgingsperiode_topic.as_str() => {
                         self.oppfolgingsperiode_processor
                             .process_payload(tx, message)
                             .await
