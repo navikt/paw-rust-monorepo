@@ -4,6 +4,7 @@ use paw_rdkafka_hwm::hwm::DEFAULT_HWM_OFFSET;
 use paw_rdkafka_hwm::hwm_functions::{get_hwm, insert_hwm};
 use rdkafka::consumer::{BaseConsumer, Consumer};
 use sqlx::PgPool;
+use std::sync::Arc;
 use std::time::Duration;
 
 const LOOKBACK: i64 = 100;
@@ -13,10 +14,10 @@ const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(10);
 // TODO: Fjern før prodsetting!!!
 pub async fn bootstrap_missing_hwms(
     pg_pool: &PgPool,
-    kafka_config: &KafkaConfig,
-    version: i16,
+    kafka_config: Arc<KafkaConfig>,
     topics: &[&str],
 ) -> Result<()> {
+    let version = *kafka_config.hwm_version;
     let mut client_config = kafka_config.rdkafka_client_config()?;
     let group_id = client_config
         .get("group.id")

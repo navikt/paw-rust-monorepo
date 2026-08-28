@@ -3,6 +3,7 @@ use crate::model::dao::kontortilknytning;
 use crate::model::dao::kontortilknytning::KontortilknytningRow;
 use crate::model::dto::kontortilknytning::KontorType;
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use dab_oppfolgingperioder::oppfolgingsperiode::{
     Oppfolgingsperiode, OppfolgingsperiodeAvsluttet, OppfolgingsperiodeEndret,
 };
@@ -57,7 +58,7 @@ impl PayloadProcessor for OppfolgingsperiodeProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -78,7 +79,7 @@ impl PayloadProcessor for OppfolgingsperiodeProcessor {
                     }
                 };
 
-                Ok(())
+                Ok(ProcessorResult::Continue)
             }
         }
     }

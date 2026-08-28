@@ -9,6 +9,7 @@ use kartlegging_api::config::{
 };
 use kartlegging_api::kafka::bootstrap::bootstrap_missing_hwms;
 use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
+use kartlegging_api::kafka::hwm::hwm_pause_task::hwm_pause_timeout_task;
 use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
 use kartlegging_api::logic::process::message_process::KartleggingMessageProcessor;
@@ -35,15 +36,13 @@ async fn main() -> anyhow::Result<()> {
     let otel_tracing_config = read_otel_tracing_config()?;
     let database_config = read_database_config()?;
     let auth_config = read_auth_config()?;
-    let kafka_config = read_kafka_config()?;
+    let kafka_config = Arc::new(read_kafka_config()?);
     let token_client_config = read_token_client_config()?;
     let key_gen_client_config = read_paw_key_gen_client_config()?;
     let pdl_client_config = read_pdl_client_config()?;
 
     setup_otel(otel_tracing_config)?;
     setup_metrics();
-
-    let hwm_version = *kafka_config.hwm_version;
 
     let http_client = Client::builder()
         .timeout(HTTP_TIMEOUT)
@@ -85,18 +84,37 @@ async fn main() -> anyhow::Result<()> {
     let topics = app_config.kafka.all_topics();
 
     // TODO: Fjern før prodsetting!!!
-    bootstrap_missing_hwms(&pg_pool, &kafka_config, hwm_version, &topics).await?;
+    bootstrap_missing_hwms(&pg_pool, kafka_config.clone(), &topics).await?;
 
-    let consumer = create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)
-        .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
+    let consumer = Arc::new(
+        create_kafka_consumer(
+            app_state.clone(),
+            pg_pool.clone(),
+            kafka_config.clone(),
+            &topics,
+        )
+        .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?,
+    );
     let message_processor = KartleggingMessageProcessor::new(
         app_config.clone(),
         schema_registry_settings,
         key_gen_client.clone(),
         pdl_client.clone(),
     )?;
-    let consumer_task =
-        kafka_consumer_task(pg_pool.clone(), hwm_version, consumer, message_processor);
+    let consumer_task = kafka_consumer_task(
+        app_config.clone(),
+        kafka_config.clone(),
+        pg_pool.clone(),
+        consumer.clone(),
+        message_processor,
+    );
+    let timeout_task = hwm_pause_timeout_task(
+        app_config.clone(),
+        kafka_config.clone(),
+        pg_pool.clone(),
+        consumer.clone(),
+        app_state.clone(),
+    );
 
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
@@ -110,6 +128,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
         result = consumer_task => async_task_handler("KafkaConsumer", result),
+        result = timeout_task => async_task_handler("HwmPauseTimeout", result),
         result = metrics_task => async_task_handler("Metrics", result),
         signal = signal_task => shutdown_handler(signal),
     }?;

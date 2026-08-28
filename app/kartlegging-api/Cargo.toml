@@ -50,6 +50,8 @@ rdkafka = { workspace = true }
 prometheus = { workspace = true }
 schema_registry_converter = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+futures = { workspace = true }
 
 [dev-dependencies]
 test_data_generator = { path = "../../test/test_data_generator" }
@@ -61,4 +63,3 @@ token_client_stub = { path = "../../test/token_client_stub" }
 mockito = { workspace = true }
 jsonschema = { workspace = true }
 tracing-test = { workspace = true }
-futures = { workspace = true }

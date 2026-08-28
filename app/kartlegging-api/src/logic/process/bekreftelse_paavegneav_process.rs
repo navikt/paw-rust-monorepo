@@ -2,6 +2,7 @@ use crate::logic::process::PayloadProcessor;
 use crate::model::dao::bekreftelse_paavegneav;
 use crate::model::dao::bekreftelse_paavegneav::BekreftelsePaaVegneAvRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use eksterne_hendelser::bekreftelse::paa_vegne_av::{Handling, PaaVegneAv};
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
@@ -27,7 +28,7 @@ impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -73,7 +74,7 @@ impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
                         }
                     }
 
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 } else {
                     match hendelse.handling {
                         Handling::Start(_) => {
@@ -89,7 +90,7 @@ impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
                         }
                     }
 
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 }
             }
         }

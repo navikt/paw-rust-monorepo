@@ -2,6 +2,7 @@ use crate::logic::process::PayloadProcessor;
 use crate::model::dao::profilering;
 use crate::model::dao::profilering::ProfileringRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use eksterne_hendelser::profilering::Profilering;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
@@ -27,7 +28,7 @@ impl PayloadProcessor for ProfileringProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -51,10 +52,10 @@ impl PayloadProcessor for ProfileringProcessor {
                     Err(DaoError::multiple_rows(message, "profileringer", count as usize).into())
                 } else if count == 1 {
                     profilering::update(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 } else {
                     profilering::insert(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 }
             }
         }

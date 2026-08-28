@@ -100,6 +100,15 @@ pub enum PayloadProcessorError {
         partition: i32,
         offset: i64,
     },
+    #[error(
+        "Pausing processing for messages on topic '{topic}' at partition {partition}, offset {offset} to await dependency on topics {synced_topics_string}"
+    , synced_topics_string = synced_topics.join(", "))]
+    AwaitingDependency {
+        synced_topics: Vec<String>,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
 }
 
 impl PayloadProcessorError {

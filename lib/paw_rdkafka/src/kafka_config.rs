@@ -30,6 +30,9 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         .security_protocol
         .unwrap_or_else(|| EnvField::from("PLAINTEXT".to_string()))
         .into_inner();
+    let partition_assignment_strategy = kafka_config
+        .partition_assignment_strategy
+        .map(|s| s.into_inner());
 
     let mut config = ClientConfig::new();
     config
@@ -73,6 +76,14 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
             .set("ssl.ca.location", ca_path.into_inner());
     }
 
+    // Opt-in: kun satt dersom appens config eksplisitt spesifiserer det (f.eks. kartlegging-api,
+    // som er avhengig av en deterministisk "range"-assignor for å garantere at co-partisjonerte
+    // topics tildeles samme gruppemedlem per partisjonsnummer). Andre apper som deler denne
+    // klient-konfigurasjonen er upåvirket med mindre de også setter feltet.
+    if let Some(strategy) = partition_assignment_strategy {
+        config.set("partition.assignment.strategy", strategy);
+    }
+
     Ok(config)
 }
 
@@ -89,6 +100,7 @@ pub struct KafkaConfig {
     pub auto_offset_reset: Option<String>,
     pub session_timeout_ms: Option<i64>,
     pub hwm_version: i16,
+    pub partition_assignment_strategy: Option<String>,
 }
 
 const HWM_VERSION: i16 = 1;
@@ -106,6 +118,7 @@ impl Default for KafkaConfig {
             auto_offset_reset: Some(EnvField::from("earliest".to_string())),
             session_timeout_ms: Some(EnvField::from(45000)),
             hwm_version: EnvField::from(HWM_VERSION),
+            partition_assignment_strategy: None,
         }
     }
 }

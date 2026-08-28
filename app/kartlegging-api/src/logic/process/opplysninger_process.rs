@@ -2,6 +2,7 @@ use crate::logic::process::PayloadProcessor;
 use crate::model::dao::opplysninger;
 use crate::model::dao::opplysninger::OpplysningerRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use eksterne_hendelser::opplysninger::Opplysninger;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
@@ -27,7 +28,7 @@ impl PayloadProcessor for OpplysningerProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -55,10 +56,10 @@ impl PayloadProcessor for OpplysningerProcessor {
                     Err(DaoError::multiple_rows(message, "opplysninger", count as usize).into())
                 } else if count == 1 {
                     opplysninger::update(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 } else {
                     opplysninger::insert(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 }
             }
         }

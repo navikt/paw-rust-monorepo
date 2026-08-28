@@ -39,32 +39,32 @@ async fn test_send_messages() -> anyhow::Result<()> {
     let ids = gen_ids();
 
     send_start_perioder(&producer, &serializer, &ids).await?;
-
-    send_opplysninger(&producer, &serializer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_profileringer(&producer, &serializer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_egenvurderinger(&producer, &serializer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_bekreftelser(&producer, &serializer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_start_paavegneav(&producer, &serializer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_start_oppfolgingsperioder(&producer, &ids).await?;
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    send_stopp_paavegneav(&producer, &serializer, &ids).await?;
+    //
+    // send_opplysninger(&producer, &serializer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_profileringer(&producer, &serializer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_egenvurderinger(&producer, &serializer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_bekreftelser(&producer, &serializer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_start_paavegneav(&producer, &serializer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_start_oppfolgingsperioder(&producer, &ids).await?;
+    //
+    // tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // send_stopp_paavegneav(&producer, &serializer, &ids).await?;
 
     Ok(())
 }

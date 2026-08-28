@@ -157,11 +157,11 @@ join-scenarioer, der en generell avstemmingsjobb blir mer lønnsom enn punktvise
 - `bekreftelse_paavegneav`, `opplysninger`, `profilering`, `egenvurdering`,
   `oppfolgingsperiode` — ingen periode-avhengighet funnet, trenger ikke gating.
 - Ekte "foreldreløs" bekreftelse (periode finnes aldri) er et datakvalitetsproblem, ikke et
-  rekkefølgeproblem — løses ikke av denne endringen, og eksisterende warning-oppførsel
-  (se testen `test_process_bekreftelse_3_uten_periode` i `bekreftelse_process.rs`) beholdes
-  uendret.
-- Ingen endring i den delte `paw_rdkafka_hwm`-biblioteket (`HwmRebalanceHandler`) — all
-  applikasjonsspesifikk avhengighetslogikk holdes i `kartlegging-api`.
+  rekkefølgeproblem — løses ikke av denne endringen. **Oppdatert etter senere risikoanalyse (se
+  "Implementert løsning" under):** det finnes ikke lenger noen tidsbasert gi-opp-vei for dette;
+  partisjonen forblir pauset til en operatør griper inn manuelt, og en langvarig pause oppdages
+  i stedet via helsesjekk-varsling. `test_process_bekreftelse_3_uten_periode` tester derfor i dag
+  kun at meldingen returnerer `AwaitingDependency` uten kobling, ikke et gi-opp-fallback.
 
 ## Foreslåtte implementasjonssteg for Alternativ 2 (for senere gjennomføring)
 
@@ -176,7 +176,10 @@ join-scenarioer, der en generell avstemmingsjobb blir mer lønnsom enn punktvise
    forsøksvis resume av alle pausede bekreftelse-partisjoner ved hvert periode-gjennombrudd,
    og la den vanlige "finnes periode nå"-sjekken avgjøre om meldingen kan prosesseres).
 5. Legge til sikkerhetsventil: maks-tid en partisjon kan forbli pauset før logging/varsling
-   og evt. fallback til eksisterende warning-oppførsel for den spesifikke meldingen.
+   og evt. fallback til eksisterende warning-oppførsel for den spesifikke meldingen. **Reversert
+   senere** — en tidsbasert gi-opp/fallback ble vurdert for risikabelt gitt kaldstart-skala
+   (~1 million periode-hendelser per partisjon) og er erstattet med helsesjekk-varsling uten
+   fallback, se "Implementert løsning" under.
 6. Legge til observability: logg/metric for pause/resume-hendelser og gjeldende pause-varighet
    per partisjon.
 7. Enhetstester for pause/seek/resume-beslutningslogikken, isolert fra faktisk Kafka-klient.
@@ -196,3 +199,156 @@ join-scenarioer, der en generell avstemmingsjobb blir mer lønnsom enn punktvise
 - Hvis alternativ 1 likevel foretrekkes (f.eks. fordi co-partisjonering ikke kan verifiseres
   eller pause/seek/resume viser seg vanskeligere i praksis enn antatt), må advisory
   lock-strategien sjekkes mot annen bruk av Postgres advisory locks i appen.
+
+## Implementert løsning (gjeldende tilstand)
+
+Alternativ 2 er implementert, med DB-backet pause-tilstand (se begrunnelse under) og uten en
+tidsbasert gi-opp-mekanisme (fjernet igjen etter en senere risikoanalyse, se eget avsnitt).
+Faktiske filer/moduler (avviker noe fra de opprinnelige forslagsnavnene
+`pause_controller.rs`/`hwm_pause_store/` — navngivningen ble justert underveis):
+
+- `src/kafka/hwm/hwm_dao.rs` — `HwmStatus`-enum (`Active`/`Paused`) og DAO-funksjoner
+  (`get_by_topic_partition`, `find_by_status`, `update_as_paused`, `update_as_active`) mot samme
+  `hwm`-tabell som brukes av delt `paw_rdkafka_hwm`, utvidet med `status`/`status_timestamp`.
+- `src/kafka/hwm/hwm_pause.rs` — `pause_and_seek`, `resume_all`, `paused_partitions`,
+  `mark_resolved`. Rene `async fn` (ingen `futures::executor::block_on`-bro lenger — fjernet i en
+  senere opprydding siden funksjonene allerede var async).
+- `src/kafka/hwm/hwm_pause_processor.rs` — `hwm_process_paused_partitions`, kalt fra
+  `kafka/consumer.rs` etter hver melding; avgjør pause/resume basert på prosesseringsresultatet og
+  `app_config.kafka.synced_topics()`. Ren beslutningsfunksjon `should_attempt_resume` er
+  enhetstestet isolert fra `rdkafka`.
+- `src/kafka/hwm/hwm_pause_task.rs` — bakgrunnstask (se eget avsnitt under, "Fjernet
+  sikkerhetsventil/gi-opp — erstattet med helsesjekk-varsling").
+- `src/model/error.rs` — `PayloadProcessorError::AwaitingDependency` + `awaiting_dependency`/
+  `map_awaiting_dependency`, som opprinnelig planlagt: `bekreftelse_process.rs` returnerer denne i
+  stedet for å committe, `internal_hwm_process_message` i `paw_rdkafka_hwm` ruller da tilbake hele
+  transaksjonen (inkludert HWM) uten at noen endring i det delte biblioteket var nødvendig.
+
+**Co-partisjonering**: løst som opprinnelig planlagt — opt-in-felt
+`partition_assignment_strategy: Option<String>` på delt `KafkaConfig` (`lib/paw_rdkafka`), satt
+til `"range"` for kartlegging-api (`config/{local,nais}/kafka_config.toml`).
+
+**Rebalansering**: løst uten å røre `HwmRebalanceHandler`, som opprinnelig planlagt — stale
+`PAUSED`-rader for partisjoner poden ikke lenger eier er ufarlige, siden `resume_all()` og
+pause-sjekken alltid filtrerer DB-rader mot `consumer.assignment()` før noe `rdkafka`-kall gjøres.
+
+**DB-backet pause-tilstand** (i stedet for opprinnelig `Mutex<HashMap<(String, i32), Instant>>` i
+en tidlig iterasjon): `hwm`-tabellen er utvidet (samme migrasjon som oppretter tabellen —
+`migrations/20260529010000_hwm_table.sql` — redigert direkte siden migrasjonen ikke var kjørt i
+dev/prod ved endringstidspunktet; **ikke** en ny migrasjonsfil) med en `status`-kolonne
+(`ACTIVE`/`PAUSED`, styrt av Rust-enumet `HwmStatus` — bevisst **ikke** en Postgres-side
+`CHECK`-constraint, for å unngå duplisert vedlikehold ved fremtidige enum-utvidelser) og
+`status_timestamp`. Motivasjon: overlever pod-restart/rebalansering (pause-varighet er korrekt
+selv om poden som satte pausen har krasjet), fjerner `Mutex`/panikkrisiko fra hot path, og gjør
+pause-tilstand observerbar med ren SQL uavhengig av Prometheus-metrikkene.
+
+**Skille «prøv igjen» fra «bekreftet løst»**: `resume_all()` gjør **kun** `consumer.resume()` mot
+`rdkafka`-klienten (ingen DB-skriving) — kalles optimistisk ved enhver vellykket melding på et
+synkronisert topic, uten å vite om et gitt ventende bekreftelse-forsøk faktisk lykkes. En egen,
+separat operasjon, `mark_resolved`, kalles fra `hwm_process_paused_partitions` sin
+suksess-gren for den spesifikke topic/partition-en til meldingen som nettopp lyktes — det er
+eneste sted DB-status faktisk flyttes til `ACTIVE`. `update_as_paused` er guardet
+(`WHERE status <> 'PAUSED'`) slik at gjentatte pause-forsøk ikke friskner opp
+`status_timestamp` for en partisjon som allerede er markert pauset.
+
+### Fjernet: gi-opp-mekanisme — erstattet med helsesjekk-varsling ved fastlåst partisjon
+
+Den opprinnelige planen (og en tidlig implementasjon) inneholdt en tidsbasert "gi opp"-mekanisme:
+etter en terskel (`PARTITION_PAUSE_TIMEOUT`, 10 minutter) falt `bekreftelse_process.rs` tilbake
+til å lagre bekreftelsen uten kobling til `kartlegginger` (samme sluttresultat som
+`test_process_bekreftelse_3_uten_periode` alltid har testet). Denne mekanismen er **fjernet
+helt** etter en risikoanalyse:
+
+- Periode og bekreftelse er co-partisjonert og periode-topic har uendelig retention, og periode
+  produseres alltid før korrelert bekreftelse — det er derfor i praksis umulig for en bekreftelse
+  å mangle sin periode permanent når hele periode-partisjonen er konsumert.
+- I prod har periode-topic ~1 million hendelser per partisjon (6 partisjoner) ved kaldstart —
+  en fast 10-minutters terskel var trolig allerede feilkalibrert for denne skalaen, og risikerte å
+  gi opp (permanent, stille tap av periode↔bekreftelse-kobling) under helt normal drift, ikke bare
+  ved reelle datakvalitetsproblemer.
+- Konsekvensen av å fjerne gi-opp helt er at en partisjon i prinsippet kan forbli pauset for
+  alltid dersom periode-før-bekreftelse-invarianten likevel skulle brytes (produsentfeil,
+  GDPR-sletting/tombstoning, endret partisjonstall/co-partisjonering, migrerings-/replay-verktøy).
+
+I stedet for gi-opp finnes nå en operativ varslingsmekanisme i `src/kafka/hwm/hwm_pause_task.rs`:
+en bakgrunnstask (`hwm_pause_timeout_task`) sjekker periodisk (konfigurerbart intervall, se under)
+om noen pauset partisjon har stått pauset lenger enn en konfigurerbar terskel
+(`stuck_partition_threshold`, default 1 time — vesentlig høyere enn den gamle
+10-minutters-konstanten, som utelukkende var kalibrert for et helt annet formål). Hvis terskelen
+er nådd: logger `tracing::error!`, inkrementerer metrikken
+`paw_kafka_partition_stuck_events_total`, og kaller `app_state.set_is_alive(false)`
+(`health_and_monitoring::simple_app_state::AppState`) — samme mønster som allerede brukes i delt
+`HwmRebalanceHandler` for uopprettelige rebalanseringsfeil.
+
+**Viktig driftskonsekvens**: `/internal/isAlive` er koblet til Nais/Kubernetes sin
+**liveness**-probe (ikke readiness). Siden pause-tilstanden er DB-persistert og overlever
+pod-restart, vil en *reelt* fastlåst partisjon (ikke bare en lang, men normal kaldstart) føre til
+at poden restartes gjentatte ganger til noen griper inn manuelt — restarten løser ikke selve
+årsaken. Dette er bevisst valgt som et høylytt, synlig signal fremfor stille datatap, men bør
+suppleres med et alert på `paw_kafka_partition_stuck_events_total` og på sikt et manuelt
+"unpause"-verktøy/runbook (finnes ikke i dag).
+
+Den periodiske, ubetingede `resume_all()`-en som tidligere kjørte i denne bakgrunnstasken (for å
+støtte gi-opp-tidsuret) er også fjernet — vurdert som overflødig, siden den reaktive
+resume-veien (`hwm_process_paused_partitions`, trigget for hver vellykkede melding på et
+synkronisert topic) allerede dekker normal gjenoppretting.
+
+### Konfigurerbare terskler
+
+`STUCK_PARTITION_THRESHOLD` og sjekkintervallet var opprinnelig hardkodede Rust-konstanter.
+Begge er nå flyttet til `AppConfig` (`src/config.rs`, ny `HwmPauseConfig`-struct) og satt i
+`config/{local,nais}/app_config.toml` under `[hwm_pause]`:
+
+```toml
+[hwm_pause]
+check_interval = "PT30S"
+stuck_partition_threshold = "PT1H"
+```
+
+Samme ISO8601-`Duration`-mønster som `metrics_task_interval` (`duration::iso8601::deserialize`).
+Dette gjør at terskelen kan justeres per miljø uten kodeendring/redeploy av selve logikken.
+
+### Observability
+
+Prometheus-metrikker i `logic/metrics/kafka_metrics.rs`:
+
+- `paw_kafka_partition_paused` (gauge) og `paw_kafka_partition_pause_events_total`/
+  `paw_kafka_partition_resume_events_total` (counters) — pause/resume-hendelser.
+- `paw_kafka_partition_pause_duration_seconds` (histogram) — hvor lenge en partisjon sto pauset
+  før resume.
+- `paw_kafka_partition_stuck_events_total` (counter) — ny metrikk, erstatter de tidligere
+  `paw_kafka_partition_safety_valve_events_total` og `paw_bekreftelse_gir_opp_total` (begge
+  fjernet sammen med sikkerhetsventil-/gi-opp-mekanismene de målte).
+
+### Testdekning (gjeldende)
+
+- 7 rene enhetstester uten ekte Kafka-klient eller DB:
+  - `hwm_pause_processor.rs`: 3 tester av `should_attempt_resume`
+    (synced-topics-filtrering).
+  - `hwm_pause_task.rs`: 4 tester av `is_any_partition_stuck` (ingen pauset, ingen over terskel,
+    én over terskel, nøyaktig på terskelen).
+- Integrasjonstest `test_process_bekreftelse_4_kaldstart_periode_ankommer_senere` i
+  `bekreftelse_process.rs`: simulerer hele kaldstart-forløpet (bekreftelse ankommer først →
+  `AwaitingDependency`, periode prosesseres, bekreftelsen re-leveres og kobles korrekt til
+  `kartlegginger`-raden).
+- `test_process_bekreftelse_3_uten_periode` er oppdatert: forventer nå ubetinget
+  `Err(AwaitingDependency)` (ingen gi-opp-vei lenger å falle tilbake på; kommentarer/asserts som
+  nevnte "gi-opp-terskelen" er ryddet opp).
+- Testcontainer-baserte tester (Postgres via `testcontainers`) kunne ikke kjøres til grønt i
+  utviklingsmiljøet dette arbeidet ble utført i (miljøspesifikk `Permission denied` mot Docker),
+  uavhengig av selve endringen — verifisert ved kompilering og manuell gjennomgang.
+
+### Gjenstående/uverifiserte risikoer
+
+- **Ekstern partisjonstall-verifisering**: partisjonstall for `PAW_PERIODE_TOPIC` og
+  `PAW_BEKREFTELSE_TOPIC` i faktiske miljøer (dev-gcp/prod-gcp) er fortsatt ikke verifisert fra
+  dette repoet.
+- **Nais-manifester**: `replicas` i `nais/nais-{dev,prod}.yaml` viser fortsatt `min=1,max=1`, som
+  ifølge bruker er utdatert/misvisende — bevisst utenfor scope, bør rettes separat.
+- **Manuelt unpause-verktøy/runbook mangler**: siden gi-opp er fjernet og restart ikke løser en
+  reelt fastlåst partisjon, gjenstår behovet for en administrativ måte å sette `status='ACTIVE'`
+  manuelt på en `hwm`-rad, samt et Grafana-alert på `paw_kafka_partition_stuck_events_total` — bør
+  på plass før denne løsningen er produksjonsklar.
+- Docker/testcontainer-basert kjøring av integrasjonstestene feiler fortsatt i dette
+  utviklingsmiljøet, uavhengig av denne endringen.
+

@@ -7,6 +7,7 @@ use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
 use crate::model::dto::navn::Navn;
 use crate::model::error::{DaoError, IdentityError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use chrono::{DateTime, Utc};
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
@@ -232,7 +233,7 @@ impl PayloadProcessor for PeriodeProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -313,7 +314,7 @@ impl PayloadProcessor for PeriodeProcessor {
                         )
                         .await?;
 
-                        Ok(())
+                        Ok(ProcessorResult::Continue)
                     } else {
                         // Kartlegging finnes ikke fra før
 
@@ -341,7 +342,7 @@ impl PayloadProcessor for PeriodeProcessor {
                         );
                         kartlegging::insert(tx, &kartlegging_row).await?;
 
-                        Ok(())
+                        Ok(ProcessorResult::Continue)
                     }
                 } else {
                     // Arbeidssøker finnes ikke fra før
@@ -381,7 +382,7 @@ impl PayloadProcessor for PeriodeProcessor {
                     );
                     kartlegging::insert(tx, &kartlegging_row).await?;
 
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 }
             }
         }

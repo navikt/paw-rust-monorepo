@@ -52,6 +52,14 @@ fmt-check:
 # Full CI gate: fmt-check + clippy + test
 ci: fmt-check clippy test
 
+# Start local mock services (OAuth2 server, WireMock)
+mocks-up:
+    docker compose -f docker/mocks/docker-compose.yaml up -d
+
+# Stop local mock services
+mocks-down:
+    docker compose -f docker/mocks/docker-compose.yaml down
+
 # Start local Postgres
 postgres-up:
     docker compose -f docker/postgres/docker-compose.yaml up -d
@@ -68,19 +76,11 @@ kafka-up:
 kafka-down:
     docker compose -f docker/kafka/docker-compose.yaml down
 
-# Start local mock services (OAuth2 server, WireMock)
-mocks-up:
-    docker compose -f docker/mocks/docker-compose.yaml up -d
-
-# Stop local mock services
-mocks-down:
-    docker compose -f docker/mocks/docker-compose.yaml down
-
 # Start all local infrastructure
-infra-up: postgres-up kafka-up
+infra-up: mocks-up postgres-up kafka-up
 
 # Stop all local infrastructure
-infra-down: postgres-down kafka-down
+infra-down: mocks-down postgres-down kafka-down
 
 # Build Docker image for an app  (e.g. just docker-build utgang)
 docker-build app features="":

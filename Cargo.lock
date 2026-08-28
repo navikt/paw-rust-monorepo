@@ -2350,6 +2350,7 @@ dependencies = [
  "token_client_stub",
  "tokio",
  "tracing",
+ "tracing-opentelemetry",
  "tracing-test",
  "types",
  "utoipa-swagger-ui",

@@ -9,3 +9,7 @@ paw_egenvurdering_topic = "paw.arbeidssoeker-egenvurdering-v1"
 paw_bekreftelse_topic = "paw.arbeidssoker-bekreftelse-v1"
 paw_bekreftelse_paavegneav_topic = "${PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC}"
 poao_siste_oppfolgingsperiode_topic = "poao.siste-oppfolgingsperiode-v3"
+
+[hwm_pause]
+check_interval = "PT30S"
+stuck_partition_threshold = "PT1H"

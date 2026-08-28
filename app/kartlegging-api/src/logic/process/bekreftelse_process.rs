@@ -3,6 +3,7 @@ use crate::model::dao::bekreftelse::BekreftelseRow;
 use crate::model::dao::kartlegging::KartleggingRow;
 use crate::model::dao::{bekreftelse, kartlegging};
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::serde::AvroDeserializer;
@@ -14,12 +15,14 @@ use sqlx::{Postgres, Transaction};
 
 pub struct BekreftelseProcessor {
     pub deserializer: AvroDeserializer,
+    synced_topics: Vec<String>,
 }
 
 impl BekreftelseProcessor {
-    pub fn new(schema_registry_settings: SrSettings) -> Self {
+    pub fn new(schema_registry_settings: SrSettings, synced_topics: Vec<String>) -> Self {
         Self {
             deserializer: AvroDeserializer::new(schema_registry_settings),
+            synced_topics,
         }
     }
 
@@ -73,7 +76,7 @@ impl PayloadProcessor for BekreftelseProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -108,10 +111,14 @@ impl PayloadProcessor for BekreftelseProcessor {
                     )
                     .await?;
 
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 } else {
-                    tracing::warn!("Fant ingen kartlegginger for periode-id");
-                    Ok(())
+                    tracing::debug!(
+                        "Fant ingen kartlegginger for periode-id ennå, avventer periode"
+                    );
+                    Ok(ProcessorResult::Pause {
+                        synced_topics: self.synced_topics.clone(),
+                    })
                 }
             }
         }
@@ -125,6 +132,7 @@ mod tests {
     use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
     use crate::logic::process::periode_process::PeriodeProcessor;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
+    use crate::model::result::ProcessorResult;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
@@ -153,6 +161,7 @@ mod tests {
         test_process_bekreftelse_1_med_periode(context).await;
         test_process_bekreftelse_2_med_periode(context).await;
         test_process_bekreftelse_3_uten_periode(context).await;
+        test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context).await;
     }
 
     async fn test_process_periode(context: &TestContext) {
@@ -357,22 +366,126 @@ mod tests {
             .bekreftelse_processor
             .process_payload(&mut tx, &message)
             .await;
-        assert!(result.is_ok());
-        let optional_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
+
+        let outcome = result.expect("Forventet Ok(ProcessingOutcome::Pause)");
+        match outcome {
+            ProcessorResult::Pause { synced_topics } => {
+                assert_eq!(
+                    synced_topics,
+                    vec!["paw.arbeidssokerperioder-v1".to_string()]
+                );
+            }
+            ProcessorResult::Continue => panic!("Uventet variant"),
+        }
+
+        tx.rollback().await.expect("Kunne ikke rulle tilbake");
+        let mut verify_tx = context.start_tx().await;
+        let optional_row = bekreftelse::select_by_id(&mut verify_tx, &bekreftelse_id)
             .await
             .expect("Kunne ikke hente bekreftelse");
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-
-        assert!(optional_row.is_some());
-        let row = optional_row.expect("Ingen bekreftelse funnet");
-        assert_eq!(row.id, bekreftelse_id);
-        assert_eq!(row.periode_id, periode_id);
-        assert_eq!(
-            row.bekreftelsesloesning,
-            Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string()
+        verify_tx
+            .commit()
+            .await
+            .expect("Kunne ikke commit transaksjon");
+        assert!(
+            optional_row.is_none(),
+            "Bekreftelse skal ikke være persistert før periode finnes"
         );
+    }
+
+    /// Integrasjonstest for kaldstart-scenarioet beskrevet i kafka-synchronization-plan.md:
+    /// en bekreftelse-melding ankommer *før* perioden den refererer til er prosessert. Verifiserer
+    /// hele forløpet på tvers av `BekreftelseProcessor` og `PeriodeProcessor` (uten den ekte
+    /// konsumentløkken/pause-controlleren, som er dekket av rene enhetstester i
+    /// `kafka/consumer.rs`): første forsøk skal returnere `ProcessingOutcome::Pause` og ikke
+    /// persistere noe, deretter skal periode-prosessering fullføre normalt, og til slutt skal en
+    /// re-levering av bekreftelsen (slik konsumentløkken ville gjort etter pause+seek+resume)
+    /// fullføre og koble bekreftelsen til riktig `kartlegginger`-rad.
+    async fn test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context: &TestContext) {
+        let identitetsnummer = context.identitetsnummer_1;
+        let periode_id = context.periode_id_4;
+        let bekreftelse_id = context.bekreftelse_id_4;
+
+        let bekreftelse =
+            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
+        let bekreftelse_message = context
+            .avro_generator
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
+            .await;
+
+        // Steg 1: bekreftelsen ankommer før perioden finnes. Skal avvente (ikke persistere).
+        let mut tx = context.start_tx().await;
+        let first_attempt = context
+            .bekreftelse_processor
+            .process_payload(&mut tx, &bekreftelse_message)
+            .await;
+        assert!(matches!(
+            first_attempt.expect("Forventet Ok(ProcessingOutcome::Pause) ved kaldstart"),
+            ProcessorResult::Pause { .. }
+        ));
+        tx.rollback()
+            .await
+            .expect("Kunne ikke rulle tilbake første forsøk");
+
+        let mut verify_tx = context.start_tx().await;
+        let not_yet_persisted = bekreftelse::select_by_id(&mut verify_tx, &bekreftelse_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
+        verify_tx
+            .commit()
+            .await
+            .expect("Kunne ikke commit transaksjon");
+        assert!(
+            not_yet_persisted.is_none(),
+            "Bekreftelse skal ikke være persistert før periode er prosessert"
+        );
+
+        // Steg 2: perioden ankommer og prosesseres normalt.
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
+        let periode_message = context
+            .avro_generator
+            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .await;
+        let mut periode_tx = context.start_tx().await;
+        context
+            .periode_processor
+            .process_payload(&mut periode_tx, &periode_message)
+            .await
+            .expect("Periode-prosessering skal lykkes");
+        periode_tx
+            .commit()
+            .await
+            .expect("Kunne ikke commit periode-transaksjon");
+
+        // Steg 3: bekreftelsen re-leveres (som etter pause+seek+resume i den ekte konsumentløkken)
+        // og skal nå fullføre og kobles til riktig kartlegging.
+        let mut retry_tx = context.start_tx().await;
+        let retry_result = context
+            .bekreftelse_processor
+            .process_payload(&mut retry_tx, &bekreftelse_message)
+            .await;
+        assert!(retry_result.is_ok());
+        let persisted_row = bekreftelse::select_by_id(&mut retry_tx, &bekreftelse_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
+        let kartlegging_rows = kartlegging::select_by_periode_id(&mut retry_tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging");
+        retry_tx
+            .commit()
+            .await
+            .expect("Kunne ikke commit retry-transaksjon");
+
+        assert!(
+            persisted_row.is_some(),
+            "Bekreftelse skal nå være persistert"
+        );
+        let bekreftelse_row = persisted_row.expect("Ingen bekreftelse funnet");
+        assert_eq!(bekreftelse_row.periode_id, periode_id);
+
+        assert_eq!(kartlegging_rows.len(), 1);
+        let kartlegging_row = kartlegging_rows.first().expect("Ingen kartlegging funnet");
+        assert_eq!(kartlegging_row.periode_id, periode_id);
     }
 
     static INIT: OnceCell<TestContext> = OnceCell::const_new();
@@ -438,20 +551,25 @@ mod tests {
                 pg_pool: postgres_guard.pg_pool,
                 avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
                 periode_processor: PeriodeProcessor::new(
-                    app_config,
+                    app_config.clone(),
                     schema_registry_settings.clone(),
                     key_gen_client,
                     pdl_client,
                 ),
-                bekreftelse_processor: BekreftelseProcessor::new(schema_registry_settings.clone()),
+                bekreftelse_processor: BekreftelseProcessor::new(
+                    schema_registry_settings.clone(),
+                    app_config.kafka.synced_topics_as_vec(),
+                ),
                 arbeidssoeker_id_1: 12345,
                 identitetsnummer_1: "01017012345",
                 identitetsnummer_3: "02017012345",
                 periode_id_1: Uuid::new_v4(),
                 periode_id_3: Uuid::new_v4(),
+                periode_id_4: Uuid::new_v4(),
                 bekreftelse_id_1: Uuid::new_v4(),
                 bekreftelse_id_2: Uuid::new_v4(),
                 bekreftelse_id_3: Uuid::new_v4(),
+                bekreftelse_id_4: Uuid::new_v4(),
             }
         })
         .await
@@ -471,9 +589,11 @@ mod tests {
         identitetsnummer_3: &'static str,
         periode_id_1: Uuid,
         periode_id_3: Uuid,
+        periode_id_4: Uuid,
         bekreftelse_id_1: Uuid,
         bekreftelse_id_2: Uuid,
         bekreftelse_id_3: Uuid,
+        bekreftelse_id_4: Uuid,
     }
 
     impl TestContext {

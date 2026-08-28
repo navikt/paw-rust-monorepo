@@ -1,3 +1,5 @@
+use crate::config::AppConfig;
+use crate::kafka::hwm::hwm_pause_processor::hwm_process_paused_partitions;
 use crate::logic::metrics::kafka_metrics::register_message_metrics;
 use crate::logic::process::message_process::KartleggingMessageProcessor;
 use health_and_monitoring::simple_app_state::AppState;
@@ -13,7 +15,7 @@ use tokio::task::JoinHandle;
 pub fn create_kafka_consumer(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
-    kafka_config: KafkaConfig,
+    kafka_config: Arc<KafkaConfig>,
     topics: &[&str],
 ) -> anyhow::Result<StreamConsumer<HwmRebalanceHandler>> {
     let hwm_version = *kafka_config.hwm_version;
@@ -29,21 +31,34 @@ pub fn create_kafka_consumer(
 }
 
 pub fn kafka_consumer_task(
+    app_config: Arc<AppConfig>,
+    kafka_config: Arc<KafkaConfig>,
     pg_pool: PgPool,
-    hwm_version: i16,
-    consumer: StreamConsumer<HwmRebalanceHandler>,
+    consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     processor: KartleggingMessageProcessor,
 ) -> JoinHandle<anyhow::Result<()>> {
+    let hwm_version = *kafka_config.hwm_version;
+
     tokio::spawn(async move {
         loop {
             let message = consumer.recv().await?.detach();
             register_message_metrics(&message);
-            hwm_process_message(hwm_version, pg_pool.clone(), &message, &processor)
-                .await
-                .map_err(|e| ServerError::InternalProcessTerminated {
-                    process: "KafkaConsumer".to_string(),
-                    message: e.to_string(),
-                })?;
+            let result =
+                hwm_process_message(hwm_version, pg_pool.clone(), &message, &processor).await;
+
+            hwm_process_paused_partitions(
+                pg_pool.clone(),
+                consumer.clone(),
+                hwm_version,
+                &message,
+                app_config.kafka.synced_topics(),
+                result,
+            )
+            .await
+            .map_err(|e| ServerError::InternalProcessTerminated {
+                process: "KafkaConsumer".to_string(),
+                message: e.to_string(),
+            })?;
         }
     })
 }

@@ -19,6 +19,18 @@ pub struct AppConfig {
     pub metrics_task_interval: Duration,
     pub periode_gap_grense_for_ledighet: i64,
     pub kafka: AppKafkaConfig,
+    pub hwm_pause: HwmPauseConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HwmPauseConfig {
+    /// Hvor ofte bakgrunnsjobben sjekker om noen pausede partisjoner har blitt stående for lenge.
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub check_interval: Duration,
+    /// Hvor lenge en partisjon kan stå pauset (avventer periode) før dette regnes som et
+    /// driftsavvik og appens helsesjekk flippes til usunn. Se `hwm_pause_task.rs` for bakgrunn.
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub stuck_partition_threshold: Duration,
 }
 
 #[env_field_wrap]
@@ -44,6 +56,14 @@ impl AppKafkaConfig {
             self.paw_bekreftelse_paavegneav_topic.as_str(),
             self.poao_siste_oppfolgingsperiode_topic.as_str(),
         ]
+    }
+
+    pub fn synced_topics(&self) -> Vec<&str> {
+        vec![self.paw_periode_topic.as_str()]
+    }
+
+    pub fn synced_topics_as_vec(&self) -> Vec<String> {
+        self.synced_topics().iter().map(|s| s.to_string()).collect()
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::model::result::ProcessorResult;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
@@ -17,5 +18,5 @@ pub trait PayloadProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError>;
+    ) -> anyhow::Result<ProcessorResult, ProcessorError>;
 }

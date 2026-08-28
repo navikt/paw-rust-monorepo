@@ -2,6 +2,7 @@ use crate::logic::process::PayloadProcessor;
 use crate::model::dao::egenvurdering;
 use crate::model::dao::egenvurdering::EgenvurderingRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
+use crate::model::result::ProcessorResult;
 use eksterne_hendelser::egenvurdering::Egenvurdering;
 use eksterne_hendelser::serde::AvroDeserializer;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
@@ -27,7 +28,7 @@ impl PayloadProcessor for EgenvurderingProcessor {
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
         message: &'a OwnedMessage,
-    ) -> anyhow::Result<(), ProcessorError> {
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
         match message.payload() {
             None => Err(PayloadProcessorError::no_payload_error(message).into()),
             Some(payload) => {
@@ -52,10 +53,10 @@ impl PayloadProcessor for EgenvurderingProcessor {
                     Err(DaoError::multiple_rows(message, "egenvurderinger", count as usize).into())
                 } else if count == 1 {
                     egenvurdering::update(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 } else {
                     egenvurdering::insert(tx, &row).await?;
-                    Ok(())
+                    Ok(ProcessorResult::Continue)
                 }
             }
         }

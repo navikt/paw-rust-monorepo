@@ -7,6 +7,8 @@ use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcess
 use crate::logic::process::opplysninger_process::OpplysningerProcessor;
 use crate::logic::process::periode_process::PeriodeProcessor;
 use crate::logic::process::profilering_process::ProfileringProcessor;
+use crate::model::error::PayloadProcessorError;
+use crate::model::result::ProcessorResult;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use pdl_client::client::PDLClient;
@@ -55,6 +57,7 @@ impl KartleggingMessageProcessor {
             )),
             bekreftelse_processor: Arc::new(BekreftelseProcessor::new(
                 schema_registry_settings.clone(),
+                app_config.kafka.synced_topics_as_vec(),
             )),
             bekreftelse_paavegneav_processor: Arc::new(BekreftelsePaaVegneAvProcessor::new(
                 schema_registry_settings.clone(),
@@ -120,16 +123,43 @@ impl MessageProcessor for KartleggingMessageProcessor {
                     }
                 };
 
-                result.map_err(|e| {
-                    tracing::error!(
-                        error = e,
-                        "Prosessering av melding på topic: {}, partition: {}, offset: {} feilet",
-                        message.topic(),
-                        message.partition(),
-                        message.offset()
-                    );
-                    e
-                })
+                match result {
+                    Ok(ProcessorResult::Continue) => Ok(()),
+                    Ok(ProcessorResult::Pause { synced_topics }) => {
+                        tracing::debug!(
+                            "Pauser prosessering på topic: {}, partition: {}, offset: {} — avventer topics {:?}",
+                            message.topic(),
+                            message.partition(),
+                            message.offset(),
+                            synced_topics
+                        );
+                        // Denne oversettelsen til `Err` er en nødvendig implementasjonsdetalj ved
+                        // grensen mot det delte biblioteket `paw_rdkafka_hwm`, som ruller tilbake
+                        // transaksjonen (inkludert HWM-oppdateringen) på `Err`, slik at meldingen
+                        // leveres på nytt senere i stedet for å bli ansett som ferdig prosessert.
+                        // `paw_rdkafka_hwm` selv skiller ikke mellom pause og feil i sin egen
+                        // logging/metrikk (den behandler alle `Err` likt), men `hwm_pause_processor.rs`
+                        // gjenkjenner `PauseSignal` via nedcasting for å styre pause-oppførselen
+                        // riktig i denne appen.
+                        Err(PayloadProcessorError::AwaitingDependency {
+                            synced_topics,
+                            topic: message.topic().to_string(),
+                            partition: message.partition(),
+                            offset: message.offset(),
+                        }
+                        .into())
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            error = e,
+                            "Prosessering av melding på topic: {}, partition: {}, offset: {} feilet",
+                            message.topic(),
+                            message.partition(),
+                            message.offset()
+                        );
+                        Err(e)
+                    }
+                }
             }
             .instrument(tracing::Span::current()),
         )
