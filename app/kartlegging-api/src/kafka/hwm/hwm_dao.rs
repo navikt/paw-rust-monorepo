@@ -311,6 +311,8 @@ mod tests {
             .await
             .expect("Kunne ikke hente hwm");
 
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
+
         assert!(row.is_none());
     }
 
