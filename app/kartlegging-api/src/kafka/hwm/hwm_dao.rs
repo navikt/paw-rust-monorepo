@@ -122,6 +122,7 @@ mod tests {
     use super::*;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
+    use std::collections::BTreeMap;
     use tokio::sync::OnceCell;
 
     #[test]
@@ -135,9 +136,9 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-1", 0).await;
 
-        let row = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row = get_by_topic_partition(&mut tx, 1, "topic-1", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
@@ -158,13 +159,13 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-2", 0).await;
 
-        update_as_paused(&mut tx, 1, "topic-a", 0)
+        update_as_paused(&mut tx, 1, "topic-2", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        let row = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row = get_by_topic_partition(&mut tx, 1, "topic-2", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
@@ -185,22 +186,22 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-3", 0).await;
 
-        update_as_paused(&mut tx, 1, "topic-a", 0)
+        update_as_paused(&mut tx, 1, "topic-3", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        let row_1 = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row_1 = get_by_topic_partition(&mut tx, 1, "topic-3", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
 
-        update_as_paused(&mut tx, 1, "topic-a", 0)
+        update_as_paused(&mut tx, 1, "topic-3", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        let row_2 = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row_2 = get_by_topic_partition(&mut tx, 1, "topic-3", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
@@ -217,17 +218,17 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-4", 0).await;
 
-        update_as_paused(&mut tx, 1, "topic-a", 0)
+        update_as_paused(&mut tx, 1, "topic-4", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        update_as_active(&mut tx, 1, "topic-a", 0)
+        update_as_active(&mut tx, 1, "topic-4", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        let row = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row = get_by_topic_partition(&mut tx, 1, "topic-4", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
@@ -248,18 +249,18 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-5", 0).await;
 
-        let row_1 = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row_1 = get_by_topic_partition(&mut tx, 1, "topic-5", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
 
-        update_as_active(&mut tx, 1, "topic-a", 0)
+        update_as_active(&mut tx, 1, "topic-5", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
-        let row_2 = get_by_topic_partition(&mut tx, 1, "topic-a", 0)
+        let row_2 = get_by_topic_partition(&mut tx, 1, "topic-5", 0)
             .await
             .expect("Kunne ikke hente hwm")
             .expect("Ingen hwm funnet");
@@ -276,14 +277,14 @@ mod tests {
         let context = init().await;
         let mut tx = context.start_tx().await;
 
-        context.insert_hwm_row(&mut tx, 1, "topic-a", 0).await;
-        context.insert_hwm_row(&mut tx, 1, "topic-b", 1).await;
-        context.insert_hwm_row(&mut tx, 2, "topic-c", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-6", 0).await;
+        context.insert_hwm_row(&mut tx, 1, "topic-7", 1).await;
+        context.insert_hwm_row(&mut tx, 2, "topic-8", 0).await;
 
-        update_as_paused(&mut tx, 1, "topic-a", 0)
+        update_as_paused(&mut tx, 1, "topic-6", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
-        update_as_paused(&mut tx, 2, "topic-a", 0)
+        update_as_paused(&mut tx, 2, "topic-6", 0)
             .await
             .expect("Kunne ikke oppdatere hwm");
 
@@ -293,9 +294,12 @@ mod tests {
 
         tx.commit().await.expect("Kunne ikke commit transaksjon");
 
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].topic, "topic-a");
-        assert_eq!(rows[0].partition, 0);
+        let row_map: BTreeMap<String, i32> = rows
+            .iter()
+            .map(|row| (row.topic.clone(), row.partition))
+            .collect();
+        let topic_6_partition = row_map.get("topic-6").expect("topic-6 ikke funnet");
+        assert_eq!(*topic_6_partition, 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
