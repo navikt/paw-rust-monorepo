@@ -24,7 +24,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
-      - run: cargo test -p ${{ env.APP_NAME }}
+      - uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2.87.2
+        with:
+          tool: nextest
+      - run: cargo nextest run -p ${{ env.APP_NAME }}
   build:
     if: ${{ github.actor != 'dependabot[bot]' }}
     name: Build
