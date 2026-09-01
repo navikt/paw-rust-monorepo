@@ -15,9 +15,10 @@ use tokio::task::JoinHandle;
 pub fn create_kafka_consumer(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
+    app_config: Arc<AppConfig>,
     kafka_config: Arc<KafkaConfig>,
-    topics: &[&str],
 ) -> anyhow::Result<StreamConsumer<HwmRebalanceHandler>> {
+    let topics = app_config.kafka.all_topics();
     let hwm_version = *kafka_config.hwm_version;
     let config = kafka_config.rdkafka_client_config()?;
     let context = HwmRebalanceHandler {
@@ -26,7 +27,7 @@ pub fn create_kafka_consumer(
         version: hwm_version,
     };
     let consumer: StreamConsumer<HwmRebalanceHandler> = config.create_with_context(context)?;
-    consumer.subscribe(topics)?;
+    consumer.subscribe(&topics)?;
     Ok(consumer)
 }
 

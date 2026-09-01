@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
-    clear_db(&pg_pool).await?;
+    //clear_db(&pg_pool).await?;
 
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
@@ -81,17 +81,16 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
-    let topics = app_config.kafka.all_topics();
 
     // TODO: Fjern før prodsetting!!!
-    bootstrap_missing_hwms(&pg_pool, kafka_config.clone(), &topics).await?;
+    //bootstrap_missing_hwms(&pg_pool, app_config.clone(), kafka_config.clone()).await?;
 
     let consumer = Arc::new(
         create_kafka_consumer(
             app_state.clone(),
             pg_pool.clone(),
+            app_config.clone(),
             kafka_config.clone(),
-            &topics,
         )
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?,
     );

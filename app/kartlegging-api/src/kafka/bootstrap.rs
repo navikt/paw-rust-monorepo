@@ -6,6 +6,7 @@ use rdkafka::consumer::{BaseConsumer, Consumer};
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::config::AppConfig;
 
 const LOOKBACK: i64 = 100;
 
@@ -14,9 +15,10 @@ const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(10);
 // TODO: Fjern før prodsetting!!!
 pub async fn bootstrap_missing_hwms(
     pg_pool: &PgPool,
+    app_config: Arc<AppConfig>,
     kafka_config: Arc<KafkaConfig>,
-    topics: &[&str],
 ) -> Result<()> {
+    let topics = app_config.kafka.all_topics();
     let version = *kafka_config.hwm_version;
     let mut client_config = kafka_config.rdkafka_client_config()?;
     let group_id = client_config
