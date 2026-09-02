@@ -11,6 +11,7 @@ use crate::model::result::ProcessorResult;
 use chrono::{DateTime, Utc};
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
+use eksterne_hendelser::vo::metadata::Metadata;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_key_gen_client::model::IdentitetType;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
@@ -54,8 +55,11 @@ impl PeriodeProcessor {
         let row = PeriodeRow::new(
             hendelse.id,
             hendelse.identitetsnummer.clone(),
-            hendelse.startet.tidspunkt,
-            hendelse.avsluttet.as_ref().map(|m| m.tidspunkt),
+            hendelse.startet.tidspunkt().to_owned(),
+            hendelse
+                .avsluttet
+                .as_ref()
+                .map(|metadata| metadata.tidspunkt().to_owned()),
         );
         let count = periode::count_by_id(tx, &hendelse.id).await?;
         if count > 1 {
@@ -324,19 +328,19 @@ impl PayloadProcessor for PeriodeProcessor {
                                 tx,
                                 &arbeidssoeker.id,
                                 &hendelse.id,
-                                &hendelse.startet.tidspunkt,
+                                hendelse.startet.tidspunkt(),
                             )
                             .await?;
 
                         let arbeidssoeker_til = hendelse
                             .avsluttet
-                            .map(|metadata| metadata.tidspunkt.clone());
+                            .map(|metadata| metadata.tidspunkt().to_owned());
 
                         // Lagre ny kartlegging
                         let kartlegging_row = KartleggingRow::new(
                             hendelse.id.clone(),
                             arbeidssoeker_row.id,
-                            hendelse.startet.tidspunkt.clone(),
+                            hendelse.startet.tidspunkt().to_owned(),
                             arbeidssoeker_til,
                             arbeidsledig_fra,
                         );
@@ -370,13 +374,13 @@ impl PayloadProcessor for PeriodeProcessor {
 
                     let arbeidssoeker_til = hendelse
                         .avsluttet
-                        .map(|metadata| metadata.tidspunkt.clone());
+                        .map(|metadata| metadata.tidspunkt().to_owned());
 
                     // Lagre ny kartlegging
                     let kartlegging_row = KartleggingRow::new(
                         hendelse.id.clone(),
                         arbeidssoeker.id,
-                        hendelse.startet.tidspunkt.clone(),
+                        hendelse.startet.tidspunkt().to_owned(),
                         arbeidssoeker_til,
                         arbeidsledig_fra,
                     );

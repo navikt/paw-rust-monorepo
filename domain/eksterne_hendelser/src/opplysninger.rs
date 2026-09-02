@@ -1,7 +1,7 @@
 use crate::vo::annet::Annet;
 use crate::vo::helse::Helse;
 use crate::vo::jobbsituasjon::Jobbsituasjon;
-use crate::vo::metadata::Metadata;
+use crate::vo::metadata::MainMetadata;
 use crate::vo::utdanning::Utdanning;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -16,7 +16,7 @@ pub struct Opplysninger {
     pub id: Uuid,
     #[serde_as(as = "DisplayFromStr")]
     pub periode_id: Uuid,
-    pub sendt_inn_av: Metadata,
+    pub sendt_inn_av: MainMetadata,
     pub utdanning: Option<Utdanning>,
     pub helse: Option<Helse>,
     pub jobbsituasjon: Jobbsituasjon,
@@ -37,7 +37,7 @@ mod tests {
     use crate::vo::brukertype::BrukerType;
     use crate::vo::ja_nei_vet_ikke::JaNeiVetIkke;
     use crate::vo::jobbsituasjon::{Beskrivelse, BeskrivelseMedDetaljer};
-    use crate::vo::metadata::Metadata;
+    use crate::vo::metadata::MainMetadata;
     use chrono::{DateTime, Utc};
     use mockito::Server;
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
@@ -54,8 +54,10 @@ mod tests {
 
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
-        let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy("paw.opplysninger-om-arbeidssoeker-v1".to_string(), false);
+        let value_naming_strategy = SubjectNameStrategy::TopicNameStrategy(
+            "paw.opplysninger-om-arbeidssoeker-v1".to_string(),
+            false,
+        );
 
         let source_avro = create_dummy_opplysninger();
 
@@ -96,8 +98,8 @@ mod tests {
         }
     }
 
-    fn create_dummy_metadata() -> Metadata {
-        Metadata {
+    fn create_dummy_metadata() -> MainMetadata {
+        MainMetadata {
             tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
             utfoert_av: Bruker {
                 bruker_type: BrukerType::Sluttbruker,

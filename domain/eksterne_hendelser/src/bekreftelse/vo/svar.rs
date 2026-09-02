@@ -1,13 +1,13 @@
-use crate::vo::metadata::Metadata;
+use crate::vo::metadata::BekreftelseMetadata;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampMilliSeconds};
+use serde_with::{TimestampMilliSeconds, serde_as};
 
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Svar {
-    pub sendt_inn_av: Metadata,
+    pub sendt_inn_av: BekreftelseMetadata,
     #[serde_as(as = "TimestampMilliSeconds<i64>")]
     pub gjelder_fra: DateTime<Utc>,
     #[serde_as(as = "TimestampMilliSeconds<i64>")]

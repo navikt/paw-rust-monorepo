@@ -7,6 +7,7 @@ use crate::model::result::ProcessorResult;
 use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::serde::AvroDeserializer;
+use eksterne_hendelser::vo::metadata::Metadata;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -40,7 +41,7 @@ impl BekreftelseProcessor {
             hendelse.svar.har_jobbet_i_denne_perioden,
             hendelse.svar.vil_fortsette_som_arbeidssoeker,
             hendelse.bekreftelsesloesning.as_ref().to_string(),
-            hendelse.svar.sendt_inn_av.tidspunkt,
+            hendelse.svar.sendt_inn_av.tidspunkt().to_owned(),
         );
         let count = bekreftelse::count_by_id(tx, &hendelse.id).await?;
         if count > 1 {

@@ -1,4 +1,4 @@
-use crate::vo::metadata::Metadata;
+use crate::vo::metadata::MainMetadata;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use std::fmt::Display;
@@ -11,8 +11,8 @@ pub struct Periode {
     #[serde_as(as = "DisplayFromStr")]
     pub id: Uuid,
     pub identitetsnummer: String,
-    pub startet: Metadata,
-    pub avsluttet: Option<Metadata>,
+    pub startet: MainMetadata,
+    pub avsluttet: Option<MainMetadata>,
 }
 
 impl Periode {
@@ -36,9 +36,11 @@ impl Display for Periode {
 mod tests {
     use super::*;
     use crate::serde::{AvroDeserializer, AvroSerializer};
+    use crate::vo::avvikstype::AvviksType;
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
-    use crate::vo::metadata::Metadata;
+    use crate::vo::metadata::MainMetadata;
+    use crate::vo::tidspunkt_fra_kilde::TidspunktFraKilde;
     use chrono::{DateTime, Utc};
     use mockito::Server;
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
@@ -63,8 +65,10 @@ mod tests {
 
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
-        let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy("paw.arbeidssokerperioder-v1".to_string(), false);
+        let value_naming_strategy = SubjectNameStrategy::TopicNameStrategy(
+            "paw.arbeidssokerperioder-v1".to_string(),
+            false,
+        );
 
         let source_avro = create_dummy_startet_periode();
 
@@ -95,8 +99,8 @@ mod tests {
         }
     }
 
-    fn create_dummy_metadata() -> Metadata {
-        Metadata {
+    fn create_dummy_metadata() -> MainMetadata {
+        MainMetadata {
             tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
             utfoert_av: Bruker {
                 bruker_type: BrukerType::Sluttbruker,
@@ -105,7 +109,10 @@ mod tests {
             },
             kilde: "test-system".to_string(),
             aarsak: "Test".to_string(),
-            tidspunkt_fra_kilde: None,
+            tidspunkt_fra_kilde: Some(TidspunktFraKilde {
+                tidspunkt: datetime_rfc3339("2026-06-30T11:59:00Z"),
+                avviks_type: AvviksType::Forsinkelse,
+            }),
         }
     }
 

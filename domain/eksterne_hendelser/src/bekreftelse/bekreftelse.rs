@@ -29,7 +29,7 @@ mod tests {
     use crate::serde::{AvroDeserializer, AvroSerializer};
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
-    use crate::vo::metadata::Metadata;
+    use crate::vo::metadata::BekreftelseMetadata;
     use chrono::{DateTime, Utc};
     use mockito::Server;
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
@@ -45,8 +45,10 @@ mod tests {
 
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
-        let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy("paw.arbeidssoker-bekreftelse-v1".to_string(), false);
+        let value_naming_strategy = SubjectNameStrategy::TopicNameStrategy(
+            "paw.arbeidssoker-bekreftelse-v1".to_string(),
+            false,
+        );
 
         let source_avro = create_dummy_bekreftelse();
 
@@ -78,8 +80,8 @@ mod tests {
         }
     }
 
-    fn create_dummy_metadata() -> Metadata {
-        Metadata {
+    fn create_dummy_metadata() -> BekreftelseMetadata {
+        BekreftelseMetadata {
             tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
             utfoert_av: Bruker {
                 bruker_type: BrukerType::Sluttbruker,
@@ -88,7 +90,6 @@ mod tests {
             },
             kilde: "test-system".to_string(),
             aarsak: "Test".to_string(),
-            tidspunkt_fra_kilde: None,
         }
     }
 

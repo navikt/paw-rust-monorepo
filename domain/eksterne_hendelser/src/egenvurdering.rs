@@ -1,4 +1,4 @@
-use crate::vo::metadata::Metadata;
+use crate::vo::metadata::MainMetadata;
 use crate::vo::profilert_til::ProfilertTil;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -15,7 +15,7 @@ pub struct Egenvurdering {
     pub periode_id: Uuid,
     #[serde_as(as = "DisplayFromStr")]
     pub profilering_id: Uuid,
-    pub sendt_inn_av: Metadata,
+    pub sendt_inn_av: MainMetadata,
     pub profilert_til: ProfilertTil,
     pub egenvurdering: ProfilertTil,
 }
@@ -32,7 +32,7 @@ mod tests {
     use crate::serde::{AvroDeserializer, AvroSerializer};
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
-    use crate::vo::metadata::Metadata;
+    use crate::vo::metadata::MainMetadata;
     use chrono::{DateTime, Utc};
     use mockito::Server;
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
@@ -48,8 +48,10 @@ mod tests {
 
         let serializer = AvroSerializer::new(schema_registry_settings.clone());
         let deserializer = AvroDeserializer::new(schema_registry_settings.clone());
-        let value_naming_strategy =
-            SubjectNameStrategy::TopicNameStrategy("paw.arbeidssoeker-egenvurdering-v1".to_string(), false);
+        let value_naming_strategy = SubjectNameStrategy::TopicNameStrategy(
+            "paw.arbeidssoeker-egenvurdering-v1".to_string(),
+            false,
+        );
 
         let source_avro = create_dummy_egenvurdering();
 
@@ -73,8 +75,8 @@ mod tests {
         }
     }
 
-    fn create_dummy_metadata() -> Metadata {
-        Metadata {
+    fn create_dummy_metadata() -> MainMetadata {
+        MainMetadata {
             tidspunkt: datetime_rfc3339("2026-06-30T12:00:00Z"),
             utfoert_av: Bruker {
                 bruker_type: BrukerType::Sluttbruker,

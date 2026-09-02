@@ -15,7 +15,7 @@ use eksterne_hendelser::vo::brukertype::BrukerType;
 use eksterne_hendelser::vo::helse::Helse;
 use eksterne_hendelser::vo::ja_nei_vet_ikke::JaNeiVetIkke;
 use eksterne_hendelser::vo::jobbsituasjon::{Beskrivelse, BeskrivelseMedDetaljer, Jobbsituasjon};
-use eksterne_hendelser::vo::metadata::Metadata;
+use eksterne_hendelser::vo::metadata::{BekreftelseMetadata, MainMetadata};
 use eksterne_hendelser::vo::profilert_til::ProfilertTil;
 use eksterne_hendelser::vo::utdanning::Utdanning;
 use std::collections::HashMap;
@@ -25,7 +25,7 @@ pub fn create_dummy_start_periode(identitetsnummer: &str, periode_id: Uuid) -> P
     Periode {
         id: periode_id,
         identitetsnummer: identitetsnummer.to_string(),
-        startet: create_dummy_metadata(identitetsnummer),
+        startet: create_dummy_main_metadata(identitetsnummer),
         avsluttet: None,
     }
 }
@@ -34,8 +34,8 @@ pub fn create_dummy_avslutt_periode(identitetsnummer: &str, periode_id: Uuid) ->
     Periode {
         id: periode_id,
         identitetsnummer: identitetsnummer.to_string(),
-        startet: create_dummy_metadata(identitetsnummer),
-        avsluttet: Some(create_dummy_metadata(identitetsnummer)),
+        startet: create_dummy_main_metadata(identitetsnummer),
+        avsluttet: Some(create_dummy_main_metadata(identitetsnummer)),
     }
 }
 
@@ -47,7 +47,7 @@ pub fn create_dummy_opplysninger(
     Opplysninger {
         id: opplysninger_id,
         periode_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer),
+        sendt_inn_av: create_dummy_main_metadata(identitetsnummer),
         utdanning: Some(Utdanning {
             nus: "1234".to_string(),
             bestaatt: Some(JaNeiVetIkke::Ja),
@@ -81,7 +81,7 @@ pub fn create_dummy_profilering(
         id: profilering_id,
         periode_id,
         opplysninger_om_arbeidssoker_id: opplysninger_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer),
+        sendt_inn_av: create_dummy_main_metadata(identitetsnummer),
         profilert_til: ProfilertTil::AntattGodeMuligheter,
         jobbet_sammenhengende_seks_av_tolv_siste_mnd: false,
         alder: Some(42),
@@ -98,7 +98,7 @@ pub fn create_dummy_egenvurdering(
         id: egenvurdering_id,
         periode_id,
         profilering_id,
-        sendt_inn_av: create_dummy_metadata(identitetsnummer),
+        sendt_inn_av: create_dummy_main_metadata(identitetsnummer),
         profilert_til: ProfilertTil::AntattGodeMuligheter,
         egenvurdering: ProfilertTil::OppgittHindringer,
     }
@@ -121,7 +121,7 @@ pub fn create_dummy_bekreftelse(
 
 pub fn create_dummy_svar(identitetsnummer: &str, har_jobbet: bool, vil_fortsette: bool) -> Svar {
     Svar {
-        sendt_inn_av: create_dummy_metadata(identitetsnummer),
+        sendt_inn_av: create_dummy_bekreftelse_metadata(identitetsnummer),
         gjelder_fra: datetime_rfc3339("2026-01-02T12:00:00Z"),
         gjelder_til: datetime_rfc3339("2026-01-16T12:00:00Z"),
         har_jobbet_i_denne_perioden: har_jobbet,
@@ -154,13 +154,22 @@ pub fn create_dummy_stopp_paavegneav(
     }
 }
 
-pub fn create_dummy_metadata(identitetsnummer: &str) -> Metadata {
-    Metadata {
+pub fn create_dummy_main_metadata(identitetsnummer: &str) -> MainMetadata {
+    MainMetadata {
         tidspunkt: datetime_rfc3339("2026-01-01T12:00:00Z"),
         utfoert_av: create_dummy_bruker(identitetsnummer),
         kilde: "test-system".to_string(),
         aarsak: "Test".to_string(),
         tidspunkt_fra_kilde: None,
+    }
+}
+
+pub fn create_dummy_bekreftelse_metadata(identitetsnummer: &str) -> BekreftelseMetadata {
+    BekreftelseMetadata {
+        tidspunkt: datetime_rfc3339("2026-01-01T12:00:00Z"),
+        utfoert_av: create_dummy_bruker(identitetsnummer),
+        kilde: "test-system".to_string(),
+        aarsak: "Test".to_string(),
     }
 }
 

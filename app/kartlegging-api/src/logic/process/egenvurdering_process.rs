@@ -5,6 +5,7 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::egenvurdering::Egenvurdering;
 use eksterne_hendelser::serde::AvroDeserializer;
+use eksterne_hendelser::vo::metadata::Metadata;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -46,7 +47,7 @@ impl PayloadProcessor for EgenvurderingProcessor {
                     hendelse.profilering_id,
                     hendelse.profilert_til.as_ref().to_string(),
                     hendelse.egenvurdering.as_ref().to_string(),
-                    hendelse.sendt_inn_av.tidspunkt,
+                    hendelse.sendt_inn_av.tidspunkt().to_owned(),
                 );
                 let count = egenvurdering::count_by_id(tx, &hendelse.id).await?;
                 if count > 1 {

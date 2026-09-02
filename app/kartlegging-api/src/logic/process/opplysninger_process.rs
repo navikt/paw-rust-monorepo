@@ -5,6 +5,7 @@ use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::opplysninger::Opplysninger;
 use eksterne_hendelser::serde::AvroDeserializer;
+use eksterne_hendelser::vo::metadata::Metadata;
 use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -49,7 +50,7 @@ impl PayloadProcessor for OpplysningerProcessor {
                         .iter()
                         .map(|b| b.beskrivelse.as_ref().to_string())
                         .collect(),
-                    hendelse.sendt_inn_av.tidspunkt,
+                    hendelse.sendt_inn_av.tidspunkt().to_owned(),
                 );
                 let count = opplysninger::count_by_id(tx, &hendelse.id).await?;
                 if count > 1 {
