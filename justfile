@@ -29,6 +29,10 @@ apps:
 build app="":
     cargo build {{ if app == "" { "--workspace" } else { "-p " + app } }}
 
+# Clean workspace
+clean:
+    cargo clean
+
 # Quick check without full compilation  (e.g. just check utgang)
 check app="":
     cargo check {{ if app == "" { "--workspace" } else { "-p " + app } }}
