@@ -49,14 +49,17 @@ pub async fn count_metrics<'a>(
     let row = sqlx::query_as::<_, KartleggingMetricsRow>(
         r#"
         SELECT
-            COUNT(*)                                                               AS total,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra IS NULL)                       AS is_null,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra IS NOT NULL)                   AS is_not_null,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra < NOW() - INTERVAL '30 days')  AS over_30_days,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra < NOW() - INTERVAL '60 days')  AS over_60_days,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra < NOW() - INTERVAL '90 days')  AS over_90_days,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra < NOW() - INTERVAL '180 days') AS over_180_days,
-            COUNT(*) FILTER (WHERE arbeidsledig_fra < NOW() - INTERVAL '365 days') AS over_365_days
+            COUNT(*)                                                                                             AS total,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL)                                                    AS is_active,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NOT NULL)                                                AS is_not_active,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NOT NULL AND arbeidsledig_fra IS NOT NULL)               AS is_erroneous,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra IS NULL)                       AS is_null,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra IS NOT NULL)                   AS is_not_null,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra < NOW() - INTERVAL '30 days')  AS over_30_days,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra < NOW() - INTERVAL '60 days')  AS over_60_days,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra < NOW() - INTERVAL '90 days')  AS over_90_days,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra < NOW() - INTERVAL '180 days') AS over_180_days,
+            COUNT(*) FILTER (WHERE arbeidssoeker_til IS NULL AND arbeidsledig_fra < NOW() - INTERVAL '365 days') AS over_365_days
         FROM kartlegginger;
         "#,
     )

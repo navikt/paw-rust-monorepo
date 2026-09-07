@@ -7,7 +7,6 @@ use serde::Serialize;
 #[serde(rename_all = "camelCase")]
 pub struct Arbeidssoeker {
     pub id: i64,
-    pub arbeidssoeker_id: i64, // TODO: Slett etter at frontend er oppdatert til å bruke id
     pub aktor_id: String,
     pub identitetsnummer: String,
     pub fornavn: Option<String>,
@@ -30,7 +29,6 @@ impl Arbeidssoeker {
     ) -> Self {
         Self {
             id,
-            arbeidssoeker_id: id,
             aktor_id,
             identitetsnummer,
             fornavn,
@@ -44,7 +42,6 @@ impl Arbeidssoeker {
     pub fn from_identer(id: i64, aktor_id: String, identitetsnummer: String) -> Self {
         Self {
             id,
-            arbeidssoeker_id: id,
             aktor_id,
             identitetsnummer,
             fornavn: None,

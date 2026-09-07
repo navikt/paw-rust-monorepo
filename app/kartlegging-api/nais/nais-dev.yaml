@@ -34,8 +34,8 @@ spec:
     - name: PAW_BEKREFTELSE_PAAVEGNEAV_TOPIC
       value: "paw.arbeidssoker-bekreftelse-paavegneav-v1"
   replicas:
-    min: 1
-    max: 1
+    min: 2
+    max: 2
   resources:
     limits:
       memory: 32Mi
@@ -73,7 +73,7 @@ spec:
   gcp:
     sqlInstances:
       - type: POSTGRES_18
-        tier: db-f1-micro
+        tier: db-custom-1-3840
         databases:
           - name: kartlegging
   accessPolicy:
