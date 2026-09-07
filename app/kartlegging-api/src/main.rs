@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
-
+/*
     let consumer = Arc::new(
         create_kafka_consumer(
             app_state.clone(),
@@ -109,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
         pg_pool.clone(),
         consumer.clone(),
         app_state.clone(),
-    );
+    );*/
 
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
@@ -123,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
         //result = consumer_task => async_task_handler("KafkaConsumer", result),
-        result = timeout_task => async_task_handler("HwmPauseTimeout", result),
+        //result = timeout_task => async_task_handler("HwmPauseTimeout", result),
         result = metrics_task => async_task_handler("Metrics", result),
         signal = signal_task => shutdown_handler(signal),
     }?;
