@@ -7,7 +7,6 @@ use kartlegging_api::config::{
     read_otel_tracing_config, read_paw_key_gen_client_config, read_pdl_client_config,
     read_token_client_config,
 };
-use kartlegging_api::kafka::bootstrap::bootstrap_missing_hwms;
 use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
 use kartlegging_api::kafka::hwm::hwm_pause_task::hwm_pause_timeout_task;
 use kartlegging_api::logic::metrics::setup_metrics;
@@ -57,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
     let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
-    //clear_db(&pg_pool).await?;
+    clear_db(&pg_pool).await?;
 
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
@@ -81,9 +80,6 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
-
-    // TODO: Fjern før prodsetting!!!
-    //bootstrap_missing_hwms(&pg_pool, app_config.clone(), kafka_config.clone()).await?;
 
     let consumer = Arc::new(
         create_kafka_consumer(
@@ -126,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
-        result = consumer_task => async_task_handler("KafkaConsumer", result),
+        //result = consumer_task => async_task_handler("KafkaConsumer", result),
         result = timeout_task => async_task_handler("HwmPauseTimeout", result),
         result = metrics_task => async_task_handler("Metrics", result),
         signal = signal_task => shutdown_handler(signal),
