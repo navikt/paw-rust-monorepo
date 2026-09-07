@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     let pg_pool = init_db(database_config).await?;
 
     // TODO: Fjern før prodsetting!!!
-    clear_db(&pg_pool).await?;
+    //clear_db(&pg_pool).await?;
 
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
