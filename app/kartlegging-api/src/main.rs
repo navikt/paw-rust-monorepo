@@ -21,7 +21,7 @@ use paw_oauth2_resource_server::state::AuthState;
 use paw_otel_tracing::otel_setup::setup_otel;
 use paw_rdkafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
-use paw_sqlx::postgres::{clear_db, init_db};
+use paw_sqlx::postgres::init_db;
 use pdl_client::client::PDLClient;
 use reqwest::Client;
 use std::sync::Arc;
@@ -55,9 +55,6 @@ async fn main() -> anyhow::Result<()> {
 
     let pg_pool = init_db(database_config).await?;
 
-    // TODO: Fjern før prodsetting!!!
-    clear_db(&pg_pool).await?;
-
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
@@ -80,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     let schema_registry_settings = create_schema_registry_settings()?;
-/*
+
     let consumer = Arc::new(
         create_kafka_consumer(
             app_state.clone(),
@@ -109,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
         pg_pool.clone(),
         consumer.clone(),
         app_state.clone(),
-    );*/
+    );
 
     let router = build_router(app_state.clone(), pg_pool.clone(), auth_state);
     let server_task = web_server_task(router).await;
@@ -122,8 +119,8 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::select! {
         result = server_task => async_task_handler("Webserver", result),
-        //result = consumer_task => async_task_handler("KafkaConsumer", result),
-        //result = timeout_task => async_task_handler("HwmPauseTimeout", result),
+        result = consumer_task => async_task_handler("KafkaConsumer", result),
+        result = timeout_task => async_task_handler("HwmPauseTimeout", result),
         result = metrics_task => async_task_handler("Metrics", result),
         signal = signal_task => shutdown_handler(signal),
     }?;
