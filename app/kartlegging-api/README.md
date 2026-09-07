@@ -97,3 +97,13 @@ graph LR
 | 24488623539      | EKSPLOSIV SKORPION       |             | 3030:GEOGRAFISK_TILKNYTNING                         |
 | 02838698800      | TANKEFULL KLISJÉ         |             | 0118:GEOGRAFISK_TILKNYTNING                         |
 | 28888896696      | SAKTE NORDAVIND          |             | 0604:GEOGRAFISK_TILKNYTNING                         |
+
+## Poison Pills i dev
+
+* `paw.arbeidssokerperioder-v1`
+  * Partition 0
+    * hwm 1730
+      * fnr: 13497632174, aktor-id: 2078784314389, arbeidssøker-id: 139451 er splittet og ligger med feil state i Arbeidssøkerregister
+  * Partition 1
+    * hwm 438, 452
+      * fnr: 02447919705, arbeidssøker-id: 133777 finnes ikke i lengre PDL

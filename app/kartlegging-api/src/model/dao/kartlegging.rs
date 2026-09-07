@@ -32,6 +32,9 @@ impl KartleggingRow {
 #[derive(Debug, FromRow)]
 pub(crate) struct KartleggingMetricsRow {
     pub total: i64,
+    pub is_active: i64,
+    pub is_not_active: i64,
+    pub is_erroneous: i64,
     pub is_null: i64,
     pub is_not_null: i64,
     pub over_30_days: i64,
