@@ -12,4 +12,4 @@ poao_siste_oppfolgingsperiode_topic = "poao.siste-oppfolgingsperiode-v3"
 
 [hwm_pause]
 check_interval = "PT30S"
-stuck_partition_threshold = "PT12H"
+stuck_partition_threshold = "PT48H"
