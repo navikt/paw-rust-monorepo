@@ -68,7 +68,7 @@ impl KartleggingMessageProcessor {
 }
 
 impl MessageProcessor for KartleggingMessageProcessor {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, fields(topic = %message.topic(), partition = %message.partition(), offset = %message.offset()))]
     fn process_message<'a>(
         &'a self,
         tx: &'a mut Transaction<'_, Postgres>,

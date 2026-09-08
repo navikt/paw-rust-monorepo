@@ -24,7 +24,7 @@ impl BekreftelsePaaVegneAvProcessor {
 }
 
 impl PayloadProcessor for BekreftelsePaaVegneAvProcessor {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, fields(topic = %message.topic(), partition = %message.partition(), offset = %message.offset()))]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
