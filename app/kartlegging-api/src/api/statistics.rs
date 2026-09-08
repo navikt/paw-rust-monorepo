@@ -17,7 +17,7 @@ pub(crate) fn routes(pg_pool: PgPool) -> Router {
         .with_state(RouterState::new(pg_pool.clone()))
 }
 
-#[tracing::instrument(skip(state))]
+#[tracing::instrument(skip_all)]
 async fn finn_statistics(
     State(state): State<RouterState>,
 ) -> Result<Json<StatisticsResponse>, ProblemDetails> {

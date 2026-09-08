@@ -73,7 +73,7 @@ impl BekreftelseProcessor {
 }
 
 impl PayloadProcessor for BekreftelseProcessor {
-    #[tracing::instrument(skip(self, tx))]
+    #[tracing::instrument(skip_all)]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,

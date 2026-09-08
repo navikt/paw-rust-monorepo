@@ -29,7 +29,7 @@ impl ProfileringRow {
     }
 }
 
-#[tracing::instrument(skip(tx, id))]
+#[tracing::instrument(skip_all)]
 pub async fn count_by_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     id: &'a Uuid,
@@ -49,7 +49,7 @@ pub async fn count_by_id<'a>(
 }
 
 #[allow(unused)]
-#[tracing::instrument(skip(tx, id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     id: &'a Uuid,
@@ -73,7 +73,7 @@ pub async fn select_by_id<'a>(
     Ok(row)
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ProfileringRow,
@@ -102,7 +102,7 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ProfileringRow,

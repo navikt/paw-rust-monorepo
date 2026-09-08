@@ -9,7 +9,7 @@ use rdkafka::message::OwnedMessage;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-#[tracing::instrument(skip(pg_pool, consumer))]
+#[tracing::instrument(skip_all)]
 pub async fn hwm_process_paused_partitions(
     pg_pool: PgPool,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,

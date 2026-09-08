@@ -22,7 +22,7 @@ pub(crate) fn routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
         .with_state(RouterState::new(pg_pool.clone()))
 }
 
-#[tracing::instrument(skip(state, request), fields(arbeidssoekere_count))]
+#[tracing::instrument(skip_all)]
 async fn finn_kartlegging(
     State(state): State<RouterState>,
     request: String,

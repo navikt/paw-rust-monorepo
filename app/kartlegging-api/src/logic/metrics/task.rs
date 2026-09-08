@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
-#[tracing::instrument(skip(app_config, pg_pool))]
+#[tracing::instrument(skip_all)]
 pub fn metrics_task(app_config: Arc<AppConfig>, pg_pool: PgPool) -> JoinHandle<anyhow::Result<()>> {
     tokio::spawn(async move {
         loop {

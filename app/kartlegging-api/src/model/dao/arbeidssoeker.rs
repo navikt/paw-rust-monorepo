@@ -32,7 +32,7 @@ impl ArbeidssoekerRow {
     }
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip_all)]
 pub async fn count_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
@@ -57,7 +57,7 @@ pub async fn count_by_kontortilknytning(
     Ok(count)
 }
 
-#[tracing::instrument(skip(tx, arbeidssoeker_id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: &i64,
@@ -82,7 +82,7 @@ pub async fn select_by_arbeidssoeker_id(
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx, identitetsnummer))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_identitetsnummer(
     tx: &mut Transaction<'_, Postgres>,
     identitetsnummer: &str,
@@ -107,7 +107,7 @@ pub async fn select_by_identitetsnummer(
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
@@ -150,7 +150,7 @@ pub async fn select_by_kontortilknytning(
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ArbeidssoekerRow,
@@ -182,7 +182,7 @@ pub async fn insert<'a>(
 }
 
 #[allow(unused)]
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a ArbeidssoekerRow,

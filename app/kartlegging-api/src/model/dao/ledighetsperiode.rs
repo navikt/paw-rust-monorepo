@@ -33,7 +33,7 @@ pub(crate) struct LedighetsperiodeRow {
     pub bekreftelse_paa_vegne_av: Vec<String>,
 }
 
-#[tracing::instrument(skip(tx, arbeidssoeker_id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: i64,

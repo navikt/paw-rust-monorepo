@@ -17,7 +17,7 @@ impl BekreftelsePaaVegneAvRow {
     }
 }
 
-#[tracing::instrument(skip(tx, periode_id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_periode_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &'a Uuid,
@@ -38,7 +38,7 @@ pub async fn select_by_periode_id<'a>(
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a BekreftelsePaaVegneAvRow,
@@ -61,7 +61,7 @@ pub async fn insert<'a>(
     Ok(result.rows_affected())
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a BekreftelsePaaVegneAvRow,

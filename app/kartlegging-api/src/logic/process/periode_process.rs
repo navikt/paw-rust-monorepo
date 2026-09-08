@@ -72,7 +72,7 @@ impl PeriodeProcessor {
         }
     }
 
-    #[tracing::instrument(skip(self, identitetsnummer))]
+    #[tracing::instrument(skip_all)]
     async fn hent_identiteter<'a>(
         &'a self,
         message: &'a OwnedMessage,
@@ -102,7 +102,7 @@ impl PeriodeProcessor {
         ))
     }
 
-    #[tracing::instrument(skip(self, identitetsnummer))]
+    #[tracing::instrument(skip_all)]
     async fn hent_navn<'a>(
         &'a self,
         message: &'a OwnedMessage,
@@ -235,7 +235,7 @@ impl PeriodeProcessor {
 }
 
 impl PayloadProcessor for PeriodeProcessor {
-    #[tracing::instrument(skip(self, tx))]
+    #[tracing::instrument(skip_all)]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,

@@ -1,8 +1,8 @@
 use crate::config::PawKeyGenClientConfig;
 use crate::error::PawKeyGenClientError;
 use crate::model::{IdentitetRequest, IdentitetResponse, KeyRequest, KeyResponse};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
 
@@ -42,12 +42,14 @@ impl PawKeyGenClient {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn hent(&self, identitet: String) -> anyhow::Result<KeyResponse> {
         let url = format!("{}/api/v2/hent", self.url);
         let request = KeyRequest { ident: identitet };
         self.post(url, request).await
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn finn_identiteter(&self, identitet: String) -> anyhow::Result<IdentitetResponse> {
         let url = format!("{}/api/v2/identiteter", self.url);
         let request = IdentitetRequest { identitet };

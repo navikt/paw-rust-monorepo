@@ -35,7 +35,7 @@ fn texas_auth_handler_boxed(
     Box::pin(texas_auth_handler(state, request, next))
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(state, request, next), fields(path = %request.uri().path()))]
 pub async fn texas_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,

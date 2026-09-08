@@ -2,7 +2,7 @@ use crate::model::dao::kartlegging;
 use crate::model::dto::response::StatisticsResponse;
 use sqlx::{Postgres, Transaction};
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip_all)]
 pub async fn finn(tx: &mut Transaction<'_, Postgres>) -> anyhow::Result<StatisticsResponse> {
     tracing::info!("Finner statistikk for arbeidssøkere",);
     let rows = kartlegging::count_metrics(tx).await?;

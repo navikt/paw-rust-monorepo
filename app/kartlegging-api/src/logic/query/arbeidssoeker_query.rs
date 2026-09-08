@@ -11,7 +11,7 @@ use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
 
-#[tracing::instrument(skip(tx, request))]
+#[tracing::instrument(skip_all)]
 pub async fn finn_for_identitetsnummer_query_request(
     tx: &mut Transaction<'_, Postgres>,
     request: &IdentitetsnummerQueryRequest,
@@ -44,7 +44,7 @@ pub async fn finn_for_identitetsnummer_query_request(
     })
 }
 
-#[tracing::instrument(skip(tx, request))]
+#[tracing::instrument(skip_all)]
 pub async fn finn_for_kontortilknytning_query_request(
     tx: &mut Transaction<'_, Postgres>,
     request: &TilknyttetKontorQueryRequest,

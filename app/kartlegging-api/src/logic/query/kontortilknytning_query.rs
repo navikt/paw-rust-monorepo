@@ -3,7 +3,7 @@ use crate::model::dto::kontortilknytning::{KontorType, Kontortilknytning};
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
-#[tracing::instrument(skip(tx, aktor_id))]
+#[tracing::instrument(skip_all)]
 pub async fn finn_for_aktor_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     aktor_id: &'a str,

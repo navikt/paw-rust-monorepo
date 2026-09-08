@@ -10,7 +10,7 @@ use crate::model::dto::request::PagingRequest;
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
-#[tracing::instrument(skip(tx, arbeidssoeker_id, paging))]
+#[tracing::instrument(skip_all)]
 pub async fn finn_for_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: i64,

@@ -6,7 +6,6 @@ use pdl_graphql::pdl::hent_person_navn::HentPersonNavnHentPerson;
 use pdl_graphql::pdl::{hent_person_bolk, hent_person_navn, HentPersonBolk, HentPersonNavn};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
-use tracing::instrument;
 use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Clone)]
@@ -53,7 +52,7 @@ impl PDLClient {
         PDLClient { inner }
     }
 
-    #[instrument(skip(self, identitetsnummer))]
+    #[tracing::instrument(skip_all)]
     pub async fn hent_person_bolk(
         &self,
         identitetsnummer: Vec<Identitetsnummer>,
@@ -75,7 +74,7 @@ impl PDLClient {
         Ok(data.hent_person_bolk)
     }
 
-    #[instrument(skip(self, identitetsnummer))]
+    #[tracing::instrument(skip_all)]
     pub async fn hent_person_navn(
         &self,
         identitetsnummer: Identitetsnummer,

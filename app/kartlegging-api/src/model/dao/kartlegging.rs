@@ -43,7 +43,7 @@ pub(crate) struct KartleggingMetricsRow {
     pub over_365_days: i64,
 }
 
-#[tracing::instrument(skip(tx))]
+#[tracing::instrument(skip_all)]
 pub async fn count_metrics<'a>(
     tx: &mut Transaction<'_, Postgres>,
 ) -> anyhow::Result<KartleggingMetricsRow> {
@@ -69,7 +69,7 @@ pub async fn count_metrics<'a>(
     Ok(row)
 }
 
-#[tracing::instrument(skip(tx, periode_id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_by_periode_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &'a Uuid,
@@ -93,7 +93,7 @@ pub async fn select_by_periode_id<'a>(
     Ok(rows)
 }
 
-#[tracing::instrument(skip(tx, arbeidssoeker_id))]
+#[tracing::instrument(skip_all)]
 pub async fn select_latest_by_arbeidssoeker_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: &'a i64,
@@ -119,7 +119,7 @@ pub async fn select_latest_by_arbeidssoeker_id<'a>(
     Ok(row)
 }
 
-#[tracing::instrument(skip(tx, row))]
+#[tracing::instrument(skip_all)]
 pub async fn insert<'a>(
     tx: &mut Transaction<'_, Postgres>,
     row: &'a KartleggingRow,
@@ -149,7 +149,7 @@ pub async fn insert<'a>(
 }
 
 #[allow(unused)]
-#[tracing::instrument(skip(tx, periode_id))]
+#[tracing::instrument(skip_all)]
 pub async fn update<'a>(
     tx: &mut Transaction<'_, Postgres>,
     periode_id: &'a Uuid,
