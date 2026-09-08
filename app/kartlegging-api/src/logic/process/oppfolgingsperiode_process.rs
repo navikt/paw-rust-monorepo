@@ -54,6 +54,7 @@ impl OppfolgingsperiodeProcessor {
 }
 
 impl PayloadProcessor for OppfolgingsperiodeProcessor {
+    #[tracing::instrument(skip(self, tx))]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,

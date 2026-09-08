@@ -25,6 +25,7 @@ impl OpplysningerProcessor {
 }
 
 impl PayloadProcessor for OpplysningerProcessor {
+    #[tracing::instrument(skip(self, tx))]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,

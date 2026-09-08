@@ -25,6 +25,7 @@ impl ProfileringProcessor {
 }
 
 impl PayloadProcessor for ProfileringProcessor {
+    #[tracing::instrument(skip(self, tx))]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,

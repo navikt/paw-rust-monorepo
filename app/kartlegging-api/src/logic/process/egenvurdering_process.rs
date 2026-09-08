@@ -25,6 +25,7 @@ impl EgenvurderingProcessor {
 }
 
 impl PayloadProcessor for EgenvurderingProcessor {
+    #[tracing::instrument(skip(self, tx))]
     async fn process_payload<'a>(
         &'a self,
         tx: &mut Transaction<'_, Postgres>,
