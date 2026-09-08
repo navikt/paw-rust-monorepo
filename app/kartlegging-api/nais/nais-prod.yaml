@@ -36,10 +36,10 @@ spec:
     max: 1
   resources:
     limits:
-      memory: 32Mi
+      memory: 128Mi
     requests:
-      cpu: 25m
-      memory: 32Mi
+      cpu: 50m
+      memory: 64Mi
   startup:
     failureThreshold: 10
     initialDelay: 2
@@ -71,7 +71,7 @@ spec:
   gcp:
     sqlInstances:
       - type: POSTGRES_18
-        tier: db-custom-1-3840
+        tier: db-custom-1-6144
         databases:
           - name: kartlegging
   accessPolicy:

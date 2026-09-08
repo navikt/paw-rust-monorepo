@@ -27,9 +27,6 @@ pub(crate) async fn register_kartlegging_metrics(pg_pool: &PgPool) -> anyhow::Re
         .with_label_values(&["is_not_active"])
         .set(row.is_not_active as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["is_erroneous"])
-        .set(row.is_erroneous as f64);
-    KARTLEGGING_GAUGE
         .with_label_values(&["is_null"])
         .set(row.is_null as f64);
     KARTLEGGING_GAUGE
