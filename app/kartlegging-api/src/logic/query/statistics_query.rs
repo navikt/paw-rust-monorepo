@@ -10,11 +10,13 @@ pub async fn finn(tx: &mut Transaction<'_, Postgres>) -> anyhow::Result<Statisti
         total: rows.total,
         is_null: rows.is_null,
         is_not_null: rows.is_not_null,
-        over_30_days: rows.over_30_days,
-        over_60_days: rows.over_60_days,
-        over_90_days: rows.over_90_days,
-        over_180_days: rows.over_180_days,
-        over_365_days: rows.over_365_days,
+        over_0030_days: rows.over_0030_days,
+        over_0060_days: rows.over_0060_days,
+        over_0090_days: rows.over_0090_days,
+        over_0180_days: rows.over_0180_days,
+        over_0365_days: rows.over_0365_days,
+        over_0730_days: rows.over_0730_days,
+        over_1095_days: rows.over_1095_days,
     })
 }
 

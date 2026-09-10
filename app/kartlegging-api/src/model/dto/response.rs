@@ -15,11 +15,13 @@ pub struct StatisticsResponse {
     pub total: i64,
     pub is_null: i64,
     pub is_not_null: i64,
-    pub over_30_days: i64,
-    pub over_60_days: i64,
-    pub over_90_days: i64,
-    pub over_180_days: i64,
-    pub over_365_days: i64,
+    pub over_0030_days: i64,
+    pub over_0060_days: i64,
+    pub over_0090_days: i64,
+    pub over_0180_days: i64,
+    pub over_0365_days: i64,
+    pub over_0730_days: i64,
+    pub over_1095_days: i64,
 }
 
 #[derive(Debug, Serialize)]

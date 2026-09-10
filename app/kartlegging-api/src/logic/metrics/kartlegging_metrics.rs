@@ -33,20 +33,26 @@ pub(crate) async fn register_kartlegging_metrics(pg_pool: &PgPool) -> anyhow::Re
         .with_label_values(&["is_not_null"])
         .set(row.is_not_null as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_30_days"])
-        .set(row.over_30_days as f64);
+        .with_label_values(&["over_0030_days"])
+        .set(row.over_0030_days as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_60_days"])
-        .set(row.over_60_days as f64);
+        .with_label_values(&["over_0060_days"])
+        .set(row.over_0060_days as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_90_days"])
-        .set(row.over_90_days as f64);
+        .with_label_values(&["over_0090_days"])
+        .set(row.over_0090_days as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_180_days"])
-        .set(row.over_180_days as f64);
+        .with_label_values(&["over_0180_days"])
+        .set(row.over_0180_days as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_365_days"])
-        .set(row.over_365_days as f64);
+        .with_label_values(&["over_0365_days"])
+        .set(row.over_0365_days as f64);
+    KARTLEGGING_GAUGE
+        .with_label_values(&["over_0730_days"])
+        .set(row.over_0730_days as f64);
+    KARTLEGGING_GAUGE
+        .with_label_values(&["over_1095_days"])
+        .set(row.over_1095_days as f64);
     Ok(())
 }
 

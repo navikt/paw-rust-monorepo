@@ -24,13 +24,13 @@ pub struct AppConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct HwmPauseConfig {
-    /// Hvor ofte bakgrunnsjobben sjekker om noen pausede partisjoner har blitt stående for lenge.
-    #[serde(deserialize_with = "duration::iso8601::deserialize")]
-    pub check_interval: Duration,
     /// Hvor lenge en partisjon kan stå pauset (avventer periode) før dette regnes som et
     /// driftsavvik og appens helsesjekk flippes til usunn. Se `hwm_pause_task.rs` for bakgrunn.
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
-    pub stuck_partition_threshold: Duration,
+    pub paused_partitions_threshold: Duration,
+    /// Hvor ofte bakgrunnsjobben sjekker om noen pausede partisjoner har blitt stående for lenge.
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub check_paused_partitions_interval: Duration,
 }
 
 #[env_field_wrap]

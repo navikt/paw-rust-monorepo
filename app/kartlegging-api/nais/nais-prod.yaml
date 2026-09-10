@@ -36,10 +36,10 @@ spec:
     max: 2
   resources:
     limits:
-      memory: 128Mi
+      memory: 32Mi
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 25m
+      memory: 32Mi
   startup:
     failureThreshold: 10
     initialDelay: 2
@@ -71,9 +71,16 @@ spec:
   gcp:
     sqlInstances:
       - type: POSTGRES_18
-        tier: db-custom-1-6144
+        tier: db-custom-1-3840
         databases:
           - name: kartlegging
+        flags:
+          - name: "cloudsql.enable_pgaudit"
+            value: "on"
+          - name: "pgaudit.log"
+            value: "write,ddl,role"
+          - name: "pgaudit.log_parameter"
+            value: "on"
   accessPolicy:
     outbound:
       rules:

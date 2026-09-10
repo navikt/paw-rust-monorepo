@@ -16,8 +16,7 @@ use tokio::task::JoinHandle;
 /// naturlig når perioden ankommer. Terskelen er kun en operativ varslingsmekanisme: den flipper
 /// helsesjekken slik at Nais/Kubernetes' liveness-probe (`/internal/isAlive`) feiler og gjør
 /// avviket synlig (pod-restart/alarm), i stedet for at en fastlåst partisjon blir observert kun
-/// via `paw_kafka_partition_paused`-gaugen. Se `kafka-synchronization-plan.md` og analysen i
-/// sesjonsplanen for bakgrunn.
+/// via `paw_kafka_partition_paused`-gaugen.
 ///
 /// NB: en pod-restart løser ikke selve årsaken (pause-tilstanden er lagret i `hwm`-tabellen og
 /// overlever restart), så dersom terskelen faktisk er nådd på grunn av et reelt
@@ -32,9 +31,9 @@ pub fn hwm_pause_timeout_task(
     app_state: Arc<AppState>,
 ) -> JoinHandle<anyhow::Result<()>> {
     let hwm_version = *kafka_config.hwm_version;
-    let stuck_partition_threshold = app_config.hwm_pause.stuck_partition_threshold;
+    let stuck_partition_threshold = app_config.hwm_pause.paused_partitions_threshold;
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(app_config.hwm_pause.check_interval);
+        let mut interval = tokio::time::interval(app_config.hwm_pause.check_paused_partitions_interval);
         loop {
             interval.tick().await;
             let mut tx = match pg_pool.begin().await {
