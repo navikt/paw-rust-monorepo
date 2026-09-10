@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::str::FromStr;
+use std::time::Duration;
 
 #[env_field_wrap]
 #[derive(Deserialize)]
@@ -10,7 +11,8 @@ pub struct DatabaseConfig {
     pub username: String,
     pub password: String,
     pub database: String,
-    pub statement_log_level: Option<String>
+    pub statement_log_level: Option<String>,
+    pub slow_statement_threshold_ms: Option<u64>,
 }
 
 impl DatabaseConfig {
@@ -25,6 +27,13 @@ impl DatabaseConfig {
         match self.statement_log_level.as_deref() {
             Some(level) => log::LevelFilter::from_str(level).unwrap_or(log::LevelFilter::Debug),
             None => log::LevelFilter::Debug,
+        }
+    }
+
+    pub fn slow_statement_threshold(&self) -> Duration {
+        match self.slow_statement_threshold_ms {
+            Some(ms) => Duration::from_millis(ms.into_inner()),
+            None => Duration::from_secs(1),
         }
     }
 }
