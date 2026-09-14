@@ -33,7 +33,11 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
     let partition_assignment_strategy = kafka_config
         .partition_assignment_strategy
         .map(|s| s.into_inner());
-
+    let partition_queue_min_size = kafka_config
+        .partition_queue_min_size
+        .unwrap_or_else(|| EnvField::from(1))
+        .into_inner()
+        .to_string();
     let mut config = ClientConfig::new();
     config
         .set("bootstrap.servers", kafka_config.brokers.into_inner())
@@ -49,7 +53,7 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         .set("fetch.max.bytes", "131072") // 128KB max fetch (must be >= message.max.bytes)
         .set("fetch.message.max.bytes", "32768") // 32KB max per partition
         .set("queued.max.messages.kbytes", "1024") // 1MB internal queue size
-        .set("queued.min.messages", "1") // Min messages in queue
+        .set("queued.min.messages", partition_queue_min_size) // Min messages in queue
         .set("socket.receive.buffer.bytes", "4096") // 4KB socket receive buffer
         .set("socket.send.buffer.bytes", "4096") // 4KB socket send buffer
         .set("fetch.min.bytes", "1") // Don't wait for much data
@@ -101,6 +105,7 @@ pub struct KafkaConfig {
     pub session_timeout_ms: Option<i64>,
     pub hwm_version: i16,
     pub partition_assignment_strategy: Option<String>,
+    pub partition_queue_min_size: Option<i32>,
 }
 
 const HWM_VERSION: i16 = 1;
@@ -119,6 +124,7 @@ impl Default for KafkaConfig {
             session_timeout_ms: Some(EnvField::from(45000)),
             hwm_version: EnvField::from(HWM_VERSION),
             partition_assignment_strategy: None,
+            partition_queue_min_size: Some(EnvField::from(1)),
         }
     }
 }
