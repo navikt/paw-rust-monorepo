@@ -1,0 +1,24 @@
+use crate::rebalance::rebalance_message::TopicPartition;
+
+use rdkafka::message::OwnedMessage;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum StreamError {
+    #[error("Internal stream map out of sync with assigned topic partitions")]
+    InternalStreamNotFound,
+    #[error("Failed to read record from kafka queue")]
+    FailedToReadRecord(String),
+    #[error("Received 'disconnected' signal from rebalancer module")]
+    DisconnectedFromRebalancer,
+}
+
+pub trait PawKafkaStream {
+    fn receive(
+        self,
+    ) -> impl std::future::Future<Output = Result<(Self, Option<OwnedMessage>), StreamError>> + Send
+    where
+        Self: Sized + Send;
+
+    fn assigned(&self) -> Vec<TopicPartition>;
+}

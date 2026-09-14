@@ -1,7 +1,7 @@
 use paw_rdkafka::headers::{extract_headers_as_map, extract_remote_trace_context};
-use prometheus::{register_counter_vec, CounterVec};
-use rdkafka::message::OwnedMessage;
+use prometheus::{CounterVec, register_counter_vec};
 use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::error::Error;
 use std::future::Future;
@@ -27,15 +27,7 @@ pub async fn hwm_process_message(
     msg: &OwnedMessage,
     processor: &(impl MessageProcessor + Send + Sync),
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let span_name = format!("{} process", msg.topic());
-    let span = tracing::info_span!(
-        "kafka_message_process",
-        otel.name = span_name.as_str(),
-        messaging.system = "kafka",
-        messaging.destination.name = msg.topic(),
-        messaging.destination.partition.id = msg.partition(),
-        messaging.kafka.message.offset = msg.offset()
-    );
+    let span = create_span_for_message(msg);
     let topic = msg.topic();
     let headers = extract_headers_as_map(msg);
     let remote_trace_context = extract_remote_trace_context(&headers);
@@ -49,6 +41,19 @@ pub async fn hwm_process_message(
         .instrument(span)
         .await?;
     Ok(())
+}
+
+fn create_span_for_message(msg: &OwnedMessage) -> tracing::Span {
+    let span_name = format!("{} process", msg.topic());
+    let span = tracing::info_span!(
+        "kafka_message_process",
+        otel.name = span_name.as_str(),
+        messaging.system = "kafka",
+        messaging.destination.name = msg.topic(),
+        messaging.destination.partition.id = msg.partition(),
+        messaging.kafka.message.offset = msg.offset()
+    );
+    span
 }
 
 async fn internal_hwm_process_message(

@@ -17,6 +17,7 @@ pub fn create_kafka_consumer(
         version: *kafka_config.hwm_version,
         pg_pool,
         app_state,
+        sender: None,
     };
     let consumer: StreamConsumer<HwmRebalanceHandler> = config.create_with_context(context)?;
     consumer.subscribe(topics)?;
