@@ -1,12 +1,11 @@
 use crate::error::KafkaError;
-use anyhow::Result;
 use rdkafka::ClientConfig;
 use rdkafka::config::RDKafkaLogLevel;
 use serde::Deserialize;
 use serde_env_field::{EnvField, env_field_wrap};
-use std::time::SystemTime;
+use std::time::{SystemTime, SystemTimeError};
 
-pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientConfig> {
+pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientConfig, KafkaError> {
     let hwm_version = kafka_config.hwm_version.into_inner();
     let client_nonce = unix_timestamp_millis().expect("Failed to get unix timestamp millis");
     let group_id_prefix = kafka_config.group_id_prefix.into_inner();
@@ -137,14 +136,13 @@ impl KafkaConfig {
             ..Default::default()
         }
     }
-    pub fn rdkafka_client_config(&self) -> Result<ClientConfig> {
+    pub fn rdkafka_client_config(&self) -> Result<ClientConfig, KafkaError> {
         create_kafka_client_config(self.clone())
     }
 }
 
-fn unix_timestamp_millis() -> Result<u128> {
+fn unix_timestamp_millis() -> Result<u128, SystemTimeError> {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|e| e.into())
         .map(|d| d.as_millis())
 }

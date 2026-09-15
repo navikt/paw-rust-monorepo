@@ -3124,7 +3124,6 @@ dependencies = [
 name = "paw_rdkafka"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "opentelemetry",
  "paw_rust_base",
  "rdkafka",
