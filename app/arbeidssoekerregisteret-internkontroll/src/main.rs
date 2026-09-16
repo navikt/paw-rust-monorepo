@@ -6,6 +6,7 @@ use axum_health::spawn_health_server;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::{config::read_toml_config, read_config_file};
 use paw_rdkafka::kafka_config::KafkaConfig;
+use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
     kafka_connection::create_kafka_consumer,
@@ -56,9 +57,14 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     );
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    let consumer =
-        create_kafka_consumer(app_state.clone(), pg_pool.clone(), kafka_config, &topics)?;
-    let (_tx, rx) = mpsc::unbounded_channel::<RebalanceMessage>();
+    let (tx, rx) = mpsc::unbounded_channel::<RebalanceMessage>();
+    let consumer = create_kafka_consumer_with_sender(
+        app_state.clone(),
+        pg_pool.clone(),
+        kafka_config,
+        &topics,
+        tx,
+    )?;
     let stream = PawKafkaConsumerStream::new(rx, consumer, Duration::from_millis(10));
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
