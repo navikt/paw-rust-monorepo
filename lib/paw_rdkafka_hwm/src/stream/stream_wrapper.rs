@@ -133,6 +133,7 @@ impl PawKafkaConsumerStream {
         &mut self,
         rebalance_events: Vec<RebalanceMessage>,
     ) -> Result<(), StreamError> {
+        let is_empty = rebalance_events.is_empty();
         for rebalance_event in rebalance_events {
             match rebalance_event {
                 RebalanceMessage::NoOp => {}
@@ -164,10 +165,12 @@ impl PawKafkaConsumerStream {
                 }
             }
         }
-        tracing::info!(
-            "current partition queues: {:?}",
-            self.queues.iter().map(|q| &q.key).collect::<Vec<_>>()
-        );
+        if !is_empty {
+            tracing::info!(
+                "current partition queues: {:?}",
+                self.queues.iter().map(|q| &q.key).collect::<Vec<_>>()
+            );
+        }
         Ok(())
     }
 }
