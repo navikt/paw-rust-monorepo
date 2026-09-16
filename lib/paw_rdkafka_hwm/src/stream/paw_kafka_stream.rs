@@ -11,6 +11,8 @@ pub enum StreamError {
     FailedToReadRecord(String),
     #[error("Received 'disconnected' signal from rebalancer module")]
     DisconnectedFromRebalancer,
+    #[error("Logic error in stream, claims assigned not called, but queues are available!")]
+    InternalLogicError,
 }
 
 pub trait PawKafkaStream {

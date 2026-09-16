@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
+use rdkafka::Message;
+use rdkafka::consumer::Consumer;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
@@ -21,6 +23,7 @@ pub struct PawKafkaConsumerStream {
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     queues: Vec<QueueHandler>,
     timeout: Duration,
+    assigned_has_been_called: bool,
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
@@ -32,6 +35,42 @@ impl PawKafkaStream for PawKafkaConsumerStream {
         }
         self.handle_rebalance_events(rebalance_events)?;
         load(&mut self.queues, self.timeout).await?;
+        if !self.assigned_has_been_called {
+            if !self.queues.is_empty() {
+                tracing::warn!("Multiple receive calls before assigned(), is this working?");
+                return Ok((self, None));
+            }
+            let deadline = tokio::time::Instant::now() + Duration::from_millis(50);
+            while let Ok(res) = timeout_at(deadline, self.consumer.recv()).await {
+                match res {
+                    Ok(msg) => {
+                        tracing::info!(
+                            "Received early message from topic {} partition {} offset {}",
+                            msg.topic(),
+                            msg.partition(),
+                            msg.offset()
+                        );
+                        let msg = msg.detach();
+                        let key = TopicPartition {
+                            topic: msg.topic().to_string(),
+                            partition: msg.partition(),
+                        };
+                        self.queues.push(QueueHandler {
+                            key,
+                            head: Some(msg.clone()),
+                            rdkafka_stream: self
+                                .consumer
+                                .split_partition_queue(msg.topic(), msg.partition())
+                                .ok_or(StreamError::InternalStreamNotFound)?,
+                        });
+                    }
+                    Err(e) => {
+                        return Err(StreamError::FailedToReadRecord(e.to_string()));
+                    }
+                }
+            }
+            return Ok((self, None));
+        }
         let mut index: usize = usize::MAX;
         let mut min_timestamp = i64::MAX;
         for (i, queue) in self.queues.iter().enumerate() {
@@ -86,6 +125,7 @@ impl PawKafkaConsumerStream {
             consumer: consumer.into(),
             queues: Vec::new(),
             timeout,
+            assigned_has_been_called: false,
         }
     }
 
@@ -98,6 +138,7 @@ impl PawKafkaConsumerStream {
                 RebalanceMessage::NoOp => {}
                 RebalanceMessage::Assigned { topic_partitions } => {
                     tracing::info!("Assigned topic partition queues: {:?}", topic_partitions);
+                    self.assigned_has_been_called = true;
                     self.queues.retain(|q| !topic_partitions.contains(&q.key));
                     for TopicPartition { topic, partition } in topic_partitions {
                         let stream = self
