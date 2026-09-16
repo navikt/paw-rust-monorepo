@@ -24,8 +24,12 @@ pub struct PawKafkaConsumerStream {
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
+    #[tracing::instrument(skip(self), name = "PawKafkaConsumerStream::receive")]
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
         let rebalance_events = get_all_messages(&mut self.receiver);
+        if !rebalance_events.is_empty() {
+            tracing::debug!("Received {} rebalance events", rebalance_events.len());
+        }
         self.handle_rebalance_events(rebalance_events)?;
         load(&mut self.queues, self.timeout).await?;
         let mut index: usize = usize::MAX;
@@ -93,6 +97,7 @@ impl PawKafkaConsumerStream {
             match rebalance_event {
                 RebalanceMessage::NoOp => {}
                 RebalanceMessage::Assigned { topic_partitions } => {
+                    tracing::info!("Assigned topic partition queues: {:?}", topic_partitions);
                     self.queues.retain(|q| !topic_partitions.contains(&q.key));
                     for TopicPartition { topic, partition } in topic_partitions {
                         let stream = self
@@ -118,6 +123,10 @@ impl PawKafkaConsumerStream {
                 }
             }
         }
+        tracing::info!(
+            "current partition queues: {:?}",
+            self.queues.iter().map(|q| &q.key).collect::<Vec<_>>()
+        );
         Ok(())
     }
 }
