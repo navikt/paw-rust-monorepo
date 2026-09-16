@@ -1,5 +1,5 @@
-use std::collections::HashSet;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
@@ -7,7 +7,7 @@ use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
 };
-use tokio::time::{Instant, timeout_at};
+use tokio::time::timeout_at;
 
 use crate::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
@@ -16,13 +16,10 @@ use crate::rebalance::{
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::QueueHandler;
 
-struct PawKafkaConsumerStream {
-    rebalancelistener_timeout: Duration,
+pub struct PawKafkaConsumerStream {
     receiver: UnboundedReceiver<RebalanceMessage>,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     queues: Vec<QueueHandler>,
-    assigned: HashSet<TopicPartition>,
-    stream_time: Instant,
     timeout: Duration,
 }
 
@@ -53,7 +50,7 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     }
 
     fn assigned(&self) -> Vec<TopicPartition> {
-        self.assigned.iter().cloned().collect()
+        self.queues.iter().map(|q| q.key.clone()).collect()
     }
 }
 
@@ -75,19 +72,15 @@ async fn load(queues: &mut Vec<QueueHandler>, timeout: Duration) -> Result<(), S
 }
 
 impl PawKafkaConsumerStream {
-    fn new(
-        rebalancelistener_timeout: Duration,
+    pub fn new(
         receiver: UnboundedReceiver<RebalanceMessage>,
-        consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
+        consumer: StreamConsumer<HwmRebalanceHandler>,
         timeout: Duration,
     ) -> Self {
         Self {
-            rebalancelistener_timeout,
             receiver,
-            consumer,
+            consumer: consumer.into(),
             queues: Vec::new(),
-            assigned: HashSet::new(),
-            stream_time: Instant::now(),
             timeout,
         }
     }

@@ -7,6 +7,8 @@ pub enum KafkaError {
     Config(String),
     #[error("Could not create Kafka consumer: {0}")]
     CreateConsumer(String),
+    #[error("Could not subscribe to Kafka topics: {0}")]
+    Subscribe(String),
     #[error("Received unexpected Kafka message: {0}")]
     UnexpectedMessage(String),
 }

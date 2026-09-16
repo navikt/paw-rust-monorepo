@@ -31,6 +31,7 @@ members = [
     "app/veileder-oppgave",
     "app/utgang",
     "app/kartlegging-api",
+    "app/arbeidssoekerregisteret-internkontroll",
     "test/test_data_generator",
     "test/schema_registry_mock",
     "test/token_client_stub",

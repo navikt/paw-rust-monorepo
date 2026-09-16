@@ -133,6 +133,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "arbeidssoekerregisteret-internkontroll"
+version = "0.1.0"
+dependencies = [
+ "axum_health",
+ "base64 0.23.1",
+ "chrono",
+ "health_and_monitoring",
+ "paw_app_config",
+ "paw_rdkafka",
+ "paw_rdkafka_hwm",
+ "paw_rust_base",
+ "paw_sqlx",
+ "rdkafka",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "toml",
+ "tracing",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3159,6 +3182,7 @@ dependencies = [
  "anyhow",
  "temp-env",
  "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]

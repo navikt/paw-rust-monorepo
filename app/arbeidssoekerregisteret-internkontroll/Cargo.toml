@@ -1,0 +1,28 @@
+[package]
+name = "arbeidssoekerregisteret-internkontroll"
+version = "0.1.0"
+edition.workspace = true
+
+[features]
+default = ["nais"]
+nais = []
+local = []
+
+[dependencies]
+axum_health = { path = "../../lib/axum_health" }
+paw_rust_base = { path = "../../lib/paw_rust_base" }
+health_and_monitoring = { path = "../../lib/health_and_monitoring"}
+paw_rdkafka = { path = "../../lib/paw_rdkafka" }
+paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
+paw_sqlx = { path = "../../lib/paw_sqlx" }
+paw_app_config = { path = "../../lib/paw_app_config" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+sqlx = { workspace = true }
+rdkafka = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+serde-env-field = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
