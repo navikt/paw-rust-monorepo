@@ -74,6 +74,8 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
                 if let Some(msg) = msg {
                     hwm_process_message(hwm_version, pg_pool.clone(), &msg, &message_processor)
                         .await?
+                } else {
+                    tracing::info!("no record found")
                 }
             }
             Ok::<(), ProcessorError>(())
