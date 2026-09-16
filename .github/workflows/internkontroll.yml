@@ -6,7 +6,7 @@ on:
       - dev/*
     paths:
       - ".github/workflows/kafka-topic-backup.yml"
-      - "app/Internkontroll/**"
+      - "app/arbeidssoekerregisteret-internkontroll/**"
       - "Cargo.toml"
       - "lib/**"
       - "domain/**"
