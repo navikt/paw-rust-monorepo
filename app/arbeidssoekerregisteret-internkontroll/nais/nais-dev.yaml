@@ -37,6 +37,9 @@ spec:
   prometheus:
     enabled: true
     path: /internal/metrics
+  observability:
+    tracing:
+      enabled: true
   kafka:
     pool: {{ kafka }}
   resources:
