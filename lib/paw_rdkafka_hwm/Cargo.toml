@@ -16,6 +16,7 @@ tracing = { workspace = true }
 prometheus = { workspace = true }
 tracing-opentelemetry = { workspace = true }
 tokio = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 paw_test = { path = "../paw_test" }

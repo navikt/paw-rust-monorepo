@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use paw_rdkafka::error::KafkaError;
 use rdkafka::{Message, Timestamp};
+use tracing::Span;
 
 use crate::stream::paw_kafka_stream::StreamError;
 
@@ -41,12 +42,21 @@ impl QueueHandler {
     pub fn take_head(&mut self) -> Option<OwnedMessage> {
         self.head.pop_front()
     }
+    #[tracing::instrument(
+        skip(self),
+        name = "paw_kafka_stream.queue_update",
+        fields(
+            topic = self.key.topic.as_str(),
+            partition = self.key.partition,
+            current_queue_size = self.head.len() as u64)
+        )]
     pub async fn update(&mut self) -> Result<(), StreamError> {
         if self.head.is_empty() {
             while self.head.len() < self.internal_buffer_size {
                 match self.rdkafka_stream.recv().await {
                     Ok(record) => {
                         self.head.push_back(record.detach());
+                        Span::current().record("record_added", self.head.len() as u64);
                     }
                     Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
                 }
@@ -70,5 +80,9 @@ impl QueueHandler {
 
     pub fn timestamp(&self) -> Option<Timestamp> {
         self.head.front().map(|msg| msg.timestamp())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.head.is_empty()
     }
 }
