@@ -1,10 +1,12 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::StreamExt;
 use futures::stream::FuturesUnordered;
+use futures::{FutureExt, StreamExt};
 use rdkafka::Message;
 use rdkafka::consumer::Consumer;
+use rdkafka::statistics::Topic;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
@@ -16,80 +18,30 @@ use crate::rebalance::{
     rebalance_message::{RebalanceMessage, TopicPartition},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
-use crate::stream::queue_handler::QueueHandler;
+use crate::stream::queue_handler::{self, QueueHandler};
+use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push};
 
 pub struct PawKafkaConsumerStream {
     receiver: UnboundedReceiver<RebalanceMessage>,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     queues: Vec<QueueHandler>,
     timeout: Duration,
-    assigned_has_been_called: bool,
+    internal_buffer_size: usize,
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
     #[tracing::instrument(skip(self), name = "PawKafkaConsumerStream::receive")]
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
-        let rebalance_events = get_all_messages(&mut self.receiver);
-        if !rebalance_events.is_empty() {
-            tracing::debug!("Received {} rebalance events", rebalance_events.len());
-        }
+        self.drain_main_consumer().await?;
+        let rebalance_events = get_rebalance_events(&mut self.receiver);
         self.handle_rebalance_events(rebalance_events)?;
         load(&mut self.queues, self.timeout).await?;
-        if !self.assigned_has_been_called {
-            if !self.queues.is_empty() {
-                tracing::warn!("Multiple receive calls before assigned(), is this working?");
-                return Ok((self, None));
-            }
-            let deadline = tokio::time::Instant::now() + Duration::from_millis(50);
-            while let Ok(res) = timeout_at(deadline, self.consumer.recv()).await {
-                match res {
-                    Ok(msg) => {
-                        tracing::info!(
-                            "Received early message from topic {} partition {} offset {}",
-                            msg.topic(),
-                            msg.partition(),
-                            msg.offset()
-                        );
-                        let msg = msg.detach();
-                        let key = TopicPartition {
-                            topic: msg.topic().to_string(),
-                            partition: msg.partition(),
-                        };
-                        self.queues.push(QueueHandler {
-                            key,
-                            head: Some(msg.clone()),
-                            rdkafka_stream: self
-                                .consumer
-                                .split_partition_queue(msg.topic(), msg.partition())
-                                .ok_or(StreamError::InternalStreamNotFound)?,
-                        });
-                    }
-                    Err(e) => {
-                        return Err(StreamError::FailedToReadRecord(e.to_string()));
-                    }
-                }
-            }
-            return Ok((self, None));
-        }
-        let mut index: usize = usize::MAX;
-        let mut min_timestamp = i64::MAX;
-        for (i, queue) in self.queues.iter().enumerate() {
-            let Some(ts) = queue.timestamp() else {
-                continue;
-            };
-            let candidate_timestamp = ts.to_millis().unwrap_or(i64::MAX);
-            if candidate_timestamp < min_timestamp {
-                min_timestamp = candidate_timestamp;
-                index = i;
-            }
-        }
-        if min_timestamp != i64::MAX {
-            let queue = &mut self.queues[index];
-            let record = queue.head.take();
-            Ok((self, record))
-        } else {
-            Ok((self, None))
-        }
+        let result = self
+            .queues
+            .iter_mut()
+            .min_by_key(|q| q.timestamp())
+            .and_then(|q| q.take_head());
+        Ok((self, result))
     }
 
     fn assigned(&self) -> Vec<TopicPartition> {
@@ -119,14 +71,19 @@ impl PawKafkaConsumerStream {
         receiver: UnboundedReceiver<RebalanceMessage>,
         consumer: StreamConsumer<HwmRebalanceHandler>,
         timeout: Duration,
+        internal_buffer_size: usize,
     ) -> Self {
         Self {
             receiver,
             consumer: consumer.into(),
             queues: Vec::new(),
             timeout,
-            assigned_has_been_called: false,
+            internal_buffer_size,
         }
+    }
+
+    fn get_queue_handler(&mut self, key: TopicPartition) -> Option<&mut QueueHandler> {
+        self.queues.iter_mut().find(|q| q.key == key)
     }
 
     fn handle_rebalance_events(
@@ -139,20 +96,21 @@ impl PawKafkaConsumerStream {
                 RebalanceMessage::NoOp => {}
                 RebalanceMessage::Assigned { topic_partitions } => {
                     tracing::info!("Assigned topic partition queues: {:?}", topic_partitions);
-                    self.assigned_has_been_called = true;
-                    self.queues.retain(|q| !topic_partitions.contains(&q.key));
                     for TopicPartition { topic, partition } in topic_partitions {
-                        let stream = self
-                            .consumer
-                            .split_partition_queue(&topic, partition)
-                            .ok_or(StreamError::InternalStreamNotFound)?;
-                        tracing::info!("Activated topic partition queue: {}-{}", &topic, partition);
-                        let queue_handler = QueueHandler {
-                            key: TopicPartition { topic, partition },
-                            head: None,
-                            rdkafka_stream: stream,
-                        };
-                        self.queues.push(queue_handler);
+                        ensure_queue_and_push(
+                            &mut self.queues,
+                            MessageOrKey::Key(TopicPartition {
+                                topic: topic.clone(),
+                                partition,
+                            }),
+                            |key| {
+                                self.consumer
+                                    .split_partition_queue(&key.topic, key.partition)
+                                    .map(|pt_queue| {
+                                        QueueHandler::new(key, pt_queue, self.internal_buffer_size)
+                                    })
+                            },
+                        );
                     }
                 }
                 RebalanceMessage::Revoked { topic_partitions } => {
@@ -173,8 +131,37 @@ impl PawKafkaConsumerStream {
         }
         Ok(())
     }
+
+    async fn drain_main_consumer(&mut self) -> Result<(), StreamError> {
+        while let Some(res) = self.consumer.recv().now_or_never() {
+            match res {
+                Ok(msg) => {
+                    tracing::info!(
+                        "Received early message from topic {} partition {} offset {}",
+                        msg.topic(),
+                        msg.partition(),
+                        msg.offset()
+                    );
+                    let msg = msg.detach();
+                    ensure_queue_and_push(&mut self.queues, MessageOrKey::Message(msg), |tp| {
+                        self.consumer
+                            .split_partition_queue(&tp.topic, tp.partition)
+                            .map(|pt_queue| {
+                                QueueHandler::new(tp, pt_queue, self.internal_buffer_size)
+                            })
+                    });
+                }
+                Err(e) => {
+                    return Err(StreamError::FailedToReadRecord(e.to_string()));
+                }
+            }
+        }
+        Ok(())
+    }
 }
-fn get_all_messages(receiver: &mut UnboundedReceiver<RebalanceMessage>) -> Vec<RebalanceMessage> {
+fn get_rebalance_events(
+    receiver: &mut UnboundedReceiver<RebalanceMessage>,
+) -> Vec<RebalanceMessage> {
     let mut messages: Vec<RebalanceMessage> = Vec::with_capacity(2);
     loop {
         match receiver.try_recv() {

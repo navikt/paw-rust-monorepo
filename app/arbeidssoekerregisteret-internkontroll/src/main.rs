@@ -9,7 +9,6 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
-    kafka_connection::create_kafka_consumer,
     rebalance::rebalance_message::RebalanceMessage,
     stream::{paw_kafka_stream::PawKafkaStream, stream_wrapper::PawKafkaConsumerStream},
 };
@@ -65,7 +64,13 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         &topics,
         tx,
     )?;
-    let stream = PawKafkaConsumerStream::new(rx, consumer, Duration::from_millis(10));
+    let internal_buffer_size = 50;
+    let stream = PawKafkaConsumerStream::new(
+        rx,
+        consumer,
+        Duration::from_millis(10),
+        internal_buffer_size,
+    );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
@@ -145,7 +150,7 @@ pub async fn process(map: Arc<Mutex<HashMap<i32, i64>>>, msg: &OwnedMessage) {
             current_stream_time,
             msg.topic(),
         );
-    } else if record_timestamp > current_stream_time {
+    } else if record_timestamp >= current_stream_time {
         stream_time.insert(key, record_timestamp);
     } else {
         tracing::warn!(

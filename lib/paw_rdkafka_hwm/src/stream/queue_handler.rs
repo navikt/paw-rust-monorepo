@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+
+use paw_rdkafka::error::KafkaError;
 use rdkafka::{Message, Timestamp};
 
 use crate::stream::paw_kafka_stream::StreamError;
@@ -10,32 +13,62 @@ use rdkafka::message::OwnedMessage;
 
 use crate::rebalance::rebalance_message::TopicPartition;
 
-pub(crate) struct QueueHandler {
+pub struct QueueHandler {
     pub key: TopicPartition,
-    pub head: Option<OwnedMessage>,
-    pub(crate) rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
+    head: VecDeque<OwnedMessage>,
+    rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
+    internal_buffer_size: usize,
 }
 
 impl QueueHandler {
-    pub async fn update(&mut self) -> Result<(), StreamError> {
-        if self.head.is_none() {
-            match self.rdkafka_stream.recv().await {
-                Ok(record) => {
-                    self.head = Some(record.detach());
-                    Ok(())
-                }
-                Err(e) => Err(StreamError::FailedToReadRecord(e.to_string())),
-            }
-        } else {
-            Ok(())
+    pub fn new(
+        key: TopicPartition,
+        rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
+        internal_buffer_size: usize,
+    ) -> Self {
+        Self {
+            key,
+            head: VecDeque::new(),
+            rdkafka_stream,
+            internal_buffer_size,
         }
     }
 
-    pub fn timestamp(&self) -> Option<Timestamp> {
-        if self.head.is_some() {
-            self.head.as_ref().map(|m| m.timestamp())
-        } else {
-            None
+    pub fn key(&self) -> &TopicPartition {
+        &self.key
+    }
+
+    pub fn take_head(&mut self) -> Option<OwnedMessage> {
+        self.head.pop_front()
+    }
+    pub async fn update(&mut self) -> Result<(), StreamError> {
+        if self.head.is_empty() {
+            while self.head.len() < self.internal_buffer_size {
+                match self.rdkafka_stream.recv().await {
+                    Ok(record) => {
+                        self.head.push_back(record.detach());
+                    }
+                    Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
+                }
+            }
         }
+        Ok(())
+    }
+
+    pub fn add_message(&mut self, msg: OwnedMessage) -> Result<usize, KafkaError> {
+        let topic = msg.topic().to_string();
+        let partition = msg.partition();
+        if self.key.topic != topic || self.key.partition != partition {
+            return Err(KafkaError::UnexpectedMessage(format!(
+                "Message topic/partition ({}/{}) does not match queue key ({}/{})",
+                topic, partition, self.key.topic, self.key.partition
+            )));
+        }
+        self.head.push_back(msg);
+        Ok(self.head.len())
+    }
+
+    pub fn timestamp(&self) -> Option<Timestamp> {
+        self.head.front().map(|msg| msg.timestamp())
     }
 }
