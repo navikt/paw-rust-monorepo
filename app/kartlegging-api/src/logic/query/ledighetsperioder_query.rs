@@ -104,8 +104,13 @@ fn map_row(row: &LedighetsperiodeRow) -> anyhow::Result<Ledighetsperiode> {
         _ => None,
     };
     let mut bekreftelse_paa_vegne_av = Vec::new();
-    for loesning in &row.bekreftelse_paa_vegne_av {
-        bekreftelse_paa_vegne_av.push(Bekreftelsesloesning::from_str(loesning.as_str())?);
+    if row.bekreftelse_paa_vegne_av.is_empty() {
+        // Legge til default på-vegne-av
+        bekreftelse_paa_vegne_av.push(Bekreftelsesloesning::Arbeidssoekerregisteret);
+    } else {
+        for loesning in &row.bekreftelse_paa_vegne_av {
+            bekreftelse_paa_vegne_av.push(Bekreftelsesloesning::from_str(loesning.as_str())?);
+        }
     }
     let bekreftelse_paa_vegne_av = bekreftelse_paa_vegne_av; // Fjern mut ref
 

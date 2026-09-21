@@ -42,7 +42,7 @@ pub async fn count_by_kontortilknytning(
     tracing::debug!("Count arbeidssøkere by kontortilknytning");
     let count = sqlx::query_scalar(
         r#"
-        SELECT COUNT(*) AS count
+        SELECT COUNT(DISTINCT a.id) AS count
         FROM arbeidssoekere a
         LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
         LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
@@ -120,24 +120,38 @@ pub async fn select_by_kontortilknytning(
     tracing::debug!("Select arbeidssøkere by kontortilknytning");
     let dir = sort_order.as_ref();
     // language=SQL
+    // DISTINCT ON (a.id) sikrer én rad per arbeidssøker, selv om joinene mot
+    // kartlegginger/kontortilknytninger kan gi flere treff per person (f.eks.
+    // flere kontortilknytninger eller kartlegginger som matcher WHERE-klausulen).
     let sql = format!(
         r#"
         SELECT
-            a.id,
-            a.aktor_id,
-            a.identitetsnummer,
-            a.fornavn,
-            a.mellomnavn,
-            a.etternavn
-        FROM arbeidssoekere a
-        LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
-        LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
-        WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_fra NOTNULL AND k.arbeidsledig_fra > $3
-        ORDER BY k.arbeidssoeker_fra {}
+            id,
+            aktor_id,
+            identitetsnummer,
+            fornavn,
+            mellomnavn,
+            etternavn
+        FROM (
+            SELECT DISTINCT ON (a.id)
+                a.id,
+                a.aktor_id,
+                a.identitetsnummer,
+                a.fornavn,
+                a.mellomnavn,
+                a.etternavn,
+                k.arbeidsledig_fra AS sort_arbeidsledig_fra,
+                k.arbeidssoeker_fra AS sort_arbeidssoeker_fra
+            FROM arbeidssoekere a
+            LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
+            LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
+            WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_fra NOTNULL AND k.arbeidsledig_fra > $3
+            ORDER BY a.id, k.arbeidssoeker_fra {dir}
+        ) distinct_arbeidssoekere
+        ORDER BY sort_arbeidsledig_fra, sort_arbeidssoeker_fra {dir}
         OFFSET $4
         LIMIT $5
         "#,
-        dir
     );
     let rows = sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
         .bind(kontor_id)

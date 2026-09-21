@@ -25,7 +25,11 @@ Authorization: Bearer {{$auth.token("azure")}}
     "kontorId": "1234",
     "paging": {
         "page": 1,
+<<<<<<< Updated upstream
         "pageSize": 100,
+=======
+        "pageSize": 30,
+>>>>>>> Stashed changes
         "sortOrder": "DESC"
     }
 }
