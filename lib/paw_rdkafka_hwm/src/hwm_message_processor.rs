@@ -33,7 +33,7 @@ pub async fn hwm_process_message(
     let remote_trace_context = extract_remote_trace_context(&headers);
     if let Some(context) = remote_trace_context {
         match span.set_parent(context) {
-            Ok(_) => tracing::debug!("Successfully set parent context for span"),
+            Ok(_) => {}
             Err(e) => tracing::warn!("Failed to set parent context for span: {}", e),
         }
     }
@@ -72,7 +72,7 @@ async fn internal_hwm_process_message(
         increment_kafka_messages_processed(true, topic, partition, res.is_err());
         match res {
             Ok(_) => {
-                tracing::debug!(
+                tracing::trace!(
                     "Message processed successfully: topic={}, partition={}, offset={}",
                     topic,
                     partition,
