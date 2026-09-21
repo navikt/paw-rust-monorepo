@@ -1,12 +1,9 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use rdkafka::Message;
-use rdkafka::consumer::Consumer;
-use rdkafka::statistics::Topic;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
@@ -18,7 +15,7 @@ use crate::rebalance::{
     rebalance_message::{RebalanceMessage, TopicPartition},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
-use crate::stream::queue_handler::{self, QueueHandler};
+use crate::stream::queue_handler::QueueHandler;
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push};
 
 pub struct PawKafkaConsumerStream {
@@ -80,10 +77,6 @@ impl PawKafkaConsumerStream {
             timeout,
             internal_buffer_size,
         }
-    }
-
-    fn get_queue_handler(&mut self, key: TopicPartition) -> Option<&mut QueueHandler> {
-        self.queues.iter_mut().find(|q| q.key == key)
     }
 
     fn handle_rebalance_events(
