@@ -93,5 +93,5 @@ utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serde_yaml = "0.9"
-jsonschema = "0.52.1"
+jsonschema = "0.56.0"
 dtor = "1.0"
