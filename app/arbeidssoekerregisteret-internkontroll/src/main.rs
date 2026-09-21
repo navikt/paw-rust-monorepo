@@ -143,7 +143,7 @@ pub async fn process(map: Arc<Mutex<HashMap<i32, i64>>>, msg: &OwnedMessage) {
     let mut stream_time = map.lock().await;
     let current_stream_time = stream_time.get(&key).cloned().unwrap_or(0);
     let record_timestamp = msg.timestamp().to_millis().unwrap_or(-1);
-    if (record_timestamp < 0) || (current_stream_time < 0) {
+    if record_timestamp < 0 {
         tracing::warn!(
             "partition {} => undefined timestamp, current stream time: {}, caused by topic: {}",
             msg.partition(),
@@ -156,7 +156,7 @@ pub async fn process(map: Arc<Mutex<HashMap<i32, i64>>>, msg: &OwnedMessage) {
         tracing::warn!(
             "partition {} => back in time: {}ms, caused by topic: {}",
             msg.partition(),
-            record_timestamp - current_stream_time,
+            current_stream_time - record_timestamp,
             msg.topic(),
         );
     }
