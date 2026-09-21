@@ -126,7 +126,7 @@ impl ConsumerContext for HwmRebalanceHandler {
 }
 
 impl HwmRebalanceHandler {
-    fn new(pg_pool: PgPool, app_state: Arc<AppState>, version: i16) -> Self {
+    pub fn new(pg_pool: PgPool, app_state: Arc<AppState>, version: i16) -> Self {
         Self {
             pg_pool,
             app_state,
@@ -135,7 +135,7 @@ impl HwmRebalanceHandler {
         }
     }
 
-    fn new_with_sender(
+    pub fn new_with_sender(
         pg_pool: PgPool,
         app_state: Arc<AppState>,
         version: i16,
