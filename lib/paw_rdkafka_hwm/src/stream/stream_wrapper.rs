@@ -68,7 +68,10 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     .unwrap_or_else(|| "unknown".to_string()),
             );
         } else {
-            tracing::info!("No messages available in any queue");
+            Span::current().record("topic", "none");
+            Span::current().record("partition", -1);
+            Span::current().record("offset", -1);
+            Span::current().record("timestamp", "none");
             return Ok((self, None));
         };
         Ok((self, result))
