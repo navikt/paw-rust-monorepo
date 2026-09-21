@@ -68,7 +68,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let stream = PawKafkaConsumerStream::new(
         rx,
         consumer,
-        Duration::from_millis(10),
+        Duration::from_millis(50),
         internal_buffer_size,
     );
     let kafka_task = tokio::spawn({
