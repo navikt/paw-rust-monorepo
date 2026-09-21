@@ -29,7 +29,7 @@ pub enum DaoError {
 
 impl DaoError {
     pub fn no_rows(owned_message: &OwnedMessage, table: &str) -> Self {
-        DaoError::NoRows {
+        Self::NoRows {
             table: table.to_string(),
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
@@ -38,7 +38,7 @@ impl DaoError {
     }
 
     pub fn multiple_rows(owned_message: &OwnedMessage, table: &str, count: usize) -> Self {
-        DaoError::MultipleRows {
+        Self::MultipleRows {
             table: table.to_string(),
             count,
             topic: owned_message.topic().to_string(),
@@ -63,7 +63,7 @@ pub enum IdentityError {
 
 impl IdentityError {
     pub fn not_found(owned_message: &OwnedMessage, identitet_type: IdentitetType) -> Self {
-        IdentityError::NotFound {
+        Self::NotFound {
             identity_type: identitet_type.as_ref().to_string(),
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
@@ -113,7 +113,7 @@ pub enum PayloadProcessorError {
 
 impl PayloadProcessorError {
     pub fn deserialization_error(owned_message: &OwnedMessage, error: &dyn Error) -> Self {
-        PayloadProcessorError::DeserializationError {
+        Self::DeserializationError {
             message: error.to_string(),
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
@@ -122,7 +122,7 @@ impl PayloadProcessorError {
     }
 
     pub fn no_payload_error(owned_message: &OwnedMessage) -> Self {
-        PayloadProcessorError::NoPayload {
+        Self::NoPayload {
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
             offset: owned_message.offset(),
@@ -130,11 +130,25 @@ impl PayloadProcessorError {
     }
 
     pub fn processing_error(owned_message: &OwnedMessage, message: &str) -> Self {
-        PayloadProcessorError::ProcessingError {
+        Self::ProcessingError {
             message: message.to_string(),
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
             offset: owned_message.offset(),
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum LogicError {
+    #[error("Precondition failed: {message}")]
+    PreconditionFailed { message: String },
+}
+
+impl LogicError {
+    pub fn precondition_failed(message: &str) -> Self {
+        Self::PreconditionFailed {
+            message: message.to_string(),
         }
     }
 }

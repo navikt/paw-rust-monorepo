@@ -1,14 +1,16 @@
 use crate::config::AppConfig;
 use crate::logic::process::PayloadProcessor;
+use crate::logic::process::kartlegging_process::{
+    utled_arbeidsledighet_for_periode_med_aktiv_kartlegging, utled_arbeidsledighet_for_periode_uten_aktiv_kartlegging,
+};
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dao::kartlegging::KartleggingRow;
 use crate::model::dao::periode::PeriodeRow;
-use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
+use crate::model::dao::{arbeidssoeker, kartlegging, periode};
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
 use crate::model::dto::navn::Navn;
 use crate::model::error::{DaoError, IdentityError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
-use chrono::{DateTime, Utc};
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
@@ -22,7 +24,6 @@ use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 use std::sync::Arc;
 use types::identitetsnummer::Identitetsnummer;
-use uuid::Uuid;
 
 pub struct PeriodeProcessor {
     pub app_config: Arc<AppConfig>,
@@ -69,6 +70,120 @@ impl PeriodeProcessor {
             periode::update(tx, &row).await
         } else {
             periode::insert(tx, &row).await
+        }
+    }
+
+    async fn lagre_arbeidssoker<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        message: &'a OwnedMessage,
+        hendelse: &'a Periode,
+    ) -> anyhow::Result<Arbeidssoeker> {
+        // Hent identiteter fra Kafka Key Gen
+        let arbeidssoeker = self
+            .hent_identiteter(message, &hendelse.identitetsnummer)
+            .await?;
+
+        // Søk etter arbeidssøker(e)
+        let arbeidssoeker_rows =
+            arbeidssoeker::select_by_arbeidssoeker_id(tx, &arbeidssoeker.id).await?;
+
+        if arbeidssoeker_rows.len() > 1 {
+            // Mer enn én arbeidssøker funnet
+            Err(DaoError::multiple_rows(message, "arbeidssøkere", arbeidssoeker_rows.len()).into())
+        } else if arbeidssoeker_rows.len() == 1 {
+            // Arbeidssøker finnes fra før
+
+            Ok(arbeidssoeker)
+        } else {
+            // Arbeidssøker finnes ikke fra før
+
+            // Hent navn fra PDL
+            let navn = self
+                .hent_navn(message, &arbeidssoeker.identitetsnummer)
+                .await?;
+
+            // Lagre ny arbeidssøker
+            let arbeidssoeker_row = ArbeidssoekerRow::new(
+                arbeidssoeker.id,
+                arbeidssoeker.aktor_id.clone(),
+                arbeidssoeker.identitetsnummer.clone(),
+                navn.fornavn.clone(),
+                navn.mellomnavn.clone(),
+                navn.etternavn.clone(),
+            );
+            arbeidssoeker::insert(tx, &arbeidssoeker_row).await?;
+
+            Ok(arbeidssoeker)
+        }
+    }
+
+    async fn lagre_kartlegging<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        message: &'a OwnedMessage,
+        hendelse: &'a Periode,
+        arbeidssoeker: &'a Arbeidssoeker,
+    ) -> anyhow::Result<u64> {
+        // Søk etter kartlegging(er)
+        let kartlegging_rows = kartlegging::select_by_periode_id(tx, &hendelse.id).await?;
+
+        if kartlegging_rows.len() > 1 {
+            // Mer enn én kartlegging funnet
+            Err(DaoError::multiple_rows(message, "kartlegginger", kartlegging_rows.len()).into())
+        } else if kartlegging_rows.len() == 1 {
+            // Kartlegging finnes fra før
+
+            let kartlegging_row = kartlegging_rows
+                .first()
+                .ok_or_else(|| DaoError::no_rows(message, "kartlegginger"))?;
+
+            let arbeidssoeker_til = hendelse
+                .avsluttet
+                .as_ref()
+                .map(|metadata| metadata.tidspunkt().to_owned());
+
+            // Beregn ledighet fra aktiv kartlegging
+            let arbeidsledig_fra = utled_arbeidsledighet_for_periode_med_aktiv_kartlegging(
+                tx,
+                &arbeidssoeker.id,
+                &hendelse.id,
+                &hendelse.startet.tidspunkt,
+                &kartlegging_row.arbeidsledig_fra,
+                self.app_config.periode_gap_grense_for_ledighet,
+            )
+            .await?;
+
+            // Lagre eksisterende kartlegging med arbeidssoeker_til og arbeidsledig_fra
+            kartlegging::update(tx, &hendelse.id, &arbeidssoeker_til, &arbeidsledig_fra).await
+        } else {
+            // Kartlegging finnes ikke fra før
+
+            let arbeidssoeker_fra = hendelse.startet.tidspunkt().to_owned();
+            let arbeidssoeker_til = hendelse
+                .avsluttet
+                .as_ref()
+                .map(|metadata| metadata.tidspunkt().to_owned());
+
+            // Beregn ledighet fra tidligere kartlegging, om den finnes
+            let arbeidsledig_fra = utled_arbeidsledighet_for_periode_uten_aktiv_kartlegging(
+                tx,
+                &arbeidssoeker.id,
+                &hendelse.id,
+                &arbeidssoeker_fra,
+                self.app_config.periode_gap_grense_for_ledighet,
+            )
+            .await?;
+
+            // Lagre ny kartlegging
+            let kartlegging_row = KartleggingRow::new(
+                hendelse.id.clone(),
+                arbeidssoeker.id,
+                arbeidssoeker_fra,
+                arbeidssoeker_til,
+                arbeidsledig_fra,
+            );
+            kartlegging::insert(tx, &kartlegging_row).await
         }
     }
 
@@ -138,100 +253,6 @@ impl PeriodeProcessor {
             ))
         }
     }
-
-    async fn utled_arbeidsledighet_fra_bekreftelser<'a>(
-        &'a self,
-        tx: &mut Transaction<'_, Postgres>,
-        periode_id: &'a Uuid,
-    ) -> anyhow::Result<Option<DateTime<Utc>>> {
-        // Hent bekreftelser for periode-id
-        let bekreftelse_rows = bekreftelse::select_by_periode_id(tx, periode_id).await?;
-
-        let mut arbeidsledighet: Option<DateTime<Utc>> = None;
-        // Loop igjennom bekreftelser og oppsummer ledighet
-        for bekreftelse_row in bekreftelse_rows {
-            if bekreftelse_row.har_jobbet {
-                arbeidsledighet = None
-            } else if !bekreftelse_row.har_jobbet && arbeidsledighet.is_none() {
-                arbeidsledighet = Some(bekreftelse_row.gjelder_fra);
-            }
-        }
-
-        Ok(arbeidsledighet)
-    }
-
-    async fn utled_arbeidsledighet_fra_eksisterende_kartlegging<'a>(
-        &'a self,
-        tx: &mut Transaction<'_, Postgres>,
-        periode_id: &'a Uuid,
-        eksisterende_arbeidsledig_fra: &Option<DateTime<Utc>>,
-    ) -> anyhow::Result<Option<DateTime<Utc>>> {
-        let arbeidsledighet = match eksisterende_arbeidsledig_fra.clone() {
-            // Bruk ledighet fra eksisterende kartlegging
-            Some(arbeidssledig_fra) => Some(arbeidssledig_fra),
-            // Ingen ledighet fra eksisterende kartlegging, så prøv å utlede fra bekreftelser
-            None => {
-                self.utled_arbeidsledighet_fra_bekreftelser(tx, periode_id)
-                    .await?
-            }
-        };
-
-        Ok(arbeidsledighet)
-    }
-
-    async fn utled_arbeidsledighet_fra_tidligere_kartlegging<'a>(
-        &'a self,
-        tx: &mut Transaction<'_, Postgres>,
-        arbeidssoeker_id: &'a i64,
-        periode_id: &'a Uuid,
-        periode_startet: &'a DateTime<Utc>,
-    ) -> anyhow::Result<Option<DateTime<Utc>>> {
-        let periode_gap_grense = self.app_config.periode_gap_grense_for_ledighet;
-
-        // Hent bekreftelser for periode-id
-        let bekreftelser_arbeidsledig_fra = self
-            .utled_arbeidsledighet_fra_bekreftelser(tx, periode_id)
-            .await?;
-
-        let arbeidsledighet = match bekreftelser_arbeidsledig_fra {
-            // Om det finnes bekreftelser, bruk eventuell ledighet fra de
-            Some(arbeidssledig_fra) => Some(arbeidssledig_fra),
-            // Ingen bekreftelser for periode-id
-            None => {
-                // Søk etter tidligere kartlegging for arbeidssøker-id
-                let tidligere_kartlegging_row =
-                    kartlegging::select_latest_by_arbeidssoeker_id(tx, &arbeidssoeker_id).await?;
-
-                match tidligere_kartlegging_row {
-                    // Ingen tidligere kartlegging for arbeidssøker-id
-                    None => None,
-                    // Har en tidligere kartlegging for arbeidssøker-id, så hent eventuell ledighet fra den
-                    Some(kartlegging_row) => {
-                        match kartlegging_row.arbeidsledig_fra {
-                            // Ingen ledighet satt for tidligere kartlegging
-                            None => None,
-                            Some(arbeidsledig_fra) => match kartlegging_row.arbeidssoeker_til {
-                                // Tidligere periode er fortsatt aktiv. Dette er en feil!
-                                None => None,
-                                Some(arbeidssoeker_til) => {
-                                    let periode_gap = periode_startet.clone() - arbeidssoeker_til;
-
-                                    // Om det er mindre enn 14 dager siden tidligere periode ble avsluttet, bruk ledighet fra den
-                                    if periode_gap.num_days() < periode_gap_grense {
-                                        Some(arbeidsledig_fra)
-                                    } else {
-                                        None
-                                    }
-                                }
-                            },
-                        }
-                    }
-                }
-            }
-        };
-
-        Ok(arbeidsledighet)
-    }
 }
 
 impl PayloadProcessor for PeriodeProcessor {
@@ -255,142 +276,14 @@ impl PayloadProcessor for PeriodeProcessor {
                 // Lagre periode
                 self.lagre_periode(tx, message, &hendelse).await?;
 
-                // Hent identiteter fra Kafka Key Gen
-                let arbeidssoeker = self
-                    .hent_identiteter(message, &hendelse.identitetsnummer)
+                // Lagre arbeidssøker
+                let arbeidssoeker = self.lagre_arbeidssoker(tx, message, &hendelse).await?;
+
+                // Lagre kartlegging
+                self.lagre_kartlegging(tx, message, &hendelse, &arbeidssoeker)
                     .await?;
 
-                // Søk etter arbeidssøker(e)
-                let arbeidssoeker_rows =
-                    arbeidssoeker::select_by_arbeidssoeker_id(tx, &arbeidssoeker.id).await?;
-
-                if arbeidssoeker_rows.len() > 1 {
-                    // Mer enn én arbeidssøker funnet
-                    Err(
-                        DaoError::multiple_rows(message, "arbeidssøkere", arbeidssoeker_rows.len())
-                            .into(),
-                    )
-                } else if arbeidssoeker_rows.len() == 1 {
-                    // Arbeidssøker finnes fra før
-
-                    let arbeidssoeker_row = arbeidssoeker_rows.first().ok_or_else(|| {
-                        PayloadProcessorError::processing_error(
-                            message,
-                            "Fant ikke arbeidssøker i søkeresultat",
-                        )
-                    })?;
-
-                    // Søk etter kartlegging(er)
-                    let kartlegging_rows =
-                        kartlegging::select_by_periode_id(tx, &hendelse.id).await?;
-
-                    if kartlegging_rows.len() > 1 {
-                        // Mer enn én kartlegging funnet
-                        Err(DaoError::multiple_rows(
-                            message,
-                            "kartlegginger",
-                            arbeidssoeker_rows.len(),
-                        )
-                        .into())
-                    } else if kartlegging_rows.len() == 1 {
-                        // Kartlegging finnes fra før
-
-                        let kartlegging_row = kartlegging_rows
-                            .first()
-                            .ok_or_else(|| DaoError::no_rows(message, "kartlegginger"))?;
-
-                        // Beregn ledighet fra eksisterende kartlegging
-                        let arbeidsledig_fra = self
-                            .utled_arbeidsledighet_fra_eksisterende_kartlegging(
-                                tx,
-                                &hendelse.id,
-                                &kartlegging_row.arbeidsledig_fra,
-                            )
-                            .await?;
-
-                        let arbeidssoeker_til = hendelse
-                            .avsluttet
-                            .map(|metadata| metadata.tidspunkt.clone());
-
-                        // Lagre eksisterende kartlegging med arbeidssoeker_til og arbeidsledig_fra
-                        kartlegging::update(
-                            tx,
-                            &hendelse.id,
-                            &arbeidssoeker_til,
-                            &arbeidsledig_fra,
-                        )
-                        .await?;
-
-                        Ok(ProcessorResult::Continue)
-                    } else {
-                        // Kartlegging finnes ikke fra før
-
-                        // Beregn ledighet fra tidligere kartlegging, om den finnes
-                        let arbeidsledig_fra = self
-                            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                                tx,
-                                &arbeidssoeker.id,
-                                &hendelse.id,
-                                hendelse.startet.tidspunkt(),
-                            )
-                            .await?;
-
-                        let arbeidssoeker_til = hendelse
-                            .avsluttet
-                            .map(|metadata| metadata.tidspunkt().to_owned());
-
-                        // Lagre ny kartlegging
-                        let kartlegging_row = KartleggingRow::new(
-                            hendelse.id.clone(),
-                            arbeidssoeker_row.id,
-                            hendelse.startet.tidspunkt().to_owned(),
-                            arbeidssoeker_til,
-                            arbeidsledig_fra,
-                        );
-                        kartlegging::insert(tx, &kartlegging_row).await?;
-
-                        Ok(ProcessorResult::Continue)
-                    }
-                } else {
-                    // Arbeidssøker finnes ikke fra før
-
-                    // Hent navn fra PDL
-                    let navn = self
-                        .hent_navn(message, &arbeidssoeker.identitetsnummer)
-                        .await?;
-
-                    // Lagre ny arbeidssøker
-                    let arbeidssoeker_row = ArbeidssoekerRow::new(
-                        arbeidssoeker.id,
-                        arbeidssoeker.aktor_id.clone(),
-                        arbeidssoeker.identitetsnummer.clone(),
-                        navn.fornavn.clone(),
-                        navn.mellomnavn.clone(),
-                        navn.etternavn.clone(),
-                    );
-                    arbeidssoeker::insert(tx, &arbeidssoeker_row).await?;
-
-                    // Beregn ledighet fra tilhørende bekreftelser, om de finnes
-                    let arbeidsledig_fra = self
-                        .utled_arbeidsledighet_fra_bekreftelser(tx, &hendelse.id)
-                        .await?;
-
-                    let arbeidssoeker_til = hendelse
-                        .avsluttet
-                        .map(|metadata| metadata.tidspunkt().to_owned());
-
-                    // Lagre ny kartlegging
-                    let kartlegging_row = KartleggingRow::new(
-                        hendelse.id.clone(),
-                        arbeidssoeker.id,
-                        hendelse.startet.tidspunkt().to_owned(),
-                        arbeidssoeker_til,
-                        arbeidsledig_fra,
-                    );
-                    kartlegging::insert(tx, &kartlegging_row).await?;
-
-                    Ok(ProcessorResult::Continue)
-                }
+                Ok(ProcessorResult::Continue)
             }
         }
     }
@@ -433,10 +326,6 @@ mod tests {
         test_process_periode_1_avsluttet(context).await?;
         test_process_periode_2_start(context).await?;
 
-        test_utled_arbeidsledighet_fra_bekreftelser(context).await?;
-        test_utled_arbeidsledighet_fra_eksisterende_kartlegging(context).await?;
-        test_utled_arbeidsledighet_fra_tidligere_kartlegging(context).await?;
-
         Ok(())
     }
 
@@ -446,7 +335,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_start_periode(identitetsnummer_1, periode_id_1);
+        let periode = create_dummy_start_periode(identitetsnummer_1, periode_id_1, None);
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode)
@@ -499,7 +388,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1);
+        let periode = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1, None, None);
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode)
@@ -552,7 +441,7 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_2 = context.periode_id_2;
 
-        let periode = create_dummy_start_periode(identitetsnummer_2, periode_id_2);
+        let periode = create_dummy_start_periode(identitetsnummer_2, periode_id_2, None);
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode)
@@ -598,295 +487,6 @@ mod tests {
         assert!(kartlegging_row.arbeidssoeker_til.is_none());
         assert!(kartlegging_row.arbeidsledig_fra.is_none());
 
-        Ok(())
-    }
-
-    async fn test_utled_arbeidsledighet_fra_bekreftelser(
-        context: &TestContext,
-    ) -> anyhow::Result<()> {
-        let periode_id = context.periode_id_3;
-        let periode_startet = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
-
-        let bekreftelse_row_1 = BekreftelseRow {
-            id: Uuid::new_v4(),
-            periode_id,
-            gjelder_fra: periode_startet,
-            gjelder_til: periode_startet + Duration::days(14),
-            har_jobbet: false,
-            vil_fortsette: true,
-            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string(),
-            tidspunkt: Utc::now(),
-        };
-
-        let bekreftelse_row_2 = BekreftelseRow {
-            id: Uuid::new_v4(),
-            periode_id,
-            gjelder_fra: periode_startet + Duration::days(14),
-            gjelder_til: periode_startet + Duration::days(28),
-            har_jobbet: false,
-            vil_fortsette: true,
-            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string(),
-            tidspunkt: Utc::now(),
-        };
-
-        let bekreftelse_row_3 = BekreftelseRow {
-            id: Uuid::new_v4(),
-            periode_id,
-            gjelder_fra: periode_startet + Duration::days(28),
-            gjelder_til: periode_startet + Duration::days(32),
-            har_jobbet: true,
-            vil_fortsette: true,
-            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string(),
-            tidspunkt: Utc::now(),
-        };
-
-        let mut tx = context.start_tx().await;
-
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
-            .await?;
-        assert!(optional_ledighet_1.is_none());
-
-        bekreftelse::insert(&mut tx, &bekreftelse_row_1).await?;
-
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
-            .await?;
-        assert!(optional_ledighet_2.is_some());
-        let ledighet_2 = optional_ledighet_2.expect("Ledighet ikke satt");
-        assert_eq!(ledighet_2, periode_startet);
-
-        bekreftelse::insert(&mut tx, &bekreftelse_row_2).await?;
-
-        let optional_ledighet_3 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
-            .await?;
-        assert!(optional_ledighet_3.is_some());
-        let ledighet_3 = optional_ledighet_3.expect("Ledighet ikke satt");
-        assert_eq!(ledighet_3, periode_startet);
-
-        bekreftelse::insert(&mut tx, &bekreftelse_row_3).await?;
-
-        let optional_ledighet_4 = context
-            .processor
-            .utled_arbeidsledighet_fra_bekreftelser(&mut tx, &periode_id)
-            .await?;
-        assert!(optional_ledighet_4.is_none());
-
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-        Ok(())
-    }
-
-    async fn test_utled_arbeidsledighet_fra_eksisterende_kartlegging(
-        context: &TestContext,
-    ) -> anyhow::Result<()> {
-        let periode_id = context.periode_id_4;
-        let periode_startet = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-
-        let bekreftelse_row = BekreftelseRow {
-            id: Uuid::new_v4(),
-            periode_id,
-            gjelder_fra: periode_startet,
-            gjelder_til: periode_startet + Duration::days(14),
-            har_jobbet: false,
-            vil_fortsette: true,
-            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string(),
-            tidspunkt: Utc::now(),
-        };
-
-        let mut tx = context.start_tx().await;
-
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(
-                &mut tx,
-                &periode_id,
-                &Some(periode_startet + Duration::days(7)),
-            )
-            .await?;
-        assert!(optional_ledighet_1.is_some());
-        assert_eq!(
-            optional_ledighet_1,
-            Some(periode_startet + Duration::days(7))
-        );
-
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx, &periode_id, &None)
-            .await?;
-        assert!(optional_ledighet_2.is_none());
-
-        bekreftelse::insert(&mut tx, &bekreftelse_row).await?;
-
-        let optional_ledighet_3 = context
-            .processor
-            .utled_arbeidsledighet_fra_eksisterende_kartlegging(&mut tx, &periode_id, &None)
-            .await?;
-        assert!(optional_ledighet_3.is_some());
-        let ledighet_3 = optional_ledighet_3.expect("Ledighet ikke satt");
-        assert_eq!(ledighet_3, bekreftelse_row.gjelder_fra);
-
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
-        Ok(())
-    }
-
-    async fn test_utled_arbeidsledighet_fra_tidligere_kartlegging(
-        context: &TestContext,
-    ) -> anyhow::Result<()> {
-        let arbeidssoeker_id = context.arbeidssoeker_id_5;
-        let aktor_id = context.aktor_id_5;
-        let identitetsnummer = context.identitetsnummer_5;
-        let tidligere_periode_id = context.periode_id_5_1;
-        let gjeldende_periode_id = context.periode_id_5_2;
-        let tidligere_periode_startet = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
-        let tidligere_periode_avsluttet = tidligere_periode_startet + Duration::days(90);
-
-        let arbeidssoeker_row = ArbeidssoekerRow {
-            id: arbeidssoeker_id,
-            aktor_id: aktor_id.to_string(),
-            identitetsnummer: identitetsnummer.to_string(),
-            fornavn: None,
-            mellomnavn: None,
-            etternavn: None,
-        };
-
-        let tidligere_kartlegging_row = KartleggingRow {
-            periode_id: tidligere_periode_id,
-            arbeidssoeker_id,
-            arbeidssoeker_fra: tidligere_periode_startet,
-            arbeidssoeker_til: None,
-            arbeidsledig_fra: None,
-        };
-
-        let arbeidsledig_fra_1 = tidligere_periode_startet + Duration::days(1);
-        let arbeidsledig_fra_2 = tidligere_periode_startet + Duration::days(2);
-        let arbeidsledig_fra_3 = tidligere_periode_startet + Duration::days(3);
-
-        let bekreftelse_row = BekreftelseRow {
-            id: Uuid::new_v4(),
-            periode_id: gjeldende_periode_id,
-            gjelder_fra: tidligere_periode_avsluttet + Duration::days(1),
-            gjelder_til: tidligere_periode_avsluttet + Duration::days(15),
-            har_jobbet: false,
-            vil_fortsette: true,
-            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret
-                .as_ref()
-                .to_string(),
-            tidspunkt: Utc::now(),
-        };
-
-        let mut tx = context.start_tx().await;
-
-        arbeidssoeker::insert(&mut tx, &arbeidssoeker_row).await?;
-
-        // Steg 1: Ingen bekreftelser og ingen tidligere kartlegginger
-        let optional_ledighet_1 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &(tidligere_periode_avsluttet + Duration::days(10)),
-            )
-            .await?;
-        assert!(optional_ledighet_1.is_none());
-
-        // Steg 2: Har en tidligere kartlegging, men uten ledighet satt og periode er aktiv
-        kartlegging::insert(&mut tx, &tidligere_kartlegging_row).await?;
-        let optional_ledighet_2 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &(tidligere_periode_avsluttet + Duration::days(10)),
-            )
-            .await?;
-        assert!(optional_ledighet_2.is_none());
-
-        // Steg 3: Setter ledighet på tidligere kartlegging, men perioder er aktiv
-        kartlegging::update(
-            &mut tx,
-            &tidligere_periode_id,
-            &None,
-            &Some(arbeidsledig_fra_1),
-        )
-        .await?;
-        let optional_ledighet_3 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &(tidligere_periode_avsluttet + Duration::days(10)),
-            )
-            .await?;
-        assert!(optional_ledighet_3.is_none());
-
-        // Steg 4: Perioder er avluttet, men gap mellom perioder er mer enn 14 dager
-        kartlegging::update(
-            &mut tx,
-            &tidligere_periode_id,
-            &Some(tidligere_periode_avsluttet),
-            &Some(arbeidsledig_fra_2),
-        )
-        .await?;
-        let optional_ledighet_4 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &(tidligere_periode_avsluttet + Duration::days(15)),
-            )
-            .await?;
-        assert!(optional_ledighet_4.is_none());
-
-        // Steg 5: Perioder er avluttet, og gap mellom perioder er mindre enn 14 dager
-        kartlegging::update(
-            &mut tx,
-            &tidligere_periode_id,
-            &Some(tidligere_periode_avsluttet),
-            &Some(arbeidsledig_fra_3),
-        )
-        .await?;
-        let optional_ledighet_5 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &(tidligere_periode_avsluttet + Duration::days(13)),
-            )
-            .await?;
-        assert_eq!(optional_ledighet_5, Some(arbeidsledig_fra_3));
-
-        // Steg 6: Det finnes bekreftelse for gjeldende periode
-        let gjeldende_periode_startet_6 = bekreftelse_row.gjelder_fra;
-        bekreftelse::insert(&mut tx, &bekreftelse_row).await?;
-        let optional_ledighet_6 = context
-            .processor
-            .utled_arbeidsledighet_fra_tidligere_kartlegging(
-                &mut tx,
-                &arbeidssoeker_id,
-                &gjeldende_periode_id,
-                &gjeldende_periode_startet_6,
-            )
-            .await?;
-        assert_eq!(optional_ledighet_6, Some(gjeldende_periode_startet_6));
-
-        tx.commit().await.expect("Kunne ikke commit transaksjon");
         Ok(())
     }
 
@@ -962,17 +562,10 @@ mod tests {
                         pdl_client,
                     ),
                     arbeidssoeker_id_1: 12345,
-                    arbeidssoeker_id_5: 56789,
-                    aktor_id_5: "501701234500",
                     identitetsnummer_1_1: "41017012345",
                     identitetsnummer_1_2: "01017012345",
-                    identitetsnummer_5: "05017012345",
                     periode_id_1: Uuid::new_v4(),
                     periode_id_2: Uuid::new_v4(),
-                    periode_id_3: Uuid::new_v4(),
-                    periode_id_4: Uuid::new_v4(),
-                    periode_id_5_1: Uuid::new_v4(),
-                    periode_id_5_2: Uuid::new_v4(),
                 }
             })
             .await;
@@ -989,17 +582,10 @@ mod tests {
         avro_generator: AvroGenerator,
         processor: PeriodeProcessor,
         arbeidssoeker_id_1: i64,
-        arbeidssoeker_id_5: i64,
-        aktor_id_5: &'static str,
         identitetsnummer_1_1: &'static str,
         identitetsnummer_1_2: &'static str,
-        identitetsnummer_5: &'static str,
         periode_id_1: Uuid,
         periode_id_2: Uuid,
-        periode_id_3: Uuid,
-        periode_id_4: Uuid,
-        periode_id_5_1: Uuid,
-        periode_id_5_2: Uuid,
     }
 
     impl TestContext {

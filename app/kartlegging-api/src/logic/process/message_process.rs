@@ -56,8 +56,8 @@ impl KartleggingMessageProcessor {
                 schema_registry_settings.clone(),
             )),
             bekreftelse_processor: Arc::new(BekreftelseProcessor::new(
+                app_config.clone(),
                 schema_registry_settings.clone(),
-                app_config.kafka.synced_topics_as_vec(),
             )),
             bekreftelse_paavegneav_processor: Arc::new(BekreftelsePaaVegneAvProcessor::new(
                 schema_registry_settings.clone(),
@@ -249,7 +249,7 @@ mod tests {
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
 
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode.clone())
@@ -409,8 +409,15 @@ mod tests {
         let periode_id = context.periode_id;
         let bekreftelse_id = context.bekreftelse_id;
 
-        let bekreftelse =
-            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
+        let bekreftelse = create_dummy_bekreftelse(
+            identitetsnummer,
+            periode_id,
+            bekreftelse_id,
+            None,
+            None,
+            false,
+            true,
+        );
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse.clone())

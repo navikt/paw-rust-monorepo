@@ -1,10 +1,10 @@
+use crate::config::AppConfig;
 use crate::logic::process::PayloadProcessor;
+use crate::logic::process::kartlegging_process::utled_arbeidsledighet_for_bekreftelse;
 use crate::model::dao::bekreftelse::BekreftelseRow;
-use crate::model::dao::kartlegging::KartleggingRow;
 use crate::model::dao::{bekreftelse, kartlegging};
 use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
-use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
@@ -13,17 +13,20 @@ use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
+use std::sync::Arc;
 
 pub struct BekreftelseProcessor {
+    pub app_config: Arc<AppConfig>,
     pub deserializer: AvroDeserializer,
     synced_topics: Vec<String>,
 }
 
 impl BekreftelseProcessor {
-    pub fn new(schema_registry_settings: SrSettings, synced_topics: Vec<String>) -> Self {
+    pub fn new(app_config: Arc<AppConfig>, schema_registry_settings: SrSettings) -> Self {
         Self {
+            app_config: app_config.clone(),
             deserializer: AvroDeserializer::new(schema_registry_settings),
-            synced_topics,
+            synced_topics: app_config.kafka.synced_topics_as_vec(),
         }
     }
 
@@ -53,21 +56,58 @@ impl BekreftelseProcessor {
         }
     }
 
-    fn utled_arbeidsledighet_fra_bekreftelse<'a>(
-        &self,
-        hendelse: &Bekreftelse,
-        kartlegging_row: &KartleggingRow,
-    ) -> Option<DateTime<Utc>> {
-        if hendelse.svar.har_jobbet_i_denne_perioden {
-            // Nuller ut ledighet hvis arbeidssøker har jobbet
-            None
-        } else {
-            match kartlegging_row.arbeidsledig_fra {
-                // Har ikke jobbet og ledighet er ikke satt, så benytt bekreftelse gjelder_fra
-                None => Some(hendelse.svar.gjelder_fra),
-                // Har ikke jobbet og ledighet er satt, så behold eksisterende ledighet
-                Some(arbeidsledig_fra) => Some(arbeidsledig_fra),
+    async fn lagre_kartlegging<'a>(
+        &'a self,
+        tx: &mut Transaction<'_, Postgres>,
+        message: &OwnedMessage,
+        hendelse: &'a Bekreftelse,
+    ) -> anyhow::Result<ProcessorResult, ProcessorError> {
+        let kartlegging_rows = kartlegging::select_by_periode_id(tx, &hendelse.periode_id).await?;
+        let count = kartlegging_rows.len();
+        if count > 1 {
+            Err(DaoError::multiple_rows(message, "kartlegginger", count).into())
+        } else if count == 1 {
+            let kartlegging_row = kartlegging_rows
+                .first()
+                .ok_or_else(|| DaoError::no_rows(message, "kartlegginger"))?;
+            // Hent bekreftelser for periode-id
+            let bekreftelse_rows =
+                bekreftelse::select_by_periode_id(tx, &kartlegging_row.periode_id).await?;
+            let siste_bekreftelse_row = bekreftelse_rows.iter().max_by_key(|&row| row.gjelder_til);
+
+            if hendelse.svar.gjelder_til <= kartlegging_row.arbeidssoeker_fra {
+                tracing::warn!("Bekreftelseperiode er tidligere enn arbeidssøkerperiode");
+            } else if siste_bekreftelse_row.is_some()
+                && hendelse.svar.gjelder_til < siste_bekreftelse_row.unwrap().gjelder_til
+            {
+                tracing::warn!(
+                    "Bekreftelseperiode er tidligere enn nyeste eksisterende bekreftelseperiode"
+                );
+            } else {
+                let arbeidsledig_fra = utled_arbeidsledighet_for_bekreftelse(
+                    tx,
+                    &hendelse,
+                    &kartlegging_row,
+                    &bekreftelse_rows,
+                    self.app_config.periode_gap_grense_for_ledighet,
+                )
+                .await?;
+
+                kartlegging::update(
+                    tx,
+                    &hendelse.periode_id,
+                    &kartlegging_row.arbeidssoeker_til,
+                    &arbeidsledig_fra,
+                )
+                .await?;
             }
+
+            Ok(ProcessorResult::Continue)
+        } else {
+            tracing::debug!("Fant ingen kartlegginger for periode-id ennå, avventer periode");
+            Ok(ProcessorResult::Pause {
+                synced_topics: self.synced_topics.clone(),
+            })
         }
     }
 }
@@ -90,38 +130,11 @@ impl PayloadProcessor for BekreftelseProcessor {
 
                 tracing::debug!("Mottok {}-hendelse", &hendelse);
 
+                // Lagre bekreftelse
                 self.lagre_bekreftelse(tx, &message, &hendelse).await?;
 
-                let kartlegging_rows =
-                    kartlegging::select_by_periode_id(tx, &hendelse.periode_id).await?;
-                let count = kartlegging_rows.len();
-                if count > 1 {
-                    Err(DaoError::multiple_rows(message, "kartlegginger", count).into())
-                } else if count == 1 {
-                    let kartlegging_row = kartlegging_rows
-                        .first()
-                        .ok_or_else(|| DaoError::no_rows(message, "kartlegginger"))?;
-                    let arbeidssoeker_til = kartlegging_row.arbeidssoeker_til;
-                    let arbeidsledig_fra =
-                        self.utled_arbeidsledighet_fra_bekreftelse(&hendelse, &kartlegging_row);
-
-                    kartlegging::update(
-                        tx,
-                        &hendelse.periode_id,
-                        &arbeidssoeker_til,
-                        &arbeidsledig_fra,
-                    )
-                    .await?;
-
-                    Ok(ProcessorResult::Continue)
-                } else {
-                    tracing::debug!(
-                        "Fant ingen kartlegginger for periode-id ennå, avventer periode"
-                    );
-                    Ok(ProcessorResult::Pause {
-                        synced_topics: self.synced_topics.clone(),
-                    })
-                }
+                // Lagre kartlegging
+                self.lagre_kartlegging(tx, &message, &hendelse).await
             }
         }
     }
@@ -132,10 +145,16 @@ mod tests {
     use crate::config::read_app_config;
     use crate::logic::process::PayloadProcessor;
     use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
+    use crate::logic::process::kartlegging_process::utled_arbeidsledighet_for_bekreftelse;
     use crate::logic::process::periode_process::PeriodeProcessor;
+    use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
+    use crate::model::dao::kartlegging::KartleggingRow;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
     use crate::model::result::ProcessorResult;
+    use chrono::{Duration, TimeZone, Utc};
+    use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
+    use eksterne_hendelser::bekreftelse::vo::svar::Svar;
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
     use paw_key_gen_client::client::PawKeyGenClient;
@@ -147,7 +166,7 @@ mod tests {
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::{
-        create_dummy_bekreftelse, create_dummy_start_periode,
+        create_dummy_bekreftelse, create_dummy_bekreftelse_metadata, create_dummy_start_periode,
     };
     use token_client_stub::TokenClientStub;
     use tokio::sync::OnceCell;
@@ -161,9 +180,11 @@ mod tests {
 
         test_process_periode(context).await;
         test_process_bekreftelse_1_med_periode(context).await;
+        test_process_bekreftelse_for_perioden_beholder_ledighet(context).await;
         test_process_bekreftelse_2_med_periode(context).await;
         test_process_bekreftelse_3_uten_periode(context).await;
         test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context).await;
+        test_utled_arbeidsledighet_fra_bekreftelse_tidligere_kartlegging(context).await;
     }
 
     async fn test_process_periode(context: &TestContext) {
@@ -171,7 +192,7 @@ mod tests {
         let identitetsnummer = context.identitetsnummer_1;
         let periode_id = context.periode_id_1;
 
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode)
@@ -227,8 +248,15 @@ mod tests {
         let periode_id = context.periode_id_1;
         let bekreftelse_id = context.bekreftelse_id_1;
 
-        let bekreftelse =
-            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
+        let bekreftelse = create_dummy_bekreftelse(
+            identitetsnummer,
+            periode_id,
+            bekreftelse_id,
+            None,
+            None,
+            false,
+            true,
+        );
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
@@ -284,14 +312,70 @@ mod tests {
         assert_eq!(arbeidsledig_fra, bekreftelse_row.gjelder_fra);
     }
 
+    async fn test_process_bekreftelse_for_perioden_beholder_ledighet(context: &TestContext) {
+        let periode_id = context.periode_id_1;
+        let bekreftelse_id = Uuid::new_v4();
+        let mut tx = context.start_tx().await;
+        let kartlegging_row = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging")
+            .pop()
+            .expect("Ingen kartlegging funnet");
+        let arbeidsledig_fra = kartlegging_row
+            .arbeidsledig_fra
+            .expect("Forventet arbeidsledig_fra fra første bekreftelse");
+        let hendelse = Bekreftelse {
+            id: bekreftelse_id,
+            periode_id,
+            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
+            svar: Svar {
+                sendt_inn_av: create_dummy_bekreftelse_metadata(context.identitetsnummer_1, None),
+                gjelder_fra: kartlegging_row.arbeidssoeker_fra - Duration::days(14),
+                gjelder_til: kartlegging_row.arbeidssoeker_fra,
+                har_jobbet_i_denne_perioden: false,
+                vil_fortsette_som_arbeidssoeker: true,
+            },
+        };
+        let message = context
+            .avro_generator
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", hendelse)
+            .await;
+
+        context
+            .bekreftelse_processor
+            .process_payload(&mut tx, &message)
+            .await
+            .expect("Bekreftelse før perioden skal ignoreres");
+
+        let kartlegging_row = kartlegging::select_by_periode_id(&mut tx, &periode_id)
+            .await
+            .expect("Kunne ikke hente kartlegging")
+            .pop()
+            .expect("Ingen kartlegging funnet");
+        let bekreftelse_row = bekreftelse::select_by_id(&mut tx, &bekreftelse_id)
+            .await
+            .expect("Kunne ikke hente bekreftelse");
+        tx.commit().await.expect("Kunne ikke commit transaksjon");
+
+        assert!(bekreftelse_row.is_some());
+        assert_eq!(kartlegging_row.arbeidsledig_fra, Some(arbeidsledig_fra));
+    }
+
     async fn test_process_bekreftelse_2_med_periode(context: &TestContext) {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer = context.identitetsnummer_1;
         let periode_id = context.periode_id_1;
         let bekreftelse_id = context.bekreftelse_id_2;
 
-        let bekreftelse =
-            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, true, true);
+        let bekreftelse = create_dummy_bekreftelse(
+            identitetsnummer,
+            periode_id,
+            bekreftelse_id,
+            None,
+            None,
+            true,
+            true,
+        );
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
@@ -348,8 +432,15 @@ mod tests {
         let periode_id = context.periode_id_3;
         let bekreftelse_id = context.bekreftelse_id_3;
 
-        let bekreftelse =
-            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
+        let bekreftelse = create_dummy_bekreftelse(
+            identitetsnummer,
+            periode_id,
+            bekreftelse_id,
+            None,
+            None,
+            false,
+            true,
+        );
         let message = context
             .avro_generator
             .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
@@ -408,8 +499,15 @@ mod tests {
         let periode_id = context.periode_id_4;
         let bekreftelse_id = context.bekreftelse_id_4;
 
-        let bekreftelse =
-            create_dummy_bekreftelse(identitetsnummer, periode_id, bekreftelse_id, false, true);
+        let bekreftelse = create_dummy_bekreftelse(
+            identitetsnummer,
+            periode_id,
+            bekreftelse_id,
+            None,
+            None,
+            false,
+            true,
+        );
         let bekreftelse_message = context
             .avro_generator
             .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
@@ -443,7 +541,7 @@ mod tests {
         );
 
         // Steg 2: perioden ankommer og prosesseres normalt.
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id);
+        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let periode_message = context
             .avro_generator
             .create_avro_message("paw.arbeidssokerperioder-v1", periode)
@@ -488,6 +586,100 @@ mod tests {
         assert_eq!(kartlegging_rows.len(), 1);
         let kartlegging_row = kartlegging_rows.first().expect("Ingen kartlegging funnet");
         assert_eq!(kartlegging_row.periode_id, periode_id);
+    }
+
+    /// Regresjonstest for at `BekreftelseProcessor` overtar tidligere-kartlegging-fallbacken som
+    /// tidligere kun `PeriodeProcessor` hadde. Dette er kritisk for rekalkuleringsplanen: siden
+    /// kun bekreftelse-topicet rewindes (ikke periode-topicet), må `BekreftelseProcessor` alene
+    /// kunne reprodusere ledigheten en tidligere periode ga videre.
+    async fn test_utled_arbeidsledighet_fra_bekreftelse_tidligere_kartlegging(
+        context: &TestContext,
+    ) {
+        let arbeidssoeker_id = 999_001;
+        let aktor_id = "9999900001";
+        let identitetsnummer = "99999900001";
+        let tidligere_periode_id = Uuid::new_v4();
+        let gjeldende_periode_id = Uuid::new_v4();
+
+        let tidligere_periode_startet = Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap();
+        let tidligere_periode_avsluttet = tidligere_periode_startet + Duration::days(90);
+        let tidligere_arbeidsledig_fra = tidligere_periode_startet + Duration::days(5);
+        // Gjeldende periode starter kun 5 dager etter forrige periode ble avsluttet, altså godt
+        // innenfor `periode_gap_grense_for_ledighet` (14 dager i test-konfigurasjonen).
+        let gjeldende_periode_startet = tidligere_periode_avsluttet + Duration::days(5);
+
+        let mut tx = context.start_tx().await;
+
+        arbeidssoeker::insert(
+            &mut tx,
+            &ArbeidssoekerRow {
+                id: arbeidssoeker_id,
+                aktor_id: aktor_id.to_string(),
+                identitetsnummer: identitetsnummer.to_string(),
+                fornavn: None,
+                mellomnavn: None,
+                etternavn: None,
+            },
+        )
+        .await
+        .expect("Kunne ikke opprette arbeidssøker");
+
+        kartlegging::insert(
+            &mut tx,
+            &KartleggingRow::new(
+                tidligere_periode_id,
+                arbeidssoeker_id,
+                tidligere_periode_startet,
+                Some(tidligere_periode_avsluttet),
+                Some(tidligere_arbeidsledig_fra),
+            ),
+        )
+        .await
+        .expect("Kunne ikke opprette tidligere kartlegging");
+
+        let gjeldende_kartlegging_row = KartleggingRow::new(
+            gjeldende_periode_id,
+            arbeidssoeker_id,
+            gjeldende_periode_startet,
+            None,
+            None,
+        );
+        let bekreftelse_rows = vec![];
+
+        // Bekreftelsen gjelder utelukkende før gjeldende periode ble startet, så
+        // grensesnitts-regelen alene ville gitt `None` her.
+        let hendelse = Bekreftelse {
+            id: Uuid::new_v4(),
+            periode_id: gjeldende_periode_id,
+            bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
+            svar: Svar {
+                sendt_inn_av: create_dummy_bekreftelse_metadata(identitetsnummer, None),
+                gjelder_fra: gjeldende_periode_startet - Duration::days(10),
+                gjelder_til: gjeldende_periode_startet - Duration::days(5),
+                har_jobbet_i_denne_perioden: false,
+                vil_fortsette_som_arbeidssoeker: true,
+            },
+        };
+
+        let arbeidsledig_fra = utled_arbeidsledighet_for_bekreftelse(
+            &mut tx,
+            &hendelse,
+            &gjeldende_kartlegging_row,
+            &bekreftelse_rows,
+            14,
+        )
+        .await
+        .expect("Kunne ikke utlede ledighet");
+
+        tx.rollback()
+            .await
+            .expect("Kunne ikke rulle tilbake transaksjon");
+
+        assert_eq!(
+            arbeidsledig_fra,
+            Some(tidligere_arbeidsledig_fra),
+            "Ledighet fra tidligere, nylig avsluttet periode skal overføres når bekreftelsen selv ikke gir noen ledighet"
+        );
     }
 
     static INIT: OnceCell<TestContext> = OnceCell::const_new();
@@ -559,8 +751,8 @@ mod tests {
                     pdl_client,
                 ),
                 bekreftelse_processor: BekreftelseProcessor::new(
+                    app_config.clone(),
                     schema_registry_settings.clone(),
-                    app_config.kafka.synced_topics_as_vec(),
                 ),
                 arbeidssoeker_id_1: 12345,
                 identitetsnummer_1: "01017012345",
@@ -600,6 +792,10 @@ mod tests {
 
     impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
+            println!(
+                "Starter transaksjon (antall ledige tråder: {})",
+                self.pg_pool.num_idle()
+            );
             self.pg_pool
                 .begin()
                 .await

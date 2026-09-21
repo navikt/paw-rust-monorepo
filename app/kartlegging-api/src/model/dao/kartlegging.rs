@@ -89,6 +89,7 @@ pub async fn select_by_periode_id<'a>(
             arbeidsledig_fra  AT TIME ZONE 'UTC' AS arbeidsledig_fra
         FROM kartlegginger
         WHERE periode_id = $1
+        ORDER BY arbeidssoeker_fra DESC
         "#,
     )
     .bind(periode_id)
@@ -98,12 +99,12 @@ pub async fn select_by_periode_id<'a>(
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn select_latest_by_arbeidssoeker_id<'a>(
+pub async fn select_by_arbeidssoeker_id<'a>(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: &'a i64,
-) -> anyhow::Result<Option<KartleggingRow>> {
+) -> anyhow::Result<Vec<KartleggingRow>> {
     tracing::debug!("Select latest kartlegging by arbeidssoeker_id");
-    let row = sqlx::query_as::<_, KartleggingRow>(
+    let rows = sqlx::query_as::<_, KartleggingRow>(
         r#"
         SELECT
             periode_id,
@@ -114,13 +115,12 @@ pub async fn select_latest_by_arbeidssoeker_id<'a>(
         FROM kartlegginger
         WHERE arbeidssoeker_id = $1
         ORDER BY arbeidssoeker_fra DESC
-        LIMIT 1
         "#,
     )
     .bind(arbeidssoeker_id)
-    .fetch_optional(&mut **tx)
+    .fetch_all(&mut **tx)
     .await?;
-    Ok(row)
+    Ok(rows)
 }
 
 #[tracing::instrument(skip_all)]
