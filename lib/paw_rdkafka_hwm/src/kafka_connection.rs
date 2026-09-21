@@ -15,7 +15,8 @@ pub fn create_kafka_consumer(
     kafka_config: KafkaConfig,
     topics: &[&str],
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
-    create_kafka_consumer_inner(app_state, pg_pool, kafka_config, topics, None)
+    let context = HwmRebalanceHandler::new(pg_pool, app_state, *kafka_config.hwm_version);
+    create_kafka_consumer_inner(kafka_config, topics, context)
 }
 pub fn create_kafka_consumer_with_sender(
     app_state: Arc<AppState>,
@@ -24,23 +25,17 @@ pub fn create_kafka_consumer_with_sender(
     topics: &[&str],
     sender: UnboundedSender<RebalanceMessage>,
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
-    create_kafka_consumer_inner(app_state, pg_pool, kafka_config, topics, Some(sender))
+    let context =
+        HwmRebalanceHandler::new_with_sender(pg_pool, app_state, *kafka_config.hwm_version, sender);
+    create_kafka_consumer_inner(kafka_config, topics, context)
 }
 
 fn create_kafka_consumer_inner(
-    app_state: Arc<AppState>,
-    pg_pool: PgPool,
     kafka_config: KafkaConfig,
     topics: &[&str],
-    sender: Option<UnboundedSender<RebalanceMessage>>,
+    context: HwmRebalanceHandler,
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
     let config = kafka_config.rdkafka_client_config()?;
-    let context = HwmRebalanceHandler {
-        pg_pool,
-        app_state,
-        version: *kafka_config.hwm_version,
-        sender,
-    };
     let consumer: StreamConsumer<HwmRebalanceHandler> = config
         .create_with_context(context)
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?;
