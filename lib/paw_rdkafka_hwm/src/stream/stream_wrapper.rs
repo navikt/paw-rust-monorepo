@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use rdkafka::Message;
@@ -9,6 +10,7 @@ use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
 };
 use tokio::time::timeout_at;
+use tracing::{Span, instrument};
 
 use crate::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
@@ -27,17 +29,48 @@ pub struct PawKafkaConsumerStream {
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
-    #[tracing::instrument(skip(self), name = "PawKafkaConsumerStream::receive")]
+    #[tracing::instrument(
+        skip(self),
+        name = "paw_kafka_stream.receive",
+        fields(
+            empty_before_load,
+            empty_after_load,
+            topic,
+            partition,
+            offset,
+            timestamp
+        )
+    )]
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
         self.drain_main_consumer().await?;
         let rebalance_events = get_rebalance_events(&mut self.receiver);
         self.handle_rebalance_events(rebalance_events)?;
+        let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
         load(&mut self.queues, self.timeout).await?;
+        let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
         let result = self
             .queues
             .iter_mut()
             .min_by_key(|q| q.timestamp())
             .and_then(|q| q.take_head());
+        Span::current().record("empty_before_load", empty_before_load as u64);
+        Span::current().record("empty_after_load", empty_after_load as u64);
+        if let Some(msg) = result.as_ref() {
+            Span::current().record("topic", msg.topic());
+            Span::current().record("partition", msg.partition());
+            Span::current().record("offset", msg.offset());
+            Span::current().record(
+                "timestamp",
+                msg.timestamp()
+                    .to_millis()
+                    .and_then(DateTime::from_timestamp_millis)
+                    .map(|dt| dt.to_rfc3339())
+                    .unwrap_or_else(|| "unknown".to_string()),
+            );
+        } else {
+            tracing::info!("No messages available in any queue");
+            return Ok((self, None));
+        };
         Ok((self, result))
     }
 
@@ -46,6 +79,11 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     }
 }
 
+#[instrument(
+    skip(queues),
+    name = "paw_kafka_stream.load",
+    fields(topic_partitions = queues.len() as u64)
+)]
 async fn load(queues: &mut Vec<QueueHandler>, timeout: Duration) -> Result<(), StreamError> {
     let mut updates = FuturesUnordered::new();
     for queue in queues {

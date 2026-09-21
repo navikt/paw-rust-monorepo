@@ -3167,6 +3167,7 @@ name = "paw_rdkafka_hwm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "futures",
  "health_and_monitoring",
  "log",
