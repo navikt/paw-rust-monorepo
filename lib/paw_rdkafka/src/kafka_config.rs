@@ -46,18 +46,19 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         .set("auto.offset.reset", auto_offset_reset)
         .set("enable.auto.commit", auto_commit)
         .set("security.protocol", security_protocol.clone())
-        // Memory-constrained settings using only valid rdkafka properties
-        // Note: fetch.max.bytes must be >= message.max.bytes (default 1MB)
-        .set("message.max.bytes", "65536") // 64KB max message size
-        .set("fetch.max.bytes", "131072") // 128KB max fetch (must be >= message.max.bytes)
-        .set("fetch.message.max.bytes", "32768") // 32KB max per partition
-        .set("queued.max.messages.kbytes", "1024") // 1MB internal queue size
-        .set("queued.min.messages", partition_queue_min_size) // Min messages in queue
-        .set("socket.receive.buffer.bytes", "4096") // 4KB socket receive buffer
-        .set("socket.send.buffer.bytes", "4096") // 4KB socket send buffer
-        .set("fetch.min.bytes", "1") // Don't wait for much data
-        .set("fetch.wait.max.ms", "100") // Don't wait long for data
-        .set("receive.message.max.bytes", "200000") // 200KB max response (must be > fetch.max.bytes + 512)
+        // 1. Message size safety (Default 1MB) - prevents client crashes on large records
+        .set("message.max.bytes", "1000000")
+        // 2. Local partition queue caps (Controls buffer depth for timestamp alignment)
+        .set("queued.min.messages", partition_queue_min_size) // 1000
+        .set("queued.max.messages.kbytes", "1024") // 1MB per partition queue
+        // 3. Fetch sizes (Keep per-partition chunks small, total fetch payload large)
+        .set("max.partition.fetch.bytes", "65536") // 64KB per partition per fetch
+        .set("fetch.max.bytes", "1048576") // 1MB global fetch limit across partitions
+        // 4. Transport payload cap (MUST be > fetch.max.bytes + 512)
+        .set("receive.message.max.bytes", "1500000") // 1.5MB to safely hold the 1MB fetch payload
+        // 5. Low latency fetch timing
+        .set("fetch.min.bytes", "1") // Do not wait on broker for aggregation
+        .set("fetch.wait.max.ms", "100") // 100ms max broker delay
         .set_log_level(RDKafkaLogLevel::Info);
 
     if security_protocol.clone().to_lowercase() == "ssl" {
