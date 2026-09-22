@@ -68,6 +68,7 @@ pub fn setup_nais_otel() -> Result<()> {
                 // HTTP/2-frame, som drukner ut nyttige applikasjonslogger.
                 .add_directive("h2=info".parse()?)
                 .add_directive("tonic=info".parse()?)
+                .add_directive("tower=info".parse()?)
                 .add_directive("hyper=info".parse()?)
                 .add_directive("hyper_util=info".parse()?)
                 .add_directive("rustls=info".parse()?)
