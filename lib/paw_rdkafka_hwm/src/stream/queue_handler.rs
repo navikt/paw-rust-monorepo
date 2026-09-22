@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
+use std::sync::LazyLock;
 
 use paw_rdkafka::error::KafkaError;
+use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
 use tracing::Span;
 
@@ -19,6 +21,8 @@ pub struct QueueHandler {
     head: VecDeque<OwnedMessage>,
     rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
     internal_buffer_size: usize,
+    last_timestamp_gauge: Gauge,
+    next_timestamp_gauge: Gauge,
 }
 
 impl QueueHandler {
@@ -27,11 +31,17 @@ impl QueueHandler {
         rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
         internal_buffer_size: usize,
     ) -> Self {
+        let topic = key.topic.clone();
+        let partition = key.partition.to_string();
         Self {
             key,
             head: VecDeque::new(),
             rdkafka_stream,
             internal_buffer_size,
+            last_timestamp_gauge: LAST_QUEUE_HANDLER_TIMESTAMP
+                .with_label_values(&[&topic, &partition]),
+            next_timestamp_gauge: NEXT_QUEUE_HANDLER_TIMESTAMP
+                .with_label_values(&[&topic, &partition]),
         }
     }
 
@@ -40,7 +50,16 @@ impl QueueHandler {
     }
 
     pub fn take_head(&mut self) -> Option<OwnedMessage> {
-        self.head.pop_front()
+        let msg = self.head.pop_front()?;
+        if let Some(ts) = msg.timestamp().to_millis() {
+            self.last_timestamp_gauge.set(ts as f64);
+        }
+        let next_ts = self
+            .head
+            .front()
+            .and_then(|msg| msg.timestamp().to_millis());
+        self.next_timestamp_gauge.set(next_ts.unwrap_or(0) as f64);
+        Some(msg)
     }
     #[tracing::instrument(
         skip(self),
@@ -55,7 +74,12 @@ impl QueueHandler {
             while self.head.len() < self.internal_buffer_size {
                 match self.rdkafka_stream.recv().await {
                     Ok(record) => {
-                        self.head.push_back(record.detach());
+                        let record = record.detach();
+                        if self.head.is_empty() {
+                            self.next_timestamp_gauge
+                                .set(record.timestamp().to_millis().unwrap_or(0) as f64);
+                        }
+                        self.head.push_back(record);
                         Span::current().record("record_added", self.head.len() as u64);
                     }
                     Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
@@ -86,3 +110,29 @@ impl QueueHandler {
         self.head.is_empty()
     }
 }
+
+impl Drop for QueueHandler {
+    fn drop(&mut self) {
+        let topic = self.key.topic.clone();
+        let partition = self.key.partition.to_string();
+        let _ = LAST_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
+        let _ = NEXT_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
+    }
+}
+
+static LAST_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "paw_kafka_stream_queue_handler_next_timestamp",
+        "The timestamp of the last message retrieved from the queue handler",
+        &["topic", "partition"]
+    )
+    .expect("Failed to create gauge")
+});
+static NEXT_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "paw_kafka_stream_queue_handler_next_timestamp",
+        "The timestamp of the next message retrieved from the queue handler",
+        &["topic", "partition"]
+    )
+    .expect("Failed to create gauge")
+});
