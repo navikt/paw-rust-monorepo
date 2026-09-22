@@ -1,4 +1,4 @@
 hwm_version = 1
 brokers = "localhost:9092"
-group_id_prefix = "paw-kafka-topic-backup"
+group_id_prefix = "internkontroll-arbeidssoekerregisteret"
 

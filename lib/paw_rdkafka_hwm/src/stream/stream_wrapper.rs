@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
-use prometheus::{Counter, Gauge, GaugeVec, register_counter, register_gauge, register_gauge_vec};
+use prometheus::{Counter, Gauge, register_counter, register_gauge};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
@@ -257,3 +257,12 @@ static STREAM_WRPPER_BACK_IN_TIME_CONTER: LazyLock<Counter> = LazyLock::new(|| {
     )
     .expect("Failed to create counter")
 });
+
+/// Tvinger frem registrering av stream-wrapper-metrikkene i Prometheus-registeret
+/// med det samme. Uten dette kallet blir metrikkene først synlige i `/internal/metrics`
+/// etter at den første Kafka-meldingen er mottatt, siden `LazyLock` kun initialiseres
+/// ved første tilgang.
+pub fn init_stream_wrapper_metrics() {
+    LazyLock::force(&STREAM_WRAPER_TIMESTAMP);
+    LazyLock::force(&STREAM_WRPPER_BACK_IN_TIME_CONTER);
+}
