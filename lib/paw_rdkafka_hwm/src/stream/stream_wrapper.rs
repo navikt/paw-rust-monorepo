@@ -148,6 +148,11 @@ impl PawKafkaConsumerStream {
         }
     }
 
+    #[tracing::instrument(
+        skip(self),
+        name = "paw_kafka_stream.handle_rebalance_events",
+        fields(rebalance_events = rebalance_events.len() as u64)
+    )]
     fn handle_rebalance_events(
         &mut self,
         rebalance_events: Vec<RebalanceMessage>,
@@ -193,7 +198,11 @@ impl PawKafkaConsumerStream {
         }
         Ok(())
     }
-
+    #[tracing::instrument(
+        skip(self),
+        name = "paw_kafka_stream.drain_main_consumer",
+        fields(topic_partitions = self.queues.len() as u64)
+    )]
     async fn drain_main_consumer(&mut self) -> Result<(), StreamError> {
         while let Some(res) = self.consumer.recv().now_or_never() {
             match res {
@@ -221,6 +230,8 @@ impl PawKafkaConsumerStream {
         Ok(())
     }
 }
+
+#[tracing::instrument(skip(receiver), name = "paw_kafka_stream.get_rebalance_events")]
 fn get_rebalance_events(
     receiver: &mut UnboundedReceiver<RebalanceMessage>,
 ) -> Vec<RebalanceMessage> {
