@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 
 use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
@@ -23,6 +24,7 @@ pub struct QueueHandler {
     internal_buffer_size: usize,
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
+    empty_since: Option<Instant>,
 }
 
 impl QueueHandler {
@@ -42,6 +44,7 @@ impl QueueHandler {
                 .with_label_values(&[&topic, &partition]),
             next_timestamp_gauge: NEXT_QUEUE_HANDLER_TIMESTAMP
                 .with_label_values(&[&topic, &partition]),
+            empty_since: Some(Instant::now()),
         }
     }
 
@@ -59,6 +62,9 @@ impl QueueHandler {
             .front()
             .and_then(|msg| msg.timestamp().to_millis());
         self.next_timestamp_gauge.set(next_ts.unwrap_or(0) as f64);
+        if self.head.is_empty() {
+            self.empty_since = Some(Instant::now());
+        }
         Some(msg)
     }
     #[tracing::instrument(
@@ -78,6 +84,7 @@ impl QueueHandler {
                         if self.head.is_empty() {
                             self.next_timestamp_gauge
                                 .set(record.timestamp().to_millis().unwrap_or(0) as f64);
+                            self.empty_since = None;
                         }
                         self.head.push_back(record);
                         Span::current().record("record_added", self.head.len() as u64);
@@ -98,6 +105,9 @@ impl QueueHandler {
                 topic, partition, self.key.topic, self.key.partition
             )));
         }
+        if self.head.is_empty() {
+            self.empty_since = None;
+        }
         self.head.push_back(msg);
         Ok(self.head.len())
     }
@@ -108,6 +118,12 @@ impl QueueHandler {
 
     pub fn is_empty(&self) -> bool {
         self.head.is_empty()
+    }
+
+    pub fn empty_for(&self) -> Option<Duration> {
+        self.is_empty()
+            .then(|| self.empty_since.map(|t| t.elapsed()))
+            .flatten()
     }
 }
 
