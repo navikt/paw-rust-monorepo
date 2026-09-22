@@ -1,9 +1,11 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
+use prometheus::{Counter, Gauge, GaugeVec, register_counter, register_gauge, register_gauge_vec};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use tokio::sync::mpsc::{
@@ -26,6 +28,7 @@ pub struct PawKafkaConsumerStream {
     queues: Vec<QueueHandler>,
     timeout: Duration,
     internal_buffer_size: usize,
+    stream_times: HashMap<i32, i64>,
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
@@ -66,6 +69,30 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     .and_then(DateTime::from_timestamp_millis)
                     .map(|dt| dt.to_rfc3339())
                     .unwrap_or_else(|| "unknown".to_string()),
+            );
+            self.stream_times
+                .entry(msg.partition())
+                .and_modify(|ts| {
+                    let new_ts = msg.timestamp().to_millis().unwrap_or(-1);
+                    if new_ts >= *ts {
+                        *ts = new_ts;
+                    } else {
+                        STREAM_WRPPER_BACK_IN_TIME_CONTER.inc();
+                        tracing::warn!(
+                            "partition {} => back in time: {}ms, caused by topic: {}",
+                            msg.partition(),
+                            *ts - new_ts,
+                            msg.topic(),
+                        );
+                    }
+                })
+                .or_insert_with(|| msg.timestamp().to_millis().unwrap_or(-1));
+            STREAM_WRAPER_TIMESTAMP.set(
+                msg.timestamp()
+                    .to_millis()
+                    .and_then(DateTime::from_timestamp_millis)
+                    .map(|dt| dt.timestamp_millis() as f64)
+                    .unwrap_or(0.0),
             );
         } else {
             Span::current().record("topic", "none");
@@ -117,6 +144,7 @@ impl PawKafkaConsumerStream {
             queues: Vec::new(),
             timeout,
             internal_buffer_size,
+            stream_times: HashMap::new(),
         }
     }
 
@@ -213,3 +241,19 @@ fn get_rebalance_events(
     }
     messages
 }
+
+static STREAM_WRAPER_TIMESTAMP: LazyLock<Gauge> = LazyLock::new(|| {
+    register_gauge!(
+        "paw_kafka_stream_timestamp",
+        "The timestamp of the last message retrieved from the stream wrapper"
+    )
+    .expect("Failed to create gauge")
+});
+
+static STREAM_WRPPER_BACK_IN_TIME_CONTER: LazyLock<Counter> = LazyLock::new(|| {
+    register_counter!(
+        "paw_kafka_stream_back_in_time_counter",
+        "The number of times a message was received with a timestamp earlier than the last message"
+    )
+    .expect("Failed to create counter")
+});
