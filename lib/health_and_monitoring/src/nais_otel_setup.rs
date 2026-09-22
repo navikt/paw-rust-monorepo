@@ -70,7 +70,14 @@ pub fn setup_nais_otel() -> Result<()> {
                 .add_directive("tonic=info".parse()?)
                 .add_directive("hyper=info".parse()?)
                 .add_directive("hyper_util=info".parse()?)
-                .add_directive("rustls=info".parse()?),
+                .add_directive("rustls=info".parse()?)
+                // opentelemetry sine interne otel_debug!/otel_info!-kall (aktivert av
+                // "internal-logs", som er default-feature) har ikke noe "message"-felt,
+                // kun et strukturert "name"-felt. På DEBUG-niva ser disse ut som tomme
+                // logglinjer i Grafana/Loki, som viser "message" som forhandsvisning.
+                .add_directive("opentelemetry=info".parse()?)
+                .add_directive("opentelemetry_sdk=info".parse()?)
+                .add_directive("opentelemetry-otlp=info".parse()?),
         )
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
