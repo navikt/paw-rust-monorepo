@@ -62,7 +62,15 @@ pub fn setup_nais_otel() -> Result<()> {
         .with(
             EnvFilter::from_default_env()
                 .add_directive(tracing::Level::DEBUG.into())
-                .add_directive("sqlx::query=info".parse()?),
+                .add_directive("sqlx::query=info".parse()?)
+                // h2/tonic/hyper/rustls bærer OTLP-gRPC-transporten for span-eksport.
+                // På DEBUG-nivå logger h2 én terse linje ("received"/"send") per
+                // HTTP/2-frame, som drukner ut nyttige applikasjonslogger.
+                .add_directive("h2=info".parse()?)
+                .add_directive("tonic=info".parse()?)
+                .add_directive("hyper=info".parse()?)
+                .add_directive("hyper_util=info".parse()?)
+                .add_directive("rustls=info".parse()?),
         )
         .with(OpenTelemetryLayer::new(tracer))
         .with(fmt_layer)
