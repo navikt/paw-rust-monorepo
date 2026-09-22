@@ -142,6 +142,16 @@ impl MessageProcessor for MultiplexerTestMessageProcessor {
     }
 }
 
+#[tracing::instrument(
+    skip(map, msg),
+    name = "paw_internkontroll.process",
+    fields(
+        topic = msg.topic(),
+        partition = msg.partition(),
+        offset = msg.offset(),
+        timestamp = msg.timestamp().to_millis().unwrap_or(-1),
+    )
+)]
 pub async fn process(map: Arc<Mutex<HashMap<i32, i64>>>, msg: &OwnedMessage) {
     let key = msg.partition();
     let mut stream_time = map.lock().await;
