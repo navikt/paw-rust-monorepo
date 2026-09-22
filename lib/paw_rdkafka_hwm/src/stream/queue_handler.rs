@@ -122,7 +122,7 @@ impl Drop for QueueHandler {
 
 static LAST_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        "paw_kafka_stream_queue_handler_next_timestamp",
+        "paw_kafka_stream_queue_handler_last_timestamp",
         "The timestamp of the last message retrieved from the queue handler",
         &["topic", "partition"]
     )
