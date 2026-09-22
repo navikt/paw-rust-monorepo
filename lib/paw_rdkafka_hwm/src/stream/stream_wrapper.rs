@@ -51,9 +51,14 @@ impl PawKafkaStream for PawKafkaConsumerStream {
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
         load(&mut self.queues, self.timeout).await?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
+        // `timestamp()` returnerer `None` for tomme køer, og `None` sorterer alltid
+        // før `Some(_)` i Rust. Uten filteret ville en tom kø derfor alltid "vinne"
+        // min_by_key-sammenligningen og stoppe hele mergen selv om andre køer har
+        // meldinger klare, i stedet for at den bare ekskluderes fra denne runden.
         let result = self
             .queues
             .iter_mut()
+            .filter(|q| !q.is_empty())
             .min_by_key(|q| q.timestamp())
             .and_then(|q| q.take_head());
         Span::current().record("empty_before_load", empty_before_load as u64);
