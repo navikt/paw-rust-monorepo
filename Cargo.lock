@@ -1668,6 +1668,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "paw_rust_base",
+ "serde_json",
  "thiserror 2.0.20",
  "tonic",
  "tracing",
