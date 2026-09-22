@@ -23,10 +23,17 @@ use crate::stream::queue_handler::QueueHandler;
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push};
 
 pub struct PawKafkaConsumerStream {
+    /// Receiver for rebalance events from the rebalancer.
     receiver: UnboundedReceiver<RebalanceMessage>,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
+    /// Currently active queues for each assigned topic partition.
     queues: Vec<QueueHandler>,
-    timeout: Duration,
+    /// Maximum time the internal buffer can be empty before we consider it idle and
+    /// no longer wait for it to be filled.
+    /// This is used to avoid slowing down the stream when a partition
+    /// has no messages for a while.
+    max_idle: Duration,
+    /// Soft limit for the number of messages to buffer internally for each partition queue.
     internal_buffer_size: usize,
     stream_times: HashMap<i32, i64>,
 }
@@ -44,17 +51,17 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             timestamp
         )
     )]
+    /// Receives the next message from the stream, handling rebalance events
+    /// and loading messages from the internal queues.
+    /// Consumes self and returns it self if safe to continue receiving messages,
+    /// or an error if the stream is disconnected or failed.
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
         self.drain_main_consumer().await?;
         let rebalance_events = get_rebalance_events(&mut self.receiver);
         self.handle_rebalance_events(rebalance_events)?;
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
-        load(&mut self.queues, self.timeout).await?;
+        load(&mut self.queues, self.max_idle).await?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
-        // `timestamp()` returnerer `None` for tomme køer, og `None` sorterer alltid
-        // før `Some(_)` i Rust. Uten filteret ville en tom kø derfor alltid "vinne"
-        // min_by_key-sammenligningen og stoppe hele mergen selv om andre køer har
-        // meldinger klare, i stedet for at den bare ekskluderes fra denne runden.
         let result = self
             .queues
             .iter_mut()
@@ -119,12 +126,19 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     name = "paw_kafka_stream.load",
     fields(topic_partitions = queues.len() as u64)
 )]
-async fn load(queues: &mut Vec<QueueHandler>, timeout: Duration) -> Result<(), StreamError> {
+async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), StreamError> {
+    let now = tokio::time::Instant::now();
+    let deadline = queues
+        .iter()
+        .filter_map(|q| q.empty_for())
+        .filter(|idle_for| *idle_for < max_idle)
+        .map(|idle_for| now + (max_idle - idle_for))
+        .min()
+        .unwrap_or(now + max_idle);
     let mut updates = FuturesUnordered::new();
     for queue in queues {
         updates.push(queue.update());
     }
-    let deadline = tokio::time::Instant::now() + timeout;
     while let Ok(Some(res)) = timeout_at(deadline, updates.next()).await {
         match res {
             Ok(_) => {}
@@ -140,14 +154,14 @@ impl PawKafkaConsumerStream {
     pub fn new(
         receiver: UnboundedReceiver<RebalanceMessage>,
         consumer: StreamConsumer<HwmRebalanceHandler>,
-        timeout: Duration,
+        max_idle: Duration,
         internal_buffer_size: usize,
     ) -> Self {
         Self {
             receiver,
             consumer: consumer.into(),
             queues: Vec::new(),
-            timeout,
+            max_idle,
             internal_buffer_size,
             stream_times: HashMap::new(),
         }
@@ -273,12 +287,3 @@ static STREAM_WRPPER_BACK_IN_TIME_CONTER: LazyLock<Counter> = LazyLock::new(|| {
     )
     .expect("Failed to create counter")
 });
-
-/// Tvinger frem registrering av stream-wrapper-metrikkene i Prometheus-registeret
-/// med det samme. Uten dette kallet blir metrikkene først synlige i `/internal/metrics`
-/// etter at den første Kafka-meldingen er mottatt, siden `LazyLock` kun initialiseres
-/// ved første tilgang.
-pub fn init_stream_wrapper_metrics() {
-    LazyLock::force(&STREAM_WRAPER_TIMESTAMP);
-    LazyLock::force(&STREAM_WRPPER_BACK_IN_TIME_CONTER);
-}

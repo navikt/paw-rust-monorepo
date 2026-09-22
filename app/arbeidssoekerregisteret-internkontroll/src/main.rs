@@ -10,10 +10,7 @@ use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
     rebalance::rebalance_message::RebalanceMessage,
-    stream::{
-        paw_kafka_stream::PawKafkaStream,
-        stream_wrapper::{PawKafkaConsumerStream, init_stream_wrapper_metrics},
-    },
+    stream::{paw_kafka_stream::PawKafkaStream, stream_wrapper::PawKafkaConsumerStream},
 };
 use paw_rust_base::{
     await_signal::await_signal,
@@ -33,7 +30,6 @@ use tracing::info;
 async fn main() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
     setup_nais_otel().unwrap();
-    init_stream_wrapper_metrics();
     run_app().await
 }
 
@@ -69,19 +65,16 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         tx,
     )?;
     let internal_buffer_size = 50;
-    let stream = PawKafkaConsumerStream::new(
-        rx,
-        consumer,
-        Duration::from_millis(50),
-        internal_buffer_size,
-    );
+    // Maks nådeperiode et stille topic får før andre går videre uten det
+    // (à la Kafka Streams' max.task.idle.ms). Juster basert på observert
+    // hopp-frekvens (paw_kafka_stream_back_in_time_counter).
+    let max_idle = Duration::from_millis(500);
+    let stream = PawKafkaConsumerStream::new(rx, consumer, max_idle, internal_buffer_size);
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
         async move {
-            let message_processor = MultiplexerTestMessageProcessor {
-                stream_time: Arc::new(Mutex::new(HashMap::new())),
-            };
+            let message_processor = MultiplexerTestMessageProcessor {};
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;
@@ -125,9 +118,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub struct MultiplexerTestMessageProcessor {
-    stream_time: Arc<Mutex<HashMap<i32, i64>>>,
-}
+pub struct MultiplexerTestMessageProcessor {}
 
 impl MessageProcessor for MultiplexerTestMessageProcessor {
     fn process_message<'a>(
@@ -136,14 +127,14 @@ impl MessageProcessor for MultiplexerTestMessageProcessor {
         msg: &'a OwnedMessage,
     ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>> {
         Box::pin(async move {
-            process(self.stream_time.clone(), msg).await;
+            process(msg).await;
             Ok::<(), ProcessorError>(())
         })
     }
 }
 
 #[tracing::instrument(
-    skip(map, msg),
+    skip(msg),
     name = "paw_internkontroll.process",
     fields(
         topic = msg.topic(),
@@ -152,26 +143,16 @@ impl MessageProcessor for MultiplexerTestMessageProcessor {
         timestamp = msg.timestamp().to_millis().unwrap_or(-1),
     )
 )]
-pub async fn process(map: Arc<Mutex<HashMap<i32, i64>>>, msg: &OwnedMessage) {
-    let key = msg.partition();
-    let mut stream_time = map.lock().await;
-    let current_stream_time = stream_time.get(&key).cloned().unwrap_or(0);
-    let record_timestamp = msg.timestamp().to_millis().unwrap_or(-1);
-    if record_timestamp < 0 {
-        tracing::warn!(
-            "partition {} => undefined timestamp, current stream time: {}, caused by topic: {}",
-            msg.partition(),
-            current_stream_time,
-            msg.topic(),
-        );
-    } else if record_timestamp >= current_stream_time {
-        stream_time.insert(key, record_timestamp);
-    } else {
-        tracing::warn!(
-            "partition {} => back in time: {}ms, caused by topic: {}",
-            msg.partition(),
-            current_stream_time - record_timestamp,
-            msg.topic(),
-        );
-    }
+pub async fn process(msg: &OwnedMessage) {
+    let partition = msg.partition();
+    let topic = msg.topic();
+    let offset = msg.offset();
+    let timstamp = msg.timestamp().to_millis();
+    tracing::debug!(
+        "Processed {}-{}-{} at {}",
+        partition,
+        topic,
+        offset,
+        timstamp.unwrap_or(-1)
+    );
 }
