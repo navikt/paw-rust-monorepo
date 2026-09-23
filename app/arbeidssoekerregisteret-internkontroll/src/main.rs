@@ -63,7 +63,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         &topics,
         tx,
     )?;
-    let internal_buffer_size = 50;
+    let internal_buffer_size = 200;
     let max_idle = Duration::from_millis(500);
     let main_consumer_none_treshold = 10;
     let stream = PawKafkaConsumerStream::new(
