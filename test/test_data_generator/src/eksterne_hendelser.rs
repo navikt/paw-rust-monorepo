@@ -181,8 +181,8 @@ pub fn create_dummy_bruker(identitetsnummer: &str) -> Bruker {
     }
 }
 
-fn datetime_rfc3339(input: &str) -> DateTime<Utc> {
+pub fn datetime_rfc3339(input: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(input)
-        .unwrap()
+        .expect("timestamp should be valid RFC 3339")
         .with_timezone(&Utc)
 }
