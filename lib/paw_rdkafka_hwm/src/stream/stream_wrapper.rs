@@ -65,6 +65,23 @@ impl PawKafkaStream for PawKafkaConsumerStream {
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
         load(&mut self.queues, self.max_idle).await?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
+        // A queue that is empty but still inside its grace period may yet
+        // deliver an older message, so emitting now would move the stream
+        // clock past it.
+        let within_grace = self
+            .queues
+            .iter()
+            .filter_map(|q| q.empty_for())
+            .any(|idle_for| idle_for < self.max_idle);
+        if within_grace {
+            Span::current().record("empty_before_load", empty_before_load as u64);
+            Span::current().record("empty_after_load", empty_after_load as u64);
+            Span::current().record("topic", "waiting");
+            Span::current().record("partition", -1);
+            Span::current().record("offset", -1);
+            Span::current().record("timestamp", "waiting");
+            return Ok((self, None));
+        }
         let result = self
             .queues
             .iter_mut()
@@ -136,7 +153,7 @@ async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), 
         .filter_map(|q| q.empty_for())
         .filter(|idle_for| *idle_for < max_idle)
         .map(|idle_for| now + (max_idle - idle_for))
-        .min()
+        .max()
         .unwrap_or(now + max_idle);
     let mut updates = FuturesUnordered::new();
     for queue in queues {
