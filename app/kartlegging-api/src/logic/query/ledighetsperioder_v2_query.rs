@@ -39,6 +39,7 @@ fn map_row(row: &LedighetsperiodeV2Row) -> anyhow::Result<LedighetsperiodeV2> {
         periode_id: row.periode_id,
         ledig_siden: row.arbeidsledig_fra,
         periode_startet: row.arbeidssoeker_fra,
+        periode_avsluttet: row.arbeidssoeker_til,
         egenvurdert_til,
         bekreftelse_har_jobbet: row.bekreftelse_har_jobbet,
         bekreftelse_vil_fortsette: row.bekreftelse_vil_fortsette,

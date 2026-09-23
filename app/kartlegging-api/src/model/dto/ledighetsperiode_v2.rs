@@ -11,6 +11,7 @@ pub struct LedighetsperiodeV2 {
     pub periode_id: Uuid,
     pub ledig_siden: Option<DateTime<Utc>>,
     pub periode_startet: DateTime<Utc>,
+    pub periode_avsluttet: Option<DateTime<Utc>>,
     pub egenvurdert_til: Option<ProfilertTil>,
     pub bekreftelse_har_jobbet: Option<bool>,
     pub bekreftelse_vil_fortsette: Option<bool>,

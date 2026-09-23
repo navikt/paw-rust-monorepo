@@ -30,8 +30,8 @@ Authorization: Bearer {{$auth.token("azure")}}
     }
 }
 
-### POST /api/v2/kartlegging for TILKNYTTET_KONTOR
-POST {{baseUrl}}/api/v2/kartlegging
+### POST /api/v1/arbeidsledighet for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v1/arbeidsledighet
 Accept: application/json
 Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}

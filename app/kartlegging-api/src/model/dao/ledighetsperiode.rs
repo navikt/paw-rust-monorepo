@@ -96,7 +96,7 @@ pub async fn select_by_arbeidssoeker_id(
         LEFT JOIN latest_egenvurderinger e    ON e.periode_id  = k.periode_id
         LEFT JOIN latest_bekreftelser b       ON b.periode_id  = k.periode_id
         LEFT JOIN bekreftelse_paavegneav bv ON bv.periode_id = k.periode_id
-        WHERE k.arbeidssoeker_id = $1 AND k.arbeidssoeker_til IS NOT NULL
+        WHERE k.arbeidssoeker_id = $1 AND k.arbeidssoeker_til IS NULL -- Kun aktive perioder
         ORDER BY k.arbeidsledig_fra DESC NULLS LAST, k.arbeidssoeker_fra DESC
         LIMIT 1
         "#,
