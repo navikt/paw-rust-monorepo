@@ -13,6 +13,8 @@ pub enum StreamError {
     DisconnectedFromRebalancer,
     #[error("Logic error in stream, claims assigned not called, but queues are available!")]
     InternalLogicError,
+    #[error("Failed to access db during hwm filtering")]
+    HwmFilterDbError,
 }
 
 pub trait PawKafkaStream {
