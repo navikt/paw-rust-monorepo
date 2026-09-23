@@ -41,8 +41,7 @@ impl QueueHandler {
         let next_timestamp_gauge =
             NEXT_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
         let depth_gauge = QUEUE_HANDLER_DEPTH.with_label_values(&[&topic, &partition]);
-        // A fresh series defaults to 0, which reads as 1970 rather than
-        // "nothing seen yet". Every rebalance recreates all of them.
+        // 0 would render as 1970; NaN renders as a gap.
         last_timestamp_gauge.set(f64::NAN);
         next_timestamp_gauge.set(f64::NAN);
         depth_gauge.set(0.0);
@@ -82,10 +81,6 @@ impl QueueHandler {
             current_queue_size = self.head.len() as u64)
         )]
     pub async fn update(&mut self, max_idle: Duration) -> Result<(), StreamError> {
-        // Waiting only changes the outcome while the queue is empty and still
-        // inside its grace: the merge cannot order a partition it has nothing
-        // from. Past the grace the merge already skips it, and a queue that
-        // holds messages must never block the round.
         if self.empty_for().is_some_and(|idle_for| idle_for < max_idle) {
             match self.rdkafka_stream.recv().await {
                 Ok(record) => self.push(record.detach()),
@@ -149,8 +144,6 @@ impl Drop for QueueHandler {
     }
 }
 
-/// `NaN` rather than 0 when the message is missing or carries no timestamp:
-/// 0 renders as 1970 and drags any `min()` across queues down with it.
 fn timestamp_ms(msg: Option<&OwnedMessage>) -> f64 {
     msg.and_then(|msg| msg.timestamp().to_millis())
         .map_or(f64::NAN, |ts| ts as f64)
@@ -173,8 +166,6 @@ static NEXT_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
     .expect("Failed to create gauge")
 });
 
-/// Buffered messages per queue. The merge can only order partitions that all
-/// have something buffered, so a queue at zero is a queue the merge skips.
 static QUEUE_HANDLER_DEPTH: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
         "paw_kafka_stream_queue_handler_depth",

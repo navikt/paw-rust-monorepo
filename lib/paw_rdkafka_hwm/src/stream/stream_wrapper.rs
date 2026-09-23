@@ -70,9 +70,6 @@ impl PawKafkaStream for PawKafkaConsumerStream {
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
         Span::current().record("empty_before_load", empty_before_load as u64);
         Span::current().record("empty_after_load", empty_after_load as u64);
-        // A queue that is empty but still inside its grace period may yet
-        // deliver an older message, so emitting now would move the stream
-        // clock past it.
         let within_grace = self
             .queues
             .iter()
@@ -104,8 +101,6 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     .map(|dt| dt.to_rfc3339())
                     .unwrap_or_else(|| "unknown".to_string()),
             );
-            // A message without a timestamp cannot move the stream clock, and
-            // must not be treated as an epoch-sized jump backwards.
             let mut back_in_time_ms = 0;
             if let Some(new_ts) = msg.timestamp().to_millis() {
                 self.stream_times
@@ -351,8 +346,6 @@ fn get_rebalance_events(
     messages
 }
 
-/// Counts an error exit from `receive()` before propagating it. The stream is
-/// consumed on error, so this fires at most once per process.
 fn count_err<T>(result: Result<T, StreamError>) -> Result<T, StreamError> {
     if result.is_err() {
         RECEIVE_RESULT.with_label_values(&["error"]).inc();
@@ -360,10 +353,6 @@ fn count_err<T>(result: Result<T, StreamError>) -> Result<T, StreamError> {
     result
 }
 
-/// Every message handed to the caller of `receive()`, labelled by whether its
-/// timestamp went backwards relative to the newest one already emitted for the
-/// same partition. Summing over the label gives total throughput, so the share
-/// of jumps is a ratio between two series of the same counter.
 static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     let counter = register_counter_vec!(
         "paw_kafka_stream_messages_total",
@@ -371,15 +360,12 @@ static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
         &["back_in_time"]
     )
     .expect("Failed to create counter");
+    // Registers the series so they read 0 before the first increment.
     counter.with_label_values(&["true"]);
     counter.with_label_values(&["false"]);
     counter
 });
 
-/// Every call to `receive()`, by what came out of it. `waiting` means a queue
-/// was empty but still inside its grace period, `empty` means no queue had
-/// anything to emit. Separating the two tells a stalled merge apart from an
-/// idle one.
 static RECEIVE_RESULT: LazyLock<CounterVec> = LazyLock::new(|| {
     let counter = register_counter_vec!(
         "paw_kafka_stream_receive_total",
@@ -387,16 +373,13 @@ static RECEIVE_RESULT: LazyLock<CounterVec> = LazyLock::new(|| {
         &["result"]
     )
     .expect("Failed to create counter");
+    // Registers the series so they read 0 before the first increment.
     for result in ["message", "waiting", "empty", "error"] {
         counter.with_label_values(&[result]);
     }
     counter
 });
 
-/// How far back a jump went, in milliseconds, by the topic of the late
-/// message. Decade buckets from 1 ms to 1e8 ms (about 27 hours): the question
-/// is which order of magnitude a jump lands in, not its exact size. The
-/// counter above says how often; this says how bad.
 static BACK_IN_TIME_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         "paw_kafka_stream_back_in_time_ms",
@@ -407,11 +390,6 @@ static BACK_IN_TIME_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     .expect("Failed to create histogram")
 });
 
-/// Messages that arrived on the main consumer queue rather than on a split
-/// partition queue. In steady state this should be close to zero; anything
-/// else means partitions are assigned but not yet split. `outcome` is
-/// `queued`, `below_hwm` or `not_assigned`, and summing over it gives every
-/// message the main queue produced.
 static MAIN_QUEUE_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     register_counter_vec!(
         "paw_kafka_stream_main_queue_messages_total",
