@@ -61,7 +61,10 @@ impl MessageOrKey {
     }
 }
 
-pub fn push_if_assigned(queue_handlers: &mut [QueueHandler], message: OwnedMessage) {
+/// Pushes the message onto the queue for its topic partition.
+/// Returns false if the partition is not assigned to this consumer,
+/// in which case the message is dropped.
+pub fn push_if_assigned(queue_handlers: &mut [QueueHandler], message: OwnedMessage) -> bool {
     let key = TopicPartition {
         topic: message.topic().to_string(),
         partition: message.partition(),
@@ -71,11 +74,13 @@ pub fn push_if_assigned(queue_handlers: &mut [QueueHandler], message: OwnedMessa
         queue_handlers[idx]
             .add_message(message)
             .expect("Failed to add message to QueueHandler, direct key access should not fail");
+        true
     } else {
         tracing::trace!(
             "No QueueHandler found for key: {:?}, its not assigned to this consumer, message with offset {} dropped",
             key,
             message.offset()
         );
+        false
     }
 }

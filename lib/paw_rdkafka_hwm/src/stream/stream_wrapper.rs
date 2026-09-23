@@ -5,7 +5,9 @@ use std::time::Duration;
 use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
-use prometheus::{Counter, Gauge, register_counter, register_gauge};
+use prometheus::{
+    Counter, CounterVec, Gauge, register_counter, register_counter_vec, register_gauge,
+};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use sqlx::PgPool;
@@ -250,7 +252,8 @@ impl PawKafkaConsumerStream {
         while none_counter < self.main_consumer_none_treshold {
             match self.consumer.recv().now_or_never() {
                 Some(Ok(msg)) => {
-                    tracing::info!(
+                    MAIN_QUEUE_MESSAGES.with_label_values(&[msg.topic()]).inc();
+                    tracing::debug!(
                         "Received early message from topic {} partition {} offset {}",
                         msg.topic(),
                         msg.partition(),
@@ -275,6 +278,7 @@ impl PawKafkaConsumerStream {
                         }
                         None => messages.push(msg.detach()),
                         _ => {
+                            MAIN_QUEUE_DROPPED.with_label_values(&["below_hwm"]).inc();
                             tracing::trace!(
                                 "[StreamWrapper] Message below HWM, topic {}, partition {}, offset {}, dropped",
                                 msg.topic(),
@@ -293,13 +297,17 @@ impl PawKafkaConsumerStream {
                         none_counter += 1;
                     } else {
                         self.handle_rebalance_events(rebalance_events)?;
-                        none_counter = self.main_consumer_none_treshold - 3;
+                        none_counter = self.main_consumer_none_treshold.saturating_sub(3);
                     }
                 }
             }
         }
         messages.into_iter().for_each(|msg| {
-            push_if_assigned(&mut self.queues, msg);
+            if !push_if_assigned(&mut self.queues, msg) {
+                MAIN_QUEUE_DROPPED
+                    .with_label_values(&["not_assigned"])
+                    .inc();
+            }
         });
         Ok(())
     }
@@ -339,6 +347,29 @@ static STREAM_WRPPER_BACK_IN_TIME_CONTER: LazyLock<Counter> = LazyLock::new(|| {
     register_counter!(
         "paw_kafka_stream_back_in_time_counter",
         "The number of times a message was received with a timestamp earlier than the last message"
+    )
+    .expect("Failed to create counter")
+});
+
+/// Messages that arrived on the main consumer queue rather than on a split
+/// partition queue. In steady state this should be close to zero; anything
+/// else means partitions are assigned but not yet split.
+static MAIN_QUEUE_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
+    register_counter_vec!(
+        "paw_kafka_stream_main_queue_messages_total",
+        "Messages collected from the main consumer queue, by topic",
+        &["topic"]
+    )
+    .expect("Failed to create counter")
+});
+
+/// Main queue messages that never reached a partition queue, either because
+/// they were at or below HWM or because the partition is not assigned.
+static MAIN_QUEUE_DROPPED: LazyLock<CounterVec> = LazyLock::new(|| {
+    register_counter_vec!(
+        "paw_kafka_stream_main_queue_dropped_total",
+        "Messages from the main consumer queue that were discarded, by reason",
+        &["reason"]
     )
     .expect("Failed to create counter")
 });
