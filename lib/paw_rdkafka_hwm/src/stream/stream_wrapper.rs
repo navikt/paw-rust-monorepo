@@ -64,9 +64,9 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     /// Consumes self and returns it self if safe to continue receiving messages,
     /// or an error if the stream is disconnected or failed.
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
-        self.drain_and_rebalance().await?;
+        count_err(self.drain_and_rebalance().await)?;
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
-        load(&mut self.queues, self.max_idle).await?;
+        count_err(load(&mut self.queues, self.max_idle).await)?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
         // A queue that is empty but still inside its grace period may yet
         // deliver an older message, so emitting now would move the stream
@@ -83,6 +83,7 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             Span::current().record("partition", -1);
             Span::current().record("offset", -1);
             Span::current().record("timestamp", "waiting");
+            RECEIVE_RESULT.with_label_values(&["waiting"]).inc();
             return Ok((self, None));
         }
         let result = self
@@ -138,11 +139,13 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     .with_label_values(&[msg.topic()])
                     .observe(back_in_time_ms as f64);
             }
+            RECEIVE_RESULT.with_label_values(&["message"]).inc();
         } else {
             Span::current().record("topic", "none");
             Span::current().record("partition", -1);
             Span::current().record("offset", -1);
             Span::current().record("timestamp", "none");
+            RECEIVE_RESULT.with_label_values(&["empty"]).inc();
             return Ok((self, None));
         };
         Ok((self, result))
@@ -350,6 +353,15 @@ fn get_rebalance_events(
     messages
 }
 
+/// Counts an error exit from `receive()` before propagating it. The stream is
+/// consumed on error, so this fires at most once per process.
+fn count_err<T>(result: Result<T, StreamError>) -> Result<T, StreamError> {
+    if result.is_err() {
+        RECEIVE_RESULT.with_label_values(&["error"]).inc();
+    }
+    result
+}
+
 /// Every message handed to the caller of `receive()`, labelled by whether its
 /// timestamp went backwards relative to the newest one already emitted for the
 /// same partition. Summing over the label gives total throughput, so the share
@@ -363,6 +375,23 @@ static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     .expect("Failed to create counter");
     counter.with_label_values(&["true"]);
     counter.with_label_values(&["false"]);
+    counter
+});
+
+/// Every call to `receive()`, by what came out of it. `waiting` means a queue
+/// was empty but still inside its grace period, `empty` means no queue had
+/// anything to emit. Separating the two tells a stalled merge apart from an
+/// idle one.
+static RECEIVE_RESULT: LazyLock<CounterVec> = LazyLock::new(|| {
+    let counter = register_counter_vec!(
+        "paw_kafka_stream_receive_total",
+        "Calls to the stream wrapper receive(), by result",
+        &["result"]
+    )
+    .expect("Failed to create counter");
+    for result in ["message", "waiting", "empty", "error"] {
+        counter.with_label_values(&[result]);
+    }
     counter
 });
 
