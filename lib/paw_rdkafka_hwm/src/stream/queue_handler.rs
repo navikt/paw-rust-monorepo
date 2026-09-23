@@ -34,15 +34,21 @@ impl QueueHandler {
     ) -> Self {
         let topic = key.topic.clone();
         let partition = key.partition.to_string();
+        let last_timestamp_gauge =
+            LAST_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
+        let next_timestamp_gauge =
+            NEXT_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
+        // A fresh series defaults to 0, which reads as 1970 rather than
+        // "nothing seen yet". Every rebalance recreates all of them.
+        last_timestamp_gauge.set(f64::NAN);
+        next_timestamp_gauge.set(f64::NAN);
         Self {
             key,
             head: VecDeque::new(),
             rdkafka_stream,
             internal_buffer_size,
-            last_timestamp_gauge: LAST_QUEUE_HANDLER_TIMESTAMP
-                .with_label_values(&[&topic, &partition]),
-            next_timestamp_gauge: NEXT_QUEUE_HANDLER_TIMESTAMP
-                .with_label_values(&[&topic, &partition]),
+            last_timestamp_gauge,
+            next_timestamp_gauge,
             empty_since: Some(Instant::now()),
         }
     }
@@ -53,14 +59,9 @@ impl QueueHandler {
 
     pub fn take_head(&mut self) -> Option<OwnedMessage> {
         let msg = self.head.pop_front()?;
-        if let Some(ts) = msg.timestamp().to_millis() {
-            self.last_timestamp_gauge.set(ts as f64);
-        }
-        let next_ts = self
-            .head
-            .front()
-            .and_then(|msg| msg.timestamp().to_millis());
-        self.next_timestamp_gauge.set(next_ts.unwrap_or(0) as f64);
+        self.last_timestamp_gauge.set(timestamp_ms(Some(&msg)));
+        self.next_timestamp_gauge
+            .set(timestamp_ms(self.head.front()));
         if self.head.is_empty() {
             self.empty_since = Some(Instant::now());
         }
@@ -81,8 +82,7 @@ impl QueueHandler {
                     Ok(record) => {
                         let record = record.detach();
                         if self.head.is_empty() {
-                            self.next_timestamp_gauge
-                                .set(record.timestamp().to_millis().unwrap_or(0) as f64);
+                            self.next_timestamp_gauge.set(timestamp_ms(Some(&record)));
                             self.empty_since = None;
                         }
                         self.head.push_back(record);
@@ -104,6 +104,7 @@ impl QueueHandler {
             )));
         }
         if self.head.is_empty() {
+            self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
             self.empty_since = None;
         }
         self.head.push_back(msg);
@@ -138,6 +139,13 @@ impl Drop for QueueHandler {
         let _ = LAST_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
         let _ = NEXT_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
     }
+}
+
+/// `NaN` rather than 0 when the message is missing or carries no timestamp:
+/// 0 renders as 1970 and drags any `min()` across queues down with it.
+fn timestamp_ms(msg: Option<&OwnedMessage>) -> f64 {
+    msg.and_then(|msg| msg.timestamp().to_millis())
+        .map_or(f64::NAN, |ts| ts as f64)
 }
 
 static LAST_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
