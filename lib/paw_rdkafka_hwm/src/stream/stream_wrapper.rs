@@ -68,6 +68,8 @@ impl PawKafkaStream for PawKafkaConsumerStream {
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
         count_err(load(&mut self.queues, self.max_idle).await)?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
+        Span::current().record("empty_before_load", empty_before_load as u64);
+        Span::current().record("empty_after_load", empty_after_load as u64);
         // A queue that is empty but still inside its grace period may yet
         // deliver an older message, so emitting now would move the stream
         // clock past it.
@@ -77,8 +79,6 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             .filter_map(|q| q.empty_for())
             .any(|idle_for| idle_for < self.max_idle);
         if within_grace {
-            Span::current().record("empty_before_load", empty_before_load as u64);
-            Span::current().record("empty_after_load", empty_after_load as u64);
             Span::current().record("topic", "waiting");
             Span::current().record("partition", -1);
             Span::current().record("offset", -1);
@@ -92,8 +92,6 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             .filter(|q| !q.is_empty())
             .min_by_key(|q| q.timestamp())
             .and_then(|q| q.take_head());
-        Span::current().record("empty_before_load", empty_before_load as u64);
-        Span::current().record("empty_after_load", empty_after_load as u64);
         if let Some(msg) = result.as_ref() {
             Span::current().record("topic", msg.topic());
             Span::current().record("partition", msg.partition());
