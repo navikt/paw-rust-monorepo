@@ -23,6 +23,7 @@ pub struct QueueHandler {
     internal_buffer_size: usize,
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
+    depth_gauge: Gauge,
     empty_since: Option<Instant>,
 }
 
@@ -38,10 +39,12 @@ impl QueueHandler {
             LAST_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
         let next_timestamp_gauge =
             NEXT_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
+        let depth_gauge = QUEUE_HANDLER_DEPTH.with_label_values(&[&topic, &partition]);
         // A fresh series defaults to 0, which reads as 1970 rather than
         // "nothing seen yet". Every rebalance recreates all of them.
         last_timestamp_gauge.set(f64::NAN);
         next_timestamp_gauge.set(f64::NAN);
+        depth_gauge.set(0.0);
         Self {
             key,
             head: VecDeque::new(),
@@ -49,6 +52,7 @@ impl QueueHandler {
             internal_buffer_size,
             last_timestamp_gauge,
             next_timestamp_gauge,
+            depth_gauge,
             empty_since: Some(Instant::now()),
         }
     }
@@ -62,6 +66,7 @@ impl QueueHandler {
         self.last_timestamp_gauge.set(timestamp_ms(Some(&msg)));
         self.next_timestamp_gauge
             .set(timestamp_ms(self.head.front()));
+        self.depth_gauge.set(self.head.len() as f64);
         if self.head.is_empty() {
             self.empty_since = Some(Instant::now());
         }
@@ -86,6 +91,7 @@ impl QueueHandler {
                             self.empty_since = None;
                         }
                         self.head.push_back(record);
+                        self.depth_gauge.set(self.head.len() as f64);
                     }
                     Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
                 }
@@ -108,6 +114,7 @@ impl QueueHandler {
             self.empty_since = None;
         }
         self.head.push_back(msg);
+        self.depth_gauge.set(self.head.len() as f64);
         Ok(self.head.len())
     }
 
@@ -138,6 +145,7 @@ impl Drop for QueueHandler {
         let partition = self.key.partition.to_string();
         let _ = LAST_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
         let _ = NEXT_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
+        let _ = QUEUE_HANDLER_DEPTH.remove_label_values(&[&topic, &partition]);
     }
 }
 
@@ -160,6 +168,17 @@ static NEXT_QUEUE_HANDLER_TIMESTAMP: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
         "paw_kafka_stream_queue_handler_next_timestamp",
         "The timestamp of the next message retrieved from the queue handler",
+        &["topic", "partition"]
+    )
+    .expect("Failed to create gauge")
+});
+
+/// Buffered messages per queue. The merge can only order partitions that all
+/// have something buffered, so a queue at zero is a queue the merge skips.
+static QUEUE_HANDLER_DEPTH: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "paw_kafka_stream_queue_handler_depth",
+        "Number of messages currently buffered in the queue handler",
         &["topic", "partition"]
     )
     .expect("Failed to create gauge")
