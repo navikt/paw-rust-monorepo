@@ -55,7 +55,8 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             topic,
             partition,
             offset,
-            timestamp
+            timestamp,
+            back_in_time_ms
         )
     )]
     /// Receives the next message from the stream, handling rebalance events
@@ -111,12 +112,17 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     if new_ts >= *ts {
                         *ts = new_ts;
                     } else {
+                        let back_in_time_ms = *ts - new_ts;
                         STREAM_WRPPER_BACK_IN_TIME_CONTER.inc();
+                        Span::current().record("back_in_time_ms", back_in_time_ms);
                         tracing::warn!(
-                            "partition {} => back in time: {}ms, caused by topic: {}",
-                            msg.partition(),
-                            *ts - new_ts,
-                            msg.topic(),
+                            back_in_time_ms,
+                            stream_time_ms = *ts,
+                            message_time_ms = new_ts,
+                            kafka.topic = msg.topic(),
+                            kafka.partition = msg.partition(),
+                            kafka.offset = msg.offset(),
+                            "kafka.back_in_time"
                         );
                     }
                 })
