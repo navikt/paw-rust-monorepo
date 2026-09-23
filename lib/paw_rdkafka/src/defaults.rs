@@ -58,6 +58,16 @@ pub const FETCH_MIN_BYTES: i32 = 1;
 /// [`FETCH_MIN_BYTES`].
 pub const FETCH_WAIT_MAX_MS: i32 = 100;
 
+/// `fetch.queue.backoff.ms`, how long librdkafka postpones the next fetch for a
+/// partition after that partition's queue hit [`PARTITION_QUEUE_MIN_SIZE`] or
+/// [`QUEUED_MAX_MESSAGES_KBYTES`]. This is librdkafka's own default.
+///
+/// An app that merges several partitions on message timestamp wants this far
+/// lower. A full second of not refetching is long enough for a high traffic
+/// partition to drain, and a partition with an empty queue cannot take part in
+/// the merge.
+pub const FETCH_QUEUE_BACKOFF_MS: i32 = 1000;
+
 /// librdkafka log level. Note that librdkafka log events land on the same queue
 /// the consumer polls, so a chatty level costs poll iterations.
 pub const LOG_LEVEL: &str = "info";
