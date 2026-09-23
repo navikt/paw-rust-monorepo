@@ -5,7 +5,6 @@ use std::time::{Duration, Instant};
 use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
-use tracing::Span;
 
 use crate::stream::paw_kafka_stream::StreamError;
 
@@ -87,7 +86,6 @@ impl QueueHandler {
                             self.empty_since = None;
                         }
                         self.head.push_back(record);
-                        Span::current().record("record_added", self.head.len() as u64);
                     }
                     Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
                 }
