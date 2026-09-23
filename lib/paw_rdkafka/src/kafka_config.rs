@@ -30,6 +30,7 @@ pub struct KafkaConfig {
     pub socket_send_buffer_bytes: Option<i32>,
     pub fetch_min_bytes: Option<i32>,
     pub fetch_wait_max_ms: Option<i32>,
+    pub fetch_queue_backoff_ms: Option<i32>,
     pub log_level: Option<String>,
 }
 
@@ -60,6 +61,7 @@ impl Default for KafkaConfig {
             socket_send_buffer_bytes: None,
             fetch_min_bytes: None,
             fetch_wait_max_ms: None,
+            fetch_queue_backoff_ms: None,
             log_level: None,
         }
     }
@@ -128,6 +130,10 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
     );
     let fetch_min_bytes = value_or(kafka_config.fetch_min_bytes, defaults::FETCH_MIN_BYTES);
     let fetch_wait_max_ms = value_or(kafka_config.fetch_wait_max_ms, defaults::FETCH_WAIT_MAX_MS);
+    let fetch_queue_backoff_ms = value_or(
+        kafka_config.fetch_queue_backoff_ms,
+        defaults::FETCH_QUEUE_BACKOFF_MS,
+    );
     let log_level = value_or(kafka_config.log_level, defaults::LOG_LEVEL.to_string());
 
     // librdkafka rejects the client unless this holds
@@ -171,6 +177,7 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         )
         .set("fetch.min.bytes", fetch_min_bytes.to_string())
         .set("fetch.wait.max.ms", fetch_wait_max_ms.to_string())
+        .set("fetch.queue.backoff.ms", fetch_queue_backoff_ms.to_string())
         .set_log_level(parse_log_level(&log_level)?);
 
     if security_protocol.clone().to_lowercase() == "ssl" {
@@ -249,6 +256,7 @@ mod tests {
         assert_eq!(config.get("socket.send.buffer.bytes"), Some("4096"));
         assert_eq!(config.get("fetch.min.bytes"), Some("1"));
         assert_eq!(config.get("fetch.wait.max.ms"), Some("100"));
+        assert_eq!(config.get("fetch.queue.backoff.ms"), Some("1000"));
         assert_eq!(config.get("session.timeout.ms"), Some("45000"));
         assert_eq!(config.get("auto.offset.reset"), Some("earliest"));
         assert_eq!(config.get("enable.auto.commit"), Some("false"));

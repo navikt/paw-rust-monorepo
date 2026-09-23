@@ -5,13 +5,40 @@ security_protocol = "SSL"
 private_key_path = "${KAFKA_PRIVATE_KEY_PATH}"
 certificate_path = "${KAFKA_CERTIFICATE_PATH}"
 ca_path = "${KAFKA_CA_PATH}"
-partition_queue_min_size = 1000
+
+# Denne appen leser 8 co-partisjonerte topics a 6 partisjoner og fletter dem på
+# meldingstidsstempel. Én pod eier alle 48 partisjonene.
+#
+# Flettingen plukker den eldste meldinga blant køene. Den er bare riktig så
+# lenge hver kø har noe å sammenligne med. En tom kø blir hoppet over, og
+# meldingene den skyldte oss kommer runden etter, som et hopp bakover i tid.
+# Alt under handler om at ingen kø skal gå tom.
+
+# range gir samme partisjonsnummer for alle topics til samme gruppemedlem.
 partition_assignment_strategy = "range"
 
-# fetch_max_bytes gjelder for hele fetch-requesten, ikke per partisjon.
-# internkontroll leser 8 co-partisjonerte topics, så defaulten på 131072
-# gir noen få kilobyte per partisjon per rundtur.
+# librdkafka utsetter neste fetch for en partisjon i så lang tid etter at køen
+# traff en av tersklene under. Standardverdien er 1000 ms, satt for terskler i
+# størrelsesorden 100 000 meldinger. Våre er tusen ganger lavere, så den
+# travleste partisjonen treffer terskelen hele tiden og står uten påfyll i et
+# helt sekund. Det rekker den å tømmes på.
+fetch_queue_backoff_ms = 10
+
+# Terskler for hvor dypt librdkafka prefetcher per partisjon. Byte-taket er det
+# bindende for det travle topicet, og 2 MB x 48 partisjoner er 96 MB i verste
+# fall, mot en grense på 256Mi. Antallsterskelen ligger høyt med vilje, slik at
+# byte-taket er det som styrer og oppførselen blir forutsigbar.
+partition_queue_min_size = 5000
+queued_max_messages_kbytes = 2048
+
+# fetch_max_bytes er et tak for hele fetch-requesten, ikke per partisjon, så det
+# deles på alle partisjonene som ligger på samme broker.
 # receive_message_max_bytes må være større enn fetch_max_bytes + 512.
 fetch_max_bytes = 1048576
 max_partition_fetch_bytes = 65536
 receive_message_max_bytes = 1500000
+
+# fetch_min_bytes = 1 er default og skal bli stående. Alt høyere lar brokeren
+# holde tilbake data fra et stille topic til det har samlet nok, og køen til det
+# topicet står tom i mellomtiden.
+fetch_min_bytes = 1
