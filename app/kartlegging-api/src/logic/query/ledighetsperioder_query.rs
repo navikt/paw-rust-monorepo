@@ -6,7 +6,6 @@ use crate::model::dto::ledighetsperiode::Ledighetsperiode;
 use crate::model::dto::opplysninger::{Jobbsituasjon, Opplysninger};
 use crate::model::dto::periode::Periode;
 use crate::model::dto::profilering::{Profilering, ProfilertTil};
-use crate::model::dto::request::PagingRequest;
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
@@ -14,17 +13,9 @@ use std::str::FromStr;
 pub async fn finn_for_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: i64,
-    paging: PagingRequest,
 ) -> anyhow::Result<Vec<Ledighetsperiode>> {
     tracing::info!("Henter kartlegging for parent id");
-    let rows = ledighetsperiode::select_by_arbeidssoeker_id(
-        tx,
-        arbeidssoeker_id,
-        paging.offset(),
-        paging.limit(),
-        &paging.sort_order,
-    )
-    .await?;
+    let rows = ledighetsperiode::select_by_arbeidssoeker_id(tx, arbeidssoeker_id).await?;
 
     let mut kartlegginger = Vec::new();
     for row in &rows {

@@ -6,7 +6,7 @@ use crate::model::dto::kontortilknytning::KontorType;
 use crate::model::dto::request::{
     IdentitetsnummerQueryRequest, PagingRequest, TilknyttetKontorQueryRequest,
 };
-use crate::model::dto::response::{KartleggingResponse, PagingResponse};
+use crate::model::dto::response::KartleggingResponse;
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
@@ -30,17 +30,12 @@ pub async fn finn_for_identitetsnummer_query_request(
     );
     let arbeidssoeker_rows =
         arbeidssoeker::select_by_identitetsnummer(tx, &identitetsnummer).await?;
-    let arbeidssoekere = map_rows(tx, &paging, &arbeidssoeker_rows).await?;
-    let paging_response = PagingResponse {
-        page: paging.page,
-        page_size: paging.page_size,
-        hit_size: arbeidssoekere.len() as i32,
-        total_count: arbeidssoeker_rows.len() as i64,
-        sort_order: paging.sort_order,
-    };
+    let arbeidssoekere = map_rows(tx, &arbeidssoeker_rows).await?;
+    let hit_size = arbeidssoekere.len() as i32;
+    let total_count = arbeidssoeker_rows.len() as i64;
     Ok(KartleggingResponse {
         arbeidssoekere,
-        paging: paging_response,
+        paging: paging.as_response(hit_size, total_count),
     })
 }
 
@@ -96,29 +91,22 @@ pub async fn finn_for_kontortilknytning_query_request(
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = map_rows(tx, &paging, &arbeidssoeker_rows).await?;
-    let paging_response = PagingResponse {
-        page: paging.page,
-        page_size: paging.page_size,
-        hit_size: arbeidssoekere.len() as i32,
-        total_count,
-        sort_order: paging.sort_order,
-    };
+    let arbeidssoekere = map_rows(tx, &arbeidssoeker_rows).await?;
+    let hit_size = arbeidssoekere.len() as i32;
     Ok(KartleggingResponse {
         arbeidssoekere,
-        paging: paging_response,
+        paging: paging.as_response(hit_size, total_count),
     })
 }
 
 async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
-    paging: &PagingRequest,
     arbeidssoeker_rows: &Vec<ArbeidssoekerRow>,
 ) -> anyhow::Result<Vec<Arbeidssoeker>> {
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
         let ledighetsperioder =
-            ledighetsperioder_query::finn_for_arbeidssoeker_id(tx, row.id, paging.clone()).await?;
+            ledighetsperioder_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
         let kontortilknytninger =
             kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
         arbeidssoekere.push(Arbeidssoeker::new(

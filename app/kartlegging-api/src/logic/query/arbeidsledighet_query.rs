@@ -1,6 +1,4 @@
-use crate::logic::query::{
-    kontortilknytning_query, ledighetsperioder_v2_query,
-};
+use crate::logic::query::{kontortilknytning_query, ledighetsperioder_v2_query};
 use crate::model::dao::arbeidssoeker;
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dto::arbeidssoeker_v2::ArbeidssoekerV2;
@@ -8,8 +6,7 @@ use crate::model::dto::kontortilknytning::KontorType;
 use crate::model::dto::request::{
     IdentitetsnummerQueryRequest, PagingRequest, TilknyttetKontorQueryRequest,
 };
-use crate::model::dto::response::PagingResponse;
-use crate::model::dto::response_v2::KartleggingV2Response;
+use crate::model::dto::response::ArbeidsledighetResponse;
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
@@ -18,7 +15,7 @@ use sqlx::{Postgres, Transaction};
 pub async fn finn_for_identitetsnummer_query_request(
     tx: &mut Transaction<'_, Postgres>,
     request: &IdentitetsnummerQueryRequest,
-) -> anyhow::Result<KartleggingV2Response> {
+) -> anyhow::Result<ArbeidsledighetResponse> {
     let identitetsnummer = &request.identitetsnummer;
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
@@ -33,17 +30,12 @@ pub async fn finn_for_identitetsnummer_query_request(
     );
     let arbeidssoeker_rows =
         arbeidssoeker::select_by_identitetsnummer(tx, &identitetsnummer).await?;
-    let arbeidssoekere = map_rows(tx, &paging, &arbeidssoeker_rows).await?;
-    let paging_response = PagingResponse {
-        page: paging.page,
-        page_size: paging.page_size,
-        hit_size: arbeidssoekere.len() as i32,
-        total_count: arbeidssoeker_rows.len() as i64,
-        sort_order: paging.sort_order,
-    };
-    Ok(KartleggingV2Response {
+    let arbeidssoekere = map_rows(tx, &arbeidssoeker_rows).await?;
+    let hit_size = arbeidssoekere.len() as i32;
+    let total_count = arbeidssoeker_rows.len() as i64;
+    Ok(ArbeidsledighetResponse {
         arbeidssoekere,
-        paging: paging_response,
+        paging: paging.as_response(hit_size, total_count),
     })
 }
 
@@ -51,7 +43,7 @@ pub async fn finn_for_identitetsnummer_query_request(
 pub async fn finn_for_kontortilknytning_query_request(
     tx: &mut Transaction<'_, Postgres>,
     request: &TilknyttetKontorQueryRequest,
-) -> anyhow::Result<KartleggingV2Response> {
+) -> anyhow::Result<ArbeidsledighetResponse> {
     let kontor_id = &request.kontor_id;
     let kontor_typer = request
         .kontor_type
@@ -99,30 +91,22 @@ pub async fn finn_for_kontortilknytning_query_request(
         &paging.sort_order,
     )
     .await?;
-    let arbeidssoekere = map_rows(tx, &paging, &arbeidssoeker_rows).await?;
-    let paging_response = PagingResponse {
-        page: paging.page,
-        page_size: paging.page_size,
-        hit_size: arbeidssoekere.len() as i32,
-        total_count,
-        sort_order: paging.sort_order,
-    };
-    Ok(KartleggingV2Response {
+    let arbeidssoekere = map_rows(tx, &arbeidssoeker_rows).await?;
+    let hit_size = arbeidssoekere.len() as i32;
+    Ok(ArbeidsledighetResponse {
         arbeidssoekere,
-        paging: paging_response,
+        paging: paging.as_response(hit_size, total_count),
     })
 }
 
 async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
-    paging: &PagingRequest,
     arbeidssoeker_rows: &Vec<ArbeidssoekerRow>,
 ) -> anyhow::Result<Vec<ArbeidssoekerV2>> {
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
         let ledighetsperioder =
-            ledighetsperioder_v2_query::finn_for_arbeidssoeker_id(tx, row.id, paging.clone())
-                .await?;
+            ledighetsperioder_v2_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
         let kontortilknytninger =
             kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
         arbeidssoekere.push(ArbeidssoekerV2::new(

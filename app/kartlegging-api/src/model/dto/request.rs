@@ -1,4 +1,5 @@
 use crate::model::dto::kontortilknytning::KontorType;
+use crate::model::dto::response::PagingResponse;
 use crate::model::parse::{EnumTypeParseError, enum_type_not_found};
 use crate::model::sort::SortOrder;
 use chrono::NaiveDate;
@@ -84,6 +85,18 @@ pub struct PagingRequest {
     pub page: i32,
     pub page_size: i32,
     pub sort_order: SortOrder,
+}
+
+impl PagingRequest {
+    pub fn as_response(&self, hit_size: i32, total_count: i64) -> PagingResponse {
+        PagingResponse {
+            page: self.page,
+            page_size: self.page_size,
+            hit_size,
+            total_count,
+            sort_order: self.sort_order.clone(),
+        }
+    }
 }
 
 impl PagingRequest {

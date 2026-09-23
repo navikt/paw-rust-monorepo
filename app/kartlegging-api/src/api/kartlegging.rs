@@ -12,7 +12,7 @@ use paw_otel_tracing::otel_middleware::otel_middleware;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-pub const API_KARTLEGGING_PATH: &str = "/api/v1/kartlegging";
+pub(crate) const API_KARTLEGGING_PATH: &str = "/api/v1/kartlegging";
 
 pub(crate) fn routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
     Router::new()

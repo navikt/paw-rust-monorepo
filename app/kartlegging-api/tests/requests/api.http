@@ -6,7 +6,7 @@ Authorization: Bearer {{$auth.token("azure")}}
 
 {
     "type": "IDENTITETSNUMMER",
-    "identitetsnummer": "{{identitetsnummer}}",
+    "identitetsnummer": "04896995192",
     "paging": {
         "page": 1,
         "pageSize": 100,
@@ -22,14 +22,26 @@ Authorization: Bearer {{$auth.token("azure")}}
 
 {
     "type": "TILKNYTTET_KONTOR",
-    "kontorId": "1234",
+    "kontorId": "4154",
     "paging": {
         "page": 1,
-<<<<<<< Updated upstream
-        "pageSize": 100,
-=======
-        "pageSize": 30,
->>>>>>> Stashed changes
+        "pageSize": 50,
+        "sortOrder": "DESC"
+    }
+}
+
+### POST /api/v2/kartlegging for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v2/kartlegging
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "TILKNYTTET_KONTOR",
+    "kontorId": "4154",
+    "paging": {
+        "page": 1,
+        "pageSize": 50,
         "sortOrder": "DESC"
     }
 }

@@ -3,7 +3,6 @@ use crate::model::dao::ledighetsperiode_v2::LedighetsperiodeV2Row;
 use crate::model::dto::bekreftelse::Bekreftelsesloesning;
 use crate::model::dto::ledighetsperiode_v2::LedighetsperiodeV2;
 use crate::model::dto::profilering::ProfilertTil;
-use crate::model::dto::request::PagingRequest;
 use sqlx::{Postgres, Transaction};
 use std::str::FromStr;
 
@@ -11,17 +10,9 @@ use std::str::FromStr;
 pub async fn finn_for_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: i64,
-    paging: PagingRequest,
 ) -> anyhow::Result<Vec<LedighetsperiodeV2>> {
     tracing::info!("Henter kartlegging for parent id");
-    let rows = ledighetsperiode_v2::select_by_arbeidssoeker_id(
-        tx,
-        arbeidssoeker_id,
-        paging.offset(),
-        paging.limit(),
-        &paging.sort_order,
-    )
-    .await?;
+    let rows = ledighetsperiode_v2::select_by_arbeidssoeker_id(tx, arbeidssoeker_id).await?;
 
     let mut kartlegginger = Vec::new();
     for row in &rows {
@@ -50,7 +41,7 @@ fn map_row(row: &LedighetsperiodeV2Row) -> anyhow::Result<LedighetsperiodeV2> {
         periode_startet: row.arbeidssoeker_fra,
         egenvurdert_til,
         bekreftelse_har_jobbet: row.bekreftelse_har_jobbet,
-        bekreftelse_vil_fortsette: row.bekreftelse_har_jobbet,
+        bekreftelse_vil_fortsette: row.bekreftelse_vil_fortsette,
         bekreftelse_ansvar,
     })
 }

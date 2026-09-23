@@ -1,4 +1,3 @@
-use crate::model::sort::SortOrder;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;
@@ -37,35 +36,34 @@ pub(crate) struct LedighetsperiodeRow {
 pub async fn select_by_arbeidssoeker_id(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_id: i64,
-    offset: i32,
-    limit: i32,
-    sort_order: &SortOrder,
 ) -> anyhow::Result<Vec<LedighetsperiodeRow>> {
     tracing::debug!("Select ledighetsperioder by parent-id");
-    let dir = sort_order.as_ref();
-    // language=SQL
-    let sql = format!(
+    sqlx::query_as::<_, LedighetsperiodeRow>(
         r#"
         WITH latest_opplysninger AS (
-            SELECT DISTINCT ON (periode_id) id, periode_id, jobbsituasjon, tidspunkt
+            SELECT id, periode_id, jobbsituasjon, tidspunkt
             FROM opplysninger
-            ORDER BY periode_id, tidspunkt {dir}
+            ORDER BY tidspunkt DESC
+            LIMIT 1
         ),
         latest_profileringer AS (
-            SELECT DISTINCT ON (periode_id) id, periode_id, profilert_til, tidspunkt
+            SELECT id, periode_id, profilert_til, tidspunkt
             FROM profileringer
-            ORDER BY periode_id, tidspunkt {dir}
+            ORDER BY tidspunkt DESC
+            LIMIT 1
         ),
         latest_egenvurderinger AS (
-            SELECT DISTINCT ON (periode_id) id, periode_id, egenvurdert_til, tidspunkt
+            SELECT id, periode_id, egenvurdert_til, tidspunkt
             FROM egenvurderinger
-            ORDER BY periode_id, tidspunkt {dir}
+            ORDER BY tidspunkt DESC
+            LIMIT 1
         ),
         latest_bekreftelser AS (
-            SELECT DISTINCT ON (periode_id) id, periode_id, gjelder_fra, gjelder_til,
+            SELECT id, periode_id, gjelder_fra, gjelder_til,
                    har_jobbet, vil_fortsette, bekreftelsesloesning
             FROM bekreftelser
-            ORDER BY periode_id, tidspunkt {dir}
+            ORDER BY gjelder_til DESC
+            LIMIT 1
         )
         SELECT
             k.arbeidssoeker_id,
@@ -98,17 +96,13 @@ pub async fn select_by_arbeidssoeker_id(
         LEFT JOIN latest_egenvurderinger e    ON e.periode_id  = k.periode_id
         LEFT JOIN latest_bekreftelser b       ON b.periode_id  = k.periode_id
         LEFT JOIN bekreftelse_paavegneav bv ON bv.periode_id = k.periode_id
-        WHERE k.arbeidssoeker_id = $1
-        ORDER BY k.arbeidssoeker_fra {dir}
-        OFFSET $2
-        LIMIT $3
-        "#
-    );
-    sqlx::query_as::<_, LedighetsperiodeRow>(sqlx::AssertSqlSafe(sql))
-        .bind(arbeidssoeker_id)
-        .bind(offset)
-        .bind(limit)
-        .fetch_all(&mut **tx)
-        .await
-        .map_err(Into::into)
+        WHERE k.arbeidssoeker_id = $1 AND k.arbeidssoeker_til IS NOT NULL
+        ORDER BY k.arbeidsledig_fra DESC NULLS LAST, k.arbeidssoeker_fra DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(arbeidssoeker_id)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(Into::into)
 }
