@@ -7,3 +7,11 @@ certificate_path = "${KAFKA_CERTIFICATE_PATH}"
 ca_path = "${KAFKA_CA_PATH}"
 partition_queue_min_size = 1000
 partition_assignment_strategy = "range"
+
+# fetch_max_bytes gjelder for hele fetch-requesten, ikke per partisjon.
+# internkontroll leser 8 co-partisjonerte topics, så defaulten på 131072
+# gir noen få kilobyte per partisjon per rundtur.
+# receive_message_max_bytes må være større enn fetch_max_bytes + 512.
+fetch_max_bytes = 1048576
+max_partition_fetch_bytes = 65536
+receive_message_max_bytes = 1500000
