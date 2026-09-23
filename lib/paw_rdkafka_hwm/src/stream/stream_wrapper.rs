@@ -170,7 +170,7 @@ async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), 
         .unwrap_or(now + max_idle);
     let mut updates = FuturesUnordered::new();
     for queue in queues {
-        updates.push(queue.update());
+        updates.push(queue.update(max_idle));
     }
     while let Ok(Some(res)) = timeout_at(deadline, updates.next()).await {
         match res {

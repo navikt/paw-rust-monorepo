@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
+use futures::FutureExt;
 use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
@@ -80,24 +81,34 @@ impl QueueHandler {
             partition = self.key.partition,
             current_queue_size = self.head.len() as u64)
         )]
-    pub async fn update(&mut self) -> Result<(), StreamError> {
-        if self.head.len() < self.refill_threshold() {
-            while self.head.len() < self.internal_buffer_size {
-                match self.rdkafka_stream.recv().await {
-                    Ok(record) => {
-                        let record = record.detach();
-                        if self.head.is_empty() {
-                            self.next_timestamp_gauge.set(timestamp_ms(Some(&record)));
-                            self.empty_since = None;
-                        }
-                        self.head.push_back(record);
-                        self.depth_gauge.set(self.head.len() as f64);
-                    }
-                    Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
-                }
+    pub async fn update(&mut self, max_idle: Duration) -> Result<(), StreamError> {
+        // Waiting only changes the outcome while the queue is empty and still
+        // inside its grace: the merge cannot order a partition it has nothing
+        // from. Past the grace the merge already skips it, and a queue that
+        // holds messages must never block the round.
+        if self.empty_for().is_some_and(|idle_for| idle_for < max_idle) {
+            match self.rdkafka_stream.recv().await {
+                Ok(record) => self.push(record.detach()),
+                Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
+            }
+        }
+        while self.head.len() < self.internal_buffer_size {
+            match self.rdkafka_stream.recv().now_or_never() {
+                Some(Ok(record)) => self.push(record.detach()),
+                Some(Err(e)) => return Err(StreamError::FailedToReadRecord(e.to_string())),
+                None => break,
             }
         }
         Ok(())
+    }
+
+    fn push(&mut self, msg: OwnedMessage) {
+        if self.head.is_empty() {
+            self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
+            self.empty_since = None;
+        }
+        self.head.push_back(msg);
+        self.depth_gauge.set(self.head.len() as f64);
     }
 
     pub fn add_message(&mut self, msg: OwnedMessage) -> Result<usize, KafkaError> {
@@ -109,12 +120,7 @@ impl QueueHandler {
                 topic, partition, self.key.topic, self.key.partition
             )));
         }
-        if self.head.is_empty() {
-            self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
-            self.empty_since = None;
-        }
-        self.head.push_back(msg);
-        self.depth_gauge.set(self.head.len() as f64);
+        self.push(msg);
         Ok(self.head.len())
     }
 
@@ -124,12 +130,6 @@ impl QueueHandler {
 
     pub fn is_empty(&self) -> bool {
         self.head.is_empty()
-    }
-
-    /// Low water mark: refill before the queue runs dry, so a high traffic
-    /// partition never reaches the empty state the merge has to skip.
-    fn refill_threshold(&self) -> usize {
-        (self.internal_buffer_size / 4).max(1)
     }
 
     pub fn empty_for(&self) -> Option<Duration> {
