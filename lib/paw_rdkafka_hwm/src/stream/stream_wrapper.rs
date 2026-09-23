@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
-use prometheus::{CounterVec, Gauge, register_counter_vec, register_gauge};
+use prometheus::{CounterVec, register_counter_vec};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use sqlx::PgPool;
@@ -129,13 +129,6 @@ impl PawKafkaStream for PawKafkaConsumerStream {
             STREAM_WRAPPER_MESSAGES
                 .with_label_values(&[if back_in_time { "true" } else { "false" }])
                 .inc();
-            STREAM_WRAPER_TIMESTAMP.set(
-                msg.timestamp()
-                    .to_millis()
-                    .and_then(DateTime::from_timestamp_millis)
-                    .map(|dt| dt.timestamp_millis() as f64)
-                    .unwrap_or(0.0),
-            );
         } else {
             Span::current().record("topic", "none");
             Span::current().record("partition", -1);
@@ -347,14 +340,6 @@ fn get_rebalance_events(
     }
     messages
 }
-
-static STREAM_WRAPER_TIMESTAMP: LazyLock<Gauge> = LazyLock::new(|| {
-    register_gauge!(
-        "paw_kafka_stream_timestamp",
-        "The timestamp of the last message retrieved from the stream wrapper"
-    )
-    .expect("Failed to create gauge")
-});
 
 /// Every message handed to the caller of `receive()`, labelled by whether its
 /// timestamp went backwards relative to the newest one already emitted for the
