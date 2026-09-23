@@ -5,7 +5,9 @@ use std::time::Duration;
 use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
-use prometheus::{CounterVec, register_counter_vec};
+use prometheus::{
+    CounterVec, HistogramVec, exponential_buckets, register_counter_vec, register_histogram_vec,
+};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
 use sqlx::PgPool;
@@ -103,32 +105,39 @@ impl PawKafkaStream for PawKafkaConsumerStream {
                     .map(|dt| dt.to_rfc3339())
                     .unwrap_or_else(|| "unknown".to_string()),
             );
-            let mut back_in_time = false;
-            self.stream_times
-                .entry(msg.partition())
-                .and_modify(|ts| {
-                    let new_ts = msg.timestamp().to_millis().unwrap_or(-1);
-                    if new_ts >= *ts {
-                        *ts = new_ts;
-                    } else {
-                        back_in_time = true;
-                        let back_in_time_ms = *ts - new_ts;
-                        Span::current().record("back_in_time_ms", back_in_time_ms);
-                        tracing::warn!(
-                            back_in_time_ms,
-                            stream_time_ms = *ts,
-                            message_time_ms = new_ts,
-                            kafka.topic = msg.topic(),
-                            kafka.partition = msg.partition(),
-                            kafka.offset = msg.offset(),
-                            "kafka.back_in_time"
-                        );
-                    }
-                })
-                .or_insert_with(|| msg.timestamp().to_millis().unwrap_or(-1));
+            // A message without a timestamp cannot move the stream clock, and
+            // must not be treated as an epoch-sized jump backwards.
+            let mut back_in_time_ms = 0;
+            if let Some(new_ts) = msg.timestamp().to_millis() {
+                self.stream_times
+                    .entry(msg.partition())
+                    .and_modify(|ts| {
+                        if new_ts >= *ts {
+                            *ts = new_ts;
+                        } else {
+                            back_in_time_ms = *ts - new_ts;
+                            Span::current().record("back_in_time_ms", back_in_time_ms);
+                            tracing::warn!(
+                                back_in_time_ms,
+                                stream_time_ms = *ts,
+                                message_time_ms = new_ts,
+                                kafka.topic = msg.topic(),
+                                kafka.partition = msg.partition(),
+                                kafka.offset = msg.offset(),
+                                "kafka.back_in_time"
+                            );
+                        }
+                    })
+                    .or_insert(new_ts);
+            }
             STREAM_WRAPPER_MESSAGES
-                .with_label_values(&[if back_in_time { "true" } else { "false" }])
+                .with_label_values(&[if back_in_time_ms > 0 { "true" } else { "false" }])
                 .inc();
+            if back_in_time_ms > 0 {
+                BACK_IN_TIME_MS
+                    .with_label_values(&[msg.topic()])
+                    .observe(back_in_time_ms as f64);
+            }
         } else {
             Span::current().record("topic", "none");
             Span::current().record("partition", -1);
@@ -355,6 +364,20 @@ static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     counter.with_label_values(&["true"]);
     counter.with_label_values(&["false"]);
     counter
+});
+
+/// How far back a jump went, in milliseconds, by the topic of the late
+/// message. Decade buckets from 1 ms to 1e8 ms (about 27 hours): the question
+/// is which order of magnitude a jump lands in, not its exact size. The
+/// counter above says how often; this says how bad.
+static BACK_IN_TIME_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "paw_kafka_stream_back_in_time_ms",
+        "Size of backward timestamp jumps in milliseconds, by topic",
+        &["topic"],
+        exponential_buckets(1.0, 10.0, 9).expect("Failed to create buckets")
+    )
+    .expect("Failed to create histogram")
 });
 
 /// Messages that arrived on the main consumer queue rather than on a split
