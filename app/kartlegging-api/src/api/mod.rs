@@ -1,5 +1,6 @@
 pub(crate) mod docs;
 pub(crate) mod kartlegging;
+pub(crate) mod kartlegging_v2;
 pub(crate) mod statistics;
 
 use axum::Router;
@@ -15,11 +16,13 @@ pub fn build_router(
 ) -> Router {
     let health_routes = axum_health::routes(app_state);
     let docs_routes = docs::routes();
-    let kartlegging_routes = kartlegging::routes(pg_pool.clone(), auth_state);
+    let kartlegging_routes = kartlegging::routes(pg_pool.clone(), auth_state.clone());
+    let kartlegging_v2_routes = kartlegging_v2::routes(pg_pool.clone(), auth_state.clone());
     let statistics_routes = statistics::routes(pg_pool.clone());
 
     health_routes
         .merge(docs_routes)
         .merge(kartlegging_routes)
+        .merge(kartlegging_v2_routes)
         .merge(statistics_routes)
 }

@@ -57,6 +57,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
+        .set_ignore_missing(true)
         .run(&pg_pool)
         .await
         .map_err(DatabaseError::MigrateSchema)?;
