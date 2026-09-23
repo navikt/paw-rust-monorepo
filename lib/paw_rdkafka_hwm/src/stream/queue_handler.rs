@@ -76,7 +76,7 @@ impl QueueHandler {
             current_queue_size = self.head.len() as u64)
         )]
     pub async fn update(&mut self) -> Result<(), StreamError> {
-        if self.head.is_empty() {
+        if self.head.len() < self.refill_threshold() {
             while self.head.len() < self.internal_buffer_size {
                 match self.rdkafka_stream.recv().await {
                     Ok(record) => {
@@ -118,6 +118,12 @@ impl QueueHandler {
 
     pub fn is_empty(&self) -> bool {
         self.head.is_empty()
+    }
+
+    /// Low water mark: refill before the queue runs dry, so a high traffic
+    /// partition never reaches the empty state the merge has to skip.
+    fn refill_threshold(&self) -> usize {
+        (self.internal_buffer_size / 4).max(1)
     }
 
     pub fn empty_for(&self) -> Option<Duration> {
