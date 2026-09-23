@@ -8,19 +8,21 @@ use futures::{FutureExt, StreamExt};
 use prometheus::{Counter, Gauge, register_counter, register_gauge};
 use rdkafka::Message;
 use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
+use sqlx::PgPool;
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
 };
 use tokio::time::timeout_at;
 use tracing::{Span, instrument};
 
+use crate::hwm_functions::get_hwm;
 use crate::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
     rebalance_message::{RebalanceMessage, TopicPartition},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::QueueHandler;
-use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push};
+use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
 
 pub struct PawKafkaConsumerStream {
     /// Receiver for rebalance events from the rebalancer.
@@ -36,6 +38,9 @@ pub struct PawKafkaConsumerStream {
     /// Soft limit for the number of messages to buffer internally for each partition queue.
     internal_buffer_size: usize,
     stream_times: HashMap<i32, i64>,
+    pg_pool: PgPool,
+    hwm_version: i16,
+    main_consumer_none_treshold: usize,
 }
 
 impl PawKafkaStream for PawKafkaConsumerStream {
@@ -56,9 +61,7 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     /// Consumes self and returns it self if safe to continue receiving messages,
     /// or an error if the stream is disconnected or failed.
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
-        self.drain_main_consumer().await?;
-        let rebalance_events = get_rebalance_events(&mut self.receiver);
-        self.handle_rebalance_events(rebalance_events)?;
+        self.drain_and_rebalance().await?;
         let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
         load(&mut self.queues, self.max_idle).await?;
         let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
@@ -156,6 +159,9 @@ impl PawKafkaConsumerStream {
         consumer: StreamConsumer<HwmRebalanceHandler>,
         max_idle: Duration,
         internal_buffer_size: usize,
+        pg_pool: PgPool,
+        hwm_version: i16,
+        main_consumer_none_treshold: usize,
     ) -> Self {
         Self {
             receiver,
@@ -164,6 +170,9 @@ impl PawKafkaConsumerStream {
             max_idle,
             internal_buffer_size,
             stream_times: HashMap::new(),
+            pg_pool,
+            hwm_version,
+            main_consumer_none_treshold,
         }
     }
 
@@ -217,35 +226,64 @@ impl PawKafkaConsumerStream {
         }
         Ok(())
     }
-    #[tracing::instrument(
-        skip(self),
-        name = "paw_kafka_stream.drain_main_consumer",
-        fields(topic_partitions = self.queues.len() as u64)
-    )]
-    async fn drain_main_consumer(&mut self) -> Result<(), StreamError> {
-        while let Some(res) = self.consumer.recv().now_or_never() {
-            match res {
-                Ok(msg) => {
+
+    async fn drain_and_rebalance(&mut self) -> Result<(), StreamError> {
+        let mut messages = Vec::new();
+        let mut none_counter = 0;
+        while none_counter < self.main_consumer_none_treshold {
+            match self.consumer.recv().now_or_never() {
+                Some(Ok(msg)) => {
                     tracing::info!(
                         "Received early message from topic {} partition {} offset {}",
                         msg.topic(),
                         msg.partition(),
                         msg.offset()
                     );
-                    let msg = msg.detach();
-                    ensure_queue_and_push(&mut self.queues, MessageOrKey::Message(msg), |tp| {
-                        self.consumer
-                            .split_partition_queue(&tp.topic, tp.partition)
-                            .map(|pt_queue| {
-                                QueueHandler::new(tp, pt_queue, self.internal_buffer_size)
-                            })
-                    });
+                    let mut tx = self
+                        .pg_pool
+                        .begin()
+                        .await
+                        .map_err(|_| StreamError::HwmFilterDbError)?;
+                    let hwm = get_hwm(
+                        &mut tx,
+                        self.hwm_version,
+                        msg.topic(),
+                        msg.partition() as u16,
+                    )
+                    .await
+                    .map_err(|_| StreamError::HwmFilterDbError)?;
+                    match hwm {
+                        Some(hwm) if msg.offset() > hwm => {
+                            messages.push(msg.detach());
+                        }
+                        None => messages.push(msg.detach()),
+                        _ => {
+                            tracing::trace!(
+                                "[StreamWrapper] Message below HWM, topic {}, partition {}, offset {}, dropped",
+                                msg.topic(),
+                                msg.partition(),
+                                msg.offset()
+                            );
+                        }
+                    }
                 }
-                Err(e) => {
+                Some(Err(e)) => {
                     return Err(StreamError::FailedToReadRecord(e.to_string()));
+                }
+                None => {
+                    let rebalance_events = get_rebalance_events(&mut self.receiver);
+                    if rebalance_events.is_empty() {
+                        none_counter += 1;
+                    } else {
+                        self.handle_rebalance_events(rebalance_events)?;
+                        none_counter = self.main_consumer_none_treshold - 3;
+                    }
                 }
             }
         }
+        messages.into_iter().for_each(|msg| {
+            push_if_assigned(&mut self.queues, msg);
+        });
         Ok(())
     }
 }

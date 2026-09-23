@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::{sync::Arc, time::Duration};
 
@@ -23,7 +22,7 @@ use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
 use std::error::Error;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tracing::info;
 
 #[tokio::main]
@@ -65,11 +64,17 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         tx,
     )?;
     let internal_buffer_size = 50;
-    // Maks nådeperiode et stille topic får før andre går videre uten det
-    // (à la Kafka Streams' max.task.idle.ms). Juster basert på observert
-    // hopp-frekvens (paw_kafka_stream_back_in_time_counter).
     let max_idle = Duration::from_millis(500);
-    let stream = PawKafkaConsumerStream::new(rx, consumer, max_idle, internal_buffer_size);
+    let main_consumer_none_treshold = 10;
+    let stream = PawKafkaConsumerStream::new(
+        rx,
+        consumer,
+        max_idle,
+        internal_buffer_size,
+        pg_pool.clone(),
+        hwm_version,
+        main_consumer_none_treshold,
+    );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();

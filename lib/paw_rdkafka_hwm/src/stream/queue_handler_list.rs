@@ -60,3 +60,22 @@ impl MessageOrKey {
         }
     }
 }
+
+pub fn push_if_assigned(queue_handlers: &mut [QueueHandler], message: OwnedMessage) {
+    let key = TopicPartition {
+        topic: message.topic().to_string(),
+        partition: message.partition(),
+    };
+    let index = queue_handlers.iter().position(|q| q.key == key);
+    if let Some(idx) = index {
+        queue_handlers[idx]
+            .add_message(message)
+            .expect("Failed to add message to QueueHandler, direct key access should not fail");
+    } else {
+        tracing::trace!(
+            "No QueueHandler found for key: {:?}, its not assigned to this consumer, message with offset {} dropped",
+            key,
+            message.offset()
+        );
+    }
+}
