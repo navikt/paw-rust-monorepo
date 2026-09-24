@@ -182,13 +182,13 @@ impl PawKafkaConsumerStream {
     #[tracing::instrument(
         skip(self),
         name = "paw_kafka_stream.handle_rebalance_events",
-        fields(rebalance_events = rebalance_events.len() as u64)
+        fields(topic_update_events = topic_update_events.len() as u64)
     )]
-    fn handle_rebalance_events(
+    fn handle_topic_update_events(
         &mut self,
-        rebalance_events: Vec<TopicPartitionUpdate>,
+        topic_update_events: Vec<TopicPartitionUpdate>,
     ) -> Result<(), StreamError> {
-        for rebalance_event in rebalance_events {
+        for rebalance_event in topic_update_events {
             match rebalance_event {
                 TopicPartitionUpdate::NoOp => {}
                 TopicPartitionUpdate::Assigned {
@@ -295,7 +295,7 @@ impl PawKafkaConsumerStream {
                     if rebalance_events.is_empty() {
                         none_counter += 1;
                     } else {
-                        self.handle_rebalance_events(rebalance_events)?;
+                        self.handle_topic_update_events(rebalance_events)?;
                         none_counter = self.main_consumer_none_treshold.saturating_sub(3);
                     }
                 }
