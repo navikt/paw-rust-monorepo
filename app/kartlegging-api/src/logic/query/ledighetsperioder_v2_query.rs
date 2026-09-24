@@ -4,20 +4,20 @@ use crate::model::dto::bekreftelse::Bekreftelsesloesning;
 use crate::model::dto::ledighetsperiode_v2::LedighetsperiodeV2;
 use crate::model::dto::profilering::ProfilertTil;
 use sqlx::{Postgres, Transaction};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 #[tracing::instrument(skip_all)]
-pub async fn finn_for_arbeidssoeker_id(
+pub async fn finn_for_arbeidssoeker_ider(
     tx: &mut Transaction<'_, Postgres>,
-    arbeidssoeker_id: i64,
-) -> anyhow::Result<Vec<LedighetsperiodeV2>> {
-    tracing::info!("Henter kartlegging for parent id");
-    let rows = ledighetsperiode_v2::select_by_arbeidssoeker_id(tx, arbeidssoeker_id).await?;
+    arbeidssoeker_ider: &[i64],
+) -> anyhow::Result<HashMap<i64, LedighetsperiodeV2>> {
+    tracing::info!("Henter kartlegging for parent ider");
+    let rows = ledighetsperiode_v2::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
 
-    let mut kartlegginger = Vec::new();
+    let mut kartlegginger = HashMap::new();
     for row in &rows {
-        let kartlegging = map_row(row)?;
-        kartlegginger.push(kartlegging);
+        kartlegginger.insert(row.arbeidssoeker_id, map_row(row)?);
     }
     Ok(kartlegginger)
 }

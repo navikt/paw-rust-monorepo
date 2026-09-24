@@ -103,12 +103,26 @@ async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_rows: &Vec<ArbeidssoekerRow>,
 ) -> anyhow::Result<Vec<ArbeidssoekerV2>> {
+    let arbeidssoeker_ider: Vec<i64> = arbeidssoeker_rows.iter().map(|row| row.id).collect();
+    let aktor_ider: Vec<String> = arbeidssoeker_rows
+        .iter()
+        .map(|row| row.aktor_id.clone())
+        .collect();
+
+    let mut ledighetsperioder_by_arbeidssoeker_id =
+        ledighetsperioder_v2_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider).await?;
+    let mut kontortilknytninger_by_aktor_id =
+        kontortilknytning_query::finn_for_aktor_ider(tx, &aktor_ider).await?;
+
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
-        let ledighetsperioder =
-            ledighetsperioder_v2_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
-        let kontortilknytninger =
-            kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
+        let ledighetsperioder = ledighetsperioder_by_arbeidssoeker_id
+            .remove(&row.id)
+            .into_iter()
+            .collect();
+        let kontortilknytninger = kontortilknytninger_by_aktor_id
+            .remove(&row.aktor_id)
+            .unwrap_or_default();
         arbeidssoekere.push(ArbeidssoekerV2::new(
             row.id.clone(),
             row.aktor_id.clone(),
