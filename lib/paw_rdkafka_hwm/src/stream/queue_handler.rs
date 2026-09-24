@@ -25,6 +25,7 @@ pub struct QueueHandler {
     depth_gauge: Gauge,
     hi_offset: Option<i64>,
     current_offset: i64,
+    current_timestamp: Option<i64>,
 }
 
 impl QueueHandler {
@@ -55,6 +56,7 @@ impl QueueHandler {
             depth_gauge,
             hi_offset: None,
             current_offset,
+            current_timestamp: None,
         }
     }
 
@@ -117,6 +119,23 @@ impl QueueHandler {
                 current_offset: self.current_offset,
                 message_offset: msg.offset(),
             });
+        }
+        if let Some(message_timestamp) = msg.timestamp().to_millis() {
+            if let Some(current_timestamp) = self.current_timestamp
+                && message_timestamp < current_timestamp
+            {
+                tracing::warn!(
+                    kafka.topic = self.key.topic,
+                    kafka.partition = self.key.partition,
+                    previous_offset = self.current_offset,
+                    message_offset = msg.offset(),
+                    previous_timestamp_ms = current_timestamp,
+                    message_timestamp_ms = message_timestamp,
+                    back_in_time_ms = current_timestamp - message_timestamp,
+                    "kafka.partition_timestamp_out_of_sequence"
+                );
+            }
+            self.current_timestamp = Some(message_timestamp);
         }
         if self.head.is_empty() {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
