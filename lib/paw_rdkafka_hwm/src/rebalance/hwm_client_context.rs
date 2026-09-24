@@ -24,6 +24,7 @@ impl ClientContext for HwmRebalanceHandler {
                             KafkaOffsets {
                                 hi_offset: partition_statistics.hi_offset,
                                 next_offset: partition_statistics.next_offset,
+                                message_queue_count: partition_statistics.msgq_cnt,
                             },
                         )
                     },

@@ -138,7 +138,7 @@ async fn next_offset_forbi_control_record_blokkerer_ikke_andre_koer() {
         .send(TopicPartitionUpdate::HiOffsetUpdate {
             topic_partition_offsets: vec![
                 offsets(transactional_topic.clone(), 2),
-                offsets(active_topic, 10),
+                offsets_with_queue_count(active_topic, 10, 10),
             ],
         })
         .unwrap();
@@ -540,11 +540,20 @@ fn message(topic: &str, offset: i64, timestamp: i64) -> OwnedMessage {
 }
 
 fn offsets(topic_partition: TopicPartition, hi_offset: i64) -> (TopicPartition, KafkaOffsets) {
+    offsets_with_queue_count(topic_partition, hi_offset, 0)
+}
+
+fn offsets_with_queue_count(
+    topic_partition: TopicPartition,
+    hi_offset: i64,
+    message_queue_count: i64,
+) -> (TopicPartition, KafkaOffsets) {
     (
         topic_partition,
         KafkaOffsets {
             hi_offset,
             next_offset: hi_offset,
+            message_queue_count,
         },
     )
 }

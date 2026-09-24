@@ -76,6 +76,7 @@ fn offsets(topic_partition: TopicPartition, hi_offset: i64) -> (TopicPartition, 
         KafkaOffsets {
             hi_offset,
             next_offset: hi_offset,
+            message_queue_count: 0,
         },
     )
 }

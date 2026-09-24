@@ -125,9 +125,9 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
     }
 
     fn is_lagging(&self) -> bool {
-        self.offsets
-            .as_ref()
-            .is_none_or(|offsets| offsets.next_offset < offsets.hi_offset)
+        self.offsets.as_ref().is_none_or(|offsets| {
+            offsets.next_offset < offsets.hi_offset || offsets.message_queue_count > 0
+        })
     }
 
     pub fn has_stalled(&self) -> bool {
