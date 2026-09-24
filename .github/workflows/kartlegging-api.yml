@@ -47,6 +47,8 @@ jobs:
         with:
           team: paw
           image_suffix: ${{ env.APP_NAME }}
+          cache_from: type=gha,scope=${{ env.APP_NAME }}
+          cache_to: type=gha,scope=${{ env.APP_NAME }},mode=max
           build_args: |
             APP=${{ env.APP_NAME }}
             GIT_COMMIT_HASH=${{ github.sha }}
