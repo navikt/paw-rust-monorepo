@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
@@ -9,7 +10,10 @@ use prometheus::{
     CounterVec, HistogramVec, exponential_buckets, register_counter_vec, register_histogram_vec,
 };
 use rdkafka::Message;
-use rdkafka::{consumer::StreamConsumer, message::OwnedMessage};
+use rdkafka::{
+    consumer::{StreamConsumer, stream_consumer::StreamPartitionQueue},
+    message::OwnedMessage,
+};
 use sqlx::PgPool;
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
@@ -23,15 +27,48 @@ use crate::rebalance::{
     topic_partition_update::{TopicPartition, TopicPartitionUpdate},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
-use crate::stream::queue_handler::{KafkaQueueHandler, QueueHandler};
+use crate::stream::queue_handler::{PartitionMessageSource, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
 
-pub struct PawKafkaConsumerStream {
+pub trait ConsumerMessageSource: Send + Sync {
+    type PartitionSource: PartitionMessageSource;
+
+    fn recv(&self) -> impl Future<Output = Result<OwnedMessage, StreamError>> + Send;
+
+    fn split_partition_queue(
+        self: &Arc<Self>,
+        topic: &str,
+        partition: i32,
+    ) -> Option<Self::PartitionSource>;
+}
+
+impl ConsumerMessageSource for StreamConsumer<HwmRebalanceHandler> {
+    type PartitionSource = StreamPartitionQueue<HwmRebalanceHandler>;
+
+    async fn recv(&self) -> Result<OwnedMessage, StreamError> {
+        StreamConsumer::recv(self)
+            .await
+            .map(|message| message.detach())
+            .map_err(|error| StreamError::FailedToReadRecord(error.to_string()))
+    }
+
+    fn split_partition_queue(
+        self: &Arc<Self>,
+        topic: &str,
+        partition: i32,
+    ) -> Option<Self::PartitionSource> {
+        StreamConsumer::split_partition_queue(self, topic, partition)
+    }
+}
+
+pub type KafkaConsumerStream = PawKafkaConsumerStream<StreamConsumer<HwmRebalanceHandler>>;
+
+pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     /// Receiver for rebalance events from the rebalancer.
     receiver: UnboundedReceiver<TopicPartitionUpdate>,
-    consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
+    consumer: Arc<C>,
     /// Currently active queues for each assigned topic partition.
-    queues: Vec<KafkaQueueHandler>,
+    queues: Vec<QueueHandler<C::PartitionSource>>,
     /// Maximum time the internal buffer can be empty before we consider it idle and
     /// no longer wait for it to be filled.
     /// This is used to avoid slowing down the stream when a partition
@@ -45,7 +82,7 @@ pub struct PawKafkaConsumerStream {
     main_consumer_none_treshold: usize,
 }
 
-impl PawKafkaStream for PawKafkaConsumerStream {
+impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
     #[tracing::instrument(
         skip(self),
         name = "paw_kafka_stream.receive",
@@ -139,7 +176,10 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     name = "paw_kafka_stream.load",
     fields(topic_partitions = queues.len() as u64)
 )]
-async fn load(queues: &mut Vec<KafkaQueueHandler>, max_idle: Duration) -> Result<(), StreamError> {
+async fn load<S: PartitionMessageSource>(
+    queues: &mut Vec<QueueHandler<S>>,
+    max_idle: Duration,
+) -> Result<(), StreamError> {
     let deadline = Instant::now() + max_idle;
     let mut updates = FuturesUnordered::new();
     for queue in queues {
@@ -156,10 +196,10 @@ async fn load(queues: &mut Vec<KafkaQueueHandler>, max_idle: Duration) -> Result
     Ok(())
 }
 
-impl PawKafkaConsumerStream {
+impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
     pub fn new(
         receiver: UnboundedReceiver<TopicPartitionUpdate>,
-        consumer: StreamConsumer<HwmRebalanceHandler>,
+        consumer: C,
         max_idle: Duration,
         internal_buffer_size: usize,
         pg_pool: PgPool,
@@ -271,9 +311,9 @@ impl PawKafkaConsumerStream {
                     .map_err(|_| StreamError::HwmFilterDbError)?;
                     match hwm {
                         Some(hwm) if msg.offset() > hwm => {
-                            messages.push(msg.detach());
+                            messages.push(msg);
                         }
-                        None => messages.push(msg.detach()),
+                        None => messages.push(msg),
                         _ => {
                             MAIN_QUEUE_MESSAGES
                                 .with_label_values(&[msg.topic(), "below_hwm"])

@@ -16,7 +16,7 @@ use rdkafka::message::OwnedMessage;
 
 use crate::rebalance::topic_partition_update::TopicPartition;
 
-pub trait PartitionMessageSource {
+pub trait PartitionMessageSource: Send {
     fn recv(&self) -> impl Future<Output = Result<OwnedMessage, StreamError>> + Send;
 }
 
