@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::future::Future;
 use std::sync::LazyLock;
 
 use paw_rdkafka::error::KafkaError;
@@ -15,10 +16,28 @@ use rdkafka::message::OwnedMessage;
 
 use crate::rebalance::topic_partition_update::TopicPartition;
 
-pub struct QueueHandler {
+pub trait PartitionMessageSource {
+    fn recv(&self) -> impl Future<Output = Result<OwnedMessage, StreamError>> + Send;
+}
+
+impl PartitionMessageSource for StreamPartitionQueue<HwmRebalanceHandler> {
+    async fn recv(&self) -> Result<OwnedMessage, StreamError> {
+        StreamPartitionQueue::recv(self)
+            .await
+            .map(|message| message.detach())
+            .map_err(|error| {
+                tracing::error!(%error, "Failed to receive message from rdkafka stream");
+                StreamError::FailedToReadRecord(error.to_string())
+            })
+    }
+}
+
+pub type KafkaQueueHandler = QueueHandler<StreamPartitionQueue<HwmRebalanceHandler>>;
+
+pub struct QueueHandler<S: PartitionMessageSource> {
     pub key: TopicPartition,
     head: VecDeque<OwnedMessage>,
-    rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
+    message_source: S,
     internal_buffer_size: usize,
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
@@ -28,10 +47,10 @@ pub struct QueueHandler {
     current_timestamp: Option<i64>,
 }
 
-impl QueueHandler {
+impl<S: PartitionMessageSource> QueueHandler<S> {
     pub fn new(
         key: TopicPartition,
-        rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
+        message_source: S,
         internal_buffer_size: usize,
         current_offset: i64,
     ) -> Self {
@@ -49,7 +68,7 @@ impl QueueHandler {
         Self {
             key,
             head: VecDeque::new(),
-            rdkafka_stream,
+            message_source,
             internal_buffer_size,
             last_timestamp_gauge,
             next_timestamp_gauge,
@@ -85,15 +104,7 @@ impl QueueHandler {
             return Ok(());
         }
         while self.is_lagging() && self.head.len() < self.internal_buffer_size {
-            match self.rdkafka_stream.recv().await {
-                Ok(msg) => {
-                    self.push(msg.detach())?;
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "Failed to receive message from rdkafka stream");
-                    return Err(StreamError::FailedToReadRecord(e.to_string()));
-                }
-            }
+            self.push(self.message_source.recv().await?)?;
         }
         Ok(())
     }
@@ -169,7 +180,7 @@ impl QueueHandler {
     }
 }
 
-impl Drop for QueueHandler {
+impl<S: PartitionMessageSource> Drop for QueueHandler<S> {
     fn drop(&mut self) {
         let topic = self.key.topic.clone();
         let partition = self.key.partition.to_string();

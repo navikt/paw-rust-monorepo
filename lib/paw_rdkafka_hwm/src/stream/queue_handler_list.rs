@@ -2,16 +2,20 @@ use rdkafka::{Message, message::OwnedMessage};
 
 use crate::{
     rebalance::topic_partition_update::TopicPartition,
-    stream::{paw_kafka_stream::StreamError, queue_handler::QueueHandler},
+    stream::{
+        paw_kafka_stream::StreamError,
+        queue_handler::{PartitionMessageSource, QueueHandler},
+    },
 };
 
-pub fn ensure_queue_and_push<F>(
-    queue_handlers: &mut Vec<QueueHandler>,
+pub fn ensure_queue_and_push<S, F>(
+    queue_handlers: &mut Vec<QueueHandler<S>>,
     message_or_key: MessageOrKey,
     builder: F,
 ) -> Result<(), StreamError>
 where
-    F: FnOnce(TopicPartition) -> Option<QueueHandler>,
+    S: PartitionMessageSource,
+    F: FnOnce(TopicPartition) -> Option<QueueHandler<S>>,
 {
     let (key, message) = message_or_key.into_parts();
     let index = queue_handlers
@@ -67,8 +71,8 @@ impl MessageOrKey {
 /// Pushes the message onto the queue for its topic partition.
 /// Returns false if the partition is not assigned to this consumer,
 /// in which case the message is dropped.
-pub fn push_if_assigned(
-    queue_handlers: &mut [QueueHandler],
+pub fn push_if_assigned<S: PartitionMessageSource>(
+    queue_handlers: &mut [QueueHandler<S>],
     message: OwnedMessage,
 ) -> Result<bool, StreamError> {
     let key = TopicPartition {

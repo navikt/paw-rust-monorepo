@@ -23,7 +23,7 @@ use crate::rebalance::{
     topic_partition_update::{TopicPartition, TopicPartitionUpdate},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
-use crate::stream::queue_handler::QueueHandler;
+use crate::stream::queue_handler::{KafkaQueueHandler, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
 
 pub struct PawKafkaConsumerStream {
@@ -31,7 +31,7 @@ pub struct PawKafkaConsumerStream {
     receiver: UnboundedReceiver<TopicPartitionUpdate>,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     /// Currently active queues for each assigned topic partition.
-    queues: Vec<QueueHandler>,
+    queues: Vec<KafkaQueueHandler>,
     /// Maximum time the internal buffer can be empty before we consider it idle and
     /// no longer wait for it to be filled.
     /// This is used to avoid slowing down the stream when a partition
@@ -139,7 +139,7 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     name = "paw_kafka_stream.load",
     fields(topic_partitions = queues.len() as u64)
 )]
-async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), StreamError> {
+async fn load(queues: &mut Vec<KafkaQueueHandler>, max_idle: Duration) -> Result<(), StreamError> {
     let deadline = Instant::now() + max_idle;
     let mut updates = FuturesUnordered::new();
     for queue in queues {
