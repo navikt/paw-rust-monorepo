@@ -1,4 +1,4 @@
-hwm_version = 14
+hwm_version = 15
 brokers = "${KAFKA_BROKERS}"
 group_id_prefix = "internkontroll-arbeidssoekerregisteret"
 security_protocol = "SSL"
