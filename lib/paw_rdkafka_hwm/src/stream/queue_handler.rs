@@ -7,7 +7,8 @@ use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
 
-use crate::stream::paw_kafka_stream::StreamError;
+use crate::stream::message_wrapper::TimestampInfo;
+use crate::stream::{message_wrapper::MessageWrapper, paw_kafka_stream::StreamError};
 
 use crate::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 
@@ -37,7 +38,7 @@ pub type KafkaQueueHandler = QueueHandler<StreamPartitionQueue<HwmRebalanceHandl
 
 pub struct QueueHandler<S: PartitionMessageSource> {
     pub key: TopicPartition,
-    head: VecDeque<OwnedMessage>,
+    head: VecDeque<MessageWrapper>,
     message_source: S,
     internal_buffer_size: usize,
     last_timestamp_gauge: Gauge,
@@ -84,14 +85,16 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         &self.key
     }
 
-    pub fn take_head(&mut self) -> Option<OwnedMessage> {
-        let msg = self.head.pop_front()?;
-        self.last_timestamp_gauge.set(timestamp_ms(Some(&msg)));
+    pub fn take_head(&mut self) -> Option<MessageWrapper> {
+        let wrapped_msg = self.head.pop_front()?;
+        self.last_timestamp_gauge
+            .set(timestamp_ms(Some(&wrapped_msg.message)));
         self.next_timestamp_gauge
-            .set(timestamp_ms(self.head.front()));
+            .set(timestamp_ms(self.head.front().map(|w| &w.message)));
         self.depth_gauge.set(self.head.len() as f64);
-        Some(msg)
+        Some(wrapped_msg)
     }
+
     #[tracing::instrument(
         skip(self),
         name = "paw_kafka_stream.queue_update",
@@ -144,10 +147,16 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                 message_offset: msg.offset(),
             });
         }
+        if self.head.is_empty() {
+            self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
+        }
+        self.current_offset = msg.offset();
+        let wrapped_msg: MessageWrapper;
         if let Some(message_timestamp) = msg.timestamp().to_millis() {
             if let Some(current_timestamp) = self.current_timestamp
                 && message_timestamp < current_timestamp
             {
+                let back_in_time_ms = current_timestamp - message_timestamp;
                 tracing::warn!(
                     kafka.topic = self.key.topic,
                     kafka.partition = self.key.partition,
@@ -155,18 +164,29 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                     message_offset = msg.offset(),
                     previous_timestamp_ms = current_timestamp,
                     message_timestamp_ms = message_timestamp,
-                    back_in_time_ms = current_timestamp - message_timestamp,
+                    back_in_time_ms = back_in_time_ms,
                     "kafka.partition_timestamp_out_of_sequence"
                 );
+                wrapped_msg = MessageWrapper {
+                    message: msg,
+                    timestamp_info: TimestampInfo::OutOfSequence {
+                        delta: back_in_time_ms,
+                    },
+                };
             } else {
                 self.current_timestamp = Some(message_timestamp);
+                wrapped_msg = MessageWrapper {
+                    message: msg,
+                    timestamp_info: TimestampInfo::InSequence,
+                };
+            }
+        } else {
+            wrapped_msg = MessageWrapper {
+                message: msg,
+                timestamp_info: TimestampInfo::None,
             }
         }
-        if self.head.is_empty() {
-            self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
-        }
-        self.current_offset = msg.offset();
-        self.head.push_back(msg);
+        self.head.push_back(wrapped_msg);
         self.depth_gauge.set(self.head.len() as f64);
         Ok(())
     }
@@ -186,7 +206,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
     }
 
     pub fn timestamp(&self) -> Option<Timestamp> {
-        self.head.front().map(|msg| msg.timestamp())
+        self.head.front().map(|msg| msg.message.timestamp())
     }
 
     pub fn is_empty(&self) -> bool {
