@@ -3,7 +3,9 @@ use std::future::{Future, pending};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use paw_rdkafka_hwm::rebalance::topic_partition_update::{TopicPartition, TopicPartitionUpdate};
+use paw_rdkafka_hwm::rebalance::topic_partition_update::{
+    KafkaOffsets, TopicPartition, TopicPartitionUpdate,
+};
 use paw_rdkafka_hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use paw_rdkafka_hwm::stream::queue_handler::PartitionMessageSource;
 use paw_rdkafka_hwm::stream::stream_wrapper::{ConsumerMessageSource, PawKafkaConsumerStream};
@@ -40,7 +42,7 @@ async fn leverer_laveste_timestamp_fra_tildelte_partisjoner() {
         .unwrap();
     sender
         .send(TopicPartitionUpdate::HiOffsetUpdate {
-            topic_partition_offsets: vec![(topic_a, 1), (topic_b, 1)],
+            topic_partition_offsets: vec![offsets(topic_a, 1), offsets(topic_b, 1)],
         })
         .unwrap();
 
@@ -68,6 +70,16 @@ async fn leverer_laveste_timestamp_fra_tildelte_partisjoner() {
     assert_eq!(second.timestamp(), Timestamp::CreateTime(200));
 }
 
+fn offsets(topic_partition: TopicPartition, hi_offset: i64) -> (TopicPartition, KafkaOffsets) {
+    (
+        topic_partition,
+        KafkaOffsets {
+            hi_offset,
+            next_offset: hi_offset,
+        },
+    )
+}
+
 #[derive(Clone)]
 struct FakePartitionSource {
     messages: Arc<Mutex<VecDeque<OwnedMessage>>>,
@@ -83,11 +95,10 @@ impl FakePartitionSource {
 
 impl PartitionMessageSource for FakePartitionSource {
     async fn recv(&self) -> Result<OwnedMessage, StreamError> {
-        self.messages
-            .lock()
-            .unwrap()
-            .pop_front()
-            .ok_or_else(|| StreamError::FailedToReadRecord("fake source is empty".to_string()))
+        if let Some(message) = self.messages.lock().unwrap().pop_front() {
+            return Ok(message);
+        }
+        pending().await
     }
 }
 

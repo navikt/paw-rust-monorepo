@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::sync::LazyLock;
 
+use futures::FutureExt;
 use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
@@ -14,7 +15,7 @@ use rdkafka::consumer::stream_consumer::StreamPartitionQueue;
 
 use rdkafka::message::OwnedMessage;
 
-use crate::rebalance::topic_partition_update::TopicPartition;
+use crate::rebalance::topic_partition_update::{KafkaOffsets, TopicPartition};
 
 pub trait PartitionMessageSource: Send {
     fn recv(&self) -> impl Future<Output = Result<OwnedMessage, StreamError>> + Send;
@@ -42,7 +43,7 @@ pub struct QueueHandler<S: PartitionMessageSource> {
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
     depth_gauge: Gauge,
-    hi_offset: Option<i64>,
+    offsets: Option<KafkaOffsets>,
     current_offset: i64,
     current_timestamp: Option<i64>,
 }
@@ -73,7 +74,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             last_timestamp_gauge,
             next_timestamp_gauge,
             depth_gauge,
-            hi_offset: None,
+            offsets: None,
             current_offset,
             current_timestamp: None,
         }
@@ -103,23 +104,38 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         if self.head.len() > (self.internal_buffer_size / 4) {
             return Ok(());
         }
-        while self.is_lagging() && self.head.len() < self.internal_buffer_size {
-            self.push(self.message_source.recv().await?)?;
+        if self.is_lagging() {
+            while self.is_lagging() && self.head.len() < self.internal_buffer_size {
+                self.push(self.message_source.recv().await?)?;
+            }
+        } else {
+            if self.head.len() < (self.internal_buffer_size / 4) {
+                match self.message_source.recv().now_or_never() {
+                    Some(Ok(msg)) => {
+                        self.push(msg)?;
+                    }
+                    Some(Err(err)) => {
+                        return Err(StreamError::FailedToReadRecord(err.to_string()));
+                    }
+                    None => {}
+                }
+            }
         }
         Ok(())
     }
 
     fn is_lagging(&self) -> bool {
-        self.hi_offset
-            .is_none_or(|hi_offset| self.current_offset < hi_offset - 1)
+        self.offsets
+            .as_ref()
+            .is_none_or(|offsets| offsets.next_offset < offsets.hi_offset)
     }
 
     pub fn has_stalled(&self) -> bool {
         self.is_empty() && self.is_lagging()
     }
 
-    pub fn set_hi_offset(&mut self, hi_offset: i64) {
-        self.hi_offset = Some(hi_offset);
+    pub fn set_offsets(&mut self, offsets: KafkaOffsets) {
+        self.offsets = Some(offsets);
     }
 
     fn push(&mut self, msg: OwnedMessage) -> Result<(), StreamError> {

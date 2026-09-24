@@ -1,5 +1,7 @@
 use crate::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
-use crate::rebalance::topic_partition_update::{TopicPartition, TopicPartitionUpdate};
+use crate::rebalance::topic_partition_update::{
+    KafkaOffsets, TopicPartition, TopicPartitionUpdate,
+};
 use rdkafka::{ClientContext, Statistics};
 
 impl ClientContext for HwmRebalanceHandler {
@@ -19,7 +21,10 @@ impl ClientContext for HwmRebalanceHandler {
                                 topic: topic.clone(),
                                 partition,
                             },
-                            partition_statistics.hi_offset,
+                            KafkaOffsets {
+                                hi_offset: partition_statistics.hi_offset,
+                                next_offset: partition_statistics.next_offset,
+                            },
                         )
                     },
                 )

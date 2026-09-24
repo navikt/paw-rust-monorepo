@@ -6,7 +6,7 @@ pub enum TopicPartitionUpdate {
         topic_partitions: Vec<TopicPartition>,
     },
     HiOffsetUpdate {
-        topic_partition_offsets: Vec<(TopicPartition, i64)>,
+        topic_partition_offsets: Vec<(TopicPartition, KafkaOffsets)>,
     },
     InternalReceiverDisconnected,
     NoOp,
@@ -16,4 +16,10 @@ pub enum TopicPartitionUpdate {
 pub struct TopicPartition {
     pub topic: String,
     pub partition: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KafkaOffsets {
+    pub hi_offset: i64,
+    pub next_offset: i64,
 }
