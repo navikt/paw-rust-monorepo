@@ -111,49 +111,69 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .filter(|q| !q.is_empty())
             .min_by_key(|q| q.timestamp())
             .and_then(|q| q.take_head());
-        if let Some(msg) = result.as_ref() {
-            Span::current().record("topic", msg.topic());
-            Span::current().record("partition", msg.partition());
-            Span::current().record("offset", msg.offset());
+        if let Some(wrapper) = result.as_ref() {
+            Span::current().record("topic", wrapper.message.topic());
+            Span::current().record("partition", wrapper.message.partition());
+            Span::current().record("offset", wrapper.message.offset());
             Span::current().record(
                 "timestamp",
-                msg.timestamp()
+                wrapper
+                    .message
+                    .timestamp()
                     .to_millis()
                     .and_then(DateTime::from_timestamp_millis)
                     .map(|dt| dt.to_rfc3339())
                     .unwrap_or_else(|| "unknown".to_string()),
             );
             let mut back_in_time_ms = 0;
-            if let Some(new_ts) = msg.timestamp().to_millis() {
+            if let Some(new_ts) = wrapper.message.timestamp().to_millis() {
                 self.stream_times
-                    .entry(msg.partition())
+                    .entry(wrapper.message.partition())
                     .and_modify(|ts| {
                         if new_ts >= ts.2 {
-                            *ts = (msg.topic().to_string(), msg.offset(), new_ts);
+                            *ts = (
+                                wrapper.message.topic().to_string(),
+                                wrapper.message.offset(),
+                                new_ts,
+                            );
                         } else {
                             back_in_time_ms = ts.2 - new_ts;
                             Span::current().record("back_in_time_ms", back_in_time_ms);
                             tracing::warn!(
-                                kafka.partition = msg.partition(),
+                                kafka.partition = wrapper.message.partition(),
                                 back_in_time_ms,
                                 kafka.stream.time.ms = ts.2,
                                 kafka.stream.time.topic = ts.0,
                                 kafka.stream.time.offset = ts.1,
                                 kafka.message.timestamp = new_ts,
-                                kafka.message.topic = msg.topic(),
-                                kafka.message.offset = msg.offset(),
+                                kafka.message.topic = wrapper.message.topic(),
+                                kafka.message.offset = wrapper.message.offset(),
+                                kafka.message.timestamp_info =
+                                    format!("{:?}", wrapper.timestamp_info),
                                 "kafka.back_in_time"
                             );
                         }
                     })
-                    .or_insert((msg.topic().to_string(), msg.offset(), new_ts));
+                    .or_insert((
+                        wrapper.message.topic().to_string(),
+                        wrapper.message.offset(),
+                        new_ts,
+                    ));
             }
             STREAM_WRAPPER_MESSAGES
                 .with_label_values(&[if back_in_time_ms > 0 { "true" } else { "false" }])
                 .inc();
-            if back_in_time_ms > 0 {
+            if back_in_time_ms > 0
+                && matches!(
+                    wrapper.timestamp_info,
+                    super::message_wrapper::TimestampInfo::InSequence
+                )
+            {
                 BACK_IN_TIME_MS
-                    .with_label_values(&[msg.topic()])
+                    .with_label_values(&[
+                        wrapper.message.topic(),
+                        wrapper.timestamp_info.to_string().as_str(),
+                    ])
                     .observe(back_in_time_ms as f64);
             }
             RECEIVE_RESULT.with_label_values(&["message"]).inc();
@@ -165,7 +185,7 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             RECEIVE_RESULT.with_label_values(&["empty"]).inc();
             return Ok((self, None));
         };
-        Ok((self, result))
+        Ok((self, result.map(|wrapper| wrapper.message)))
     }
 
     fn assigned(&self) -> Vec<TopicPartition> {
@@ -413,7 +433,7 @@ static BACK_IN_TIME_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         "paw_kafka_stream_back_in_time_ms",
         "Size of backward timestamp jumps in milliseconds, by topic",
-        &["topic"],
+        &["topic", "source_timestamp"],
         exponential_buckets(1.0, 10.0, 9).expect("Failed to create buckets")
     )
     .expect("Failed to create histogram")
