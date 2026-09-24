@@ -217,7 +217,7 @@ impl PawKafkaConsumerStream {
                                         )
                                     })
                             },
-                        );
+                        )?;
                     }
                 }
                 TopicPartitionUpdate::Revoked { topic_partitions } => {
@@ -301,9 +301,9 @@ impl PawKafkaConsumerStream {
                 }
             }
         }
-        messages.into_iter().for_each(|msg| {
+        for msg in messages {
             let topic = msg.topic().to_string();
-            let outcome = if push_if_assigned(&mut self.queues, msg) {
+            let outcome = if push_if_assigned(&mut self.queues, msg)? {
                 "queued"
             } else {
                 "not_assigned"
@@ -311,7 +311,7 @@ impl PawKafkaConsumerStream {
             MAIN_QUEUE_MESSAGES
                 .with_label_values(&[&topic, outcome])
                 .inc();
-        });
+        }
         Ok(())
     }
 }
