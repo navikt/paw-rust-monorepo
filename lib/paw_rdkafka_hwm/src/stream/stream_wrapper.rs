@@ -273,9 +273,11 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                 } => {
                     topic_partition_offsets
                         .into_iter()
-                        .for_each(|(tp, hi_offset)| {
-                            if let Some(queue) = self.queues.iter_mut().find(|q| q.key == tp) {
-                                queue.set_hi_offset(hi_offset);
+                        .for_each(|(tp, offsets)| {
+                            if let Some(queue) =
+                                self.queues.iter_mut().find(|queue| queue.key == tp)
+                            {
+                                queue.set_offsets(offsets);
                             }
                         });
                 }
