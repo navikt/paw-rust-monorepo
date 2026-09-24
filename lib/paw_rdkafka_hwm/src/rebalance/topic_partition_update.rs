@@ -1,9 +1,12 @@
-pub enum RebalanceMessage {
+pub enum TopicPartitionUpdate {
     Assigned {
-        topic_partitions: Vec<TopicPartition>,
+        topic_partition_hwms: Vec<(TopicPartition, i64)>,
     },
     Revoked {
         topic_partitions: Vec<TopicPartition>,
+    },
+    HiOffsetUpdate {
+        topic_partition_offsets: Vec<(TopicPartition, i64)>,
     },
     InternalReceiverDisconnected,
     NoOp,

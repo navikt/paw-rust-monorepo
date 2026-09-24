@@ -1,4 +1,4 @@
-use crate::rebalance::rebalance_message::TopicPartition;
+use crate::rebalance::topic_partition_update::TopicPartition;
 
 use rdkafka::message::OwnedMessage;
 use thiserror::Error;

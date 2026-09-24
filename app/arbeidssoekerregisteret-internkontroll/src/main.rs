@@ -8,7 +8,7 @@ use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
-    rebalance::rebalance_message::RebalanceMessage,
+    rebalance::topic_partition_update::TopicPartitionUpdate,
     stream::{paw_kafka_stream::PawKafkaStream, stream_wrapper::PawKafkaConsumerStream},
 };
 use paw_rust_base::{
@@ -55,7 +55,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     );
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    let (tx, rx) = mpsc::unbounded_channel::<RebalanceMessage>();
+    let (tx, rx) = mpsc::unbounded_channel::<TopicPartitionUpdate>();
     let consumer = create_kafka_consumer_with_sender(
         app_state.clone(),
         pg_pool.clone(),

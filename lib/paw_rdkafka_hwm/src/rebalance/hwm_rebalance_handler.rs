@@ -1,7 +1,6 @@
 use crate::rebalance::get_hwms::get_hwms;
-use crate::rebalance::rebalance_message::RebalanceMessage;
+use crate::rebalance::topic_partition_update::{TopicPartition, TopicPartitionUpdate};
 use health_and_monitoring::simple_app_state::AppState;
-use rdkafka::ClientContext;
 use rdkafka::consumer::ConsumerContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 use rdkafka::topic_partition_list::TopicPartitionList;
@@ -14,7 +13,7 @@ pub struct HwmRebalanceHandler {
     pub pg_pool: PgPool,
     pub app_state: Arc<AppState>,
     pub version: i16,
-    pub sender: Option<UnboundedSender<RebalanceMessage>>,
+    pub sender: Option<UnboundedSender<TopicPartitionUpdate>>,
 }
 
 impl ConsumerContext for HwmRebalanceHandler {
@@ -38,7 +37,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                     }
                 };
 
-                for hwm in hwms {
+                for hwm in &hwms {
                     if let Err(e) =
                         tpl.set_partition_offset(&hwm.topic, hwm.partition(), hwm.neste_offset())
                     {
@@ -63,13 +62,18 @@ impl ConsumerContext for HwmRebalanceHandler {
                 if let Some(sender) = &self.sender
                     && self.app_state.is_alive()
                 {
-                    sender.send(RebalanceMessage::Assigned {
-                        topic_partitions: tpl
-                            .elements()
-                            .iter()
-                            .map(|tp| crate::rebalance::rebalance_message::TopicPartition {
-                                topic: tp.topic().to_string(),
-                                partition: tp.partition(),
+                    sender.send(TopicPartitionUpdate::Assigned {
+                        topic_partition_hwms: hwms
+                            .into_iter()
+                            .map(|hwm| {
+                                let partition = hwm.partition();
+                                (
+                                    TopicPartition {
+                                        topic: hwm.topic,
+                                        partition,
+                                    },
+                                    hwm.offset.unwrap_or(crate::hwm::DEFAULT_HWM_OFFSET),
+                                )
                             })
                             .collect(),
                     }).unwrap_or_else(|e| {
@@ -94,11 +98,11 @@ impl ConsumerContext for HwmRebalanceHandler {
                 if let Some(sender) = &self.sender
                     && self.app_state.is_alive()
                 {
-                    sender.send(RebalanceMessage::Revoked {
+                    sender.send(TopicPartitionUpdate::Revoked {
                         topic_partitions: tpl
                             .elements()
                             .iter()
-                            .map(|tp| crate::rebalance::rebalance_message::TopicPartition {
+                            .map(|tp| crate::rebalance::topic_partition_update::TopicPartition {
                                 topic: tp.topic().to_string(),
                                 partition: tp.partition(),
                             })
@@ -139,7 +143,7 @@ impl HwmRebalanceHandler {
         pg_pool: PgPool,
         app_state: Arc<AppState>,
         version: i16,
-        sender: UnboundedSender<RebalanceMessage>,
+        sender: UnboundedSender<TopicPartitionUpdate>,
     ) -> Self {
         Self {
             pg_pool,
@@ -150,14 +154,12 @@ impl HwmRebalanceHandler {
     }
     fn send_disconnected_msg(&self) {
         if let Some(sender) = self.sender.as_ref() {
-            sender.send(RebalanceMessage::InternalReceiverDisconnected).unwrap_or_else(|e| {
+            sender.send(TopicPartitionUpdate::InternalReceiverDisconnected).unwrap_or_else(|e| {
                 tracing::warn!(error = %e, "Failed to send internal receiver disconnected message");
             });
         }
     }
 }
-
-impl ClientContext for HwmRebalanceHandler {}
 
 fn tpl_as_string(topic_partition_list: &TopicPartitionList) -> Vec<String> {
     topic_partition_list

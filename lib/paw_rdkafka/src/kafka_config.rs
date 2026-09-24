@@ -18,6 +18,7 @@ pub struct KafkaConfig {
     pub ca_path: Option<String>,
     pub auto_offset_reset: Option<String>,
     pub session_timeout_ms: Option<i64>,
+    pub statistics_interval_ms: Option<i64>,
     pub hwm_version: i16,
     pub partition_assignment_strategy: Option<String>,
     pub partition_queue_min_size: Option<i32>,
@@ -50,6 +51,7 @@ impl Default for KafkaConfig {
             ca_path: None,
             auto_offset_reset: None,
             session_timeout_ms: None,
+            statistics_interval_ms: None,
             partition_assignment_strategy: None,
             partition_queue_min_size: None,
             message_max_bytes: None,
@@ -90,6 +92,10 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
     let session_timeout_ms = value_or(
         kafka_config.session_timeout_ms,
         defaults::SESSION_TIMEOUT_MS,
+    );
+    let statistics_interval_ms = value_or(
+        kafka_config.statistics_interval_ms,
+        defaults::STATISTICS_INTERVAL_MS,
     );
     let auto_offset_reset = value_or(
         kafka_config.auto_offset_reset,
@@ -149,6 +155,7 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         .set("group.id", group_id)
         .set("client.id", client_id)
         .set("session.timeout.ms", session_timeout_ms.to_string())
+        .set("statistics.interval.ms", statistics_interval_ms.to_string())
         .set("auto.offset.reset", auto_offset_reset)
         .set("enable.auto.commit", auto_commit.to_string())
         .set("security.protocol", security_protocol.clone())
@@ -258,6 +265,7 @@ mod tests {
         assert_eq!(config.get("fetch.wait.max.ms"), Some("100"));
         assert_eq!(config.get("fetch.queue.backoff.ms"), Some("1000"));
         assert_eq!(config.get("session.timeout.ms"), Some("45000"));
+        assert_eq!(config.get("statistics.interval.ms"), Some("5000"));
         assert_eq!(config.get("auto.offset.reset"), Some("earliest"));
         assert_eq!(config.get("enable.auto.commit"), Some("false"));
     }
@@ -269,6 +277,7 @@ mod tests {
             fetch_max_bytes: Some(EnvField::from(1048576)),
             receive_message_max_bytes: Some(EnvField::from(1500000)),
             partition_queue_min_size: Some(EnvField::from(1000)),
+            statistics_interval_ms: Some(EnvField::from(1000)),
             ..KafkaConfig::new("test", "PLAINTEXT")
         }
         .rdkafka_client_config()
@@ -278,6 +287,7 @@ mod tests {
         assert_eq!(config.get("fetch.max.bytes"), Some("1048576"));
         assert_eq!(config.get("receive.message.max.bytes"), Some("1500000"));
         assert_eq!(config.get("queued.min.messages"), Some("1000"));
+        assert_eq!(config.get("statistics.interval.ms"), Some("1000"));
     }
 
     #[test]

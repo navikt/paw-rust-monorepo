@@ -14,6 +14,9 @@ pub const AUTO_COMMIT: bool = false;
 /// `session.timeout.ms`.
 pub const SESSION_TIMEOUT_MS: i64 = 45000;
 
+/// `statistics.interval.ms`.
+pub const STATISTICS_INTERVAL_MS: i64 = 5000;
+
 /// `auto.offset.reset` for a partition with no stored offset.
 pub const AUTO_OFFSET_RESET: &str = "earliest";
 

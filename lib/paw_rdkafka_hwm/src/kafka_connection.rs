@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::rebalance::{
-    hwm_rebalance_handler::HwmRebalanceHandler, rebalance_message::RebalanceMessage,
+    hwm_rebalance_handler::HwmRebalanceHandler, topic_partition_update::TopicPartitionUpdate,
 };
 
 pub fn create_kafka_consumer(
@@ -23,7 +23,7 @@ pub fn create_kafka_consumer_with_sender(
     pg_pool: PgPool,
     kafka_config: KafkaConfig,
     topics: &[&str],
-    sender: UnboundedSender<RebalanceMessage>,
+    sender: UnboundedSender<TopicPartitionUpdate>,
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
     let context =
         HwmRebalanceHandler::new_with_sender(pg_pool, app_state, *kafka_config.hwm_version, sender);

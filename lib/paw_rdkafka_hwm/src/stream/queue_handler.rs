@@ -1,8 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
 
-use futures::FutureExt;
 use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
@@ -15,7 +13,7 @@ use rdkafka::consumer::stream_consumer::StreamPartitionQueue;
 
 use rdkafka::message::OwnedMessage;
 
-use crate::rebalance::rebalance_message::TopicPartition;
+use crate::rebalance::topic_partition_update::TopicPartition;
 
 pub struct QueueHandler {
     pub key: TopicPartition,
@@ -25,7 +23,8 @@ pub struct QueueHandler {
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
     depth_gauge: Gauge,
-    empty_since: Option<Instant>,
+    hi_offset: Option<i64>,
+    current_offset: i64,
 }
 
 impl QueueHandler {
@@ -33,6 +32,7 @@ impl QueueHandler {
         key: TopicPartition,
         rdkafka_stream: StreamPartitionQueue<HwmRebalanceHandler>,
         internal_buffer_size: usize,
+        current_offset: i64,
     ) -> Self {
         let topic = key.topic.clone();
         let partition = key.partition.to_string();
@@ -53,7 +53,8 @@ impl QueueHandler {
             last_timestamp_gauge,
             next_timestamp_gauge,
             depth_gauge,
-            empty_since: Some(Instant::now()),
+            hi_offset: None,
+            current_offset,
         }
     }
 
@@ -67,9 +68,6 @@ impl QueueHandler {
         self.next_timestamp_gauge
             .set(timestamp_ms(self.head.front()));
         self.depth_gauge.set(self.head.len() as f64);
-        if self.head.is_empty() {
-            self.empty_since = Some(Instant::now());
-        }
         Some(msg)
     }
     #[tracing::instrument(
@@ -80,28 +78,42 @@ impl QueueHandler {
             partition = self.key.partition,
             current_queue_size = self.head.len() as u64)
         )]
-    pub async fn update(&mut self, max_idle: Duration) -> Result<(), StreamError> {
-        if self.empty_for().is_some_and(|idle_for| idle_for < max_idle) {
-            match self.rdkafka_stream.recv().await {
-                Ok(record) => self.push(record.detach()),
-                Err(e) => return Err(StreamError::FailedToReadRecord(e.to_string())),
-            }
+    pub async fn update(&mut self) -> Result<(), StreamError> {
+        if self.head.len() > (self.internal_buffer_size / 4) {
+            return Ok(());
         }
-        while self.head.len() < self.internal_buffer_size {
-            match self.rdkafka_stream.recv().now_or_never() {
-                Some(Ok(record)) => self.push(record.detach()),
-                Some(Err(e)) => return Err(StreamError::FailedToReadRecord(e.to_string())),
-                None => break,
+        while self.is_lagging() && self.head.len() < self.internal_buffer_size {
+            match self.rdkafka_stream.recv().await {
+                Ok(msg) => {
+                    self.push(msg.detach());
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, "Failed to receive message from rdkafka stream");
+                    return Err(StreamError::FailedToReadRecord(e.to_string()));
+                }
             }
         }
         Ok(())
     }
 
+    fn is_lagging(&self) -> bool {
+        self.hi_offset
+            .is_none_or(|hi_offset| self.current_offset < hi_offset - 1)
+    }
+
+    pub fn has_stalled(&self) -> bool {
+        self.is_empty() && self.is_lagging()
+    }
+
+    pub fn set_hi_offset(&mut self, hi_offset: i64) {
+        self.hi_offset = Some(hi_offset);
+    }
+
     fn push(&mut self, msg: OwnedMessage) {
         if self.head.is_empty() {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
-            self.empty_since = None;
         }
+        self.current_offset = msg.offset();
         self.head.push_back(msg);
         self.depth_gauge.set(self.head.len() as f64);
     }
@@ -125,12 +137,6 @@ impl QueueHandler {
 
     pub fn is_empty(&self) -> bool {
         self.head.is_empty()
-    }
-
-    pub fn empty_for(&self) -> Option<Duration> {
-        self.is_empty()
-            .then(|| self.empty_since.map(|t| t.elapsed()))
-            .flatten()
     }
 }
 
