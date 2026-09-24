@@ -76,7 +76,7 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     max_idle: Duration,
     /// Soft limit for the number of messages to buffer internally for each partition queue.
     internal_buffer_size: usize,
-    stream_times: HashMap<i32, i64>,
+    stream_times: HashMap<i32, (String, i64, i64)>,
     pg_pool: PgPool,
     hwm_version: i16,
     main_consumer_none_treshold: usize,
@@ -128,23 +128,25 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
                 self.stream_times
                     .entry(msg.partition())
                     .and_modify(|ts| {
-                        if new_ts >= *ts {
-                            *ts = new_ts;
+                        if new_ts >= ts.2 {
+                            *ts = (msg.topic().to_string(), msg.offset(), new_ts);
                         } else {
-                            back_in_time_ms = *ts - new_ts;
+                            back_in_time_ms = ts.2 - new_ts;
                             Span::current().record("back_in_time_ms", back_in_time_ms);
                             tracing::warn!(
-                                back_in_time_ms,
-                                stream_time_ms = *ts,
-                                message_time_ms = new_ts,
-                                kafka.topic = msg.topic(),
                                 kafka.partition = msg.partition(),
-                                kafka.offset = msg.offset(),
+                                back_in_time_ms,
+                                kafka.stream.time.ms = ts.2,
+                                kafka.stream.time.topic = ts.0,
+                                kafka.stream.time.offset = ts.1,
+                                kafka.message.timestamp = new_ts,
+                                kafka.message.topic = msg.topic(),
+                                kafka.message.offset = msg.offset(),
                                 "kafka.back_in_time"
                             );
                         }
                     })
-                    .or_insert(new_ts);
+                    .or_insert((msg.topic().to_string(), msg.offset(), new_ts));
             }
             STREAM_WRAPPER_MESSAGES
                 .with_label_values(&[if back_in_time_ms > 0 { "true" } else { "false" }])
