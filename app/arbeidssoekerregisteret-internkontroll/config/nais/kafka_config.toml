@@ -5,6 +5,7 @@ security_protocol = "SSL"
 private_key_path = "${KAFKA_PRIVATE_KEY_PATH}"
 certificate_path = "${KAFKA_CERTIFICATE_PATH}"
 ca_path = "${KAFKA_CA_PATH}"
+statistics_interval_ms = 1000
 
 # Denne appen leser 8 co-partisjonerte topics a 6 partisjoner og fletter dem på
 # meldingstidsstempel. Én pod eier alle 48 partisjonene.

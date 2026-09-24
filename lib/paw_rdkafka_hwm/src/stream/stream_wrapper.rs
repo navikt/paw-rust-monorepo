@@ -14,13 +14,13 @@ use sqlx::PgPool;
 use tokio::sync::mpsc::{
     UnboundedReceiver, error::TryRecvError::Disconnected, error::TryRecvError::Empty,
 };
-use tokio::time::timeout_at;
+use tokio::time::{Instant, timeout_at};
 use tracing::{Span, instrument};
 
 use crate::hwm_functions::get_hwm;
 use crate::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
-    rebalance_message::{RebalanceMessage, TopicPartition},
+    topic_partition_update::{TopicPartition, TopicPartitionUpdate},
 };
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::QueueHandler;
@@ -28,7 +28,7 @@ use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, pus
 
 pub struct PawKafkaConsumerStream {
     /// Receiver for rebalance events from the rebalancer.
-    receiver: UnboundedReceiver<RebalanceMessage>,
+    receiver: UnboundedReceiver<TopicPartitionUpdate>,
     consumer: Arc<StreamConsumer<HwmRebalanceHandler>>,
     /// Currently active queues for each assigned topic partition.
     queues: Vec<QueueHandler>,
@@ -49,33 +49,18 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     #[tracing::instrument(
         skip(self),
         name = "paw_kafka_stream.receive",
-        fields(
-            empty_before_load,
-            empty_after_load,
-            topic,
-            partition,
-            offset,
-            timestamp,
-            back_in_time_ms
-        )
+        fields(topic, partition, offset, timestamp, back_in_time_ms)
     )]
     /// Receives the next message from the stream, handling rebalance events
     /// and loading messages from the internal queues.
     /// Consumes self and returns it self if safe to continue receiving messages,
     /// or an error if the stream is disconnected or failed.
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
-        count_err(self.drain_and_rebalance().await)?;
-        let empty_before_load = self.queues.iter().filter(|q| q.is_empty()).count();
-        count_err(load(&mut self.queues, self.max_idle).await)?;
-        let empty_after_load = self.queues.iter().filter(|q| q.is_empty()).count();
-        Span::current().record("empty_before_load", empty_before_load as u64);
-        Span::current().record("empty_after_load", empty_after_load as u64);
-        let within_grace = self
-            .queues
-            .iter()
-            .filter_map(|q| q.empty_for())
-            .any(|idle_for| idle_for < self.max_idle);
-        if within_grace {
+        self.drain_and_rebalance().await?;
+        load(&mut self.queues, self.max_idle).await?;
+        let stalled = self.queues.iter().filter(|q| q.has_stalled()).count();
+        Span::current().record("stalled_queues", stalled as u64);
+        if stalled > 0 {
             Span::current().record("topic", "waiting");
             Span::current().record("partition", -1);
             Span::current().record("offset", -1);
@@ -155,17 +140,10 @@ impl PawKafkaStream for PawKafkaConsumerStream {
     fields(topic_partitions = queues.len() as u64)
 )]
 async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), StreamError> {
-    let now = tokio::time::Instant::now();
-    let deadline = queues
-        .iter()
-        .filter_map(|q| q.empty_for())
-        .filter(|idle_for| *idle_for < max_idle)
-        .map(|idle_for| now + (max_idle - idle_for))
-        .max()
-        .unwrap_or(now + max_idle);
+    let deadline = Instant::now() + max_idle;
     let mut updates = FuturesUnordered::new();
     for queue in queues {
-        updates.push(queue.update(max_idle));
+        updates.push(queue.update());
     }
     while let Ok(Some(res)) = timeout_at(deadline, updates.next()).await {
         match res {
@@ -180,7 +158,7 @@ async fn load(queues: &mut Vec<QueueHandler>, max_idle: Duration) -> Result<(), 
 
 impl PawKafkaConsumerStream {
     pub fn new(
-        receiver: UnboundedReceiver<RebalanceMessage>,
+        receiver: UnboundedReceiver<TopicPartitionUpdate>,
         consumer: StreamConsumer<HwmRebalanceHandler>,
         max_idle: Duration,
         internal_buffer_size: usize,
@@ -208,15 +186,20 @@ impl PawKafkaConsumerStream {
     )]
     fn handle_rebalance_events(
         &mut self,
-        rebalance_events: Vec<RebalanceMessage>,
+        rebalance_events: Vec<TopicPartitionUpdate>,
     ) -> Result<(), StreamError> {
         let is_empty = rebalance_events.is_empty();
         for rebalance_event in rebalance_events {
             match rebalance_event {
-                RebalanceMessage::NoOp => {}
-                RebalanceMessage::Assigned { topic_partitions } => {
-                    tracing::info!("Assigned topic partition queues: {:?}", topic_partitions);
-                    for TopicPartition { topic, partition } in topic_partitions {
+                TopicPartitionUpdate::NoOp => {}
+                TopicPartitionUpdate::Assigned {
+                    topic_partition_hwms,
+                } => {
+                    tracing::info!(
+                        "Assigned topic partition queues: {:?}",
+                        topic_partition_hwms
+                    );
+                    for (TopicPartition { topic, partition }, hwm) in topic_partition_hwms {
                         ensure_queue_and_push(
                             &mut self.queues,
                             MessageOrKey::Key(TopicPartition {
@@ -227,19 +210,35 @@ impl PawKafkaConsumerStream {
                                 self.consumer
                                     .split_partition_queue(&key.topic, key.partition)
                                     .map(|pt_queue| {
-                                        QueueHandler::new(key, pt_queue, self.internal_buffer_size)
+                                        QueueHandler::new(
+                                            key,
+                                            pt_queue,
+                                            self.internal_buffer_size,
+                                            hwm,
+                                        )
                                     })
                             },
                         );
                     }
                 }
-                RebalanceMessage::Revoked { topic_partitions } => {
+                TopicPartitionUpdate::Revoked { topic_partitions } => {
                     self.queues.retain(|q| !topic_partitions.contains(&q.key));
                     tracing::info!("Deactivated topic partition queues: {:?}", topic_partitions);
                 }
-                RebalanceMessage::InternalReceiverDisconnected => {
+                TopicPartitionUpdate::InternalReceiverDisconnected => {
                     tracing::info!("Rebalancer sent disconnected signal, closing stream");
                     return Err(StreamError::DisconnectedFromRebalancer);
+                }
+                TopicPartitionUpdate::HiOffsetUpdate {
+                    topic_partition_offsets,
+                } => {
+                    topic_partition_offsets
+                        .into_iter()
+                        .for_each(|(tp, hi_offset)| {
+                            if let Some(queue) = self.queues.iter_mut().find(|q| q.key == tp) {
+                                queue.set_hi_offset(hi_offset);
+                            }
+                        });
                 }
             }
         }
@@ -326,9 +325,9 @@ impl PawKafkaConsumerStream {
 
 #[tracing::instrument(skip(receiver), name = "paw_kafka_stream.get_rebalance_events")]
 fn get_rebalance_events(
-    receiver: &mut UnboundedReceiver<RebalanceMessage>,
-) -> Vec<RebalanceMessage> {
-    let mut messages: Vec<RebalanceMessage> = Vec::with_capacity(2);
+    receiver: &mut UnboundedReceiver<TopicPartitionUpdate>,
+) -> Vec<TopicPartitionUpdate> {
+    let mut messages: Vec<TopicPartitionUpdate> = Vec::with_capacity(2);
     loop {
         match receiver.try_recv() {
             Ok(msg) => {
@@ -338,19 +337,12 @@ fn get_rebalance_events(
                 break;
             }
             Err(Disconnected) => {
-                messages.push(RebalanceMessage::InternalReceiverDisconnected);
+                messages.push(TopicPartitionUpdate::InternalReceiverDisconnected);
                 break;
             }
         }
     }
     messages
-}
-
-fn count_err<T>(result: Result<T, StreamError>) -> Result<T, StreamError> {
-    if result.is_err() {
-        RECEIVE_RESULT.with_label_values(&["error"]).inc();
-    }
-    result
 }
 
 static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {

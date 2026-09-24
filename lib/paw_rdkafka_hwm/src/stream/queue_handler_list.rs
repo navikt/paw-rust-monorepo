@@ -1,6 +1,8 @@
 use rdkafka::{Message, message::OwnedMessage};
 
-use crate::{rebalance::rebalance_message::TopicPartition, stream::queue_handler::QueueHandler};
+use crate::{
+    rebalance::topic_partition_update::TopicPartition, stream::queue_handler::QueueHandler,
+};
 
 pub fn ensure_queue_and_push<F>(
     queue_handlers: &mut Vec<QueueHandler>,
