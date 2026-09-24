@@ -104,21 +104,18 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         if self.head.len() > (self.internal_buffer_size / 4) {
             return Ok(());
         }
-        if self.is_lagging() {
-            while self.is_lagging() && self.head.len() < self.internal_buffer_size {
-                self.push(self.message_source.recv().await?)?;
-            }
-        } else {
-            if self.head.len() < (self.internal_buffer_size / 4) {
-                match self.message_source.recv().now_or_never() {
-                    Some(Ok(msg)) => {
-                        self.push(msg)?;
-                    }
-                    Some(Err(err)) => {
-                        return Err(StreamError::FailedToReadRecord(err.to_string()));
-                    }
-                    None => {}
+        while self.is_lagging() && self.head.len() < self.internal_buffer_size {
+            self.push(self.message_source.recv().await?)?;
+        }
+        if self.head.len() < (self.internal_buffer_size / 4) {
+            match self.message_source.recv().now_or_never() {
+                Some(Ok(msg)) => {
+                    self.push(msg)?;
                 }
+                Some(Err(err)) => {
+                    return Err(StreamError::FailedToReadRecord(err.to_string()));
+                }
+                None => {}
             }
         }
         Ok(())
@@ -161,8 +158,9 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                     back_in_time_ms = current_timestamp - message_timestamp,
                     "kafka.partition_timestamp_out_of_sequence"
                 );
+            } else {
+                self.current_timestamp = Some(message_timestamp);
             }
-            self.current_timestamp = Some(message_timestamp);
         }
         if self.head.is_empty() {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
