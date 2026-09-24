@@ -1,14 +1,16 @@
 use rdkafka::{Message, message::OwnedMessage};
 
 use crate::{
-    rebalance::topic_partition_update::TopicPartition, stream::queue_handler::QueueHandler,
+    rebalance::topic_partition_update::TopicPartition,
+    stream::{paw_kafka_stream::StreamError, queue_handler::QueueHandler},
 };
 
 pub fn ensure_queue_and_push<F>(
     queue_handlers: &mut Vec<QueueHandler>,
     message_or_key: MessageOrKey,
     builder: F,
-) where
+) -> Result<(), StreamError>
+where
     F: FnOnce(TopicPartition) -> Option<QueueHandler>,
 {
     let (key, message) = message_or_key.into_parts();
@@ -28,9 +30,7 @@ pub fn ensure_queue_and_push<F>(
         });
     match (index, message) {
         (Some(idx), Some(msg)) => {
-            queue_handlers[idx]
-                .add_message(msg)
-                .expect("Failed to add message to QueueHandler, direct key access should not fail");
+            queue_handlers[idx].add_message(msg)?;
         }
         (None, Some(msg)) => {
             tracing::warn!(
@@ -41,6 +41,7 @@ pub fn ensure_queue_and_push<F>(
         }
         _ => {}
     }
+    Ok(())
 }
 
 pub enum MessageOrKey {
@@ -66,23 +67,24 @@ impl MessageOrKey {
 /// Pushes the message onto the queue for its topic partition.
 /// Returns false if the partition is not assigned to this consumer,
 /// in which case the message is dropped.
-pub fn push_if_assigned(queue_handlers: &mut [QueueHandler], message: OwnedMessage) -> bool {
+pub fn push_if_assigned(
+    queue_handlers: &mut [QueueHandler],
+    message: OwnedMessage,
+) -> Result<bool, StreamError> {
     let key = TopicPartition {
         topic: message.topic().to_string(),
         partition: message.partition(),
     };
     let index = queue_handlers.iter().position(|q| q.key == key);
     if let Some(idx) = index {
-        queue_handlers[idx]
-            .add_message(message)
-            .expect("Failed to add message to QueueHandler, direct key access should not fail");
-        true
+        queue_handlers[idx].add_message(message)?;
+        Ok(true)
     } else {
         tracing::trace!(
             "No QueueHandler found for key: {:?}, its not assigned to this consumer, message with offset {} dropped",
             key,
             message.offset()
         );
-        false
+        Ok(false)
     }
 }

@@ -85,7 +85,7 @@ impl QueueHandler {
         while self.is_lagging() && self.head.len() < self.internal_buffer_size {
             match self.rdkafka_stream.recv().await {
                 Ok(msg) => {
-                    self.push(msg.detach());
+                    self.push(msg.detach())?;
                 }
                 Err(e) => {
                     tracing::error!(error = %e, "Failed to receive message from rdkafka stream");
@@ -109,25 +109,35 @@ impl QueueHandler {
         self.hi_offset = Some(hi_offset);
     }
 
-    fn push(&mut self, msg: OwnedMessage) {
+    fn push(&mut self, msg: OwnedMessage) -> Result<(), StreamError> {
+        if self.current_offset >= msg.offset() {
+            return Err(StreamError::MessageOutOfSequence {
+                topic: self.key.topic.clone(),
+                partition: self.key.partition,
+                current_offset: self.current_offset,
+                message_offset: msg.offset(),
+            });
+        }
         if self.head.is_empty() {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
         }
         self.current_offset = msg.offset();
         self.head.push_back(msg);
         self.depth_gauge.set(self.head.len() as f64);
+        Ok(())
     }
 
-    pub fn add_message(&mut self, msg: OwnedMessage) -> Result<usize, KafkaError> {
+    pub fn add_message(&mut self, msg: OwnedMessage) -> Result<usize, StreamError> {
         let topic = msg.topic().to_string();
         let partition = msg.partition();
         if self.key.topic != topic || self.key.partition != partition {
             return Err(KafkaError::UnexpectedMessage(format!(
                 "Message topic/partition ({}/{}) does not match queue key ({}/{})",
                 topic, partition, self.key.topic, self.key.partition
-            )));
+            ))
+            .into());
         }
-        self.push(msg);
+        self.push(msg)?;
         Ok(self.head.len())
     }
 

@@ -1,5 +1,6 @@
 use crate::rebalance::topic_partition_update::TopicPartition;
 
+use paw_rdkafka::error::KafkaError;
 use rdkafka::message::OwnedMessage;
 use thiserror::Error;
 
@@ -15,6 +16,17 @@ pub enum StreamError {
     InternalLogicError,
     #[error("Failed to access db during hwm filtering")]
     HwmFilterDbError,
+    #[error(
+        "Message offset is not increasing for {topic}:{partition}: current offset {current_offset}, received offset {message_offset}"
+    )]
+    MessageOutOfSequence {
+        topic: String,
+        partition: i32,
+        current_offset: i64,
+        message_offset: i64,
+    },
+    #[error(transparent)]
+    Kafka(#[from] KafkaError),
 }
 
 pub trait PawKafkaStream {
