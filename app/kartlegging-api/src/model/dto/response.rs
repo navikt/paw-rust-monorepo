@@ -1,5 +1,4 @@
-use crate::model::dto::arbeidssoeker::Arbeidssoeker;
-use crate::model::dto::arbeidssoeker_v2::ArbeidssoekerV2;
+use crate::model::dto::arbeidssoeker::{Arbeidssoeker, ArbeidssoekerKompakt};
 use crate::model::sort::SortOrder;
 use serde::Serialize;
 
@@ -13,7 +12,7 @@ pub struct KartleggingResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArbeidsledighetResponse {
-    pub arbeidssoekere: Vec<ArbeidssoekerV2>,
+    pub arbeidssoekere: Vec<ArbeidssoekerKompakt>,
     pub paging: PagingResponse,
 }
 

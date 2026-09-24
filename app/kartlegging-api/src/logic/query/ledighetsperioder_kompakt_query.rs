@@ -1,7 +1,7 @@
-use crate::model::dao::ledighetsperiode_v2;
-use crate::model::dao::ledighetsperiode_v2::LedighetsperiodeV2Row;
+use crate::model::dao::ledighetsperiode_kompakt;
+use crate::model::dao::ledighetsperiode_kompakt::LedighetsperiodeKompaktRow;
 use crate::model::dto::bekreftelse::Bekreftelsesloesning;
-use crate::model::dto::ledighetsperiode_v2::LedighetsperiodeV2;
+use crate::model::dto::ledighetsperiode::LedighetsperiodeKompakt;
 use crate::model::dto::profilering::ProfilertTil;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
@@ -11,9 +11,9 @@ use std::str::FromStr;
 pub async fn finn_for_arbeidssoeker_ider(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_ider: &[i64],
-) -> anyhow::Result<HashMap<i64, LedighetsperiodeV2>> {
+) -> anyhow::Result<HashMap<i64, LedighetsperiodeKompakt>> {
     tracing::info!("Henter kartlegging for parent ider");
-    let rows = ledighetsperiode_v2::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
+    let rows = ledighetsperiode_kompakt::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
 
     let mut kartlegginger = HashMap::new();
     for row in &rows {
@@ -22,7 +22,7 @@ pub async fn finn_for_arbeidssoeker_ider(
     Ok(kartlegginger)
 }
 
-fn map_row(row: &LedighetsperiodeV2Row) -> anyhow::Result<LedighetsperiodeV2> {
+fn map_row(row: &LedighetsperiodeKompaktRow) -> anyhow::Result<LedighetsperiodeKompakt> {
     let egenvurdert_til = row
         .egenvurdert_til
         .clone()
@@ -35,7 +35,7 @@ fn map_row(row: &LedighetsperiodeV2Row) -> anyhow::Result<LedighetsperiodeV2> {
         Bekreftelsesloesning::from_str(loesning)?
     };
 
-    Ok(LedighetsperiodeV2 {
+    Ok(LedighetsperiodeKompakt {
         periode_id: row.periode_id,
         ledig_siden: row.arbeidsledig_fra,
         periode_startet: row.arbeidssoeker_fra,

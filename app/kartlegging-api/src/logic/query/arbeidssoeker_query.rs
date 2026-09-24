@@ -1,4 +1,4 @@
-use crate::logic::query::{kontortilknytning_query, ledighetsperioder_query};
+use crate::logic::query::{kontortilknytning_query, ledighetsperiode_query};
 use crate::model::dao::arbeidssoeker;
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
@@ -106,7 +106,7 @@ async fn map_rows(
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
         let ledighetsperioder =
-            ledighetsperioder_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
+            ledighetsperiode_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
         let kontortilknytninger =
             kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
         arbeidssoekere.push(Arbeidssoeker::new(

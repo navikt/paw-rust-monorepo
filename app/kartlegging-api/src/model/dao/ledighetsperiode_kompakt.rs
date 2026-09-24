@@ -3,7 +3,7 @@ use sqlx::{FromRow, Postgres, Transaction};
 use uuid::Uuid;
 
 #[derive(Debug, FromRow)]
-pub(crate) struct LedighetsperiodeV2Row {
+pub(crate) struct LedighetsperiodeKompaktRow {
     pub arbeidssoeker_id: i64,
     pub periode_id: Uuid,
     pub arbeidssoeker_fra: DateTime<Utc>,
@@ -20,9 +20,9 @@ pub(crate) struct LedighetsperiodeV2Row {
 pub async fn select_by_arbeidssoeker_ids(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_ider: &[i64],
-) -> anyhow::Result<Vec<LedighetsperiodeV2Row>> {
+) -> anyhow::Result<Vec<LedighetsperiodeKompaktRow>> {
     tracing::debug!("Select ledighetsperioder by parent-ider");
-    let rows = sqlx::query_as::<_, LedighetsperiodeV2Row>(
+    let rows = sqlx::query_as::<_, LedighetsperiodeKompaktRow>(
         r#"
         WITH
         active_perioder AS (

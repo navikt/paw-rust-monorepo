@@ -44,6 +44,7 @@ fn spec_json() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{SPEC_YAML, spec_json};
+    use crate::api::arbeidsledighet::API_ARBEIDSLEDIGHET_PATH;
     use crate::api::kartlegging::API_KARTLEGGING_PATH;
     use crate::model::dto::arbeidssoeker::Arbeidssoeker;
     use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
@@ -100,7 +101,7 @@ mod tests {
             .cloned()
             .collect();
 
-        let registered = [API_KARTLEGGING_PATH];
+        let registered = [API_KARTLEGGING_PATH, API_ARBEIDSLEDIGHET_PATH];
 
         for path in &spec_paths {
             assert!(

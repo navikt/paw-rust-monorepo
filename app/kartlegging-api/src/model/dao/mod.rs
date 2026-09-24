@@ -5,7 +5,7 @@ pub(crate) mod egenvurdering;
 pub(crate) mod kartlegging;
 pub(crate) mod kontortilknytning;
 pub(crate) mod ledighetsperiode;
-pub(crate) mod ledighetsperiode_v2;
+pub(crate) mod ledighetsperiode_kompakt;
 pub(crate) mod opplysninger;
 pub(crate) mod periode;
 pub(crate) mod profilering;

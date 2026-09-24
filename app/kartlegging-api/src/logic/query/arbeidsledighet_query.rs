@@ -1,7 +1,7 @@
-use crate::logic::query::{kontortilknytning_query, ledighetsperioder_v2_query};
+use crate::logic::query::{kontortilknytning_query, ledighetsperioder_kompakt_query};
 use crate::model::dao::arbeidssoeker;
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
-use crate::model::dto::arbeidssoeker_v2::ArbeidssoekerV2;
+use crate::model::dto::arbeidssoeker::ArbeidssoekerKompakt;
 use crate::model::dto::kontortilknytning::KontorType;
 use crate::model::dto::request::{
     IdentitetsnummerQueryRequest, PagingRequest, TilknyttetKontorQueryRequest,
@@ -102,7 +102,7 @@ pub async fn finn_for_kontortilknytning_query_request(
 async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_rows: &Vec<ArbeidssoekerRow>,
-) -> anyhow::Result<Vec<ArbeidssoekerV2>> {
+) -> anyhow::Result<Vec<ArbeidssoekerKompakt>> {
     let arbeidssoeker_ider: Vec<i64> = arbeidssoeker_rows.iter().map(|row| row.id).collect();
     let aktor_ider: Vec<String> = arbeidssoeker_rows
         .iter()
@@ -110,7 +110,7 @@ async fn map_rows(
         .collect();
 
     let mut ledighetsperioder_by_arbeidssoeker_id =
-        ledighetsperioder_v2_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider).await?;
+        ledighetsperioder_kompakt_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider).await?;
     let mut kontortilknytninger_by_aktor_id =
         kontortilknytning_query::finn_for_aktor_ider(tx, &aktor_ider).await?;
 
@@ -123,7 +123,7 @@ async fn map_rows(
         let kontortilknytninger = kontortilknytninger_by_aktor_id
             .remove(&row.aktor_id)
             .unwrap_or_default();
-        arbeidssoekere.push(ArbeidssoekerV2::new(
+        arbeidssoekere.push(ArbeidssoekerKompakt::new(
             row.id.clone(),
             row.aktor_id.clone(),
             row.identitetsnummer.clone(),
