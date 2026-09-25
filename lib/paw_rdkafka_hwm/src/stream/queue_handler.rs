@@ -151,42 +151,36 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
         }
         self.current_offset = msg.offset();
-        let wrapped_msg: MessageWrapper;
-        if let Some(message_timestamp) = msg.timestamp().to_millis() {
-            if let Some(current_timestamp) = self.current_timestamp
-                && message_timestamp < current_timestamp
-            {
-                let back_in_time_ms = current_timestamp - message_timestamp;
-                tracing::warn!(
-                    kafka.topic = self.key.topic,
-                    kafka.partition = self.key.partition,
-                    previous_offset = self.current_offset,
-                    message_offset = msg.offset(),
-                    previous_timestamp_ms = current_timestamp,
-                    message_timestamp_ms = message_timestamp,
-                    back_in_time_ms = back_in_time_ms,
-                    "kafka.partition_timestamp_out_of_sequence"
-                );
-                wrapped_msg = MessageWrapper {
-                    message: msg,
-                    timestamp_info: TimestampInfo::OutOfSequence {
-                        delta: back_in_time_ms,
-                    },
-                };
-            } else {
-                self.current_timestamp = Some(message_timestamp);
-                wrapped_msg = MessageWrapper {
-                    message: msg,
-                    timestamp_info: TimestampInfo::InSequence,
-                };
+        let message_timestamp = msg.timestamp().to_millis();
+        let current_timestamp = self.current_timestamp;
+        let delta = match (current_timestamp, message_timestamp) {
+            (_, None) => {
+                self.current_timestamp = None;
+                None
             }
-        } else {
-            wrapped_msg = MessageWrapper {
-                message: msg,
-                timestamp_info: TimestampInfo::None,
+            (None, Some(msg_ts)) => {
+                self.current_timestamp = Some(msg_ts);
+                None
             }
-        }
-        self.head.push_back(wrapped_msg);
+            (Some(current_ts), Some(msg_ts)) => {
+                self.current_timestamp = Some(msg_ts);
+                let delta = msg_ts - current_ts;
+                if delta < 0 {
+                    tracing::warn!(
+                        kafka.topic = self.key.topic,
+                        kafka.partition = self.key.partition,
+                        previous_offset = self.current_offset,
+                        message_offset = msg.offset(),
+                        previous_timestamp_ms = current_timestamp,
+                        message_timestamp_ms = message_timestamp,
+                        back_in_time_ms = delta.abs(),
+                        "kafka.partition_timestamp_out_of_sequence"
+                    );
+                }
+                Some(delta)
+            }
+        };
+        self.head.push_back(MessageWrapper::new(msg, delta));
         self.depth_gauge.set(self.head.len() as f64);
         Ok(())
     }

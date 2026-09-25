@@ -76,7 +76,7 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     max_idle: Duration,
     /// Soft limit for the number of messages to buffer internally for each partition queue.
     internal_buffer_size: usize,
-    stream_times: HashMap<i32, (String, i64, i64)>,
+    stream_times: HashMap<i32, StreamState>,
     pg_pool: PgPool,
     hwm_version: i16,
     main_consumer_none_treshold: usize,
@@ -105,13 +105,13 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             RECEIVE_RESULT.with_label_values(&["waiting"]).inc();
             return Ok((self, None));
         }
-        let result = self
+        let next_message = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
             .min_by_key(|q| q.timestamp())
             .and_then(|q| q.take_head());
-        if let Some(wrapper) = result.as_ref() {
+        if let Some(wrapper) = next_message.as_ref() {
             Span::current().record("topic", wrapper.message.topic());
             Span::current().record("partition", wrapper.message.partition());
             Span::current().record("offset", wrapper.message.offset());
@@ -130,21 +130,21 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
                 self.stream_times
                     .entry(wrapper.message.partition())
                     .and_modify(|ts| {
-                        if new_ts >= ts.2 {
-                            *ts = (
-                                wrapper.message.topic().to_string(),
-                                wrapper.message.offset(),
-                                new_ts,
-                            );
+                        if new_ts >= ts.timestamp {
+                            *ts = StreamState {
+                                topic: wrapper.message.topic().to_string(),
+                                offset: wrapper.message.offset(),
+                                timestamp: new_ts,
+                            };
                         } else {
-                            back_in_time_ms = ts.2 - new_ts;
+                            back_in_time_ms = ts.timestamp - new_ts;
                             Span::current().record("back_in_time_ms", back_in_time_ms);
                             tracing::warn!(
                                 kafka.partition = wrapper.message.partition(),
                                 back_in_time_ms,
-                                kafka.stream.time.ms = ts.2,
-                                kafka.stream.time.topic = ts.0,
-                                kafka.stream.time.offset = ts.1,
+                                kafka.stream.time.ms = ts.timestamp,
+                                kafka.stream.time.topic = ts.topic.as_str(),
+                                kafka.stream.time.offset = ts.offset,
                                 kafka.message.timestamp = new_ts,
                                 kafka.message.topic = wrapper.message.topic(),
                                 kafka.message.offset = wrapper.message.offset(),
@@ -154,21 +154,23 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
                             );
                         }
                     })
-                    .or_insert((
-                        wrapper.message.topic().to_string(),
-                        wrapper.message.offset(),
-                        new_ts,
-                    ));
+                    .or_insert(StreamState {
+                        topic: wrapper.message.topic().to_string(),
+                        offset: wrapper.message.offset(),
+                        timestamp: new_ts,
+                    });
             }
             STREAM_WRAPPER_MESSAGES
-                .with_label_values(&[if back_in_time_ms > 0 { "true" } else { "false" }])
+                .with_label_values(&[
+                    if back_in_time_ms > 0 { "true" } else { "false" },
+                    if wrapper.is_in_sequence() {
+                        "true"
+                    } else {
+                        "false"
+                    },
+                ])
                 .inc();
-            if back_in_time_ms > 0
-                && matches!(
-                    wrapper.timestamp_info,
-                    super::message_wrapper::TimestampInfo::InSequence
-                )
-            {
+            if back_in_time_ms > 0 && wrapper.is_in_sequence() {
                 BACK_IN_TIME_MS
                     .with_label_values(&[
                         wrapper.message.topic(),
@@ -185,12 +187,18 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             RECEIVE_RESULT.with_label_values(&["empty"]).inc();
             return Ok((self, None));
         };
-        Ok((self, result.map(|wrapper| wrapper.message)))
+        Ok((self, next_message.map(|wrapper| wrapper.message)))
     }
 
     fn assigned(&self) -> Vec<TopicPartition> {
         self.queues.iter().map(|q| q.key.clone()).collect()
     }
+}
+
+pub struct StreamState {
+    pub topic: String,
+    pub offset: i64,
+    pub timestamp: i64,
 }
 
 #[instrument(
@@ -406,12 +414,14 @@ static STREAM_WRAPPER_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     let counter = register_counter_vec!(
         "paw_kafka_stream_messages_total",
         "Messages delivered by the stream wrapper, by whether the timestamp went backwards",
-        &["back_in_time"]
+        &["back_in_time", "source_in_sequence"]
     )
     .expect("Failed to create counter");
     // Registers the series so they read 0 before the first increment.
-    counter.with_label_values(&["true"]);
-    counter.with_label_values(&["false"]);
+    counter.with_label_values(&["true", "true"]);
+    counter.with_label_values(&["true", "false"]);
+    counter.with_label_values(&["false", "true"]);
+    counter.with_label_values(&["false", "false"]);
     counter
 });
 
