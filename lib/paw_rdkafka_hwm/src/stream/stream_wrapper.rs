@@ -173,7 +173,11 @@ fn record_message_metrics(back_in_time_ms: i64, wrapper: &MessageWrapper) {
     STREAM_WRAPPER_MESSAGES
         .with_label_values(&[
             if back_in_time_ms > 0 { "true" } else { "false" },
-            if wrapper.is_in_sequence() { "true" } else { "false" },
+            if wrapper.is_in_sequence() {
+                "true"
+            } else {
+                "false"
+            },
         ])
         .inc();
     if back_in_time_ms > 0 && wrapper.is_in_sequence() {
@@ -485,3 +489,8 @@ static MAIN_QUEUE_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
     )
     .expect("Failed to create counter")
 });
+
+pub fn init_stream_wrapper_metrics() {
+    LazyLock::force(&STREAM_WRAPPER_MESSAGES);
+    LazyLock::force(&RECEIVE_RESULT);
+}

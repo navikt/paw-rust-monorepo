@@ -9,7 +9,10 @@ use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
     rebalance::topic_partition_update::TopicPartitionUpdate,
-    stream::{paw_kafka_stream::PawKafkaStream, stream_wrapper::PawKafkaConsumerStream},
+    stream::{
+        paw_kafka_stream::PawKafkaStream,
+        stream_wrapper::{PawKafkaConsumerStream, init_stream_wrapper_metrics},
+    },
 };
 use paw_rust_base::{
     await_signal::await_signal,
@@ -29,6 +32,7 @@ use tracing::info;
 async fn main() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
     setup_nais_otel().unwrap();
+    init_stream_wrapper_metrics();
     run_app().await
 }
 
