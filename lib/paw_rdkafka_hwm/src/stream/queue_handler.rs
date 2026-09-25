@@ -7,7 +7,6 @@ use paw_rdkafka::error::KafkaError;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
 
-use crate::stream::message_wrapper::TimestampInfo;
 use crate::stream::{message_wrapper::MessageWrapper, paw_kafka_stream::StreamError};
 
 use crate::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
@@ -44,6 +43,7 @@ pub struct QueueHandler<S: PartitionMessageSource> {
     last_timestamp_gauge: Gauge,
     next_timestamp_gauge: Gauge,
     depth_gauge: Gauge,
+    lag_gauge: Gauge,
     offsets: Option<KafkaOffsets>,
     current_offset: i64,
     current_timestamp: Option<i64>,
@@ -63,10 +63,13 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         let next_timestamp_gauge =
             NEXT_QUEUE_HANDLER_TIMESTAMP.with_label_values(&[&topic, &partition]);
         let depth_gauge = QUEUE_HANDLER_DEPTH.with_label_values(&[&topic, &partition]);
+        let lag_gauge = QUEUE_HANDLER_LAG.with_label_values(&[&topic, &partition]);
         // 0 would render as 1970; NaN renders as a gap.
         last_timestamp_gauge.set(f64::NAN);
         next_timestamp_gauge.set(f64::NAN);
         depth_gauge.set(0.0);
+        // Lag is unknown until the first HiOffsetUpdate arrives.
+        lag_gauge.set(f64::NAN);
         Self {
             key,
             head: VecDeque::new(),
@@ -75,10 +78,20 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             last_timestamp_gauge,
             next_timestamp_gauge,
             depth_gauge,
+            lag_gauge,
             offsets: None,
             current_offset,
             current_timestamp: None,
         }
+    }
+
+    fn update_lag_gauge(&self) {
+        let Some(offsets) = &self.offsets else {
+            return;
+        };
+        let not_yet_fetched = (offsets.hi_offset - offsets.next_offset).max(0);
+        let lag = not_yet_fetched + offsets.message_queue_count + self.head.len() as i64;
+        self.lag_gauge.set(lag as f64);
     }
 
     pub fn key(&self) -> &TopicPartition {
@@ -92,6 +105,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         self.next_timestamp_gauge
             .set(timestamp_ms(self.head.front().map(|w| &w.message)));
         self.depth_gauge.set(self.head.len() as f64);
+        self.update_lag_gauge();
         Some(wrapped_msg)
     }
 
@@ -136,6 +150,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
 
     pub fn set_offsets(&mut self, offsets: KafkaOffsets) {
         self.offsets = Some(offsets);
+        self.update_lag_gauge();
     }
 
     fn push(&mut self, msg: OwnedMessage) -> Result<(), StreamError> {
@@ -182,6 +197,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         };
         self.head.push_back(MessageWrapper::new(msg, delta));
         self.depth_gauge.set(self.head.len() as f64);
+        self.update_lag_gauge();
         Ok(())
     }
 
@@ -215,6 +231,7 @@ impl<S: PartitionMessageSource> Drop for QueueHandler<S> {
         let _ = LAST_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
         let _ = NEXT_QUEUE_HANDLER_TIMESTAMP.remove_label_values(&[&topic, &partition]);
         let _ = QUEUE_HANDLER_DEPTH.remove_label_values(&[&topic, &partition]);
+        let _ = QUEUE_HANDLER_LAG.remove_label_values(&[&topic, &partition]);
     }
 }
 
@@ -244,6 +261,17 @@ static QUEUE_HANDLER_DEPTH: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
         "paw_kafka_stream_queue_handler_depth",
         "Number of messages currently buffered in the queue handler",
+        &["topic", "partition"]
+    )
+    .expect("Failed to create gauge")
+});
+
+static QUEUE_HANDLER_LAG: LazyLock<GaugeVec> = LazyLock::new(|| {
+    register_gauge_vec!(
+        "paw_kafka_stream_queue_handler_lag",
+        "Total number of messages not yet delivered to the application for this partition: \
+         not-yet-fetched-from-broker (hi_offset - next_offset), plus buffered in rdkafka's \
+         internal queue (message_queue_count), plus buffered in the queue handler's own head",
         &["topic", "partition"]
     )
     .expect("Failed to create gauge")
