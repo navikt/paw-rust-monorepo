@@ -26,6 +26,7 @@ use crate::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
     topic_partition_update::{TopicPartition, TopicPartitionUpdate},
 };
+use crate::stream::message_wrapper::MessageWrapper;
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::{PartitionMessageSource, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
@@ -95,99 +96,33 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
         self.drain_and_rebalance().await?;
         load(&mut self.queues, self.max_idle).await?;
+
         let stalled = self.queues.iter().filter(|q| q.has_stalled()).count();
         Span::current().record("stalled_queues", stalled as u64);
         if stalled > 0 {
-            Span::current().record("topic", "waiting");
-            Span::current().record("partition", -1);
-            Span::current().record("offset", -1);
-            Span::current().record("timestamp", "waiting");
+            record_empty_receive_span("waiting");
             RECEIVE_RESULT.with_label_values(&["waiting"]).inc();
             return Ok((self, None));
         }
-        let next_message = self
+
+        let Some(wrapper) = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
             .min_by_key(|q| q.timestamp())
-            .and_then(|q| q.take_head());
-        if let Some(wrapper) = next_message.as_ref() {
-            Span::current().record("topic", wrapper.message.topic());
-            Span::current().record("partition", wrapper.message.partition());
-            Span::current().record("offset", wrapper.message.offset());
-            Span::current().record(
-                "timestamp",
-                wrapper
-                    .message
-                    .timestamp()
-                    .to_millis()
-                    .and_then(DateTime::from_timestamp_millis)
-                    .map(|dt| dt.to_rfc3339())
-                    .unwrap_or_else(|| "unknown".to_string()),
-            );
-            let mut back_in_time_ms = 0;
-            if let Some(new_ts) = wrapper.message.timestamp().to_millis() {
-                self.stream_times
-                    .entry(wrapper.message.partition())
-                    .and_modify(|ts| {
-                        if new_ts >= ts.timestamp {
-                            *ts = StreamState {
-                                topic: wrapper.message.topic().to_string(),
-                                offset: wrapper.message.offset(),
-                                timestamp: new_ts,
-                            };
-                        } else {
-                            back_in_time_ms = ts.timestamp - new_ts;
-                            Span::current().record("back_in_time_ms", back_in_time_ms);
-                            tracing::warn!(
-                                kafka.partition = wrapper.message.partition(),
-                                back_in_time_ms,
-                                kafka.stream.time.ms = ts.timestamp,
-                                kafka.stream.time.topic = ts.topic.as_str(),
-                                kafka.stream.time.offset = ts.offset,
-                                kafka.message.timestamp = new_ts,
-                                kafka.message.topic = wrapper.message.topic(),
-                                kafka.message.offset = wrapper.message.offset(),
-                                kafka.message.timestamp_info =
-                                    format!("{:?}", wrapper.timestamp_info),
-                                "kafka.back_in_time"
-                            );
-                        }
-                    })
-                    .or_insert(StreamState {
-                        topic: wrapper.message.topic().to_string(),
-                        offset: wrapper.message.offset(),
-                        timestamp: new_ts,
-                    });
-            }
-            STREAM_WRAPPER_MESSAGES
-                .with_label_values(&[
-                    if back_in_time_ms > 0 { "true" } else { "false" },
-                    if wrapper.is_in_sequence() {
-                        "true"
-                    } else {
-                        "false"
-                    },
-                ])
-                .inc();
-            if back_in_time_ms > 0 && wrapper.is_in_sequence() {
-                BACK_IN_TIME_MS
-                    .with_label_values(&[
-                        wrapper.message.topic(),
-                        wrapper.timestamp_info.to_string().as_str(),
-                    ])
-                    .observe(back_in_time_ms as f64);
-            }
-            RECEIVE_RESULT.with_label_values(&["message"]).inc();
-        } else {
-            Span::current().record("topic", "none");
-            Span::current().record("partition", -1);
-            Span::current().record("offset", -1);
-            Span::current().record("timestamp", "none");
+            .and_then(|q| q.take_head())
+        else {
+            record_empty_receive_span("none");
             RECEIVE_RESULT.with_label_values(&["empty"]).inc();
             return Ok((self, None));
         };
-        Ok((self, next_message.map(|wrapper| wrapper.message)))
+
+        record_message_receive_span(&wrapper);
+        let back_in_time_ms = self.track_stream_time(&wrapper);
+        record_message_metrics(back_in_time_ms, &wrapper);
+        RECEIVE_RESULT.with_label_values(&["message"]).inc();
+
+        Ok((self, Some(wrapper.message)))
     }
 
     fn assigned(&self) -> Vec<TopicPartition> {
@@ -199,6 +134,56 @@ pub struct StreamState {
     pub topic: String,
     pub offset: i64,
     pub timestamp: i64,
+}
+
+/// Records the current span's `topic`/`partition`/`offset`/`timestamp` fields
+/// for a `receive()` call that returned no message, using `reason` (e.g.
+/// "waiting" or "none") in place of the not-yet-known topic/timestamp.
+fn record_empty_receive_span(reason: &str) {
+    let span = Span::current();
+    span.record("topic", reason);
+    span.record("partition", -1);
+    span.record("offset", -1);
+    span.record("timestamp", reason);
+}
+
+/// Records the current span's `topic`/`partition`/`offset`/`timestamp` fields
+/// for a `receive()` call that returned `wrapper`.
+fn record_message_receive_span(wrapper: &MessageWrapper) {
+    let span = Span::current();
+    span.record("topic", wrapper.message.topic());
+    span.record("partition", wrapper.message.partition());
+    span.record("offset", wrapper.message.offset());
+    span.record(
+        "timestamp",
+        wrapper
+            .message
+            .timestamp()
+            .to_millis()
+            .and_then(DateTime::from_timestamp_millis)
+            .map(|dt| dt.to_rfc3339())
+            .unwrap_or_else(|| "unknown".to_string()),
+    );
+}
+
+/// Increments the message delivery counters for `wrapper`, and observes the
+/// backward timestamp jump size when both `back_in_time_ms` is positive and
+/// the message's own offset was still in sequence.
+fn record_message_metrics(back_in_time_ms: i64, wrapper: &MessageWrapper) {
+    STREAM_WRAPPER_MESSAGES
+        .with_label_values(&[
+            if back_in_time_ms > 0 { "true" } else { "false" },
+            if wrapper.is_in_sequence() { "true" } else { "false" },
+        ])
+        .inc();
+    if back_in_time_ms > 0 && wrapper.is_in_sequence() {
+        BACK_IN_TIME_MS
+            .with_label_values(&[
+                wrapper.message.topic(),
+                wrapper.timestamp_info.to_string().as_str(),
+            ])
+            .observe(back_in_time_ms as f64);
+    }
 }
 
 #[instrument(
@@ -247,6 +232,49 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
             hwm_version,
             main_consumer_none_treshold,
         }
+    }
+
+    /// Updates the newest-seen timestamp for `wrapper`'s partition, warning and
+    /// recording the `back_in_time_ms` span field whenever `wrapper` arrives with
+    /// a timestamp older than the last one observed for that partition.
+    /// Returns the magnitude of the backward jump in milliseconds, or 0 if none.
+    fn track_stream_time(&mut self, wrapper: &MessageWrapper) -> i64 {
+        let Some(new_ts) = wrapper.message.timestamp().to_millis() else {
+            return 0;
+        };
+        let mut back_in_time_ms = 0;
+        self.stream_times
+            .entry(wrapper.message.partition())
+            .and_modify(|ts| {
+                if new_ts >= ts.timestamp {
+                    *ts = StreamState {
+                        topic: wrapper.message.topic().to_string(),
+                        offset: wrapper.message.offset(),
+                        timestamp: new_ts,
+                    };
+                } else {
+                    back_in_time_ms = ts.timestamp - new_ts;
+                    Span::current().record("back_in_time_ms", back_in_time_ms);
+                    tracing::warn!(
+                        kafka.partition = wrapper.message.partition(),
+                        back_in_time_ms,
+                        kafka.stream.time.ms = ts.timestamp,
+                        kafka.stream.time.topic = ts.topic.as_str(),
+                        kafka.stream.time.offset = ts.offset,
+                        kafka.message.timestamp = new_ts,
+                        kafka.message.topic = wrapper.message.topic(),
+                        kafka.message.offset = wrapper.message.offset(),
+                        kafka.message.timestamp_info = format!("{:?}", wrapper.timestamp_info),
+                        "kafka.back_in_time"
+                    );
+                }
+            })
+            .or_insert(StreamState {
+                topic: wrapper.message.topic().to_string(),
+                offset: wrapper.message.offset(),
+                timestamp: new_ts,
+            });
+        back_in_time_ms
     }
 
     #[tracing::instrument(
