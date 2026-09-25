@@ -8,7 +8,6 @@ use crate::model::dto::request::{
 };
 use crate::model::dto::response::ArbeidsledighetResponse;
 use crate::model::sort::SortOrder;
-use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
 
 #[tracing::instrument(skip_all)]
@@ -57,9 +56,6 @@ pub async fn finn_for_kontortilknytning_query_request(
         .iter()
         .map(|kt| kt.as_ref().to_string())
         .collect::<Vec<String>>();
-    let ledig_siden = request
-        .ledig_siden
-        .unwrap_or(NaiveDate::from_epoch_days(0).unwrap());
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
         page_size: 1000,
@@ -67,7 +63,7 @@ pub async fn finn_for_kontortilknytning_query_request(
     });
 
     let total_count =
-        arbeidssoeker::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_siden)
+        arbeidssoeker::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &request.ledig_siden)
             .await?;
     let kontor_join = kontor_typer
         .iter()
@@ -85,7 +81,7 @@ pub async fn finn_for_kontortilknytning_query_request(
         tx,
         &kontor_id,
         &kontor_typer,
-        &ledig_siden,
+        &request.ledig_siden,
         paging.offset(),
         paging.limit(),
         &paging.sort_order,

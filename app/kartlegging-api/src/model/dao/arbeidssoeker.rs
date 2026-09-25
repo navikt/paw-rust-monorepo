@@ -37,23 +37,38 @@ pub async fn count_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &NaiveDate,
+    ledig_siden: &Option<NaiveDate>,
 ) -> anyhow::Result<i64> {
     tracing::debug!("Count arbeidssøkere by kontortilknytning");
-    let count = sqlx::query_scalar(
-        r#"
-        SELECT COUNT(DISTINCT a.id) AS count
-        FROM arbeidssoekere a
-        LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
-        LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
-        WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_fra NOTNULL AND k.arbeidsledig_fra > $3
-        "#,
-    )
-    .bind(kontor_id)
-    .bind(&kontor_typer[..])
-    .bind(ledig_siden)
-    .fetch_one(&mut **tx)
-    .await?;
+    let count = match ledig_siden {
+        Some(timestamp) => {
+            sqlx::query_scalar(
+                r#"
+            SELECT COUNT(DISTINCT a.id) AS count
+            FROM arbeidssoekere a
+            LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
+            LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
+            WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_fra NOTNULL AND k.arbeidsledig_fra > $3
+            "#,
+            ).bind(kontor_id)
+                    .bind(&kontor_typer[..])
+                    .bind(timestamp)
+                    .fetch_one(&mut **tx)
+                    .await?
+        }
+        None => sqlx::query_scalar(
+            r#"
+            SELECT COUNT(DISTINCT a.id) AS count
+            FROM arbeidssoekere a
+            LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
+            LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
+            WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2)
+            "#,
+        ).bind(kontor_id)
+                .bind(&kontor_typer[..])
+                .fetch_one(&mut **tx)
+                .await?,
+    };
     Ok(count)
 }
 
@@ -112,19 +127,55 @@ pub async fn select_by_kontortilknytning(
     tx: &mut Transaction<'_, Postgres>,
     kontor_id: &str,
     kontor_typer: &Vec<String>,
-    ledig_siden: &NaiveDate,
+    ledig_siden: &Option<NaiveDate>,
     offset: i32,
     limit: i32,
     sort_order: &SortOrder,
 ) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
     tracing::debug!("Select arbeidssøkere by kontortilknytning");
     let dir = sort_order.as_ref();
-    // language=SQL
-    // DISTINCT ON (a.id) sikrer én rad per arbeidssøker, selv om joinene mot
-    // kartlegginger/kontortilknytninger kan gi flere treff per person (f.eks.
-    // flere kontortilknytninger eller kartlegginger som matcher WHERE-klausulen).
-    let sql = format!(
-        r#"
+    let rows = match ledig_siden {
+        None => {
+            let sql = format!(
+                r#"
+        SELECT
+            id,
+            aktor_id,
+            identitetsnummer,
+            fornavn,
+            mellomnavn,
+            etternavn
+        FROM (
+            SELECT DISTINCT ON (a.id)
+                a.id,
+                a.aktor_id,
+                a.identitetsnummer,
+                a.fornavn,
+                a.mellomnavn,
+                a.etternavn,
+                k.arbeidsledig_fra AS sort_arbeidsledig_fra,
+                k.arbeidssoeker_fra AS sort_arbeidssoeker_fra
+            FROM arbeidssoekere a
+            LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
+            LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
+            WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2)
+        ) distinct_arbeidssoekere
+        ORDER BY sort_arbeidsledig_fra, sort_arbeidssoeker_fra {dir}
+        OFFSET $3
+        LIMIT $4
+        "#,
+            );
+            sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
+                .bind(kontor_id)
+                .bind(kontor_typer)
+                .bind(offset)
+                .bind(limit)
+                .fetch_all(&mut **tx)
+                .await?
+        }
+        Some(timestamp) => {
+            let sql = format!(
+                r#"
         SELECT
             id,
             aktor_id,
@@ -146,21 +197,22 @@ pub async fn select_by_kontortilknytning(
             LEFT JOIN kartlegginger k on a.id = k.arbeidssoeker_id
             LEFT JOIN kontortilknytninger kt on a.aktor_id = kt.aktor_id
             WHERE kt.kontor_id = $1 AND kt.kontor_type = ANY($2) AND k.arbeidsledig_fra NOTNULL AND k.arbeidsledig_fra > $3
-            ORDER BY a.id, k.arbeidssoeker_fra {dir}
         ) distinct_arbeidssoekere
         ORDER BY sort_arbeidsledig_fra, sort_arbeidssoeker_fra {dir}
         OFFSET $4
         LIMIT $5
         "#,
-    );
-    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
-        .bind(kontor_id)
-        .bind(kontor_typer)
-        .bind(ledig_siden)
-        .bind(offset)
-        .bind(limit)
-        .fetch_all(&mut **tx)
-        .await?;
+            );
+            sqlx::query_as::<_, ArbeidssoekerRow>(sqlx::AssertSqlSafe(sql))
+                .bind(kontor_id)
+                .bind(kontor_typer)
+                .bind(timestamp)
+                .bind(offset)
+                .bind(limit)
+                .fetch_all(&mut **tx)
+                .await?
+        }
+    };
     Ok(rows)
 }
 

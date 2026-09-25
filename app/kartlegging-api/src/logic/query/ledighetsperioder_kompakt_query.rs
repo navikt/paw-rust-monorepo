@@ -6,6 +6,7 @@ use crate::model::dto::profilering::ProfilertTil;
 use sqlx::{Postgres, Transaction};
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::vec;
 
 #[tracing::instrument(skip_all)]
 pub async fn finn_for_arbeidssoeker_ider(
@@ -13,7 +14,8 @@ pub async fn finn_for_arbeidssoeker_ider(
     arbeidssoeker_ider: &[i64],
 ) -> anyhow::Result<HashMap<i64, LedighetsperiodeKompakt>> {
     tracing::info!("Henter kartlegging for parent ider");
-    let rows = ledighetsperiode_kompakt::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
+    let rows =
+        ledighetsperiode_kompakt::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
 
     let mut kartlegginger = HashMap::new();
     for row in &rows {
@@ -27,12 +29,14 @@ fn map_row(row: &LedighetsperiodeKompaktRow) -> anyhow::Result<LedighetsperiodeK
         .egenvurdert_til
         .clone()
         .map(|s| ProfilertTil::from_str(&s).unwrap());
-    let bekreftelse_ansvar = if row.bekreftelse_ansvar.is_empty() {
+    let bekreftelse_paa_vegne_av = if row.bekreftelse_paa_vegne_av.is_empty() {
         // Legge til default på-vegne-av
-        Bekreftelsesloesning::Arbeidssoekerregisteret
+        vec![Bekreftelsesloesning::Arbeidssoekerregisteret]
     } else {
-        let loesning = row.bekreftelse_ansvar.first().unwrap();
-        Bekreftelsesloesning::from_str(loesning)?
+        row.bekreftelse_paa_vegne_av
+            .iter()
+            .map(|s| Bekreftelsesloesning::from_str(s).unwrap())
+            .collect()
     };
 
     Ok(LedighetsperiodeKompakt {
@@ -43,6 +47,6 @@ fn map_row(row: &LedighetsperiodeKompaktRow) -> anyhow::Result<LedighetsperiodeK
         egenvurdert_til,
         bekreftelse_har_jobbet: row.bekreftelse_har_jobbet,
         bekreftelse_vil_fortsette: row.bekreftelse_vil_fortsette,
-        bekreftelse_ansvar,
+        bekreftelse_paa_vegne_av,
     })
 }

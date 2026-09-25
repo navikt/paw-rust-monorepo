@@ -7,20 +7,20 @@ use crate::model::dto::opplysninger::{Jobbsituasjon, Opplysninger};
 use crate::model::dto::periode::Periode;
 use crate::model::dto::profilering::{Profilering, ProfilertTil};
 use sqlx::{Postgres, Transaction};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 #[tracing::instrument(skip_all)]
-pub async fn finn_for_arbeidssoeker_id(
+pub async fn finn_for_arbeidssoeker_ider(
     tx: &mut Transaction<'_, Postgres>,
-    arbeidssoeker_id: i64,
-) -> anyhow::Result<Vec<Ledighetsperiode>> {
-    tracing::info!("Henter kartlegging for parent id");
-    let rows = ledighetsperiode::select_by_arbeidssoeker_id(tx, arbeidssoeker_id).await?;
+    arbeidssoeker_ider: &[i64],
+) -> anyhow::Result<HashMap<i64, Ledighetsperiode>> {
+    tracing::info!("Henter kartlegging for parent ider");
+    let rows = ledighetsperiode::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
 
-    let mut kartlegginger = Vec::new();
+    let mut kartlegginger = HashMap::new();
     for row in &rows {
-        let kartlegging = map_row(row)?;
-        kartlegginger.push(kartlegging);
+        kartlegginger.insert(row.arbeidssoeker_id, map_row(row)?);
     }
     Ok(kartlegginger)
 }
@@ -94,16 +94,15 @@ fn map_row(row: &LedighetsperiodeRow) -> anyhow::Result<Ledighetsperiode> {
         }),
         _ => None,
     };
-    let mut bekreftelse_paa_vegne_av = Vec::new();
-    if row.bekreftelse_paa_vegne_av.is_empty() {
+    let bekreftelse_paa_vegne_av = if row.bekreftelse_paa_vegne_av.is_empty() {
         // Legge til default på-vegne-av
-        bekreftelse_paa_vegne_av.push(Bekreftelsesloesning::Arbeidssoekerregisteret);
+        vec![Bekreftelsesloesning::Arbeidssoekerregisteret]
     } else {
-        for loesning in &row.bekreftelse_paa_vegne_av {
-            bekreftelse_paa_vegne_av.push(Bekreftelsesloesning::from_str(loesning.as_str())?);
-        }
-    }
-    let bekreftelse_paa_vegne_av = bekreftelse_paa_vegne_av; // Fjern mut ref
+        row.bekreftelse_paa_vegne_av
+            .iter()
+            .map(|s| Bekreftelsesloesning::from_str(s).unwrap())
+            .collect()
+    };
 
     Ok(Ledighetsperiode {
         ledig_siden: row.arbeidsledig_fra,

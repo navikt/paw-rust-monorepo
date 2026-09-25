@@ -11,6 +11,10 @@ info:
 tags:
   - name: kartlegging
     description: Hente kartlegging av arbeidssøkere
+  - name: arbeidsledighet
+    description: Hente kompakt oversikt over arbeidsledighet
+  - name: statistics
+    description: Statistikk over registrerte arbeidssøkere
 
 paths:
   /api/v1/kartlegging:
@@ -18,6 +22,8 @@ paths:
       tags:
         - kartlegging
       operationId: finn_kartlegging
+      security:
+        - BearerAuth: []
       requestBody:
         content:
           application/json:
@@ -31,10 +37,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KartleggingResponse'
+        '400':
+          description: Ugyldig forespørsel
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Manglende eller ugyldig token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '500':
           description: Intern feil
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/v1/arbeidsledighet:
@@ -42,6 +60,8 @@ paths:
       tags:
         - arbeidsledighet
       operationId: finn_arbeidsledighet
+      security:
+        - BearerAuth: []
       requestBody:
         content:
           application/json:
@@ -55,10 +75,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ArbeidsledighetResponse'
+        '400':
+          description: Ugyldig forespørsel
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Manglende eller ugyldig token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '500':
           description: Intern feil
           content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/statistics:
+    get:
+      tags:
+        - statistics
+      operationId: finn_statistics
+      responses:
+        '200':
+          description: Statistikk over registrerte arbeidssøkere
+          content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+        '500':
+          description: Intern feil
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
 
@@ -81,7 +131,6 @@ components:
       required:
         - type
         - identitetsnummer
-        - paging
       properties:
         type:
           type: string
@@ -90,7 +139,9 @@ components:
         identitetsnummer:
           type: string
         paging:
-          $ref: '#/components/schemas/PagingRequest'
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
       example:
         type: 'IDENTITETSNUMMER'
         identitetsnummer: "01017012345"
@@ -103,7 +154,6 @@ components:
       required:
         - type
         - kontorId
-        - paging
       properties:
         type:
           type: string
@@ -121,10 +171,12 @@ components:
             - 'null'
           format: date
         paging:
-          $ref: '#/components/schemas/PagingRequest'
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/PagingRequest'
       example:
         type: 'TILKNYTTET_KONTOR'
-        kontorId: 1337
+        kontorId: "1337"
         ledigSiden: "2021-01-01"
         paging:
           page: 1
@@ -204,14 +256,67 @@ components:
         hitSize: 42
         totalCount: 10000
         sortOrder: "DESC"
+    StatisticsResponse:
+      type: object
+      required:
+        - total
+        - isNull
+        - isNotNull
+        - over0030Days
+        - over0060Days
+        - over0090Days
+        - over0180Days
+        - over0365Days
+        - over0730Days
+        - over1095Days
+      properties:
+        total:
+          type: integer
+          format: int64
+        isNull:
+          type: integer
+          format: int64
+        isNotNull:
+          type: integer
+          format: int64
+        over0030Days:
+          type: integer
+          format: int64
+        over0060Days:
+          type: integer
+          format: int64
+        over0090Days:
+          type: integer
+          format: int64
+        over0180Days:
+          type: integer
+          format: int64
+        over0365Days:
+          type: integer
+          format: int64
+        over0730Days:
+          type: integer
+          format: int64
+        over1095Days:
+          type: integer
+          format: int64
+      example:
+        total: 10000
+        isNull: 100
+        isNotNull: 9900
+        over0030Days: 8000
+        over0060Days: 6000
+        over0090Days: 4000
+        over0180Days: 2000
+        over0365Days: 1000
+        over0730Days: 500
+        over1095Days: 250
     Arbeidssoeker:
       type: object
       required:
         - id
         - aktorId
         - identitetsnummer
-        - fornavn
-        - etternavn
         - ledighetsperioder
         - kontortilknytninger
       properties:
@@ -223,17 +328,11 @@ components:
         identitetsnummer:
           type: string
         fornavn:
-          type:
-            - string
-            - 'null'
+          type: string
         mellomnavn:
-          type:
-            - string
-            - 'null'
+          type: string
         etternavn:
-          type:
-            - string
-            - 'null'
+          type: string
         ledighetsperioder:
           type: array
           items:
@@ -262,8 +361,6 @@ components:
         - id
         - aktorId
         - identitetsnummer
-        - fornavn
-        - etternavn
         - ledighetsperioder
         - kontortilknytninger
       properties:
@@ -275,17 +372,11 @@ components:
         identitetsnummer:
           type: string
         fornavn:
-          type:
-            - string
-            - 'null'
+          type: string
         mellomnavn:
-          type:
-            - string
-            - 'null'
+          type: string
         etternavn:
-          type:
-            - string
-            - 'null'
+          type: string
         ledighetsperioder:
           type: array
           items:
@@ -311,12 +402,10 @@ components:
     Ledighetsperiode:
       type: object
       required:
-        - periode
+        - bekreftelsePaaVegneAv
       properties:
         ledigSiden:
-          type:
-            - string
-            - 'null'
+          type: string
           format: date-time
         periode:
           $ref: '#/components/schemas/Periode'
@@ -339,6 +428,8 @@ components:
           startet: "2021-01-01T12:00:00.000Z"
         opplysninger:
           id: "47c4b16b-5d34-4658-9705-ab90e6d0db9b"
+          jobbsituasjon:
+            - "HAR_SAGT_OPP"
           tidspunkt: "2021-01-01T12:00:00.000Z"
         profilering:
           id: "6d084994-d0b9-4466-9c1f-6126a3b3c2a8"
@@ -355,46 +446,44 @@ components:
           harJobbet: false
           vilFortsette: true
           bekreftelsesloesning: "ARBEIDSSOEKERREGISTERET"
-        bekreftelsePaaVegneAv: []
+        bekreftelsePaaVegneAv: ["ARBEIDSSOEKERREGISTERET"]
     LedighetsperiodeKompakt:
       type: object
       required:
-        - periode
+        - periodeId
+        - periodeStartet
+        - bekreftelsePaaVegneAv
       properties:
+        periodeId:
+          type: string
+          format: uuid
         ledigSiden:
-          type:
-            - string
-            - 'null'
+          type: string
           format: date-time
         periodeStartet:
           type: string
           format: date-time
         periodeAvsluttet:
-          type:
-            - string
-            - 'null'
+          type: string
           format: date-time
         egenvurdertTil:
-          anyOf:
-            - type: 'null'
-            - $ref: '#/components/schemas/ProfilertTil'
+          $ref: '#/components/schemas/ProfilertTil'
         bekreftelseHarJobbet:
-          type:
-            - boolean
-            - 'null'
+          type: boolean
         bekreftelseVilFortsette:
-          type:
-            - boolean
-            - 'null'
-        bekreftelseAnsvar:
-          $ref: '#/components/schemas/Bekreftelsesloesning'
+          type: boolean
+        bekreftelsePaaVegneAv:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bekreftelsesloesning'
       example:
+        periodeId: "069f40c9-c47c-4ee2-9105-bc87bdb58af2"
         ledigSiden: "2021-01-01T12:00:00.000Z"
         periodeStartet: "2021-01-01T12:00:00.000Z"
         egenvurdertTil: "ANTATT_GODE_MULIGHETER"
         bekreftelseHarJobbet: false
         bekreftelseVilFortsette: true
-        bekreftelseAnsvar: "ARBEIDSSOEKERREGISTERET"
+        bekreftelsePaaVegneAv: ["ARBEIDSSOEKERREGISTERET"]
     Periode:
       type: object
       required:
@@ -408,9 +497,7 @@ components:
           type: string
           format: date-time
         avsluttet:
-          type:
-            - string
-            - 'null'
+          type: string
           format: date-time
       example:
         id: "069f40c9-c47c-4ee2-9105-bc87bdb58af2"
@@ -419,16 +506,23 @@ components:
       type: object
       required:
         - id
+        - jobbsituasjon
         - tidspunkt
       properties:
         id:
           type: string
           format: uuid
+        jobbsituasjon:
+          type: array
+          items:
+            $ref: '#/components/schemas/Jobbsituasjon'
         tidspunkt:
           type: string
           format: date-time
       example:
         id: "47c4b16b-5d34-4658-9705-ab90e6d0db9b"
+        jobbsituasjon:
+          - "HAR_SAGT_OPP"
         tidspunkt: "2021-01-01T12:00:00.000Z"
     Profilering:
       type: object
@@ -519,6 +613,24 @@ components:
         kontorType: "ARBEIDSOPPFOLGING"
 
     # ENUMS
+    Jobbsituasjon:
+      type: string
+      enum:
+        - UDEFINERT
+        - HAR_SAGT_OPP
+        - HAR_BLITT_SAGT_OPP
+        - ER_PERMITTERT
+        - ALDRI_HATT_JOBB
+        - IKKE_VAERT_I_JOBB_SISTE_2_AAR
+        - AKKURAT_FULLFORT_UTDANNING
+        - VIL_BYTTE_JOBB
+        - USIKKER_JOBBSITUASJON
+        - MIDLERTIDIG_JOBB
+        - DELTIDSJOBB_VIL_MER
+        - NY_JOBB
+        - KONKURS
+        - ANNET
+        - UKJENT_VERDI
     ProfilertTil:
       type: string
       enum:
@@ -559,9 +671,7 @@ components:
         - timestamp
       properties:
         detail:
-          type:
-            - string
-            - 'null'
+          type: string
         id:
           type: string
           format: uuid

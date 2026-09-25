@@ -82,32 +82,6 @@ pub async fn select_by_id<'a>(
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn select_by_aktor_id<'a>(
-    tx: &mut Transaction<'_, Postgres>,
-    aktor_id: &'a str,
-) -> anyhow::Result<Vec<KontortilknytningRow>> {
-    tracing::debug!("Select kontortilknytning by aktor_id");
-    let rows = sqlx::query_as::<_, KontortilknytningRow>(
-        r#"
-        SELECT
-            id,
-            aktor_id,
-            identitetsnummer,
-            kontor_id,
-            kontor_navn,
-            kontor_type,
-            tidspunkt  AT TIME ZONE 'UTC' AS tidspunkt
-        FROM kontortilknytninger
-        WHERE aktor_id = $1
-        "#,
-    )
-    .bind(aktor_id)
-    .fetch_all(&mut **tx)
-    .await?;
-    Ok(rows)
-}
-
-#[tracing::instrument(skip_all)]
 pub async fn select_by_aktor_ids(
     tx: &mut Transaction<'_, Postgres>,
     aktor_ider: &[String],

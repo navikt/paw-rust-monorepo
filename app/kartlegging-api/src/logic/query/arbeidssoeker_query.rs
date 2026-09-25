@@ -8,7 +8,6 @@ use crate::model::dto::request::{
 };
 use crate::model::dto::response::KartleggingResponse;
 use crate::model::sort::SortOrder;
-use chrono::NaiveDate;
 use sqlx::{Postgres, Transaction};
 
 #[tracing::instrument(skip_all)]
@@ -57,18 +56,19 @@ pub async fn finn_for_kontortilknytning_query_request(
         .iter()
         .map(|kt| kt.as_ref().to_string())
         .collect::<Vec<String>>();
-    let ledig_siden = request
-        .ledig_siden
-        .unwrap_or(NaiveDate::from_epoch_days(0).unwrap());
     let paging = request.paging.clone().unwrap_or_else(|| PagingRequest {
         page: 1,
         page_size: 1000,
         sort_order: SortOrder::Ascending,
     });
 
-    let total_count =
-        arbeidssoeker::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &ledig_siden)
-            .await?;
+    let total_count = arbeidssoeker::count_by_kontortilknytning(
+        tx,
+        &kontor_id,
+        &kontor_typer,
+        &request.ledig_siden,
+    )
+    .await?;
     let kontor_join = kontor_typer
         .iter()
         .map(|k| k.to_string())
@@ -85,7 +85,7 @@ pub async fn finn_for_kontortilknytning_query_request(
         tx,
         &kontor_id,
         &kontor_typer,
-        &ledig_siden,
+        &request.ledig_siden,
         paging.offset(),
         paging.limit(),
         &paging.sort_order,
@@ -103,12 +103,26 @@ async fn map_rows(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_rows: &Vec<ArbeidssoekerRow>,
 ) -> anyhow::Result<Vec<Arbeidssoeker>> {
+    let arbeidssoeker_ider: Vec<i64> = arbeidssoeker_rows.iter().map(|row| row.id).collect();
+    let aktor_ider: Vec<String> = arbeidssoeker_rows
+        .iter()
+        .map(|row| row.aktor_id.clone())
+        .collect();
+
+    let mut ledighetsperioder_by_arbeidssoeker_id =
+        ledighetsperiode_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider).await?;
+    let mut kontortilknytninger_by_aktor_id =
+        kontortilknytning_query::finn_for_aktor_ider(tx, &aktor_ider).await?;
+
     let mut arbeidssoekere = Vec::new();
     for row in arbeidssoeker_rows {
-        let ledighetsperioder =
-            ledighetsperiode_query::finn_for_arbeidssoeker_id(tx, row.id).await?;
-        let kontortilknytninger =
-            kontortilknytning_query::finn_for_aktor_id(tx, &*row.aktor_id).await?;
+        let ledighetsperioder = ledighetsperioder_by_arbeidssoeker_id
+            .remove(&row.id)
+            .into_iter()
+            .collect();
+        let kontortilknytninger = kontortilknytninger_by_aktor_id
+            .remove(&row.aktor_id)
+            .unwrap_or_default();
         arbeidssoekere.push(Arbeidssoeker::new(
             row.id.clone(),
             row.aktor_id.clone(),

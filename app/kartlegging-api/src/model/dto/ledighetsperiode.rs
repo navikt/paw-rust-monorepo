@@ -31,5 +31,5 @@ pub struct LedighetsperiodeKompakt {
     pub egenvurdert_til: Option<ProfilertTil>,
     pub bekreftelse_har_jobbet: Option<bool>,
     pub bekreftelse_vil_fortsette: Option<bool>,
-    pub bekreftelse_ansvar: Bekreftelsesloesning,
+    pub bekreftelse_paa_vegne_av: Vec<Bekreftelsesloesning>,
 }

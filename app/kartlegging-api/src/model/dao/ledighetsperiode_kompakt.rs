@@ -13,7 +13,7 @@ pub(crate) struct LedighetsperiodeKompaktRow {
     pub egenvurdert_til: Option<String>,
     pub bekreftelse_har_jobbet: Option<bool>,
     pub bekreftelse_vil_fortsette: Option<bool>,
-    pub bekreftelse_ansvar: Vec<String>,
+    pub bekreftelse_paa_vegne_av: Vec<String>,
 }
 
 #[tracing::instrument(skip_all)]
@@ -57,7 +57,7 @@ pub async fn select_by_arbeidssoeker_ids(
             e.egenvurdert_til,
             b.har_jobbet                                            AS bekreftelse_har_jobbet,
             b.vil_fortsette                                         AS bekreftelse_vil_fortsette,
-            COALESCE(bv.bekreftelsesloesninger, ARRAY[]::varchar[]) AS bekreftelse_ansvar
+            COALESCE(bv.bekreftelsesloesninger, ARRAY[]::varchar[]) AS bekreftelse_paa_vegne_av
         FROM active_perioder ap
         LEFT JOIN latest_egenvurderinger e    ON e.periode_id  = ap.periode_id
         LEFT JOIN latest_bekreftelser b       ON b.periode_id  = ap.periode_id
