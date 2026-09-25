@@ -178,7 +178,6 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                 None
             }
             (Some(current_ts), Some(msg_ts)) => {
-                self.current_timestamp = Some(msg_ts);
                 let delta = msg_ts - current_ts;
                 if delta < 0 {
                     tracing::warn!(
@@ -191,6 +190,8 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                         back_in_time_ms = delta.abs(),
                         "kafka.partition_timestamp_out_of_sequence"
                     );
+                } else {
+                    self.current_timestamp = Some(msg_ts);
                 }
                 Some(delta)
             }
