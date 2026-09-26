@@ -153,10 +153,10 @@ mod tests {
 
         // Periode 1 har de globalt nyeste radene i alle undertabellene.
         context
-            .insert_periode(&mut tx, periode_id_1, arbeidssoeker_id_1, naa)
+            .insert_aktiv_periode(&mut tx, periode_id_1, arbeidssoeker_id_1, naa)
             .await;
         context
-            .insert_aktiv_kartlegging(&mut tx, periode_id_1, arbeidssoeker_id_1, naa)
+            .insert_aktiv_kartlegging(&mut tx, periode_id_1, arbeidssoeker_id_1, naa, None)
             .await;
         context
             .insert_opplysninger(&mut tx, periode_id_1, "ER_PERMITTERT", naa)
@@ -176,10 +176,10 @@ mod tests {
         // i hver tabell ble plukket ut.
         let eldre = naa - Duration::hours(2);
         context
-            .insert_periode(&mut tx, periode_id_2, arbeidssoeker_id_2, eldre)
+            .insert_aktiv_periode(&mut tx, periode_id_2, arbeidssoeker_id_2, eldre)
             .await;
         context
-            .insert_aktiv_kartlegging(&mut tx, periode_id_2, arbeidssoeker_id_2, eldre)
+            .insert_aktiv_kartlegging(&mut tx, periode_id_2, arbeidssoeker_id_2, eldre, None)
             .await;
         context
             .insert_opplysninger(&mut tx, periode_id_2, "HAR_SAGT_OPP", eldre)
@@ -208,7 +208,10 @@ mod tests {
             .expect("Fant ikke rad for arbeidssoeker 1");
         assert_eq!(row_1.periode_id, periode_id_1);
         assert_eq!(row_1.opplysninger_jobbsituasjon, vec!["ER_PERMITTERT"]);
-        assert_eq!(row_1.profilert_til.as_deref(), Some("ANTATT_GODE_MULIGHETER"));
+        assert_eq!(
+            row_1.profilert_til.as_deref(),
+            Some("ANTATT_GODE_MULIGHETER")
+        );
         assert_eq!(
             row_1.egenvurdert_til.as_deref(),
             Some("ANTATT_GODE_MULIGHETER")
@@ -237,16 +240,23 @@ mod tests {
         let periode_id = Uuid::new_v4();
         let naa = Utc::now();
 
-        context.insert_arbeidssoeker(&mut tx, arbeidssoeker_id).await;
         context
-            .insert_periode(&mut tx, periode_id, arbeidssoeker_id, naa)
+            .insert_arbeidssoeker(&mut tx, arbeidssoeker_id)
             .await;
         context
-            .insert_aktiv_kartlegging(&mut tx, periode_id, arbeidssoeker_id, naa)
+            .insert_aktiv_periode(&mut tx, periode_id, arbeidssoeker_id, naa)
+            .await;
+        context
+            .insert_aktiv_kartlegging(&mut tx, periode_id, arbeidssoeker_id, naa, None)
             .await;
 
         context
-            .insert_opplysninger(&mut tx, periode_id, "ER_PERMITTERT", naa - Duration::days(2))
+            .insert_opplysninger(
+                &mut tx,
+                periode_id,
+                "ER_PERMITTERT",
+                naa - Duration::days(2),
+            )
             .await;
         context
             .insert_opplysninger(&mut tx, periode_id, "HAR_SAGT_OPP", naa)
@@ -281,23 +291,37 @@ mod tests {
         let periode_id_aktiv = Uuid::new_v4();
         let naa = Utc::now();
 
-        context.insert_arbeidssoeker(&mut tx, arbeidssoeker_id).await;
+        context
+            .insert_arbeidssoeker(&mut tx, arbeidssoeker_id)
+            .await;
 
-        kartlegging::insert(
-            &mut tx,
-            &KartleggingRow::new(
+        context
+            .insert_avsluttet_periode(
+                &mut tx,
                 periode_id_avsluttet,
                 arbeidssoeker_id,
                 naa - Duration::days(10),
-                Some(naa - Duration::days(1)),
-                Some(naa - Duration::days(10)),
-            ),
-        )
-        .await
-        .expect("Kunne ikke sette inn avsluttet kartlegging for testoppsett");
+                naa - Duration::days(1),
+            )
+            .await;
 
         context
-            .insert_aktiv_kartlegging(&mut tx, periode_id_aktiv, arbeidssoeker_id, naa)
+            .insert_aktiv_periode(&mut tx, periode_id_aktiv, arbeidssoeker_id, naa)
+            .await;
+
+        context
+            .insert_avluttet_kartlegging(
+                &mut tx,
+                periode_id_avsluttet,
+                arbeidssoeker_id,
+                naa - Duration::days(10),
+                naa - Duration::days(1),
+                Some(naa - Duration::days(10)),
+            )
+            .await;
+
+        context
+            .insert_aktiv_kartlegging(&mut tx, periode_id_aktiv, arbeidssoeker_id, naa, None)
             .await;
 
         let rows =
@@ -362,7 +386,7 @@ mod tests {
             .expect("Kunne ikke sette inn arbeidssøker for testoppsett");
         }
 
-        async fn insert_periode(
+        async fn insert_aktiv_periode(
             &self,
             tx: &mut Transaction<'_, Postgres>,
             periode_id: Uuid,
@@ -382,12 +406,34 @@ mod tests {
             .expect("Kunne ikke sette inn periode for testoppsett");
         }
 
+        async fn insert_avsluttet_periode(
+            &self,
+            tx: &mut Transaction<'_, Postgres>,
+            periode_id: Uuid,
+            arbeidssoeker_id: i64,
+            startet: DateTime<Utc>,
+            avsluttet: DateTime<Utc>,
+        ) {
+            periode::insert(
+                tx,
+                &PeriodeRow::new(
+                    periode_id,
+                    format!("010170{arbeidssoeker_id}"),
+                    startet,
+                    Some(avsluttet),
+                ),
+            )
+            .await
+            .expect("Kunne ikke sette inn periode for testoppsett");
+        }
+
         async fn insert_aktiv_kartlegging(
             &self,
             tx: &mut Transaction<'_, Postgres>,
             periode_id: Uuid,
             arbeidssoeker_id: i64,
             arbeidssoeker_fra: DateTime<Utc>,
+            arbeidsledig_fra: Option<DateTime<Utc>>,
         ) {
             kartlegging::insert(
                 tx,
@@ -396,7 +442,30 @@ mod tests {
                     arbeidssoeker_id,
                     arbeidssoeker_fra,
                     None,
-                    Some(arbeidssoeker_fra),
+                    arbeidsledig_fra,
+                ),
+            )
+            .await
+            .expect("Kunne ikke sette inn kartlegging for testoppsett");
+        }
+
+        async fn insert_avluttet_kartlegging(
+            &self,
+            tx: &mut Transaction<'_, Postgres>,
+            periode_id: Uuid,
+            arbeidssoeker_id: i64,
+            arbeidssoeker_fra: DateTime<Utc>,
+            arbeidssoeker_til: DateTime<Utc>,
+            arbeidsledig_fra: Option<DateTime<Utc>>,
+        ) {
+            kartlegging::insert(
+                tx,
+                &KartleggingRow::new(
+                    periode_id,
+                    arbeidssoeker_id,
+                    arbeidssoeker_fra,
+                    Some(arbeidssoeker_til),
+                    arbeidsledig_fra,
                 ),
             )
             .await

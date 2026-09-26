@@ -287,33 +287,13 @@ mod tests {
             arbeidssoeker_til: DateTime<Utc>,
             arbeidsledig_fra: Option<DateTime<Utc>>,
         ) {
-            self.insert_kartlegging(
-                tx,
-                periode_id,
-                arbeidssoeker_id,
-                arbeidssoeker_fra,
-                Some(arbeidssoeker_til),
-                arbeidsledig_fra,
-            )
-            .await
-        }
-
-        async fn insert_kartlegging(
-            &self,
-            tx: &mut Transaction<'_, Postgres>,
-            periode_id: Uuid,
-            arbeidssoeker_id: i64,
-            arbeidssoeker_fra: DateTime<Utc>,
-            arbeidssoeker_til: Option<DateTime<Utc>>,
-            arbeidsledig_fra: Option<DateTime<Utc>>,
-        ) {
             kartlegging::insert(
                 tx,
                 &KartleggingRow::new(
                     periode_id,
                     arbeidssoeker_id,
                     arbeidssoeker_fra,
-                    arbeidssoeker_til,
+                    Some(arbeidssoeker_til),
                     arbeidsledig_fra,
                 ),
             )
