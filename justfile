@@ -86,10 +86,28 @@ infra-up: mocks-up postgres-up kafka-up
 # Stop all local infrastructure
 infra-down: mocks-down postgres-down kafka-down
 
+# Build the builder image locally (pre-compiled deps, used by docker-build-fast)
+builder-image app features="":
+    docker build \
+        --build-arg BUILDER_APP={{ app }} \
+        {{ if features == "" { "" } else { "--build-arg BUILDER_FEATURES=" + features } }} \
+        -f docker/builder/Dockerfile \
+        -t paw-rust-builder:local \
+        .
+
 # Build Docker image for an app  (e.g. just docker-build utgang)
 docker-build app features="":
     docker build \
         --build-arg APP={{ app }} \
         {{ if features == "" { "" } else { "--build-arg FEATURES=" + features } }} \
+        -t {{ app }}:local \
+        .
+
+# Build via the pre-compiled builder image, as CI does for the pilot app
+docker-build-fast app features="": (builder-image app features)
+    docker build \
+        --build-arg APP={{ app }} \
+        {{ if features == "" { "" } else { "--build-arg FEATURES=" + features } }} \
+        -f docker/app/Dockerfile \
         -t {{ app }}:local \
         .
