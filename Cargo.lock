@@ -3173,6 +3173,7 @@ dependencies = [
  "health_and_monitoring",
  "log",
  "paw_rdkafka",
+ "paw_rust_base",
  "paw_test",
  "postgres_testcontainer",
  "prometheus",

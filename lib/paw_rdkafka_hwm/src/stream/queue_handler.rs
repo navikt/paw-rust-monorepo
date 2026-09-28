@@ -47,6 +47,7 @@ pub struct QueueHandler<S: PartitionMessageSource> {
     offsets: Option<KafkaOffsets>,
     current_offset: i64,
     current_timestamp: Option<i64>,
+    priority: i64,
 }
 
 impl<S: PartitionMessageSource> QueueHandler<S> {
@@ -55,6 +56,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         message_source: S,
         internal_buffer_size: usize,
         current_offset: i64,
+        priority: i64,
     ) -> Self {
         let topic = key.topic.clone();
         let partition = key.partition.to_string();
@@ -82,6 +84,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             offsets: None,
             current_offset,
             current_timestamp: None,
+            priority,
         }
     }
 
@@ -222,6 +225,10 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
 
     pub fn is_empty(&self) -> bool {
         self.head.is_empty()
+    }
+
+    pub fn priority(&self) -> i64 {
+        self.priority
     }
 }
 

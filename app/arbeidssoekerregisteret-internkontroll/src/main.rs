@@ -6,6 +6,7 @@ use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::{config::read_toml_config, read_config_file};
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
+use paw_rdkafka_hwm::stream::topic_priority::{TopicPriority, TopicPriorityList};
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
     rebalance::topic_partition_update::TopicPartitionUpdate,
@@ -14,6 +15,7 @@ use paw_rdkafka_hwm::{
         stream_wrapper::{PawKafkaConsumerStream, init_stream_wrapper_metrics},
     },
 };
+use paw_rust_base::topics::get_topic;
 use paw_rust_base::{
     await_signal::await_signal,
     env::runtime_env,
@@ -70,6 +72,22 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     let internal_buffer_size = 200;
     let max_idle = Duration::from_millis(500);
     let main_consumer_none_treshold = 10;
+    let topic_priorities = TopicPriorityList::new(vec![
+        (
+            get_topic(&runtime_env, &Topic::BekreftelseHendelseLogg).to_string(),
+            0,
+        ),
+        (
+            get_topic(&runtime_env, &Topic::Hendelselogg).to_string(),
+            10,
+        ),
+        (get_topic(&runtime_env, &Topic::Periode).to_string(), 50),
+        (
+            get_topic(&runtime_env, &Topic::Opplysninger).to_string(),
+            60,
+        ),
+        (get_topic(&runtime_env, &Topic::Profilering).to_string(), 70),
+    ]);
     let stream = PawKafkaConsumerStream::new(
         rx,
         consumer,
@@ -78,6 +96,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
         pg_pool.clone(),
         hwm_version,
         main_consumer_none_treshold,
+        topic_priorities,
     );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();

@@ -9,6 +9,7 @@ use paw_rdkafka_hwm::rebalance::topic_partition_update::{
 use paw_rdkafka_hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use paw_rdkafka_hwm::stream::queue_handler::PartitionMessageSource;
 use paw_rdkafka_hwm::stream::stream_wrapper::{ConsumerMessageSource, PawKafkaConsumerStream};
+use paw_rdkafka_hwm::stream::topic_priority::TopicPriorityList;
 use rdkafka::Message;
 use rdkafka::message::{OwnedMessage, Timestamp};
 use sqlx::postgres::PgPoolOptions;
@@ -56,6 +57,7 @@ async fn leverer_laveste_timestamp_fra_tildelte_partisjoner() {
             .unwrap(),
         1,
         1,
+        TopicPriorityList::empty(),
     );
 
     let (stream, first) = stream.receive().await.unwrap();

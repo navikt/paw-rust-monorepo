@@ -9,6 +9,7 @@ use paw_rdkafka_hwm::rebalance::topic_partition_update::{
 use paw_rdkafka_hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use paw_rdkafka_hwm::stream::queue_handler::PartitionMessageSource;
 use paw_rdkafka_hwm::stream::stream_wrapper::{ConsumerMessageSource, PawKafkaConsumerStream};
+use paw_rdkafka_hwm::stream::topic_priority::TopicPriorityList;
 use rdkafka::Message;
 use rdkafka::message::{OwnedMessage, Timestamp};
 use sqlx::postgres::PgPoolOptions;
@@ -65,6 +66,7 @@ async fn replay_hopper_ikke_bakover_i_tid() {
             .unwrap(),
         1,
         1,
+        TopicPriorityList::empty(),
     );
 
     let expected_count = TOPIC_COUNT * MESSAGES_PER_TOPIC;
@@ -153,6 +155,7 @@ async fn next_offset_forbi_control_record_blokkerer_ikke_andre_koer() {
             .unwrap(),
         1,
         1,
+        TopicPriorityList::empty(),
     );
 
     let (stream, first) = stream.receive().await.unwrap();
@@ -247,6 +250,7 @@ async fn run_fuzz_case(seed: u64) {
             .unwrap(),
         1,
         random.range(1, 11),
+        TopicPriorityList::empty(),
     );
     let mut received = Vec::with_capacity(expected_count);
     let mut receive_calls = 0;
@@ -380,6 +384,7 @@ async fn run_high_watermark_fuzz_case(
             .unwrap(),
         1,
         1,
+        TopicPriorityList::empty(),
     );
     let mut received = Vec::with_capacity(expected_count);
     while received.len() < expected_count {

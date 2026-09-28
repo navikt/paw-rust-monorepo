@@ -30,6 +30,7 @@ use crate::stream::message_wrapper::MessageWrapper;
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::{PartitionMessageSource, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
+use crate::stream::topic_priority::TopicPriorityList;
 
 pub trait ConsumerMessageSource: Send + Sync {
     type PartitionSource: PartitionMessageSource;
@@ -81,6 +82,7 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     pg_pool: PgPool,
     hwm_version: i16,
     main_consumer_none_treshold: usize,
+    topic_priorities: TopicPriorityList,
 }
 
 impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
@@ -109,7 +111,7 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
-            .min_by_key(|q| q.timestamp())
+            .min_by_key(|q| (q.timestamp(), q.priority()))
             .and_then(|q| q.take_head())
         else {
             record_empty_receive_span("none");
@@ -224,6 +226,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
         pg_pool: PgPool,
         hwm_version: i16,
         main_consumer_none_treshold: usize,
+        topic_priorities: TopicPriorityList,
     ) -> Self {
         Self {
             receiver,
@@ -235,6 +238,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
             pg_pool,
             hwm_version,
             main_consumer_none_treshold,
+            topic_priorities,
         }
     }
 
@@ -311,11 +315,14 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                                 self.consumer
                                     .split_partition_queue(&key.topic, key.partition)
                                     .map(|pt_queue| {
+                                        let priority =
+                                            self.topic_priorities.get_priority(&key.topic);
                                         QueueHandler::new(
                                             key,
                                             pt_queue,
                                             self.internal_buffer_size,
                                             hwm,
+                                            priority,
                                         )
                                     })
                             },
