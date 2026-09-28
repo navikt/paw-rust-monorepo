@@ -45,7 +45,7 @@ pub struct QueueHandler<S: PartitionMessageSource> {
     depth_gauge: Gauge,
     lag_gauge: Gauge,
     offsets: Option<KafkaOffsets>,
-    stats_updates: u32,
+    has_newer_stats: bool,
     has_received_message: bool,
     current_offset: i64,
     current_timestamp: Option<i64>,
@@ -84,7 +84,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             depth_gauge,
             lag_gauge,
             offsets: None,
-            stats_updates: 0,
+            has_newer_stats: false,
             has_received_message: false,
             current_offset,
             current_timestamp: None,
@@ -159,7 +159,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         let Some(offsets) = &self.offsets else {
             return true;
         };
-        let trusted = self.has_received_message || self.stats_updates >= 2;
+        let trusted = self.has_received_message || self.has_newer_stats;
         !trusted
             || offsets.hi_offset < 0
             || offsets.next_offset <= self.current_offset
@@ -172,8 +172,8 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
     }
 
     pub fn set_offsets(&mut self, offsets: KafkaOffsets) {
+        self.has_newer_stats |= self.offsets.is_some();
         self.offsets = Some(offsets);
-        self.stats_updates = self.stats_updates.saturating_add(1);
         self.update_lag_gauge();
     }
 
