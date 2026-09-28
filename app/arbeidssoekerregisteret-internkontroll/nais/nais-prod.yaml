@@ -51,12 +51,13 @@ spec:
   gcp:
     sqlInstances:
       - type: POSTGRES_18
-        tier: db-f1-micro
+        tier: db-custom-1-3840
         databases:
           - name: internkontroll
-        highAvailability: false
-        pointInTimeRecovery: false
-        diskAutoresize: true
-        insights:
-          enabled: false
-
+        flags:
+          - name: "cloudsql.enable_pgaudit"
+            value: "on"
+          - name: "pgaudit.log"
+            value: "write,ddl,role"
+          - name: "pgaudit.log_parameter"
+            value: "on"

@@ -1,4 +1,4 @@
-apiVersion: nais.io/v1alpha1
+ piVersion: nais.io/v1alpha1
 kind: Application
 metadata:
   name: arbeidssoekerregisteret-internkontroll
