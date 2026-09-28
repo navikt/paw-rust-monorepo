@@ -23,9 +23,22 @@ jobs:
       contents: "read"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Må matche channel i rust-toolchain.toml. Med "stable" installeres én
+      # toolchain her, og rustup henter den pinnede i tillegg ved første
+      # cargo-kall.
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: "1.98.0"
+      # Cacher kompilerte avhengigheter. Nøkkelen inkluderer Cargo.lock og
+      # rustc-versjon, så den invalideres av seg selv. shared-key gjør at alle
+      # appene deler én cache i stedet for én hver; de overlapper kraftig.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: workspace-test
+          # Bare main skriver cache. Alle grener leser fra den. Uten dette
+          # ville hver gren lagt igjen sin egen oppføring, og cachen var
+          # nettopp full på 9,79 av 10 GB.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test -p ${{ env.APP_NAME }}
   builder:
     if: ${{ github.actor != 'dependabot[bot]' }}
