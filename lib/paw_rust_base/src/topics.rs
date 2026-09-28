@@ -31,7 +31,12 @@ pub fn get_topic(runtime: &RuntimeEnv, topic: &Topic) -> &'static str {
         },
         Topic::Bekreftelse => "paw.arbeidssoker-bekreftelse-v1",
         Topic::Hendelselogg => "paw.arbeidssoker-hendelseslogg-v1",
-        Topic::BekreftelseHendelseLogg => "paw.arbeidssoker-bekreftelse-hendelseslogg-v1",
+        Topic::BekreftelseHendelseLogg => match runtime {
+            RuntimeEnv::ProdGcp => "paw.arbeidssoker-bekreftelse-hendelseslogg-v2",
+            RuntimeEnv::DevGcp => "paw.arbeidssoker-bekreftelse-hendelseslogg-v1",
+            RuntimeEnv::Local => "paw.arbeidssoker-bekreftelse-hendelseslogg-v1",
+            RuntimeEnv::UnknownEnv(_) => "paw.arbeidssoker-bekreftelse-hendelseslogg-v1",
+        },
         Topic::Egenvurdering => "paw.arbeidssoeker-egenvurdering-v1",
     }
 }
