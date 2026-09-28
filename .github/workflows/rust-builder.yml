@@ -1,0 +1,149 @@
+name: Rust builder image
+
+# Bygger et image med ferdig kompilerte avhengigheter, som app-byggene bruker
+# som FROM-base. Imaget deployes aldri.
+#
+# Taggen er en innholdshash. Finnes taggen allerede, hopper jobben over bygget
+# og returnerer den eksisterende digesten. Endres Cargo.lock, en Cargo.toml,
+# rust-toolchain.toml eller builder-Dockerfile, blir hashen en annen og imaget
+# bygges på nytt. Ingen schedule og ingen bump-PR: imaget bygges nøyaktig når
+# det trengs, av den første workflowen som trenger det.
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "Cargo-pakken avhengighetene kokes for"
+        required: true
+        type: string
+      features:
+        description: "Features som sendes til cargo chef cook"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      image:
+        description: "Digest-pinnet referanse til builder-imaget"
+        value: ${{ jobs.builder.outputs.image }}
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Cargo-pakken avhengighetene kokes for"
+        required: true
+        type: string
+      features:
+        description: "Features som sendes til cargo chef cook"
+        required: false
+        type: string
+        default: ""
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  builder:
+    name: Builder image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      packages: "write"
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Beregn innholdshash
+        id: hash
+        env:
+          APP: ${{ inputs.app }}
+          FEATURES: ${{ inputs.features }}
+        run: |
+          set -euo pipefail
+          # Alt som påvirker den kokte dep-grafen inngår i hashen. Cargo.lock
+          # alene er ikke nok: features i en Cargo.toml kan endres uten at
+          # låsefila endres, og da ville imaget vært kokt med feil features.
+          fixed="Cargo.lock Cargo.toml rust-toolchain.toml docker/builder/Dockerfile"
+          for f in $fixed; do
+            # Feiler heller enn å hashe en fil mindre. Droppes en fil stille,
+            # kan et utdatert image bli gjenbrukt.
+            [ -f "$f" ] || { echo "Mangler $f" >&2; exit 1; }
+          done
+          manifests=$(find . -name Cargo.toml -not -path './target/*' | sed 's|^\./||' | sort)
+          files=$(printf '%s\n' $fixed $manifests | sort -u)
+          hash=$( { printf '%s\n' "$APP" "$FEATURES"; sha256sum $files; } \
+            | sha256sum | cut -c1-16 )
+          echo "tag=$hash" >> "$GITHUB_OUTPUT"
+          echo "Builder-tag: $hash (av $(printf '%s\n' "$files" | wc -l) filer)"
+
+      - name: Sett image-navn
+        id: name
+        env:
+          APP: ${{ inputs.app }}
+        run: |
+          set -euo pipefail
+          # Repository-navn må være lowercase i et OCI-registry.
+          name=$(echo "${{ env.REGISTRY }}/${{ github.repository }}/rust-builder-${APP}" | tr '[:upper:]' '[:lower:]')
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Finnes imaget fra før?
+        id: existing
+        env:
+          IMAGE: ${{ steps.name.outputs.name }}:${{ steps.hash.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Digesten hentes fra registryet, ikke regnes ut lokalt: lokal
+          # hashing av manifest-bytes er følsom for avsluttende linjeskift.
+          if digest=$(docker buildx imagetools inspect "$IMAGE" \
+                --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest'); then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "Gjenbruker eksisterende builder-image: $digest"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Builder-image mangler, bygger det."
+          fi
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.existing.outputs.found == 'false'
+
+      - name: Bygg og push builder-image
+        id: build
+        if: steps.existing.outputs.found == 'false'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: docker/builder/Dockerfile
+          push: true
+          tags: ${{ steps.name.outputs.name }}:${{ steps.hash.outputs.tag }}
+          build-args: |
+            BUILDER_APP=${{ inputs.app }}
+            BUILDER_FEATURES=${{ inputs.features }}
+
+      - name: Løs opp digest
+        id: resolve
+        env:
+          NAME: ${{ steps.name.outputs.name }}
+          FOUND: ${{ steps.existing.outputs.found }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+          BUILT_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ "$FOUND" = "true" ]; then
+            digest="$EXISTING_DIGEST"
+          else
+            digest="$BUILT_DIGEST"
+          fi
+          if [ -z "$digest" ]; then
+            echo "Fant ingen digest for builder-imaget" >&2
+            exit 1
+          fi
+          # App-bygget pinnes på digest, ikke tag, slik at en overskrevet tag
+          # ikke kan endre hva som faktisk bygges.
+          echo "image=${NAME}@${digest}" >> "$GITHUB_OUTPUT"
+          echo "Builder-image: ${NAME}@${digest}"
