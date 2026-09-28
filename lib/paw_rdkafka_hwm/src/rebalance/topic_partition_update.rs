@@ -22,5 +22,5 @@ pub struct TopicPartition {
 pub struct KafkaOffsets {
     pub hi_offset: i64,
     pub next_offset: i64,
-    pub message_queue_count: i64,
+    pub fetch_queue_count: i64,
 }

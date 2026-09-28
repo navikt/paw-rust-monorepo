@@ -193,6 +193,109 @@ async fn fuzz_replay_med_reelle_timestamps_holder_seg_under_to_sekunder() {
     );
 }
 
+#[tokio::test]
+async fn utdatert_statistikk_etter_reassign_hopper_ikke_over_tom_ko() {
+    let jump = run_reassign_case(KafkaOffsets {
+        hi_offset: 3800,
+        next_offset: 3800,
+        fetch_queue_count: 0,
+    })
+    .await;
+    assert_eq!(jump, 0, "timestamp moved {jump} ms backwards");
+}
+
+#[tokio::test]
+async fn ugyldig_hi_offset_foer_forste_fetch_hopper_ikke_over_tom_ko() {
+    let jump = run_reassign_case(KafkaOffsets {
+        hi_offset: -1001,
+        next_offset: 3730,
+        fetch_queue_count: 0,
+    })
+    .await;
+    assert_eq!(jump, 0, "timestamp moved {jump} ms backwards");
+}
+
+/// A queue created by a (re)assign whose first statistics snapshot claims it is
+/// caught up, while its messages arrive 100 ms later. Returns the largest
+/// backwards timestamp jump in the delivered stream.
+async fn run_reassign_case(first_snapshot: KafkaOffsets) -> i64 {
+    let slow = TopicPartition {
+        topic: "slow-topic".to_string(),
+        partition: 2,
+    };
+    let fast = TopicPartition {
+        topic: "fast-topic".to_string(),
+        partition: 2,
+    };
+    let slow_messages = (0..5).map(|index| {
+        let delay = if index == 0 {
+            Duration::from_millis(100)
+        } else {
+            Duration::ZERO
+        };
+        (message(&slow.topic, 3730 + index, 1_000 + index), delay)
+    });
+    let fast_messages = (0..50).map(|offset| message(&fast.topic, offset, 1_000 + offset * 2_000));
+    let consumer = FakeConsumer::new([
+        (
+            slow.clone(),
+            FakePartitionSource::new_scheduled(slow_messages),
+        ),
+        (fast.clone(), FakePartitionSource::new(fast_messages)),
+    ]);
+    let (sender, receiver) = mpsc::unbounded_channel();
+    sender
+        .send(TopicPartitionUpdate::Assigned {
+            topic_partition_hwms: vec![(slow.clone(), 3729), (fast.clone(), -1)],
+        })
+        .unwrap();
+    sender
+        .send(TopicPartitionUpdate::HiOffsetUpdate {
+            topic_partition_offsets: vec![(slow.clone(), first_snapshot), offsets(fast, 50)],
+        })
+        .unwrap();
+    let _keep_channel_open = sender.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let _ = sender.send(TopicPartitionUpdate::HiOffsetUpdate {
+            topic_partition_offsets: vec![offsets(slow, 3735)],
+        });
+    });
+
+    let mut stream = PawKafkaConsumerStream::new(
+        receiver,
+        consumer,
+        Duration::from_millis(10),
+        200,
+        PgPoolOptions::new()
+            .connect_lazy("postgres://localhost/unused")
+            .unwrap(),
+        1,
+        1,
+        TopicPriorityList::empty(),
+    );
+    let mut newest = i64::MIN;
+    let mut largest_jump = 0;
+    let mut received = 0;
+    let mut receive_calls = 0;
+    while received < 55 {
+        receive_calls += 1;
+        assert!(
+            receive_calls < 10_000,
+            "stream stopped making progress after {received} messages"
+        );
+        let (next_stream, output) = stream.receive().await.unwrap();
+        stream = next_stream;
+        if let Some(message) = output {
+            let timestamp = message.timestamp().to_millis().unwrap();
+            largest_jump = largest_jump.max(newest.saturating_sub(timestamp));
+            newest = newest.max(timestamp);
+            received += 1;
+        }
+    }
+    largest_jump
+}
+
 async fn run_fuzz_case(seed: u64) {
     let mut random = Random::new(seed + 1);
     let topic_count = random.range(2, 13);
@@ -551,14 +654,14 @@ fn offsets(topic_partition: TopicPartition, hi_offset: i64) -> (TopicPartition, 
 fn offsets_with_queue_count(
     topic_partition: TopicPartition,
     hi_offset: i64,
-    message_queue_count: i64,
+    fetch_queue_count: i64,
 ) -> (TopicPartition, KafkaOffsets) {
     (
         topic_partition,
         KafkaOffsets {
             hi_offset,
             next_offset: hi_offset,
-            message_queue_count,
+            fetch_queue_count,
         },
     )
 }

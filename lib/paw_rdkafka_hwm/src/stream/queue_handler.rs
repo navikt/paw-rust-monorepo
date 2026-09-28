@@ -45,6 +45,8 @@ pub struct QueueHandler<S: PartitionMessageSource> {
     depth_gauge: Gauge,
     lag_gauge: Gauge,
     offsets: Option<KafkaOffsets>,
+    stats_updates: u32,
+    has_received_message: bool,
     current_offset: i64,
     current_timestamp: Option<i64>,
     priority: i64,
@@ -82,6 +84,8 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             depth_gauge,
             lag_gauge,
             offsets: None,
+            stats_updates: 0,
+            has_received_message: false,
             current_offset,
             current_timestamp: None,
             priority,
@@ -93,7 +97,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             return;
         };
         let not_yet_fetched = (offsets.hi_offset - offsets.next_offset).max(0);
-        let lag = not_yet_fetched + offsets.message_queue_count + self.head.len() as i64;
+        let lag = not_yet_fetched + offsets.fetch_queue_count + self.head.len() as i64;
         self.lag_gauge.set(lag as f64);
     }
 
@@ -141,10 +145,26 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         Ok(())
     }
 
+    /// Returns true unless the latest rdkafka statistics prove that everything
+    /// up to the high watermark has been fetched and handed over to this queue.
+    ///
+    /// The statistics are distrusted when they cannot describe this assignment:
+    /// `hi_offset` is `RD_KAFKA_OFFSET_INVALID` until the first fetch response,
+    /// and right after a (re)assign both `hi_offset` and `next_offset` may still
+    /// hold values from an earlier assignment of the same partition. A snapshot
+    /// is trusted once the queue has received a message, or after the second
+    /// snapshot since the queue was created, and never when `next_offset` is at
+    /// or behind an offset the queue has already received.
     fn is_lagging(&self) -> bool {
-        self.offsets.as_ref().is_none_or(|offsets| {
-            offsets.next_offset < offsets.hi_offset || offsets.message_queue_count > 0
-        })
+        let Some(offsets) = &self.offsets else {
+            return true;
+        };
+        let trusted = self.has_received_message || self.stats_updates >= 2;
+        !trusted
+            || offsets.hi_offset < 0
+            || offsets.next_offset <= self.current_offset
+            || offsets.next_offset < offsets.hi_offset
+            || offsets.fetch_queue_count > 0
     }
 
     pub fn has_stalled(&self) -> bool {
@@ -153,6 +173,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
 
     pub fn set_offsets(&mut self, offsets: KafkaOffsets) {
         self.offsets = Some(offsets);
+        self.stats_updates = self.stats_updates.saturating_add(1);
         self.update_lag_gauge();
     }
 
@@ -169,6 +190,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
         }
         self.current_offset = msg.offset();
+        self.has_received_message = true;
         let message_timestamp = msg.timestamp().to_millis();
         let current_timestamp = self.current_timestamp;
         let delta = match (current_timestamp, message_timestamp) {
@@ -279,7 +301,7 @@ static QUEUE_HANDLER_LAG: LazyLock<GaugeVec> = LazyLock::new(|| {
         "paw_kafka_stream_queue_handler_lag",
         "Total number of messages not yet delivered to the application for this partition: \
          not-yet-fetched-from-broker (hi_offset - next_offset), plus buffered in rdkafka's \
-         internal queue (message_queue_count), plus buffered in the queue handler's own head",
+         internal queue (fetch_queue_count), plus buffered in the queue handler's own head",
         &["topic", "partition"]
     )
     .expect("Failed to create gauge")

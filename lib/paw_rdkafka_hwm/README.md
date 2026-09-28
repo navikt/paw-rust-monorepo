@@ -121,7 +121,7 @@ denne partisjonen.
 ### `paw_kafka_stream_queue_handler_lag`
 Totalt antall meldinger som ennå ikke er levert til applikasjonen for denne
 partisjonen: ikke hentet fra broker (`hi_offset - next_offset`) pluss bufret i
-rdkafkas interne kø (`message_queue_count`) pluss bufret i kø-handlerens eget
+rdkafkas interne kø (`fetchq_cnt`) pluss bufret i kø-handlerens eget
 hode. `NaN` inntil første `stats()`-callback har satt offsets for partisjonen.
 
 Grafana-eksempel — kø-dybde og lag for en spesifikk topic:
