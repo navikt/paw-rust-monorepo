@@ -31,11 +31,17 @@ where
         event: &Event<'_>,
     ) -> std::fmt::Result {
         match self {
-            OtelFormat::Json => tracing_subscriber::fmt::format().json().format_event(ctx, writer, event),
+            OtelFormat::Json => tracing_subscriber::fmt::format()
+                .json()
+                .format_event(ctx, writer, event),
             OtelFormat::OtelJson => OtelJsonFormat.format_event(ctx, writer, event),
             OtelFormat::Full => tracing_subscriber::fmt::format().format_event(ctx, writer, event),
-            OtelFormat::Pretty => tracing_subscriber::fmt::format().pretty().format_event(ctx, writer, event),
-            OtelFormat::Compact => tracing_subscriber::fmt::format().compact().format_event(ctx, writer, event),
+            OtelFormat::Pretty => tracing_subscriber::fmt::format()
+                .pretty()
+                .format_event(ctx, writer, event),
+            OtelFormat::Compact => tracing_subscriber::fmt::format()
+                .compact()
+                .format_event(ctx, writer, event),
         }
     }
 }

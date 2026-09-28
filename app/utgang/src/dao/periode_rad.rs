@@ -52,4 +52,3 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for PeriodeRad {
         })
     }
 }
-

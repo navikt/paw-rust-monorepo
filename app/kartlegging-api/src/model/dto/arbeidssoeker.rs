@@ -1,5 +1,5 @@
 use crate::model::dto::kontortilknytning::Kontortilknytning;
-use crate::model::dto::ledighetsperiode::{LedighetsperiodeKompakt, Ledighetsperiode};
+use crate::model::dto::ledighetsperiode::{Ledighetsperiode, LedighetsperiodeKompakt};
 use serde::Serialize;
 
 #[serde_with::skip_serializing_none]

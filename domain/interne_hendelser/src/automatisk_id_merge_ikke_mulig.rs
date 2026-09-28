@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampSecondsWithFrac};
+use serde_with::{TimestampSecondsWithFrac, serde_as};
 use std::collections::HashSet;
 use uuid::Uuid;
 

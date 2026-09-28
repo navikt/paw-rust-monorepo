@@ -1,6 +1,5 @@
 use std::vec;
 
-
 use crate::fakta::UtledeFakta;
 use crate::modell::feil::FaktaFeil;
 use crate::utils::finn_alder;

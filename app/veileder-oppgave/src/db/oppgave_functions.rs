@@ -1,7 +1,9 @@
 use crate::db::oppgave_hendelse_logg_row::{OppgaveHendelseLoggBatchRow, OppgaveHendelseLoggRow};
 use crate::db::oppgave_row::OppgaveRow;
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave::Oppgave;
+use crate::domain::oppgave_id::OppgaveId;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
@@ -11,18 +13,17 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
-use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
-use crate::domain::oppgave_id::OppgaveId;
 
 pub async fn hent_nyeste_oppgave(
     arbeidssoeker_id: ArbeidssoekerId,
     oppgave_type: OppgaveType,
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<Option<Oppgave>> {
-    let oppgave_row = match hent_nyeste_oppgave_for_arbeidssoeker(arbeidssoeker_id, &oppgave_type, tx).await? {
-        None => return Ok(None),
-        Some(row) => row,
-    };
+    let oppgave_row =
+        match hent_nyeste_oppgave_for_arbeidssoeker(arbeidssoeker_id, &oppgave_type, tx).await? {
+            None => return Ok(None),
+            Some(row) => row,
+        };
 
     let oppgave_id = OppgaveId::from(oppgave_row.id);
     let hendelse_logg: Vec<HendelseLoggEntry> = hent_hendelse_logg(oppgave_id, tx).await?;
@@ -273,7 +274,9 @@ pub async fn hent_de_eldste_ubehandlede_oppgavene(
 
     let mut oppgaver = Vec::with_capacity(oppgave_rows.len());
     for oppgave_row in oppgave_rows {
-        let hendelse_logg = hendelse_logg_map.remove(&oppgave_row.id).unwrap_or_default();
+        let hendelse_logg = hendelse_logg_map
+            .remove(&oppgave_row.id)
+            .unwrap_or_default();
         let oppgave = Oppgave::fra_db(
             OppgaveId::from(oppgave_row.id),
             oppgave_row.melding_id,
@@ -309,9 +312,9 @@ async fn hent_hendelse_logger(
         ORDER BY oppgave_id, tidspunkt DESC
         "#,
     )
-        .bind(oppgave_ider)
-        .fetch_all(&mut **transaction)
-        .await?;
+    .bind(oppgave_ider)
+    .fetch_all(&mut **transaction)
+    .await?;
 
     let mut map: HashMap<i64, Vec<HendelseLoggEntry>> = HashMap::new();
     for row in rows {
@@ -347,8 +350,13 @@ mod tests {
 
         let id = ArbeidssoekerId(1234567);
         let eldste_oppgave = test_oppgave(id, Ubehandlet, Utc::now() - chrono::Duration::days(2));
-        let nest_eldste_oppgave = test_oppgave(id, Ubehandlet, Utc::now() - chrono::Duration::days(1));
-        let irrelevant_oppgave = test_oppgave(id, Ferdigbehandlet, Utc::now() - chrono::Duration::days(1337));
+        let nest_eldste_oppgave =
+            test_oppgave(id, Ubehandlet, Utc::now() - chrono::Duration::days(1));
+        let irrelevant_oppgave = test_oppgave(
+            id,
+            Ferdigbehandlet,
+            Utc::now() - chrono::Duration::days(1337),
+        );
         let yngste_oppgave = test_oppgave(id, Ubehandlet, Utc::now());
 
         lagre_oppgave(&eldste_oppgave, &mut tx).await?;
@@ -395,13 +403,15 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
         let fra_tidspunkt = now - chrono::Duration::seconds(1);
         let antall_oppgaver = NonZeroU32::new(10).unwrap();
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
+        let oppgaver =
+            hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
         assert_eq!(oppgaver.len(), 1, "Skal bare finne ny_oppgave");
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
         let fra_tidspunkt = now + chrono::Duration::seconds(1);
-        let oppgaver = hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
+        let oppgaver =
+            hent_de_eldste_ubehandlede_oppgavene(antall_oppgaver, fra_tidspunkt, &mut tx).await?;
         assert_eq!(
             oppgaver.len(),
             0,
@@ -421,7 +431,11 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(
+            &test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -432,7 +446,9 @@ mod tests {
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.ekstern_oppgave_id.unwrap(), ekstern_oppgave_id);
 
@@ -449,16 +465,23 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(
+            &test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
-        let oppdatert = bytt_oppgave_status(oppgave_id, Ubehandlet, Ferdigbehandlet, &mut tx).await?;
+        let oppdatert =
+            bytt_oppgave_status(oppgave_id, Ubehandlet, Ferdigbehandlet, &mut tx).await?;
         tx.commit().await?;
         assert!(oppdatert);
 
         let mut tx = pg_pool.begin().await?;
-        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx).await?.unwrap();
+        let oppgave = hent_nyeste_oppgave(arbeidssoeker_id, AvvistUnder18, &mut tx)
+            .await?
+            .unwrap();
         assert_eq!(oppgave.status, Ferdigbehandlet);
 
         Ok(())
@@ -474,7 +497,11 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_id = lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
+        let oppgave_id = lagre_oppgave(
+            &test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
         assert_eq!(oppgave_id, OppgaveId(1));
 
@@ -491,7 +518,11 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        lagre_oppgave(&test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()), &mut tx).await?;
+        lagre_oppgave(
+            &test_oppgave(arbeidssoeker_id, Ubehandlet, Utc::now()),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let mut tx = pg_pool.begin().await?;
@@ -502,14 +533,20 @@ mod tests {
         assert_eq!(oppgave.type_, AvvistUnder18);
         assert_eq!(oppgave.status, Ubehandlet);
         assert_eq!(oppgave.arbeidssoeker_id, ArbeidssoekerId(12345));
-        assert_eq!(oppgave.identitetsnummer, Identitetsnummer::new("12345678901".to_string()).unwrap());
+        assert_eq!(
+            oppgave.identitetsnummer,
+            Identitetsnummer::new("12345678901".to_string()).unwrap()
+        );
         assert_eq!(
             oppgave.opplysninger,
             vec!["ER_UNDER_18_AAR", "BOSATT_ETTER_FREG_LOVEN"]
         );
 
         let mut tx = pg_pool.begin().await?;
-        assert_eq!(hent_nyeste_oppgave(ArbeidssoekerId(99999), AvvistUnder18, &mut tx).await?, None);
+        assert_eq!(
+            hent_nyeste_oppgave(ArbeidssoekerId(99999), AvvistUnder18, &mut tx).await?,
+            None
+        );
 
         Ok(())
     }
@@ -523,7 +560,10 @@ mod tests {
             Uuid::new_v4(),
             AvvistUnder18,
             status,
-            vec!["ER_UNDER_18_AAR".to_string(), "BOSATT_ETTER_FREG_LOVEN".to_string()],
+            vec![
+                "ER_UNDER_18_AAR".to_string(),
+                "BOSATT_ETTER_FREG_LOVEN".to_string(),
+            ],
             arbeidssoeker_id,
             Identitetsnummer::new("12345678901".to_string()).unwrap(),
             tidspunkt,

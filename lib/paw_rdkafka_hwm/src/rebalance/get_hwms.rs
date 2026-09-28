@@ -5,17 +5,14 @@ use futures::executor::block_on;
 use rdkafka::topic_partition_list::TopicPartitionList;
 use sqlx::PgPool;
 
-pub(super) fn get_hwms(
-    version: i16,
-    tpl: &TopicPartitionList,
-    pool: &PgPool,
-) -> Result<Vec<Hwm>> {
+pub(super) fn get_hwms(version: i16, tpl: &TopicPartitionList, pool: &PgPool) -> Result<Vec<Hwm>> {
     block_on(async {
         let mut tx = pool.begin().await?;
         let mut hwms = Vec::new();
         for topic_partition in tpl.elements() {
             let topic = topic_partition.topic();
-            let partition = u16::try_from(topic_partition.partition()).expect("Partition cast fra i32->u16 feilet");
+            let partition = u16::try_from(topic_partition.partition())
+                .expect("Partition cast fra i32->u16 feilet");
             let offset = match get_hwm(&mut tx, version, topic, partition).await? {
                 Some(offset) => offset,
                 None => {
@@ -34,8 +31,8 @@ pub(super) fn get_hwms(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rdkafka::Offset;
     use postgres_testcontainer::postgres::setup_postgres_container;
+    use rdkafka::Offset;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn ny_partisjon_inserter_default_hwm() {
@@ -95,8 +92,8 @@ mod tests {
 
     async fn setup_db() -> PgPool {
         let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
+            .await
+            .expect("Failed to start Postgres container");
         let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await.unwrap();
         pg_pool

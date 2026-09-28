@@ -11,7 +11,6 @@ pub mod startet;
 pub mod vo;
 
 pub use aarsak::Aarsak;
-pub use hendelse::Hendelse;
 pub use arbeidssoeker_id_flettet_inn::{
     ARBEIDSSOEKER_ID_FLETTET_INN, ArbeidssoekerIdFlettetInn, Kilde,
 };
@@ -21,6 +20,7 @@ pub use automatisk_id_merge_ikke_mulig::{
 pub use avsluttet::{AVSLUTTET_HENDELSE_TYPE, Avsluttet};
 pub use avvist::{AVVIST_HENDELSE_TYPE, Avvist};
 pub use avvist_stopp_av_periode::{AVVIST_STOPP_AV_PERIODE_HENDELSE_TYPE, AvvistStoppAvPeriode};
+pub use hendelse::Hendelse;
 pub use identitetsnummer_sammenslaatt::{
     IDENTITETSNUMMER_SAMMENSLAATT_HENDELSE_TYPE, IdentitetsnummerSammenslaatt,
 };

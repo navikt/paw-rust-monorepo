@@ -1,7 +1,7 @@
-use futures::future::BoxFuture;
 use futures::FutureExt;
-use testcontainers::core::logs::consumer::LogConsumer;
+use futures::future::BoxFuture;
 use testcontainers::core::logs::LogFrame;
+use testcontainers::core::logs::consumer::LogConsumer;
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::kafka::apache::Kafka;

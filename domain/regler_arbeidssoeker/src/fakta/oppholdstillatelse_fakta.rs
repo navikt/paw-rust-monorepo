@@ -5,8 +5,8 @@ use interne_hendelser::vo::Opplysning::{
     BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
     IngenInformasjonOmOppholdstillatelse, UkjentStatusForOppholdstillatelse,
 };
-use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
 use pdl_graphql::pdl::Person;
+use pdl_graphql::pdl::hent_person_bolk::Oppholdstillatelse;
 
 #[derive(Debug, Default)]
 pub struct UtledeOppholdstillatelseFakta;
@@ -32,8 +32,8 @@ impl UtledeFakta<Person, Opplysning> for UtledeOppholdstillatelseFakta {
 
 #[cfg(test)]
 mod tests {
-    use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
     use crate::fakta::UtledeFakta;
+    use crate::fakta::oppholdstillatelse_fakta::UtledeOppholdstillatelseFakta;
     use crate::modell::feil::FaktaFeil;
     use interne_hendelser::vo::Opplysning::{
         BarnFoedtINorgeUtenOppholdstillatelse, HarGyldigOppholdstillatelse,
@@ -64,10 +64,7 @@ mod tests {
         let result = UtledeOppholdstillatelseFakta::default().utlede_fakta(&person);
         match result {
             Ok(fakta) => panic!("Feil resultat: {:?}", fakta),
-            Err(err) => assert!(matches!(
-                err,
-                FaktaFeil::FlereOppholdstillatelser(2)
-            )),
+            Err(err) => assert!(matches!(err, FaktaFeil::FlereOppholdstillatelser(2))),
         };
     }
 

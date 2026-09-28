@@ -1,5 +1,5 @@
 use crate::config::{AuthConfig, IssuerConfig, JWKS_MIN_REFRESH_INTERVAL, JWKS_TTL};
-use crate::oidc::{fetch_jwks, JwksCache};
+use crate::oidc::{JwksCache, fetch_jwks};
 use errors::app::AppError;
 use errors::auth::AuthError;
 use jsonwebtoken::DecodingKey;

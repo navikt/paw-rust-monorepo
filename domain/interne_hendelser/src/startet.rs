@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::HashSet;
+use uuid::Uuid;
 
-use crate::vo::{Metadata, Opplysning};
 use crate::Hendelse;
+use crate::vo::{Metadata, Opplysning};
 
 pub const STARTET_HENDELSE_TYPE: &str = "intern.v1.startet";
 

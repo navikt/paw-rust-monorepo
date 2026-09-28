@@ -9,11 +9,7 @@ pub struct HendelseLoggEntry {
 }
 
 impl HendelseLoggEntry {
-    pub fn new(
-        status: HendelseLoggStatus,
-        melding: String,
-        tidspunkt: DateTime<Utc>,
-    ) -> Self {
+    pub fn new(status: HendelseLoggStatus, melding: String, tidspunkt: DateTime<Utc>) -> Self {
         Self {
             status,
             melding,

@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::HashSet;
+use uuid::Uuid;
 
 use crate::vo::Metadata;
 
-pub const IDENTITETSNUMMER_SAMMENSLAATT_HENDELSE_TYPE: &str = "intern.v1.identitetsnummer_sammenslaatt";
+pub const IDENTITETSNUMMER_SAMMENSLAATT_HENDELSE_TYPE: &str =
+    "intern.v1.identitetsnummer_sammenslaatt";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

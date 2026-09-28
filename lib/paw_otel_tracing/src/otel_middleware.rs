@@ -7,7 +7,7 @@ use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::trace::{
     DefaultOnBodyChunk, DefaultOnEos, DefaultOnRequest, HttpMakeClassifier, TraceLayer,
 };
-use tracing::{info_span, warn, Span};
+use tracing::{Span, info_span, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub type OtelTraceLayer = TraceLayer<

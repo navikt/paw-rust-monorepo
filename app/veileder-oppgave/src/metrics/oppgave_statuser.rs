@@ -1,7 +1,7 @@
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
-use prometheus::{register_gauge_vec, GaugeVec};
+use prometheus::{GaugeVec, register_gauge_vec};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::sync::LazyLock;
 use strum::IntoEnumIterator;
@@ -76,16 +76,48 @@ mod tests {
     #[tokio::test]
     async fn test_hent_antall_oppgaver_per_status_og_type() -> Result<()> {
         let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
+            .await
+            .expect("Failed to start Postgres container");
         let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let avvist_ubehandlet_1 = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
-        let avvist_ubehandlet_2 = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
-        let avvist_ferdigbehandlet = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ferdigbehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678903".to_string()).unwrap(), Utc::now());
-        let vurder_ubehandlet = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678904".to_string()).unwrap(), Utc::now());
+        let avvist_ubehandlet_1 = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(1),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
+            Utc::now(),
+        );
+        let avvist_ubehandlet_2 = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(2),
+            Identitetsnummer::new("12345678902".to_string()).unwrap(),
+            Utc::now(),
+        );
+        let avvist_ferdigbehandlet = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ferdigbehandlet,
+            vec![],
+            ArbeidssoekerId(3),
+            Identitetsnummer::new("12345678903".to_string()).unwrap(),
+            Utc::now(),
+        );
+        let vurder_ubehandlet = Oppgave::new(
+            Uuid::new_v4(),
+            VurderOppholdsstatus,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(4),
+            Identitetsnummer::new("12345678904".to_string()).unwrap(),
+            Utc::now(),
+        );
 
         lagre_oppgave(&avvist_ubehandlet_1, &mut tx).await?;
         lagre_oppgave(&avvist_ubehandlet_2, &mut tx).await?;
@@ -102,11 +134,15 @@ mod tests {
             .map(|r| r.antall);
         let avvist_ferdigbehandlet = rader
             .iter()
-            .find(|r| r.status == Ferdigbehandlet.to_string() && r.type_ == AvvistUnder18.to_string())
+            .find(|r| {
+                r.status == Ferdigbehandlet.to_string() && r.type_ == AvvistUnder18.to_string()
+            })
             .map(|r| r.antall);
         let vurder_ubehandlet = rader
             .iter()
-            .find(|r| r.status == Ubehandlet.to_string() && r.type_ == VurderOppholdsstatus.to_string())
+            .find(|r| {
+                r.status == Ubehandlet.to_string() && r.type_ == VurderOppholdsstatus.to_string()
+            })
             .map(|r| r.antall);
 
         assert_eq!(avvist_ubehandlet, Some(2));

@@ -1,7 +1,7 @@
 use crate::vo::avvikstype::AvviksType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampMilliSeconds};
+use serde_with::{TimestampMilliSeconds, serde_as};
 
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

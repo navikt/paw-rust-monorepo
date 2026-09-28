@@ -1,20 +1,18 @@
 use crate::config::ApplicationConfig;
-use crate::db::oppgave_functions::{
-    hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg,
-};
+use crate::db::oppgave_functions::{hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg};
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::avvist_under_18;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
+use crate::metrics;
+use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use chrono::Utc;
 use interne_hendelser::Avvist;
 use interne_hendelser::Hendelse;
 use sqlx::{Postgres, Transaction};
-use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
-use crate::metrics;
 
 pub async fn opprett_avvist_under_18_oppgave(
     avvist_hendelse: &Avvist,
@@ -27,7 +25,9 @@ pub async fn opprett_avvist_under_18_oppgave(
 
     let oppgave_type = avvist_under_18::KRITERIER.oppgave_type;
 
-    if avvist_hendelse.metadata.tidspunkt < *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt {
+    if avvist_hendelse.metadata.tidspunkt
+        < *app_config.opprett_avvist_under_18_oppgaver_fra_tidspunkt
+    {
         metrics::kriterier_oppfylt::inkrement(oppgave_type, false);
         return Ok(());
     }
@@ -80,4 +80,3 @@ fn hent_opplysninger_fra(avvist_hendelse: &Avvist) -> Vec<String> {
         .map(|opplysning| opplysning.to_string())
         .collect()
 }
-

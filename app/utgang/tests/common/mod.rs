@@ -103,21 +103,28 @@ impl PdlTestContext {
             reqwest::Client::new(),
             Arc::new(StubTokenClient),
         );
-        PdlDataOppdatering::new(self.pool.clone(), pdl_client, NonZeroU16::new(100).unwrap(), data_gyldighet)
+        PdlDataOppdatering::new(
+            self.pool.clone(),
+            pdl_client,
+            NonZeroU16::new(100).unwrap(),
+            data_gyldighet,
+        )
     }
 
     pub async fn stub_pdl_med_person(&mut self, identer: &[&str]) -> mockito::Mock {
         let bolk: Vec<serde_json::Value> = identer
             .iter()
-            .map(|ident| json!({
-                "ident": ident,
-                "person": {
-                    "foedselsdato": [], "statsborgerskap": [], "opphold": [],
-                    "folkeregisterpersonstatus": [], "bostedsadresse": [],
-                    "innflyttingTilNorge": [], "utflyttingFraNorge": []
-                },
-                "code": "ok"
-            }))
+            .map(|ident| {
+                json!({
+                    "ident": ident,
+                    "person": {
+                        "foedselsdato": [], "statsborgerskap": [], "opphold": [],
+                        "folkeregisterpersonstatus": [], "bostedsadresse": [],
+                        "innflyttingTilNorge": [], "utflyttingFraNorge": []
+                    },
+                    "code": "ok"
+                })
+            })
             .collect();
         self.pdl_server
             .mock("POST", "/")

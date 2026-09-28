@@ -1,12 +1,12 @@
-use chrono::{DateTime, Utc};
-use types::arbeidssoeker_id::ArbeidssoekerId;
-use types::identitetsnummer::Identitetsnummer;
-use uuid::Uuid;
 use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::oppgave_id::OppgaveId;
 use crate::domain::oppgave_status::OppgaveStatus;
 use crate::domain::oppgave_type::OppgaveType;
+use chrono::{DateTime, Utc};
+use types::arbeidssoeker_id::ArbeidssoekerId;
+use types::identitetsnummer::Identitetsnummer;
+use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]
 pub struct Oppgave {

@@ -17,9 +17,7 @@ impl MessageProcessor for BackupMessageProcessor {
         tx: &'a mut Transaction<'_, Postgres>,
         msg: &'a OwnedMessage,
     ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>> {
-        Box::pin(
-            async move { lagre_melding(msg, tx).await }.instrument(tracing::Span::current()),
-        )
+        Box::pin(async move { lagre_melding(msg, tx).await }.instrument(tracing::Span::current()))
     }
 }
 

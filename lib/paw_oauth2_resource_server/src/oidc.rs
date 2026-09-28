@@ -3,8 +3,8 @@ use std::string::ToString;
 use std::time::Instant;
 
 use errors::auth::AuthError;
-use jsonwebtoken::jwk::JwkSet;
 use jsonwebtoken::DecodingKey;
+use jsonwebtoken::jwk::JwkSet;
 use reqwest::Client;
 use serde::Deserialize;
 

@@ -1,6 +1,6 @@
 use eksterne_hendelser::serde::AvroSerializer;
-use rdkafka::message::OwnedMessage;
 use rdkafka::Timestamp;
+use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use serde::Serialize;

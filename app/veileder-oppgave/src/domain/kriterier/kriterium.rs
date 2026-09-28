@@ -75,7 +75,6 @@ mod tests {
         }],
     );
 
-
     #[test]
     fn kan_opprette_med_kun_ett_kriterium() {
         let et_kriterie = OppgaveKriterier::new(

@@ -5,6 +5,7 @@ use crate::db::oppgave_functions::{
     bytt_oppgave_status, hent_de_eldste_ubehandlede_oppgavene, oppdater_hendelse_logg,
     oppdater_oppgave_med_ekstern_id,
 };
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
     EksternOppgaveOpprettelseFeilet, EksternOppgaveOpprettet,
@@ -21,7 +22,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
-use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
 pub fn spawn_ekstern_oppgave_task(
     db_pool: PgPool,
@@ -105,7 +105,12 @@ async fn prosesser_oppgave(
 
     match response {
         Ok(oppgave_dto) => {
-            oppdater_oppgave_med_ekstern_id(oppgave.id(), EksternOppgaveId::from(oppgave_dto.id), &mut tx).await?;
+            oppdater_oppgave_med_ekstern_id(
+                oppgave.id(),
+                EksternOppgaveId::from(oppgave_dto.id),
+                &mut tx,
+            )
+            .await?;
             let hendelse_logg = HendelseLoggEntry::new(
                 EksternOppgaveOpprettet,
                 "Ekstern oppgave_id opprettet".to_string(),
@@ -148,9 +153,8 @@ async fn prosesser_oppgave(
                 error_melding
             );
 
-            let hendelse_logg = HendelseLoggEntry::new(
-                EksternOppgaveOpprettelseFeilet, error_melding, Utc::now(),
-            );
+            let hendelse_logg =
+                HendelseLoggEntry::new(EksternOppgaveOpprettelseFeilet, error_melding, Utc::now());
             oppdater_hendelse_logg(oppgave.id(), hendelse_logg, &mut tx).await?;
             tx.commit().await?;
         }
@@ -183,6 +187,7 @@ mod tests {
     use crate::db::oppgave_functions::{
         hent_de_eldste_ubehandlede_oppgavene, hent_nyeste_oppgave, lagre_oppgave,
     };
+    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
     use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveOpprettet;
     use crate::domain::oppgave_type::OppgaveType;
     use mockito::{Matcher, Server};
@@ -195,7 +200,6 @@ mod tests {
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
     use uuid::Uuid;
-    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     #[tokio::test]
     async fn en_feilet_oppgave_stopper_ikke_batchen() -> Result<()> {
@@ -266,22 +270,51 @@ mod tests {
         let mut tx = pg_pool.begin().await?;
 
         let arbeidssoeker_id_1 = ArbeidssoekerId(12345);
-        let ubehandlet_oppgave_1 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_1, Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(), Utc::now());
+        let ubehandlet_oppgave_1 = Oppgave::new(
+            Uuid::new_v4(),
+            OppgaveType::AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            arbeidssoeker_id_1,
+            Identitetsnummer::new(identitetsnummer_1.to_string()).unwrap(),
+            Utc::now(),
+        );
         lagre_oppgave(&ubehandlet_oppgave_1, &mut tx).await?;
 
         let arbeidssoeker_id_2 = ArbeidssoekerId(12346);
-        let ubehandlet_oppgave_2 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_2, Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(), Utc::now());
+        let ubehandlet_oppgave_2 = Oppgave::new(
+            Uuid::new_v4(),
+            OppgaveType::AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            arbeidssoeker_id_2,
+            Identitetsnummer::new(identitetsnummer_2.to_string()).unwrap(),
+            Utc::now(),
+        );
         lagre_oppgave(&ubehandlet_oppgave_2, &mut tx).await?;
 
         let arbeidssoeker_id_3 = ArbeidssoekerId(12347);
-        let ubehandlet_oppgave_3 = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id_3, Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(), Utc::now());
+        let ubehandlet_oppgave_3 = Oppgave::new(
+            Uuid::new_v4(),
+            OppgaveType::AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            arbeidssoeker_id_3,
+            Identitetsnummer::new(identitetsnummer_3.to_string()).unwrap(),
+            Utc::now(),
+        );
         lagre_oppgave(&ubehandlet_oppgave_3, &mut tx).await?;
 
         tx.commit().await?;
 
         let fra_dato = DateTime::UNIX_EPOCH;
-        let result =
-            prosesser_ubehandlede_oppgaver(fra_dato, NonZeroU32::new(3).unwrap(), oppgave_api_client, pg_pool.clone()).await;
+        let result = prosesser_ubehandlede_oppgaver(
+            fra_dato,
+            NonZeroU32::new(3).unwrap(),
+            oppgave_api_client,
+            pg_pool.clone(),
+        )
+        .await;
         assert!(result.is_ok(), "Funksjonen skulle returnere Ok(())");
 
         let mut tx = pg_pool.begin().await?;
@@ -292,7 +325,10 @@ mod tests {
                 .await?
                 .unwrap();
         assert_eq!(oppgave_1.status, Opprettet);
-        assert_eq!(oppgave_1.ekstern_oppgave_id, Some(EksternOppgaveId::from(100)));
+        assert_eq!(
+            oppgave_1.ekstern_oppgave_id,
+            Some(EksternOppgaveId::from(100))
+        );
         assert!(
             oppgave_1
                 .hendelse_logg
@@ -320,7 +356,10 @@ mod tests {
                 .await?
                 .unwrap();
         assert_eq!(oppgave_3.status, Opprettet);
-        assert_eq!(oppgave_3.ekstern_oppgave_id, Some(EksternOppgaveId::from(200)));
+        assert_eq!(
+            oppgave_3.ekstern_oppgave_id,
+            Some(EksternOppgaveId::from(200))
+        );
         assert!(
             oppgave_3
                 .hendelse_logg
@@ -364,7 +403,15 @@ mod tests {
 
         let mut tx = pg_pool.begin().await?;
         let arbeidssoeker_id = ArbeidssoekerId(12345);
-        let oppgave_i_kø = Oppgave::new(Uuid::new_v4(), OppgaveType::AvvistUnder18, Ubehandlet, vec![], arbeidssoeker_id, Identitetsnummer::new(identitetsnummer.to_string()).unwrap(), Utc::now());
+        let oppgave_i_kø = Oppgave::new(
+            Uuid::new_v4(),
+            OppgaveType::AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            arbeidssoeker_id,
+            Identitetsnummer::new(identitetsnummer.to_string()).unwrap(),
+            Utc::now(),
+        );
         lagre_oppgave(&oppgave_i_kø, &mut tx).await?;
         tx.commit().await?;
 

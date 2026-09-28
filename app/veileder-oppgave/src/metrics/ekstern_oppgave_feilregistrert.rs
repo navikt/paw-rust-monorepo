@@ -1,6 +1,6 @@
 use crate::domain::hendelse_logg_status::HendelseLoggStatus::EksternOppgaveFeilregistrert;
 use anyhow::Result;
-use prometheus::{register_gauge, Gauge};
+use prometheus::{Gauge, register_gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::LazyLock;
 

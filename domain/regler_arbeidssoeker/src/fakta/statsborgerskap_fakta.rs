@@ -1,5 +1,5 @@
-use crate::fakta::config::read_regler_config;
 use crate::fakta::UtledeFakta;
+use crate::fakta::config::read_regler_config;
 use crate::modell::feil::FaktaFeil;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
@@ -51,9 +51,9 @@ impl UtledeFakta<Person, Opplysning> for UtledeStatsborgerskapFakta {
 
 #[cfg(test)]
 mod tests {
+    use crate::fakta::UtledeFakta;
     use crate::fakta::config::read_regler_config;
     use crate::fakta::statsborgerskap_fakta::UtledeStatsborgerskapFakta;
-    use crate::fakta::UtledeFakta;
     use interne_hendelser::vo::Opplysning::{
         ErEuEoesStatsborger, ErGbrStatsborger, ErNorskStatsborger,
     };

@@ -137,7 +137,10 @@ mod tests {
         assert_eq!(request.oppgavetype, KONTAKT_BRUKER);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
-        assert_eq!(request.beskrivelse, Some(BESKRIVELSE_AVVIST_UNDER_18.to_string()));
+        assert_eq!(
+            request.beskrivelse,
+            Some(BESKRIVELSE_AVVIST_UNDER_18.to_string())
+        );
     }
 
     #[test]
@@ -149,6 +152,9 @@ mod tests {
         assert_eq!(request.oppgavetype, VURDER_HENVENDELSE);
         assert_eq!(request.tema, GENERELL);
         assert_eq!(request.prioritet, PrioritetV1::Norm);
-        assert_eq!(request.beskrivelse, Some(BESKRIVELSE_VURDER_OPPHOLDSSTATUS.to_string()));
+        assert_eq!(
+            request.beskrivelse,
+            Some(BESKRIVELSE_VURDER_OPPHOLDSSTATUS.to_string())
+        );
     }
 }

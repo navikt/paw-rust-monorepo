@@ -1,5 +1,5 @@
-use rdkafka::message::OwnedMessage;
 use rdkafka::Timestamp;
+use rdkafka::message::OwnedMessage;
 use serde::Serialize;
 
 pub struct JsonGenerator;

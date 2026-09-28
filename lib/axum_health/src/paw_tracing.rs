@@ -1,12 +1,12 @@
+use axum::Router;
 use axum::extract::MatchedPath;
 use axum::http::{HeaderMap, Request};
-use axum::Router;
+use opentelemetry::Context;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::Status;
-use opentelemetry::Context;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::trace::TraceLayer;
-use tracing::{info_span, warn, Span};
+use tracing::{Span, info_span, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 struct HeaderExtractor<'a>(&'a HeaderMap);

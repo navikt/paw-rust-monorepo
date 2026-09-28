@@ -1,6 +1,5 @@
 use crate::pdl::hent_person_bolk::{
-    HentPersonBolkHentPersonBolkPerson,
-    HentPersonBolkHentPersonBolkPersonBostedsadresse,
+    HentPersonBolkHentPersonBolkPerson, HentPersonBolkHentPersonBolkPersonBostedsadresse,
     HentPersonBolkHentPersonBolkPersonBostedsadresseMatrikkeladresse,
     HentPersonBolkHentPersonBolkPersonBostedsadresseUkjentBosted,
     HentPersonBolkHentPersonBolkPersonBostedsadresseUtenlandskAdresse,

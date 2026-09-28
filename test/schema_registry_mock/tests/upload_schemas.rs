@@ -1,4 +1,4 @@
-use schema_registry_converter::async_impl::schema_registry::{post_schema, SrSettings};
+use schema_registry_converter::async_impl::schema_registry::{SrSettings, post_schema};
 use schema_registry_mock::schema_definitions::avro_schemas;
 
 #[ignore]
@@ -23,7 +23,8 @@ async fn upload_schemas() -> anyhow::Result<()> {
             eprintln!("Config PUT feilet med {status}: {body}");
         }
 
-        let registered = post_schema(&sr_settings, schema.subject(), schema.to_supplied_schema()).await?;
+        let registered =
+            post_schema(&sr_settings, schema.subject(), schema.to_supplied_schema()).await?;
         println!("Lastet opp {}: id={}", schema.subject(), registered.id);
     }
 

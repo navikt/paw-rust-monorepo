@@ -1,4 +1,4 @@
-use super::client::{parse_token_response, request_send_error, ReqwestTokenClient};
+use super::client::{ReqwestTokenClient, parse_token_response, request_send_error};
 use crate::request::M2MTokenRequest;
 use crate::response::TokenResponse;
 use anyhow::Result;

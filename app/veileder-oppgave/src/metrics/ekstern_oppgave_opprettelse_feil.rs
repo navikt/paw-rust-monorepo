@@ -1,5 +1,5 @@
 use crate::client::oppgave_client::{OppgaveApiError, OppgaveApiErrorDiscriminants};
-use prometheus::{register_counter_vec, CounterVec};
+use prometheus::{CounterVec, register_counter_vec};
 use std::sync::LazyLock;
 use strum::IntoEnumIterator;
 

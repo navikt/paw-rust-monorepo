@@ -17,7 +17,7 @@ impl Hwm {
             offset,
         }
     }
-    
+
     pub fn partition(&self) -> i32 {
         self.partition as i32
     }

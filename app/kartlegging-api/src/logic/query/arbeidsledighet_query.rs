@@ -106,7 +106,8 @@ async fn map_rows(
         .collect();
 
     let mut ledighetsperioder_by_arbeidssoeker_id =
-        ledighetsperioder_kompakt_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider).await?;
+        ledighetsperioder_kompakt_query::finn_for_arbeidssoeker_ider(tx, &arbeidssoeker_ider)
+            .await?;
     let mut kontortilknytninger_by_aktor_id =
         kontortilknytning_query::finn_for_aktor_ider(tx, &aktor_ider).await?;
 

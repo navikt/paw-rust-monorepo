@@ -2,7 +2,7 @@ use crate::claim::IssClaim;
 use axum::extract::Request;
 use axum::http::header;
 use errors::auth::AuthError;
-use jsonwebtoken::{dangerous::insecure_decode, decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, dangerous::insecure_decode, decode};
 use serde::Deserialize;
 
 pub fn extract_bearer_token(request: &Request) -> Result<&str, AuthError> {
@@ -50,7 +50,7 @@ pub fn validate_token<C: for<'de> Deserialize<'de>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jsonwebtoken::{encode, EncodingKey, Header};
+    use jsonwebtoken::{EncodingKey, Header, encode};
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -74,10 +74,7 @@ mod tests {
     #[test]
     fn peek_issuer_extracts_iss() {
         let token = make_hs256_token("https://issuer.example.com");
-        assert_eq!(
-            peek_issuer(&token).unwrap(),
-            "https://issuer.example.com"
-        );
+        assert_eq!(peek_issuer(&token).unwrap(), "https://issuer.example.com");
     }
 
     #[test]

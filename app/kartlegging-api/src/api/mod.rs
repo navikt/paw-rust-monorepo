@@ -1,6 +1,6 @@
+pub(crate) mod arbeidsledighet;
 pub(crate) mod docs;
 pub(crate) mod kartlegging;
-pub(crate) mod arbeidsledighet;
 pub(crate) mod statistics;
 
 use axum::Router;

@@ -1,4 +1,4 @@
-use super::client::{parse_token_response, request_send_error, ReqwestTokenClient};
+use super::client::{ReqwestTokenClient, parse_token_response, request_send_error};
 use crate::error::TexasClientError;
 use crate::request::OBOTokenRequest;
 use crate::response::TokenResponse;
@@ -38,7 +38,7 @@ impl OBOTokenClient for ReqwestTokenClient {
 mod tests {
     use super::*;
     use crate::config::TokenClientConfig;
-    use crate::token_client::client::{create_token_client, ReqwestTokenClient};
+    use crate::token_client::client::{ReqwestTokenClient, create_token_client};
     use mockito::Server;
     use reqwest::Client;
     use serde_json::json;
@@ -126,11 +126,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_exchange_token_ikke_konfigurert() {
-        let client = ReqwestTokenClient::new(
-            "http://texas/api/v1/token".to_string(),
-            None,
-            Client::new(),
-        );
+        let client =
+            ReqwestTokenClient::new("http://texas/api/v1/token".to_string(), None, Client::new());
 
         let error = client
             .exchange_token(

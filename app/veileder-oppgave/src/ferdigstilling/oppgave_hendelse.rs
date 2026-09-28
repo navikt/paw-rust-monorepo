@@ -87,7 +87,7 @@ pub enum OppgavePrioritet {
     Hoy,
     Normal,
     Lav,
-    Kritisk
+    Kritisk,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Display, EnumString)]
@@ -110,15 +110,20 @@ pub enum OppgaveIdentType {
 
 /// Jackson serialiserer LocalDateTime som array: [år, måned, dag, time, minutt, sekund, nano]
 fn deserialize_jackson_datetime<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
-where D: Deserializer<'de> {
+where
+    D: Deserializer<'de>,
+{
     let arr: Vec<i64> = Vec::deserialize(deserializer)?;
     let (aar, mnd, dag, time, min, sek, nano) = match arr.as_slice() {
         [aar, mnd, dag, time, min, sek, nano] => (*aar, *mnd, *dag, *time, *min, *sek, *nano),
         [aar, mnd, dag, time, min, sek] => (*aar, *mnd, *dag, *time, *min, *sek, 0),
         [aar, mnd, dag, time, min] => (*aar, *mnd, *dag, *time, *min, 0, 0),
-        _ => return Err(serde::de::Error::custom(
-            format!("Forventet 5-7 elementer i datetime-array, fikk {}", arr.len())
-        )),
+        _ => {
+            return Err(serde::de::Error::custom(format!(
+                "Forventet 5-7 elementer i datetime-array, fikk {}",
+                arr.len()
+            )));
+        }
     };
     NaiveDate::from_ymd_opt(aar as i32, mnd as u32, dag as u32)
         .and_then(|d| d.and_hms_nano_opt(time as u32, min as u32, sek as u32, nano as u32))
@@ -127,29 +132,36 @@ where D: Deserializer<'de> {
 
 /// Jackson serialiserer LocalDate som array: [år, måned, dag]
 fn deserialize_jackson_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
-where D: Deserializer<'de> {
+where
+    D: Deserializer<'de>,
+{
     let arr: Vec<i32> = Vec::deserialize(deserializer)?;
     let [aar, mnd, dag] = arr.as_slice() else {
-        return Err(serde::de::Error::custom(
-            format!("Forventet 3 elementer i date-array, fikk {}", arr.len())
-        ));
+        return Err(serde::de::Error::custom(format!(
+            "Forventet 3 elementer i date-array, fikk {}",
+            arr.len()
+        )));
     };
     NaiveDate::from_ymd_opt(*aar, *mnd as u32, *dag as u32)
         .ok_or_else(|| serde::de::Error::custom(format!("Ugyldig date-array: {:?}", arr)))
 }
 
 fn deserialize_jackson_date_option<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
-where D: Deserializer<'de> {
+where
+    D: Deserializer<'de>,
+{
     let arr: Option<Vec<i32>> = Option::deserialize(deserializer)?;
     arr.map(|arr| {
         let [aar, mnd, dag] = arr.as_slice() else {
-            return Err(serde::de::Error::custom(
-                format!("Forventet 3 elementer i date-array, fikk {}", arr.len())
-            ));
+            return Err(serde::de::Error::custom(format!(
+                "Forventet 3 elementer i date-array, fikk {}",
+                arr.len()
+            )));
         };
         NaiveDate::from_ymd_opt(*aar, *mnd as u32, *dag as u32)
             .ok_or_else(|| serde::de::Error::custom(format!("Ugyldig date-array: {:?}", arr)))
-    }).transpose()
+    })
+    .transpose()
 }
 
 #[cfg(test)]
@@ -197,8 +209,15 @@ mod tests {
 
         let melding: OppgaveHendelseMelding = serde_json::from_str(json).unwrap();
 
-        assert_eq!(melding.hendelse.hendelsestype, OppgaveHendelsetype::OppgaveOpprettet);
-        assert_eq!(melding.hendelse.tidspunkt, NaiveDateTime::parse_from_str("2023-02-23T08:58:23.832", "%Y-%m-%dT%H:%M:%S%.f").unwrap());
+        assert_eq!(
+            melding.hendelse.hendelsestype,
+            OppgaveHendelsetype::OppgaveOpprettet
+        );
+        assert_eq!(
+            melding.hendelse.tidspunkt,
+            NaiveDateTime::parse_from_str("2023-02-23T08:58:23.832", "%Y-%m-%dT%H:%M:%S%.f")
+                .unwrap()
+        );
 
         let utfort_av = melding.utfort_av.unwrap();
         assert_eq!(utfort_av.nav_ident, Some("Z991459".to_string()));
@@ -221,8 +240,14 @@ mod tests {
         assert_eq!(kategorisering.prioritet, OppgavePrioritet::Normal);
 
         let behandlingsperiode = oppgave.behandlingsperiode.unwrap();
-        assert_eq!(behandlingsperiode.aktiv, NaiveDate::from_ymd_opt(2023, 2, 23).unwrap());
-        assert_eq!(behandlingsperiode.frist, Some(NaiveDate::from_ymd_opt(2023, 2, 23).unwrap()));
+        assert_eq!(
+            behandlingsperiode.aktiv,
+            NaiveDate::from_ymd_opt(2023, 2, 23).unwrap()
+        );
+        assert_eq!(
+            behandlingsperiode.frist,
+            Some(NaiveDate::from_ymd_opt(2023, 2, 23).unwrap())
+        );
 
         let bruker = oppgave.bruker.unwrap();
         assert_eq!(bruker.ident, "12345678901");
@@ -251,8 +276,17 @@ mod tests {
 
         let melding: OppgaveHendelseMelding = serde_json::from_str(json).unwrap();
 
-        assert_eq!(melding.hendelse.hendelsestype, OppgaveHendelsetype::OppgaveFerdigstilt);
-        assert_eq!(melding.hendelse.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 0, 0).unwrap());
+        assert_eq!(
+            melding.hendelse.hendelsestype,
+            OppgaveHendelsetype::OppgaveFerdigstilt
+        );
+        assert_eq!(
+            melding.hendelse.tidspunkt,
+            NaiveDate::from_ymd_opt(2023, 3, 1)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap()
+        );
         assert_eq!(melding.utfort_av, None);
         assert_eq!(melding.oppgave.oppgave_id, 99999);
         assert_eq!(melding.oppgave.tilordning, None);
@@ -265,14 +299,33 @@ mod tests {
     fn test_deserialize_jackson_datetime_array_lengder() {
         let json_5 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,0]}"#;
         let h5: OppgaveHendelse = serde_json::from_str(json_5).unwrap();
-        assert_eq!(h5.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 0, 0).unwrap());
+        assert_eq!(
+            h5.tidspunkt,
+            NaiveDate::from_ymd_opt(2023, 3, 1)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap()
+        );
 
         let json_6 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45]}"#;
         let h6: OppgaveHendelse = serde_json::from_str(json_6).unwrap();
-        assert_eq!(h6.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_opt(12, 30, 45).unwrap());
+        assert_eq!(
+            h6.tidspunkt,
+            NaiveDate::from_ymd_opt(2023, 3, 1)
+                .unwrap()
+                .and_hms_opt(12, 30, 45)
+                .unwrap()
+        );
 
-        let json_7 = r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45,500000000]}"#;
+        let json_7 =
+            r#"{"hendelsestype":"OPPGAVE_OPPRETTET","tidspunkt":[2023,3,1,12,30,45,500000000]}"#;
         let h7: OppgaveHendelse = serde_json::from_str(json_7).unwrap();
-        assert_eq!(h7.tidspunkt, NaiveDate::from_ymd_opt(2023, 3, 1).unwrap().and_hms_nano_opt(12, 30, 45, 500000000).unwrap());
+        assert_eq!(
+            h7.tidspunkt,
+            NaiveDate::from_ymd_opt(2023, 3, 1)
+                .unwrap()
+                .and_hms_nano_opt(12, 30, 45, 500000000)
+                .unwrap()
+        );
     }
 }

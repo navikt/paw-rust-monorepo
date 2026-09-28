@@ -1,19 +1,17 @@
-use crate::db::oppgave_functions::{
-    hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg,
-};
+use crate::db::oppgave_functions::{hent_nyeste_oppgave, lagre_oppgave, oppdater_hendelse_logg};
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::kriterier::vurder_oppholdsstatus;
 use crate::domain::oppgave::Oppgave;
 use crate::domain::oppgave_status::OppgaveStatus;
+use crate::metrics;
+use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use chrono::Utc;
 use interne_hendelser::Hendelse;
 use interne_hendelser::Startet;
 use sqlx::{Postgres, Transaction};
-use OppgaveStatus::{Ferdigbehandlet, Ubehandlet};
 use types::arbeidssoeker_id::ArbeidssoekerId;
 use types::identitetsnummer::Identitetsnummer;
-use crate::metrics;
 
 pub async fn opprett_vurder_oppholdsstatus_oppgave(
     startet_hendelse: &Startet,
@@ -73,4 +71,3 @@ fn hent_opplysninger_fra(startet_hendelse: &Startet) -> Vec<String> {
         .map(|opplysning| opplysning.to_string())
         .collect()
 }
-

@@ -2,16 +2,16 @@ use crate::config::OtelTracingConfig;
 use crate::otlp_exporter::nais_otlp_exporter;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
-use opentelemetry::{global, KeyValue};
-use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry::{KeyValue, global};
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use paw_rust_base::env::{nais_namespace, nais_otel_service_name};
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 pub fn setup_otel(config: OtelTracingConfig) -> Result<()> {
     let exporter = nais_otlp_exporter()?;

@@ -196,7 +196,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn select_by_aktor_ids_grupperer_treff_per_aktor_id() {
         let pg_pool = init().await;
-        let mut tx = pg_pool.begin().await.expect("Kunne ikke starte transaksjon");
+        let mut tx = pg_pool
+            .begin()
+            .await
+            .expect("Kunne ikke starte transaksjon");
 
         let aktor_id_1 = "aktor-batch-1";
         let aktor_id_2 = "aktor-batch-2";
@@ -245,12 +248,9 @@ mod tests {
         .await
         .expect("Kunne ikke sette inn kontortilknytning for testoppsett");
 
-        let rows = select_by_aktor_ids(
-            &mut tx,
-            &[aktor_id_1.to_string(), aktor_id_2.to_string()],
-        )
-        .await
-        .expect("Kunne ikke hente kontortilknytninger");
+        let rows = select_by_aktor_ids(&mut tx, &[aktor_id_1.to_string(), aktor_id_2.to_string()])
+            .await
+            .expect("Kunne ikke hente kontortilknytninger");
 
         tx.commit().await.expect("Kunne ikke commit transaksjon");
 

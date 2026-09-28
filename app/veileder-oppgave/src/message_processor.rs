@@ -1,4 +1,5 @@
 use crate::config::ApplicationConfig;
+use crate::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 use crate::opprettelse::process_hendelselogg_message;
 use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
@@ -7,7 +8,6 @@ use sqlx::{Postgres, Transaction};
 use std::future::Future;
 use std::pin::Pin;
 use tracing::Instrument;
-use crate::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 
 pub struct VeilederOppgaveMessageProcessor {
     pub app_config: ApplicationConfig,
@@ -27,7 +27,8 @@ impl MessageProcessor for VeilederOppgaveMessageProcessor {
                 let oppgavehendelse_topic = &self.app_config.topic_oppgavehendelse;
 
                 if topic == hendelseslogg_topic.as_str() {
-                    process_hendelselogg_message(kafka_message_payload, &self.app_config, tx).await?;
+                    process_hendelselogg_message(kafka_message_payload, &self.app_config, tx)
+                        .await?;
                 } else if topic == oppgavehendelse_topic.as_str() {
                     ferdigstill_oppgave(kafka_message_payload, tx).await?;
                 } else {

@@ -54,8 +54,8 @@ impl UtledeFakta<Person, Opplysning> for UtledeFolkeregisterFakta {
 
 #[cfg(test)]
 mod tests {
-    use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
     use crate::fakta::UtledeFakta;
+    use crate::fakta::folkeregister_fakta::UtledeFolkeregisterFakta;
     use interne_hendelser::vo::Opplysning::{
         BosattEtterFregLoven, Dnummer, Doed, IkkeBosatt, OpphoertIdentitet, Savnet,
     };

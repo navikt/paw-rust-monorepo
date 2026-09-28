@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::vo::{OpplysningerOmArbeidssoeker, Metadata};
+use crate::vo::{Metadata, OpplysningerOmArbeidssoeker};
 
-pub const OPPLYSNINGER_OM_ARBEIDSSOEKER_HENDELSE_TYPE: &str = "intern.v1.opplysninger_om_arbeidssoeker";
+pub const OPPLYSNINGER_OM_ARBEIDSSOEKER_HENDELSE_TYPE: &str =
+    "intern.v1.opplysninger_om_arbeidssoeker";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

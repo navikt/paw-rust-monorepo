@@ -1,7 +1,7 @@
 use crate::modell::feil::FaktaFeil;
 
-use crate::fakta::config::read_regler_config;
 use crate::fakta::UtledeFakta;
+use crate::fakta::config::read_regler_config;
 use interne_hendelser::vo::Opplysning;
 use interne_hendelser::vo::Opplysning::{
     HarNorskAdresse, HarRegistrertAdresseIEuEoes, HarUtenlandskAdresse, IngenAdresseFunnet,
@@ -85,10 +85,7 @@ mod tests {
         let result = UtledeAdresseFakta::default().utlede_fakta(&person);
         match result {
             Ok(fakta) => panic!("Feil resultat: {:?}", fakta),
-            Err(err) => assert!(matches!(
-                err,
-                FaktaFeil::FlereBostedsadresser(2)
-            )),
+            Err(err) => assert!(matches!(err, FaktaFeil::FlereBostedsadresser(2))),
         };
     }
 

@@ -1,5 +1,5 @@
 mod avvist_under_18;
-mod vurder_oppholdsstatus;
 mod router;
+mod vurder_oppholdsstatus;
 
 pub use router::process_hendelselogg_message;

@@ -138,4 +138,3 @@ mod tests {
         oppgave_mock_api.assert_async().await;
     }
 }
-

@@ -1,10 +1,7 @@
-use opentelemetry::propagation::Extractor;
 use opentelemetry::global;
+use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::TraceContextExt;
-use rdkafka::{
-    message::Headers,
-    Message,
-};
+use rdkafka::{Message, message::Headers};
 use std::collections::HashMap;
 
 use rdkafka::message::OwnedMessage;
@@ -32,7 +29,9 @@ pub fn extract_headers_as_map(msg: &OwnedMessage) -> HashMap<&str, HeaderValue> 
         .collect()
 }
 
-pub fn extract_remote_trace_context(headers: &HashMap<&str, HeaderValue>) -> Option<opentelemetry::Context> {
+pub fn extract_remote_trace_context(
+    headers: &HashMap<&str, HeaderValue>,
+) -> Option<opentelemetry::Context> {
     struct HeaderExtractor<'a>(&'a HashMap<&'a str, HeaderValue>);
 
     impl<'a> Extractor for HeaderExtractor<'a> {
@@ -49,9 +48,7 @@ pub fn extract_remote_trace_context(headers: &HashMap<&str, HeaderValue>) -> Opt
     }
 
     let extractor = HeaderExtractor(headers);
-    let context = global::get_text_map_propagator(|propagator| {
-        propagator.extract(&extractor)
-    });
+    let context = global::get_text_map_propagator(|propagator| propagator.extract(&extractor));
 
     if context.span().span_context().is_valid() {
         Some(context)

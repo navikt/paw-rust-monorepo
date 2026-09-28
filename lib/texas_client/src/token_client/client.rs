@@ -47,13 +47,14 @@ pub(super) async fn parse_error_response(
     target: String,
 ) -> anyhow::Error {
     let status = response.status().as_u16();
-    let error_response = response
-        .json::<TexasErrorResponse>()
-        .await
-        .unwrap_or(TexasErrorResponse {
-            error: "unknown".to_string(),
-            error_description: "Kunne ikke parse feilrespons fra Texas".to_string(),
-        });
+    let error_response =
+        response
+            .json::<TexasErrorResponse>()
+            .await
+            .unwrap_or(TexasErrorResponse {
+                error: "unknown".to_string(),
+                error_description: "Kunne ikke parse feilrespons fra Texas".to_string(),
+            });
 
     TexasClientError::TokenError {
         status,

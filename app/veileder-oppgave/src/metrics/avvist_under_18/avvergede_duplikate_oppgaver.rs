@@ -2,7 +2,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllere
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prometheus::{register_gauge, Gauge};
+use prometheus::{Gauge, register_gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::LazyLock;
 
@@ -14,7 +14,10 @@ static DUPLIKATE_OPPGAVER_AVVERGET: LazyLock<Gauge> = LazyLock::new(|| {
     .expect("Failed to register veileder_oppgave_forhindrede_duplikater_total gauge")
 });
 
-pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+pub async fn oppdater(
+    fra_tidspunkt: DateTime<Utc>,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<()> {
     let antall = hent_antall_duplikater_avverget(fra_tidspunkt, transaction).await?;
     DUPLIKATE_OPPGAVER_AVVERGET.set(antall as f64);
     Ok(())
@@ -53,19 +56,19 @@ mod tests {
     use crate::domain::oppgave::Oppgave;
     use crate::domain::oppgave_status::OppgaveStatus::Ubehandlet;
     use crate::domain::oppgave_type::OppgaveType::{AvvistUnder18, VurderOppholdsstatus};
+    use HendelseLoggStatus::OppgaveOpprettet;
     use anyhow::Result;
     use chrono::{Duration, TimeZone, Utc};
     use postgres_testcontainer::postgres::setup_postgres_container;
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
     use uuid::Uuid;
-    use HendelseLoggStatus::OppgaveOpprettet;
 
     #[tokio::test]
     async fn test_hent_antall_duplikate_oppgaver() -> Result<()> {
         let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
+            .await
+            .expect("Failed to start Postgres container");
         let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
@@ -73,16 +76,52 @@ mod tests {
         let etter_cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap() + Duration::days(1);
         let foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
-        let avvist_oppgave = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_oppgave = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(1),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
+            Utc::now(),
+        );
         let avvist_oppgave_id = lagre_oppgave(&avvist_oppgave, &mut tx).await?;
-        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff), &mut tx).await?;
-        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), foer_cutoff), &mut tx).await?;
-        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveOpprettet, String::new(), etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(
+            avvist_oppgave_id,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff),
+            &mut tx,
+        )
+        .await?;
+        oppdater_hendelse_logg(
+            avvist_oppgave_id,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), foer_cutoff),
+            &mut tx,
+        )
+        .await?;
+        oppdater_hendelse_logg(
+            avvist_oppgave_id,
+            HendelseLoggEntry::new(OppgaveOpprettet, String::new(), etter_cutoff),
+            &mut tx,
+        )
+        .await?;
 
         // VurderOppholdsstatus med duplikat — skal IKKE telles
-        let vurder_oppgave = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let vurder_oppgave = Oppgave::new(
+            Uuid::new_v4(),
+            VurderOppholdsstatus,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(2),
+            Identitetsnummer::new("12345678902".to_string()).unwrap(),
+            Utc::now(),
+        );
         let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave, &mut tx).await?;
-        oppdater_hendelse_logg(vurder_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(
+            vurder_oppgave_id,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), etter_cutoff),
+            &mut tx,
+        )
+        .await?;
 
         tx.commit().await?;
 

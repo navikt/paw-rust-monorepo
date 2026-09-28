@@ -1,15 +1,15 @@
 use crate::db::oppgave_functions::{
     bytt_oppgave_status, finn_oppgave_for_ekstern_id, oppdater_hendelse_logg,
 };
+use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 use crate::domain::hendelse_logg_entry::HendelseLoggEntry;
 use crate::domain::hendelse_logg_status::HendelseLoggStatus;
 use crate::domain::oppgave_status::OppgaveStatus;
+use crate::ferdigstilling::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 use HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
 use OppgaveStatus::{Ferdigbehandlet, Opprettet};
 use chrono::Utc;
 use sqlx::{Postgres, Transaction};
-use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
-use crate::ferdigstilling::oppgave_hendelse::{OppgaveHendelseMelding, OppgaveHendelsetype};
 
 pub async fn ferdigstill_oppgave(
     kafka_message_payload: &[u8],
@@ -66,13 +66,15 @@ mod tests {
     use crate::domain::oppgave::Oppgave;
     use crate::domain::oppgave_type::OppgaveType;
 
-    use crate::domain::hendelse_logg_status::HendelseLoggStatus::{EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt};
+    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
+    use crate::domain::hendelse_logg_status::HendelseLoggStatus::{
+        EksternOppgaveFeilregistrert, EksternOppgaveFerdigstilt,
+    };
     use anyhow::Result;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use types::arbeidssoeker_id::ArbeidssoekerId;
     use types::identitetsnummer::Identitetsnummer;
     use uuid::Uuid;
-    use crate::domain::ekstern_oppgave_id::EksternOppgaveId;
 
     const EKSTERN_OPPGAVE_ID_FERDIGSTILT: i64 = 55555;
     const EKSTERN_OPPGAVE_ID_FEILREGISTRERT: i64 = 66666;
@@ -127,8 +129,12 @@ mod tests {
             Utc::now(),
         );
         let oppgave_id = lagre_oppgave(&oppgave_til_ferdigstilling, &mut tx).await?;
-        oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FERDIGSTILT), &mut tx)
-            .await?;
+        oppdater_oppgave_med_ekstern_id(
+            oppgave_id,
+            EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FERDIGSTILT),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let message = OPPGAVE_FERDIGSTILT_JSON.as_bytes();
@@ -183,8 +189,12 @@ mod tests {
             Utc::now(),
         );
         let oppgave_id = lagre_oppgave(&oppgave_til_feilregistrering, &mut tx).await?;
-        oppdater_oppgave_med_ekstern_id(oppgave_id, EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FEILREGISTRERT), &mut tx)
-            .await?;
+        oppdater_oppgave_med_ekstern_id(
+            oppgave_id,
+            EksternOppgaveId::from(EKSTERN_OPPGAVE_ID_FEILREGISTRERT),
+            &mut tx,
+        )
+        .await?;
         tx.commit().await?;
 
         let message = OPPGAVE_FEILREGISTRERT_JSON.as_bytes();

@@ -6,7 +6,7 @@ use std::num::NonZeroU16;
 use chrono::{Duration, Timelike, Utc};
 use common::{aktiv_periode, avsluttet_periode, les_rad, setup};
 use interne_hendelser::vo::Opplysning;
-use paw_test::hendelse_builder::{rfc3339, StartetBuilder};
+use paw_test::hendelse_builder::{StartetBuilder, rfc3339};
 use types::arbeidssoekerperiode_id::ArbeidssoekerperiodeId;
 use utgang::dao::les_periode::{hent_utdaterte_perioder, oppdater_periode};
 use utgang::dao::skriv_periode::{skriv_periode_melding, skriv_startet_hendelse};
@@ -38,7 +38,11 @@ async fn skriv_startet_hendelse_setter_bekreftet_false_og_opplysninger_i_tilstan
 #[tokio::test]
 async fn skriv_startet_hendelse_setter_korrekt_arbeidssoeker_id() {
     let pool = setup().await;
-    let startet = StartetBuilder { arbeidssoeker_id: 42, ..Default::default() }.build();
+    let startet = StartetBuilder {
+        arbeidssoeker_id: 42,
+        ..Default::default()
+    }
+    .build();
     let id = startet.hendelse_id;
 
     let mut tx = pool.begin().await.unwrap();
@@ -55,7 +59,9 @@ async fn skriv_periode_melding_aktiv_periode_har_ikke_stoppet() {
     let id = Uuid::new_v4();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_periode_melding(&mut tx, aktiv_periode(id)).await.unwrap();
+    skriv_periode_melding(&mut tx, aktiv_periode(id))
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     let rad = les_rad(&pool, id).await.unwrap();
@@ -69,7 +75,9 @@ async fn skriv_periode_melding_avsluttet_periode_har_stoppet_satt() {
     let id = Uuid::new_v4();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_periode_melding(&mut tx, avsluttet_periode(id)).await.unwrap();
+    skriv_periode_melding(&mut tx, avsluttet_periode(id))
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     let rad = les_rad(&pool, id).await.unwrap();
@@ -94,12 +102,17 @@ async fn skriv_periode_melding_upsert_beholder_tilstand_fra_startet_hendelse() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    skriv_periode_melding(&mut tx, aktiv_periode(id)).await.unwrap();
+    skriv_periode_melding(&mut tx, aktiv_periode(id))
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     let rad = les_rad(&pool, id).await.unwrap();
     let initielle = rad.tilstand.unwrap()["initielle"].as_array().unwrap().len();
-    assert_eq!(initielle, 2, "COALESCE skal bevare tilstand fra startet hendelse");
+    assert_eq!(
+        initielle, 2,
+        "COALESCE skal bevare tilstand fra startet hendelse"
+    );
     assert!(rad.bekreftet, "bekreftet: false OR true = true");
 }
 
@@ -175,9 +188,15 @@ async fn hent_utdaterte_perioder_ekskluderer_trenger_kontroll_true() {
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
-    oppdater_periode(&mut tx, ArbeidssoekerperiodeId::from(med_id), gammelt_tidspunkt, true, None)
-        .await
-        .unwrap();
+    oppdater_periode(
+        &mut tx,
+        ArbeidssoekerperiodeId::from(med_id),
+        gammelt_tidspunkt,
+        true,
+        None,
+    )
+    .await
+    .unwrap();
     tx.commit().await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
@@ -234,9 +253,13 @@ async fn oppdater_periode_endrer_sist_oppdatert_og_trenger_kontroll() {
     skriv_startet_hendelse(&mut tx, startet).await.unwrap();
     tx.commit().await.unwrap();
 
-    let ny_tid = (Utc::now() + Duration::hours(1)).with_nanosecond(0).unwrap();
+    let ny_tid = (Utc::now() + Duration::hours(1))
+        .with_nanosecond(0)
+        .unwrap();
     let mut tx = pool.begin().await.unwrap();
-    oppdater_periode(&mut tx, id.clone(), ny_tid, true, None).await.unwrap();
+    oppdater_periode(&mut tx, id.clone(), ny_tid, true, None)
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     let rad = les_rad(&pool, id.0).await.unwrap();
@@ -258,9 +281,15 @@ async fn oppdater_periode_kan_sette_ny_tilstand() {
     skriv_startet_hendelse(&mut tx, startet).await.unwrap();
     tx.commit().await.unwrap();
 
-    let ny_tilstand = Tilstand { initielle: vec![Opplysning::ErOver18Aar], gjeldende: None, forrige: None };
+    let ny_tilstand = Tilstand {
+        initielle: vec![Opplysning::ErOver18Aar],
+        gjeldende: None,
+        forrige: None,
+    };
     let mut tx = pool.begin().await.unwrap();
-    oppdater_periode(&mut tx, id.clone(), Utc::now(), false, Some(ny_tilstand)).await.unwrap();
+    oppdater_periode(&mut tx, id.clone(), Utc::now(), false, Some(ny_tilstand))
+        .await
+        .unwrap();
     tx.commit().await.unwrap();
 
     let rad = les_rad(&pool, id.0).await.unwrap();

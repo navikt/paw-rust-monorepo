@@ -2,7 +2,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllere
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prometheus::{register_gauge_vec, GaugeVec};
+use prometheus::{GaugeVec, register_gauge_vec};
 use sqlx::{FromRow, Postgres, Transaction};
 use std::sync::LazyLock;
 
@@ -15,7 +15,10 @@ static AVVERGEDE_DUPLIKATER_PER_DAG: LazyLock<GaugeVec> = LazyLock::new(|| {
     .expect("Failed to register veileder_oppgave_avvergede_duplikater_per_dag gauge")
 });
 
-pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+pub async fn oppdater(
+    fra_tidspunkt: DateTime<Utc>,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<()> {
     let rader = hent_avvergede_duplikater_per_dag(fra_tidspunkt, transaction).await?;
     AVVERGEDE_DUPLIKATER_PER_DAG.reset();
     for rad in &rader {
@@ -79,26 +82,61 @@ mod tests {
     #[tokio::test]
     async fn test_hent_avvergede_duplikater_per_dag() -> Result<()> {
         let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
+            .await
+            .expect("Failed to start Postgres container");
         let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
 
-        let avvist_oppgave = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), Utc::now());
+        let avvist_oppgave = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(1),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
+            Utc::now(),
+        );
         let avvist_oppgave_id = lagre_oppgave(&avvist_oppgave, &mut tx).await?;
         let første_dag = Utc.with_ymd_and_hms(2026, 3, 15, 10, 0, 0).unwrap();
         let andre_dag = første_dag + Duration::days(1);
         let tidspunkt_før_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
         for tidspunkt in [første_dag, første_dag, andre_dag, tidspunkt_før_cutoff] {
-            oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt), &mut tx).await?;
+            oppdater_hendelse_logg(
+                avvist_oppgave_id,
+                HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt),
+                &mut tx,
+            )
+            .await?;
         }
-        oppdater_hendelse_logg(avvist_oppgave_id, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), første_dag), &mut tx).await?;
+        oppdater_hendelse_logg(
+            avvist_oppgave_id,
+            HendelseLoggEntry::new(
+                HendelseLoggStatus::OppgaveOpprettet,
+                String::new(),
+                første_dag,
+            ),
+            &mut tx,
+        )
+        .await?;
 
-        let vurder_oppgave = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), Utc::now());
+        let vurder_oppgave = Oppgave::new(
+            Uuid::new_v4(),
+            VurderOppholdsstatus,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(2),
+            Identitetsnummer::new("12345678902".to_string()).unwrap(),
+            Utc::now(),
+        );
         let vurder_oppgave_id = lagre_oppgave(&vurder_oppgave, &mut tx).await?;
-        oppdater_hendelse_logg(vurder_oppgave_id, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), første_dag), &mut tx).await?;
+        oppdater_hendelse_logg(
+            vurder_oppgave_id,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), første_dag),
+            &mut tx,
+        )
+        .await?;
 
         tx.commit().await?;
 
@@ -106,15 +144,14 @@ mod tests {
         let cutoff = Utc.with_ymd_and_hms(2026, 3, 10, 0, 0, 0).unwrap();
         let rader = hent_avvergede_duplikater_per_dag(cutoff, &mut tx).await?;
 
-        assert_eq!(rader.len(), 2, "Skal ha to datoer etter cutoff — VurderOppholdsstatus ekskludert");
-        let avvergede_duplikater_forste_dag = rader
-            .iter()
-            .find(|r| r.dato == "2026-03-15")
-            .unwrap();
-        let avvergede_duplikater_andre_dag = rader
-            .iter()
-            .find(|r| r.dato == "2026-03-16")
-            .unwrap();
+        assert_eq!(
+            rader.len(),
+            2,
+            "Skal ha to datoer etter cutoff — VurderOppholdsstatus ekskludert"
+        );
+        let avvergede_duplikater_forste_dag =
+            rader.iter().find(|r| r.dato == "2026-03-15").unwrap();
+        let avvergede_duplikater_andre_dag = rader.iter().find(|r| r.dato == "2026-03-16").unwrap();
         assert_eq!(avvergede_duplikater_forste_dag.antall, 2);
         assert_eq!(avvergede_duplikater_andre_dag.antall, 1);
 

@@ -33,7 +33,8 @@ pub fn hwm_pause_timeout_task(
     let hwm_version = *kafka_config.hwm_version;
     let stuck_partition_threshold = app_config.hwm_pause.paused_partitions_threshold;
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(app_config.hwm_pause.check_paused_partitions_interval);
+        let mut interval =
+            tokio::time::interval(app_config.hwm_pause.check_paused_partitions_interval);
         loop {
             interval.tick().await;
             let mut tx = match pg_pool.begin().await {

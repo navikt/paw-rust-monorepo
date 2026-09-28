@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::HashSet;
+use uuid::Uuid;
 
-use crate::vo::{Metadata, Opplysning};
 use crate::aarsak::Aarsak;
+use crate::vo::{Metadata, Opplysning};
 
 pub const AVSLUTTET_HENDELSE_TYPE: &str = "intern.v1.avsluttet";
 

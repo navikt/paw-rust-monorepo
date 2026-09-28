@@ -22,4 +22,3 @@ pub trait UtledeFakta<INN, UT> {
             .collect()
     }
 }
-

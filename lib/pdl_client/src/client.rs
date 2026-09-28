@@ -1,9 +1,9 @@
-use crate::config::{PDLClientConfig, BEHANDLINGSNUMMER};
+use crate::config::{BEHANDLINGSNUMMER, PDLClientConfig};
 use anyhow::Result;
 use graphql_client::{GraphQLQuery, QueryBody};
 use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
 use pdl_graphql::pdl::hent_person_navn::HentPersonNavnHentPerson;
-use pdl_graphql::pdl::{hent_person_bolk, hent_person_navn, HentPersonBolk, HentPersonNavn};
+use pdl_graphql::pdl::{HentPersonBolk, HentPersonNavn, hent_person_bolk, hent_person_navn};
 use std::sync::Arc;
 use texas_client::token_client::M2MTokenClient;
 use types::identitetsnummer::Identitetsnummer;

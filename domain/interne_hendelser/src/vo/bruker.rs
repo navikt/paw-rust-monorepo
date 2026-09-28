@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{BrukerType};
+use super::BrukerType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -2,7 +2,7 @@ use crate::domain::hendelse_logg_status::HendelseLoggStatus::OppgaveFinnesAllere
 use crate::domain::oppgave_type::OppgaveType;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prometheus::{register_gauge, Gauge};
+use prometheus::{Gauge, register_gauge};
 use sqlx::{Postgres, Transaction};
 use std::sync::LazyLock;
 
@@ -14,7 +14,10 @@ static GJENTATTE_FORSOK_GJENNOMSNITT: LazyLock<Gauge> = LazyLock::new(|| {
     .expect("Failed to register veileder_oppgave_gjentatte_forsok_gjennomsnitt gauge")
 });
 
-pub async fn oppdater(fra_tidspunkt: DateTime<Utc>, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {
+pub async fn oppdater(
+    fra_tidspunkt: DateTime<Utc>,
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<()> {
     let gjennomsnitt = hent_gjentatte_forsok_gjennomsnitt(fra_tidspunkt, transaction).await?;
     GJENTATTE_FORSOK_GJENNOMSNITT.set(gjennomsnitt);
     Ok(())
@@ -68,8 +71,8 @@ mod tests {
     #[tokio::test]
     async fn test_hent_gjentatte_forsok_gjennomsnitt() -> Result<()> {
         let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
+            .await
+            .expect("Failed to start Postgres container");
         let pg_pool = postgres_guard.pg_pool;
         sqlx::migrate!("./migrations").run(&pg_pool).await?;
         let mut tx = pg_pool.begin().await?;
@@ -78,27 +81,92 @@ mod tests {
         let tidspunkt_foer_cutoff = Utc.with_ymd_and_hms(2026, 3, 9, 0, 0, 0).unwrap();
 
         // Person 1: to ekstra forsøk etter cutoff (AvvistUnder18)
-        let avvist_med_to_forsok = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(1), Identitetsnummer::new("12345678901".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let avvist_med_to_forsok = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(1),
+            Identitetsnummer::new("12345678901".to_string()).unwrap(),
+            tidspunkt_etter_cutoff,
+        );
         let oppgave_id_1 = lagre_oppgave(&avvist_med_to_forsok, &mut tx).await?;
-        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
-        oppdater_hendelse_logg(oppgave_id_1, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(
+            oppgave_id_1,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff),
+            &mut tx,
+        )
+        .await?;
+        oppdater_hendelse_logg(
+            oppgave_id_1,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff),
+            &mut tx,
+        )
+        .await?;
 
         // Person 2: null ekstra forsøk (AvvistUnder18)
-        let avvist_uten_forsok = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(2), Identitetsnummer::new("12345678902".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let avvist_uten_forsok = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(2),
+            Identitetsnummer::new("12345678902".to_string()).unwrap(),
+            tidspunkt_etter_cutoff,
+        );
         let oppgave_id_2 = lagre_oppgave(&avvist_uten_forsok, &mut tx).await?;
-        oppdater_hendelse_logg(oppgave_id_2, HendelseLoggEntry::new(HendelseLoggStatus::OppgaveOpprettet, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(
+            oppgave_id_2,
+            HendelseLoggEntry::new(
+                HendelseLoggStatus::OppgaveOpprettet,
+                String::new(),
+                tidspunkt_etter_cutoff,
+            ),
+            &mut tx,
+        )
+        .await?;
 
         // Person 3: VurderOppholdsstatus med forsøk — skal IKKE telles
-        let vurder_oppgave = Oppgave::new(Uuid::new_v4(), VurderOppholdsstatus, Ubehandlet, vec![], ArbeidssoekerId(3), Identitetsnummer::new("12345678905".to_string()).unwrap(), tidspunkt_etter_cutoff);
+        let vurder_oppgave = Oppgave::new(
+            Uuid::new_v4(),
+            VurderOppholdsstatus,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(3),
+            Identitetsnummer::new("12345678905".to_string()).unwrap(),
+            tidspunkt_etter_cutoff,
+        );
         let oppgave_id_vurder = lagre_oppgave(&vurder_oppgave, &mut tx).await?;
         for _ in 0..5 {
-            oppdater_hendelse_logg(oppgave_id_vurder, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_etter_cutoff), &mut tx).await?;
+            oppdater_hendelse_logg(
+                oppgave_id_vurder,
+                HendelseLoggEntry::new(
+                    OppgaveFinnesAllerede,
+                    String::new(),
+                    tidspunkt_etter_cutoff,
+                ),
+                &mut tx,
+            )
+            .await?;
         }
 
         // Person 4: oppgave før cutoff — skal ikke telles
-        let avvist_foer_cutoff = Oppgave::new(Uuid::new_v4(), AvvistUnder18, Ubehandlet, vec![], ArbeidssoekerId(4), Identitetsnummer::new("12345678903".to_string()).unwrap(), tidspunkt_foer_cutoff);
+        let avvist_foer_cutoff = Oppgave::new(
+            Uuid::new_v4(),
+            AvvistUnder18,
+            Ubehandlet,
+            vec![],
+            ArbeidssoekerId(4),
+            Identitetsnummer::new("12345678903".to_string()).unwrap(),
+            tidspunkt_foer_cutoff,
+        );
         let oppgave_id_3 = lagre_oppgave(&avvist_foer_cutoff, &mut tx).await?;
-        oppdater_hendelse_logg(oppgave_id_3, HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_foer_cutoff), &mut tx).await?;
+        oppdater_hendelse_logg(
+            oppgave_id_3,
+            HendelseLoggEntry::new(OppgaveFinnesAllerede, String::new(), tidspunkt_foer_cutoff),
+            &mut tx,
+        )
+        .await?;
 
         tx.commit().await?;
 

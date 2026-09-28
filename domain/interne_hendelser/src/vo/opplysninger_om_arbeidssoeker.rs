@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{Metadata, Utdanning, Helse, Jobbsituasjon, Annet};
+use super::{Annet, Helse, Jobbsituasjon, Metadata, Utdanning};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

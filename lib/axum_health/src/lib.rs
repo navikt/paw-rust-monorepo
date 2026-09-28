@@ -1,7 +1,7 @@
 pub mod paw_tracing;
 pub use paw_tracing::extract_trace_context;
 
-use axum::{extract::State, http::StatusCode, routing::get, Router};
+use axum::{Router, extract::State, http::StatusCode, routing::get};
 use health_and_monitoring::{
     CheckType::{HasStarted, IsAlive, IsReady},
     HealthCheck,

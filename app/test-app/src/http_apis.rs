@@ -2,10 +2,10 @@ use crate::app_logic::AppLogic;
 
 use axum::http::HeaderMap;
 use axum::{
+    Json,
     extract::{self, State},
     http::StatusCode,
     routing::post,
-    Json,
 };
 use axum_health::paw_tracing::add_otel_trace_layer;
 use health_and_monitoring::HealthCheck;

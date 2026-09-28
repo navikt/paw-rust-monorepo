@@ -1,5 +1,5 @@
-use thiserror::Error;
 use strum::{Display, EnumString};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, EnumString, Display)]
 #[strum(
@@ -61,9 +61,10 @@ mod tests {
         let ukjent_status = "UkjentStatus";
         assert!(HendelseLoggStatus::from_str(ukjent_status).is_err());
         assert_eq!(
-            HendelseLoggStatus::from_str(ukjent_status).unwrap_err().to_string(),
+            HendelseLoggStatus::from_str(ukjent_status)
+                .unwrap_err()
+                .to_string(),
             format!("Ugyldig HendelseLoggStatus: {}", ukjent_status)
         );
     }
 }
-

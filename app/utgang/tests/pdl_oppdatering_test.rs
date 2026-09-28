@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::{Duration, Timelike, Utc};
 use common::PdlTestContext;
 use interne_hendelser::vo::Opplysning;
-use paw_test::hendelse_builder::{rfc3339, StartetBuilder};
+use paw_test::hendelse_builder::{StartetBuilder, rfc3339};
 use std::collections::HashSet;
 use utgang::dao::skriv_periode::skriv_startet_hendelse;
 use uuid::Uuid;
@@ -33,8 +33,13 @@ async fn kjoer_oppdatering_oppdaterer_sist_oppdatert_og_setter_trenger_kontroll(
     skriv_gammel_periode(&ctx, id, ident).await;
     let _mock = ctx.stub_pdl_med_person(&[ident]).await;
 
-    let gjeldene = (Utc::now() + Duration::hours(2)).with_nanosecond(0).unwrap();
-    let hadde_arbeid = ctx.pdl_oppdatering(Duration::hours(1)).kjoer_oppdatering(gjeldene).await?;
+    let gjeldene = (Utc::now() + Duration::hours(2))
+        .with_nanosecond(0)
+        .unwrap();
+    let hadde_arbeid = ctx
+        .pdl_oppdatering(Duration::hours(1))
+        .kjoer_oppdatering(gjeldene)
+        .await?;
 
     assert!(hadde_arbeid);
     let (sist_oppdatert, trenger_kontroll) = ctx.les_rad(id).await.unwrap();
@@ -71,7 +76,10 @@ async fn kjoer_oppdatering_hopper_over_periode_uten_pdl_person() -> Result<()> {
 
     assert!(!hadde_arbeid);
     let (_, trenger_kontroll) = ctx.les_rad(id).await.unwrap();
-    assert!(!trenger_kontroll, "sist_oppdatert skal ikke endres når PDL mangler person");
+    assert!(
+        !trenger_kontroll,
+        "sist_oppdatert skal ikke endres når PDL mangler person"
+    );
     Ok(())
 }
 
@@ -86,8 +94,13 @@ async fn kjoer_oppdatering_haandterer_batch_med_flere_perioder() -> Result<()> {
     }
     let _mock = ctx.stub_pdl_med_person(&identer).await;
 
-    let gjeldene = (Utc::now() + Duration::hours(2)).with_nanosecond(0).unwrap();
-    let hadde_arbeid = ctx.pdl_oppdatering(Duration::hours(1)).kjoer_oppdatering(gjeldene).await?;
+    let gjeldene = (Utc::now() + Duration::hours(2))
+        .with_nanosecond(0)
+        .unwrap();
+    let hadde_arbeid = ctx
+        .pdl_oppdatering(Duration::hours(1))
+        .kjoer_oppdatering(gjeldene)
+        .await?;
 
     assert!(hadde_arbeid);
     for id in &ider {

@@ -25,8 +25,8 @@ pub enum OppgaveStatusParseError {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_from_str_valid_status() {
@@ -46,7 +46,9 @@ mod tests {
         let ugyldig_status = "UgyldigStatus";
         assert!(OppgaveStatus::from_str(ugyldig_status).is_err());
         assert_eq!(
-            OppgaveStatus::from_str(ugyldig_status).unwrap_err().to_string(),
+            OppgaveStatus::from_str(ugyldig_status)
+                .unwrap_err()
+                .to_string(),
             format!("Ugyldig oppgavestatus: {}", ugyldig_status)
         );
     }
