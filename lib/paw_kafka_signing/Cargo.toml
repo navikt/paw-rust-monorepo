@@ -1,0 +1,11 @@
+[package]
+name = "paw_kafka_signing"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+paw_team_logs = { path = "../paw_team_logs" }
+rdkafka = { workspace = true }
+p256 = { workspace = true }
+base64 = { workspace = true }
+thiserror = { workspace = true }

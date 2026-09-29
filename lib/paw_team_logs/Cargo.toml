@@ -1,0 +1,14 @@
+[package]
+name = "paw_team_logs"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+prometheus = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["net", "io-util", "time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -42,6 +42,11 @@ spec:
       enabled: true
   kafka:
     pool: {{ kafka }}
+  accessPolicy:
+    outbound:
+      rules:
+        - application: logging
+          namespace: nais-system
   resources:
     limits:
       memory: 256Mi

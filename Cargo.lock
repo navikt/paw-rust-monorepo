@@ -145,6 +145,7 @@ dependencies = [
  "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
+ "paw_team_logs",
  "rdkafka",
  "serde",
  "serde-env-field",
@@ -3096,6 +3097,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "paw_kafka_signing"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "p256",
+ "paw_team_logs",
+ "rdkafka",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "paw_key_gen_client"
 version = "0.1.0"
 dependencies = [
@@ -3206,6 +3218,17 @@ dependencies = [
  "serde-env-field",
  "sqlx",
  "tracing",
+]
+
+[[package]]
+name = "paw_team_logs"
+version = "0.1.0"
+dependencies = [
+ "prometheus",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]

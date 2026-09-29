@@ -19,6 +19,8 @@ members = [
     "lib/paw_sqlx",
     "lib/paw_rdkafka",
     "lib/paw_rdkafka_hwm",
+    "lib/paw_team_logs",
+    "lib/paw_kafka_signing",
     "lib/nais_schema_registry",
     "lib/paw_test",
     "lib/paw_key_gen_client",
@@ -95,3 +97,4 @@ testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serde_yaml = "0.9"
 jsonschema = "0.56.0"
 dtor = "1.0"
+p256 = { version = "0.13.2", features = ["ecdsa", "pkcs8"] }
