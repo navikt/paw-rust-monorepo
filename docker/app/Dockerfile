@@ -1,6 +1,6 @@
 # App-image bygget på det forhåndskompilerte builder-imaget.
 #
-# Brukes foreløpig kun av internkontroll-piloten. De øvrige appene bygger
+# Brukes foreløpig av internkontroll og kartlegging-api. De øvrige appene bygger
 # fortsatt med Dockerfile i repo-roten, som koker avhengighetene selv.
 # Rollback er å peke workflowen tilbake på den.
 #
