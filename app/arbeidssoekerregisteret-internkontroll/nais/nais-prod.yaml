@@ -9,8 +9,8 @@ spec:
   image: {{ image }}
   port: 8080
   replicas:
-    min: 2
-    max: 2
+    min: 6
+    max: 6
   env:
     - name: PGSSLMODE
       value: "VerifyFull"
