@@ -3,8 +3,8 @@ use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
 };
 use paw_kafka_signing::{
-    RecordSigner, RecordVerifier, SIGNATURE_HEADER, SIGNING_KEY_ID_HEADER, Validation,
-    signature_payload, strip_signing_headers,
+    RecordSigner, RecordVerifier, SIGNATURE_HEADER, SIGNING_KEY_ID_HEADER, SignatureError,
+    ValidSignature, signature_payload, strip_signing_headers,
 };
 use rdkafka::Message;
 use rdkafka::message::{Header, Headers, OwnedHeaders, OwnedMessage, Timestamp};
@@ -70,7 +70,9 @@ fn java_signed_vector_is_valid_in_rust() {
         });
     assert_eq!(
         verifier().validate(&message(Some(headers))),
-        Validation::Valid
+        Ok(ValidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
     );
 }
 
@@ -127,19 +129,30 @@ fn sign_record_replaces_old_headers_and_validates_without_changing_message() {
         42,
         Some(headers),
     );
-    assert_eq!(verifier().validate(&record), Validation::Valid);
+    assert_eq!(
+        verifier().validate(&record),
+        Ok(ValidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
+    );
     assert_eq!(record.payload(), Some(b"value".as_slice()));
     assert_eq!(
         verifier().validate(&record.clone().set_payload(Some(b"tampered".to_vec()))),
-        Validation::InvalidSignature("test-ecdsa-v1".into())
+        Err(SignatureError::InvalidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
     );
     assert_eq!(
         verifier().validate(&record.clone().set_key(Some(b"tampered".to_vec()))),
-        Validation::InvalidSignature("test-ecdsa-v1".into())
+        Err(SignatureError::InvalidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
     );
     assert_eq!(
         verifier().validate(&record.set_timestamp(Timestamp::CreateTime(timestamp + 1))),
-        Validation::InvalidSignature("test-ecdsa-v1".into())
+        Err(SignatureError::InvalidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
     );
 }
 
@@ -148,10 +161,41 @@ fn missing_or_bad_signatures_are_only_results_not_drops() {
     let unsigned = message(None);
     assert_eq!(
         verifier().validate(&unsigned),
-        Validation::MissingHeaders {
-            signature: false,
-            key_id: false
-        }
+        Err(SignatureError::MissingSignature)
+    );
+    let only_key_id = OwnedHeaders::new().insert(Header {
+        key: SIGNING_KEY_ID_HEADER,
+        value: Some("test-ecdsa-v1"),
+    });
+    assert_eq!(
+        verifier().validate(&message(Some(only_key_id))),
+        Err(SignatureError::MissingSignature)
+    );
+    let only_signature = OwnedHeaders::new().insert(Header {
+        key: SIGNATURE_HEADER,
+        value: Some(JVM_SIGNATURE),
+    });
+    assert_eq!(
+        verifier().validate(&message(Some(only_signature))),
+        Err(SignatureError::TechnicalError {
+            reason: "missing key ID"
+        })
+    );
+    let oversized_key_id = "x".repeat(129);
+    let headers = OwnedHeaders::new()
+        .insert(Header {
+            key: SIGNATURE_HEADER,
+            value: Some(JVM_SIGNATURE),
+        })
+        .insert(Header {
+            key: SIGNING_KEY_ID_HEADER,
+            value: Some(oversized_key_id.as_bytes()),
+        });
+    assert_eq!(
+        verifier().validate(&message(Some(headers))),
+        Err(SignatureError::TechnicalError {
+            reason: "invalid key ID"
+        })
     );
     let signed = signer().sign(b"key", b"", TIMESTAMP, b"value").unwrap();
     let headers = OwnedHeaders::new()
@@ -165,7 +209,9 @@ fn missing_or_bad_signatures_are_only_results_not_drops() {
         });
     assert_eq!(
         verifier().validate(&message(Some(headers))),
-        Validation::UnknownKey("unknown".into())
+        Err(SignatureError::UnknownKey {
+            key_id: "unknown".into()
+        })
     );
     let headers = OwnedHeaders::new()
         .insert(Header {
@@ -178,7 +224,24 @@ fn missing_or_bad_signatures_are_only_results_not_drops() {
         });
     assert_eq!(
         verifier().validate(&message(Some(headers))),
-        Validation::TechnicalError
+        Err(SignatureError::TechnicalError {
+            reason: "invalid signature base64"
+        })
+    );
+    let headers = OwnedHeaders::new()
+        .insert(Header {
+            key: SIGNATURE_HEADER,
+            value: Some(JVM_SIGNATURE),
+        })
+        .insert(Header {
+            key: SIGNING_KEY_ID_HEADER,
+            value: Some(&[0xff]),
+        });
+    assert_eq!(
+        verifier().validate(&message(Some(headers))),
+        Err(SignatureError::TechnicalError {
+            reason: "invalid key ID encoding"
+        })
     );
 }
 
@@ -205,7 +268,12 @@ fn absent_bytes_and_pem_wrapped_private_key() {
         0,
         Some(headers),
     );
-    assert_eq!(verifier().validate(&msg), Validation::Valid);
+    assert_eq!(
+        verifier().validate(&msg),
+        Ok(ValidSignature {
+            key_id: "test-ecdsa-v1".into()
+        })
+    );
     let empty = strip_signing_headers(msg.headers());
     assert_eq!(empty.count(), 0);
     assert_eq!(STANDARD.decode(PRIVATE_KEY).unwrap().len(), 138);
