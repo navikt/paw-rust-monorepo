@@ -1,8 +1,7 @@
 # App-image bygget på det forhåndskompilerte builder-imaget.
 #
-# Brukes foreløpig av internkontroll og kartlegging-api. De øvrige appene bygger
-# fortsatt med Dockerfile i repo-roten, som koker avhengighetene selv.
-# Rollback er å peke workflowen tilbake på den.
+# Brukes av app-workflowene. Rollback er å peke workflowen tilbake på
+# Dockerfile i repo-roten, som koker avhengighetene selv.
 #
 # BUILDER_IMAGE settes av CI til en digest-pinnet referanse. Defaulten gjelder
 # lokale bygg, der `just docker-build` bygger builder-imaget først.

@@ -10,7 +10,9 @@ on:
       - "Cargo.toml"
       - "lib/**"
       - "domain/**"
-      - "Dockerfile"
+      - "docker/app/Dockerfile"
+      - "docker/builder/Dockerfile"
+      - ".github/workflows/rust-builder.yml"
 env:
   APP_NAME: test-app
 jobs:
@@ -23,32 +25,55 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
-          toolchain: stable
+          toolchain: "1.98.0"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: workspace-test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test -p ${{ env.APP_NAME }}
+  builder:
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    name: Builder image
+    permissions:
+      contents: "read"
+      packages: "write"
+    uses: ./.github/workflows/rust-builder.yml
+    with:
+      app: test-app
+
   build:
     if: ${{ github.actor != 'dependabot[bot]' }}
     name: Build
+    needs: [builder]
     runs-on: ubuntu-latest
     permissions:
       contents: "read"
       id-token: "write"
+      packages: "read"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: stable
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: docker-build-push
         uses: nais/docker-build-push@2d2b0a7193e65422b7f0355d4afb445e0a8b2cc3 # v0
         id: docker-build-push
         with:
           team: paw
           image_suffix: ${{ env.APP_NAME }}
-          cache_from: type=gha,scope=${{ env.APP_NAME }}
-          cache_to: type=gha,scope=${{ env.APP_NAME }},mode=max
+          dockerfile: docker/app/Dockerfile
+          cache_from: ""
+          cache_to: ""
           build_args: |
             APP=${{ env.APP_NAME }}
             GIT_COMMIT_HASH=${{ github.sha }}
+            BUILDER_IMAGE=${{ needs.builder.outputs.image }}
     outputs:
       image: ${{ steps.docker-build-push.outputs.image }}
 
