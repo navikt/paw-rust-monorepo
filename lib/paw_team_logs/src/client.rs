@@ -87,7 +87,7 @@ impl BufferedTeamLogs {
         )
     }
 
-    fn start(transport: DirectTeamLogs, capacity: usize) -> Result<Self, TeamLogsError> {
+    fn start(mut transport: DirectTeamLogs, capacity: usize) -> Result<Self, TeamLogsError> {
         if capacity == 0 {
             return Err(TeamLogsError::QueueUnavailable);
         }

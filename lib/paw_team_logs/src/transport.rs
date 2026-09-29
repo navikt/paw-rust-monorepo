@@ -28,6 +28,7 @@ pub(crate) struct DirectTeamLogs {
     namespace: String,
     pod: String,
     app: String,
+    stream: Option<TcpStream>,
 }
 
 #[derive(Serialize)]
@@ -76,11 +77,12 @@ impl DirectTeamLogs {
             namespace: namespace.into(),
             pod: pod.into(),
             app: app.into(),
+            stream: None,
         }
     }
 
     pub(crate) async fn send(
-        &self,
+        &mut self,
         level: LogLevel,
         logger_name: &str,
         message: &str,
@@ -105,7 +107,7 @@ impl DirectTeamLogs {
     }
 
     async fn send_inner(
-        &self,
+        &mut self,
         level: LogLevel,
         logger_name: &str,
         message: &str,
@@ -121,14 +123,25 @@ impl DirectTeamLogs {
             thread_name,
             startup_capacity,
         )?;
-        timeout(SEND_TIMEOUT, async {
-            let mut socket = TcpStream::connect(&self.address).await?;
-            socket.write_all(&bytes).await?;
-            socket.shutdown().await
+        let result = timeout(SEND_TIMEOUT, async {
+            if self.stream.is_none() {
+                self.stream = Some(TcpStream::connect(&self.address).await?);
+            }
+            self.stream.as_mut().unwrap().write_all(&bytes).await
         })
-        .await
-        .map_err(|_| TeamLogsError::Timeout)??;
-        Ok(())
+        .await;
+        match result {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => {
+                // A partial write may have reached the receiver; do not retry the line.
+                self.stream = None;
+                Err(error.into())
+            }
+            Err(_) => {
+                self.stream = None;
+                Err(TeamLogsError::Timeout)
+            }
+        }
     }
 
     fn encode(
@@ -246,7 +259,7 @@ mod tests {
     #[ignore = "requires permission to bind a local TCP socket"]
     async fn sends_one_private_json_line_with_nais_metadata() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let client = DirectTeamLogs::new(
+        let mut client = DirectTeamLogs::new(
             listener.local_addr().unwrap().to_string(),
             "dev-gcp",
             "paw",
@@ -257,7 +270,6 @@ mod tests {
             let (socket, _) = listener.accept().await.unwrap();
             let mut lines = tokio::io::BufReader::new(socket).lines();
             let line = lines.next_line().await.unwrap().unwrap();
-            assert!(lines.next_line().await.unwrap().is_none());
             serde_json::from_str::<serde_json::Value>(&line).unwrap()
         });
         client
@@ -280,5 +292,117 @@ mod tests {
         assert_eq!(entry["nais_namespace_name"], "paw");
         assert_eq!(entry["nais_pod_name"], "pod-1");
         assert_eq!(entry["nais_container_name"], "app-1");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires permission to bind a local TCP socket"]
+    async fn sends_multiple_json_lines_on_one_connection() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = DirectTeamLogs::new(
+            listener.local_addr().unwrap().to_string(),
+            "dev-gcp",
+            "paw",
+            "pod-1",
+            "app-1",
+        );
+        let receiver = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut lines = tokio::io::BufReader::new(socket).lines();
+            let first = lines.next_line().await.unwrap().unwrap();
+            let second = lines.next_line().await.unwrap().unwrap();
+            [first, second]
+        });
+        for message in ["first", "second"] {
+            client
+                .send(
+                    LogLevel::Info,
+                    "example",
+                    message,
+                    "2026-09-29T09:52:18Z",
+                    "test",
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+        let lines = timeout(SEND_TIMEOUT, receiver).await.unwrap().unwrap();
+        for (line, message) in lines.iter().zip(["first", "second"]) {
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(line).unwrap()["message"],
+                message
+            );
+        }
+        assert!(client.stream.is_some());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires permission to bind a local TCP socket"]
+    async fn failed_write_drops_connection_and_next_entry_reconnects() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = DirectTeamLogs::new(
+            listener.local_addr().unwrap().to_string(),
+            "dev-gcp",
+            "paw",
+            "pod-1",
+            "app-1",
+        );
+        client
+            .send(
+                LogLevel::Info,
+                "example",
+                "first",
+                "2026-09-29T09:52:18Z",
+                "test",
+                None,
+            )
+            .await
+            .unwrap();
+        let (first_socket, _) = listener.accept().await.unwrap();
+        let mut lines = tokio::io::BufReader::new(first_socket).lines();
+        assert!(lines.next_line().await.unwrap().unwrap().contains("first"));
+
+        // Closing our write half makes the next write fail without relying on
+        // when a peer close becomes visible to TCP.
+        client.stream.as_mut().unwrap().shutdown().await.unwrap();
+        assert!(
+            client
+                .send(
+                    LogLevel::Info,
+                    "example",
+                    "failed",
+                    "2026-09-29T09:52:18Z",
+                    "test",
+                    None
+                )
+                .await
+                .is_err()
+        );
+        assert!(client.stream.is_none());
+
+        client
+            .send(
+                LogLevel::Info,
+                "example",
+                "third",
+                "2026-09-29T09:52:18Z",
+                "test",
+                None,
+            )
+            .await
+            .unwrap();
+        let (second_socket, _) = timeout(SEND_TIMEOUT, listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        let line = tokio::io::BufReader::new(second_socket)
+            .lines()
+            .next_line()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&line).unwrap()["message"],
+            "third"
+        );
     }
 }
