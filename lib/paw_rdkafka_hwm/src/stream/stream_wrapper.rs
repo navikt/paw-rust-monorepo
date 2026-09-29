@@ -99,23 +99,32 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
         self.drain_and_rebalance().await?;
         load(&mut self.queues, self.max_idle).await?;
 
-        let stalled = self.queues.iter().filter(|q| q.has_stalled()).count();
-        Span::current().record("stalled_queues", stalled as u64);
-        if stalled > 0 {
-            record_empty_receive_span("waiting");
-            RECEIVE_RESULT.with_label_values(&["waiting"]).inc();
-            return Ok((self, None));
-        }
-
+        let stalled_partitions = self
+            .queues
+            .iter()
+            .filter(|q| q.has_stalled())
+            .map(|q| q.key().partition)
+            .collect::<Vec<_>>();
+        Span::current().record("stalled_partitions", stalled_partitions.len() as u64);
         let Some(wrapper) = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
+            .filter(|q| !stalled_partitions.contains(&q.key().partition))
             .min_by_key(|q| (q.timestamp(), q.priority()))
             .and_then(|q| q.take_head())
         else {
-            record_empty_receive_span("none");
-            RECEIVE_RESULT.with_label_values(&["empty"]).inc();
+            let span_text: &str;
+            let metrics_text: &str;
+            if !stalled_partitions.is_empty() {
+                span_text = "waiting";
+                metrics_text = "waiting";
+            } else {
+                span_text = "none";
+                metrics_text = "empty";
+            }
+            record_empty_receive_span(span_text);
+            RECEIVE_RESULT.with_label_values(&[metrics_text]).inc();
             return Ok((self, None));
         };
 
