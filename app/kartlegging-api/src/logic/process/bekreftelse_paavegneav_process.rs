@@ -113,12 +113,11 @@ mod tests {
     use test_data_generator::eksterne_hendelser::{
         create_dummy_start_paavegneav, create_dummy_stopp_paavegneav,
     };
-    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         test_process_paavegneav_start_1(context).await;
         test_process_paavegneav_start_2(context).await;
@@ -233,10 +232,8 @@ mod tests {
         );
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let pdl_mock_responses = default_pdl_mock_responses();
             let mut mockito_server = Server::new_async().await;
 
@@ -269,8 +266,7 @@ mod tests {
                 processor: BekreftelsePaaVegneAvProcessor::new(schema_registry_settings.clone()),
                 periode_id: Uuid::new_v4(),
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

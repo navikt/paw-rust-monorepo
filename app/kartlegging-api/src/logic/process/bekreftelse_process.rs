@@ -169,14 +169,13 @@ mod tests {
         create_dummy_bekreftelse, create_dummy_bekreftelse_metadata, create_dummy_start_periode,
     };
     use token_client_stub::TokenClientStub;
-    use tokio::sync::OnceCell;
     use tracing_test::traced_test;
     use uuid::Uuid;
 
     #[traced_test]
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         test_process_periode(context).await;
         test_process_bekreftelse_1_med_periode(context).await;
@@ -682,10 +681,8 @@ mod tests {
         );
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let mut mockito_server = Server::new_async().await;
 
             let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
@@ -765,8 +762,7 @@ mod tests {
                 bekreftelse_id_3: Uuid::new_v4(),
                 bekreftelse_id_4: Uuid::new_v4(),
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

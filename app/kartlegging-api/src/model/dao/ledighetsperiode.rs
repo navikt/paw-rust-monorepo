@@ -131,11 +131,10 @@ mod tests {
     use chrono::Duration;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
-    use tokio::sync::OnceCell;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn select_by_arbeidssoeker_ids_korrelerer_alle_undertabeller_per_periode() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         let arbeidssoeker_id_1 = 20_001_i64;
@@ -233,7 +232,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn select_by_arbeidssoeker_ids_velger_nyeste_rad_per_periode() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         let arbeidssoeker_id = 20_004_i64;
@@ -282,7 +281,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn select_by_arbeidssoeker_ids_hopper_over_avsluttede_perioder_og_ukjente_ider() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         let arbeidssoeker_id = 20_003_i64;
@@ -339,10 +338,8 @@ mod tests {
         assert!(rows[0].bekreftelse_id.is_none());
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -354,8 +351,7 @@ mod tests {
             TestContext {
                 pg_pool: postgres_guard.pg_pool,
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

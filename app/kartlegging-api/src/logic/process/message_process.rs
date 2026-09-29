@@ -200,7 +200,6 @@ mod tests {
     };
     use test_data_generator::json::JsonGenerator;
     use token_client_stub::TokenClientStub;
-    use tokio::sync::OnceCell;
     use tracing_test::traced_test;
     use uuid::Uuid;
 
@@ -209,7 +208,7 @@ mod tests {
     #[traced_test]
     #[tokio::test]
     async fn test_process_illegal_message() {
-        let context = init().await;
+        let context = &init().await;
 
         let message = OwnedMessage::new(
             Some("dummy-payload".as_bytes().to_vec()),
@@ -233,7 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         test_process_periode(context).await;
         test_process_opplysninger(context).await;
@@ -512,10 +511,8 @@ mod tests {
         );
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let mut mockito_server = Server::new_async().await;
 
             let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
@@ -594,8 +591,7 @@ mod tests {
                 oppfolgingsperiode_id: Uuid::new_v4(),
                 kontor_id: "1234",
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

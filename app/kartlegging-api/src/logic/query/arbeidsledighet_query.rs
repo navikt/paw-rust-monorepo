@@ -62,9 +62,13 @@ pub async fn finn_for_kontortilknytning_query_request(
         sort_order: SortOrder::Ascending,
     });
 
-    let total_count =
-        arbeidssoeker::count_by_kontortilknytning(tx, &kontor_id, &kontor_typer, &request.ledig_siden)
-            .await?;
+    let total_count = arbeidssoeker::count_by_kontortilknytning(
+        tx,
+        &kontor_id,
+        &kontor_typer,
+        &request.ledig_siden,
+    )
+    .await?;
     let kontor_join = kontor_typer
         .iter()
         .map(|k| k.to_string())

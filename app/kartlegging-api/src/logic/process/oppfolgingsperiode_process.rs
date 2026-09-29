@@ -100,12 +100,11 @@ mod tests {
         create_dummy_start_oppfolgingsperiode,
     };
     use test_data_generator::json::JsonGenerator;
-    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         test_process_oppfolgingsperiode_startet(context).await;
         test_process_oppfolgingsperiode_endret(context).await;
@@ -240,10 +239,8 @@ mod tests {
         assert!(optional_kontortilknytning_row.is_none());
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -262,8 +259,7 @@ mod tests {
                 kontor_id_1: "1337",
                 kontor_id_2: "1234",
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

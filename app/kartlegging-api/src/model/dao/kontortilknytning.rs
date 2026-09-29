@@ -191,11 +191,10 @@ mod tests {
     use super::*;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
-    use tokio::sync::OnceCell;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn select_by_aktor_ids_grupperer_treff_per_aktor_id() {
-        let pg_pool = init().await;
+        let pg_pool = &init().await;
         let mut tx = pg_pool
             .begin()
             .await
@@ -260,10 +259,8 @@ mod tests {
         assert_eq!(for_aktor_2.len(), 1);
     }
 
-    static INIT: OnceCell<PgPool> = OnceCell::const_new();
-
-    async fn init() -> &'static PgPool {
-        INIT.get_or_init(|| async {
+    async fn init() -> PgPool {
+        {
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -272,7 +269,6 @@ mod tests {
                 .await
                 .expect("Failed to run migrations");
             postgres_guard.pg_pool
-        })
-        .await
+        }
     }
 }

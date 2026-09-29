@@ -1,7 +1,8 @@
 use crate::config::AppConfig;
 use crate::logic::process::PayloadProcessor;
 use crate::logic::process::kartlegging_process::{
-    utled_arbeidsledighet_for_periode_med_aktiv_kartlegging, utled_arbeidsledighet_for_periode_uten_aktiv_kartlegging,
+    utled_arbeidsledighet_for_periode_med_aktiv_kartlegging,
+    utled_arbeidsledighet_for_periode_uten_aktiv_kartlegging,
 };
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dao::kartlegging::KartleggingRow;
@@ -314,14 +315,13 @@ mod tests {
         create_dummy_avslutt_periode, create_dummy_start_periode,
     };
     use token_client_stub::TokenClientStub;
-    use tokio::sync::OnceCell;
     use tracing_test::traced_test;
     use uuid::Uuid;
 
     #[traced_test]
     #[tokio::test]
     async fn test_process_messages() -> anyhow::Result<()> {
-        let context = init().await?;
+        let context = &init().await?;
         test_process_periode_1_start(context).await?;
         test_process_periode_1_avsluttet(context).await?;
         test_process_periode_2_start(context).await?;
@@ -490,85 +490,80 @@ mod tests {
         Ok(())
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
+    async fn init() -> anyhow::Result<TestContext> {
+        let context = {
+            let mut mockito_server = Server::new_async().await;
 
-    async fn init() -> anyhow::Result<&'static TestContext> {
-        let context = INIT
-            .get_or_init(|| async {
-                let mut mockito_server = Server::new_async().await;
+            let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
 
-                let app_config =
-                    Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
+            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
+                .await
+                .expect("Failed to create schema registry mock");
+            let schema_registry_settings = schema_registry_guard.schema_registry_settings;
 
-                let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
+            let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
+            let kafka_key_gen_mock_guard =
+                init_kafka_key_gen_mock(&mut mockito_server, kafka_key_gen_mock_responses)
                     .await
-                    .expect("Failed to create schema registry mock");
-                let schema_registry_settings = schema_registry_guard.schema_registry_settings;
+                    .expect("Kunne ikke initialisere Kafka Key Gen mock");
 
-                let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
-                let kafka_key_gen_mock_guard =
-                    init_kafka_key_gen_mock(&mut mockito_server, kafka_key_gen_mock_responses)
-                        .await
-                        .expect("Kunne ikke initialisere Kafka Key Gen mock");
+            let pdl_mock_responses = default_pdl_mock_responses();
+            let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
+                .await
+                .expect("Kunne ikke initialisere PDL mock server");
 
-                let pdl_mock_responses = default_pdl_mock_responses();
-                let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
-                    .await
-                    .expect("Kunne ikke initialisere PDL mock server");
+            let mut schema_registry_mocks = schema_registry_guard.mocks;
+            let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
+            let mut mocks = pdl_mock_guard.mocks;
+            mocks.append(&mut schema_registry_mocks);
+            mocks.append(&mut kafka_key_gen_mocks);
 
-                let mut schema_registry_mocks = schema_registry_guard.mocks;
-                let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
-                let mut mocks = pdl_mock_guard.mocks;
-                mocks.append(&mut schema_registry_mocks);
-                mocks.append(&mut kafka_key_gen_mocks);
+            let http_client = reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .expect("Failed to build reqwest client");
 
-                let http_client = reqwest::Client::builder()
-                    .no_proxy()
-                    .build()
-                    .expect("Failed to build reqwest client");
+            let key_gen_client = Arc::new(PawKeyGenClient::new(
+                mockito_server.url(),
+                "test-scope".to_string(),
+                http_client.clone(),
+                Arc::new(TokenClientStub::new()),
+            ));
 
-                let key_gen_client = Arc::new(PawKeyGenClient::new(
-                    mockito_server.url(),
-                    "test-scope".to_string(),
-                    http_client.clone(),
-                    Arc::new(TokenClientStub::new()),
-                ));
+            let pdl_client = Arc::new(PDLClient::new(
+                "test-scope".to_string(),
+                format!("{}/pdl", mockito_server.url()),
+                http_client.clone(),
+                Arc::new(TokenClientStub::new()),
+            ));
 
-                let pdl_client = Arc::new(PDLClient::new(
-                    "test-scope".to_string(),
-                    format!("{}/pdl", mockito_server.url()),
-                    http_client.clone(),
-                    Arc::new(TokenClientStub::new()),
-                ));
+            let postgres_guard = setup_postgres_container()
+                .await
+                .expect("Failed to start Postgres container");
+            println!("Migrerer databasemodell");
+            sqlx::migrate!("./migrations")
+                .run(&postgres_guard.pg_pool)
+                .await
+                .expect("Failed to run migrations");
 
-                let postgres_guard = setup_postgres_container()
-                    .await
-                    .expect("Failed to start Postgres container");
-                println!("Migrerer databasemodell");
-                sqlx::migrate!("./migrations")
-                    .run(&postgres_guard.pg_pool)
-                    .await
-                    .expect("Failed to run migrations");
-
-                TestContext {
-                    mockito_server,
-                    mocks,
-                    pg_pool: postgres_guard.pg_pool,
-                    avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
-                    processor: PeriodeProcessor::new(
-                        app_config,
-                        schema_registry_settings.clone(),
-                        key_gen_client,
-                        pdl_client,
-                    ),
-                    arbeidssoeker_id_1: 12345,
-                    identitetsnummer_1_1: "41017012345",
-                    identitetsnummer_1_2: "01017012345",
-                    periode_id_1: Uuid::new_v4(),
-                    periode_id_2: Uuid::new_v4(),
-                }
-            })
-            .await;
+            TestContext {
+                mockito_server,
+                mocks,
+                pg_pool: postgres_guard.pg_pool,
+                avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
+                processor: PeriodeProcessor::new(
+                    app_config,
+                    schema_registry_settings.clone(),
+                    key_gen_client,
+                    pdl_client,
+                ),
+                arbeidssoeker_id_1: 12345,
+                identitetsnummer_1_1: "41017012345",
+                identitetsnummer_1_2: "01017012345",
+                periode_id_1: Uuid::new_v4(),
+                periode_id_2: Uuid::new_v4(),
+            }
+        };
 
         Ok(context)
     }

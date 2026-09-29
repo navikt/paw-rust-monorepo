@@ -81,12 +81,11 @@ mod tests {
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::create_dummy_opplysninger;
-    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         let periode_id = Uuid::new_v4();
         let opplysninger_id = Uuid::new_v4();
@@ -115,10 +114,8 @@ mod tests {
         );
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let mut mockito_server = Server::new_async().await;
 
             let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
@@ -150,8 +147,7 @@ mod tests {
                 avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
                 processor: OpplysningerProcessor::new(schema_registry_settings.clone()),
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

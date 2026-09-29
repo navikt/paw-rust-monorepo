@@ -123,7 +123,6 @@ mod tests {
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
     use std::collections::BTreeMap;
-    use tokio::sync::OnceCell;
 
     #[test]
     fn statuser_er_sammenlignbare() {
@@ -133,7 +132,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn ny_rad_er_active_som_default() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-1", 0).await;
@@ -156,7 +155,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mark_paused_setter_status_og_tidsstempel() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-2", 0).await;
@@ -183,7 +182,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mark_paused_er_guardet_mot_a_friske_opp_tidsstempel() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-3", 0).await;
@@ -215,7 +214,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mark_resolved_setter_status_tilbake_til_active() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-4", 0).await;
@@ -246,7 +245,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mark_resolved_er_guardet_mot_rader_som_ikke_er_paused() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-5", 0).await;
@@ -274,7 +273,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn list_paused_returnerer_kun_pausede_rader_for_riktig_versjon() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         context.insert_hwm_row(&mut tx, 1, "topic-6", 0).await;
@@ -304,7 +303,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn get_status_returnerer_none_for_ukjent_rad() {
-        let context = init().await;
+        let context = &init().await;
         let mut tx = context.start_tx().await;
 
         let row = get_by_topic_partition(&mut tx, 1, "ukjent-topic", 0)
@@ -316,10 +315,8 @@ mod tests {
         assert!(row.is_none());
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -332,8 +329,7 @@ mod tests {
             TestContext {
                 pg_pool: postgres_guard.pg_pool,
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {

@@ -215,13 +215,12 @@ mod tests {
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
     use test_data_generator::eksterne_hendelser::create_dummy_start_periode;
-    use tokio::sync::OnceCell;
     use tracing_test::traced_test;
 
     #[traced_test]
     #[tokio::test]
     async fn test_process_messages() -> anyhow::Result<()> {
-        let context = init().await?;
+        let context = &init().await?;
 
         test_utled_arbeidsledighet_fra_bekreftelser(context);
         test_utled_arbeidsledighet_fra_aktiv_kartlegging(context).await?;
@@ -721,38 +720,34 @@ mod tests {
         assert_eq!(arbeidsledighet, None);
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
+    async fn init() -> anyhow::Result<TestContext> {
+        let context = {
+            let postgres_guard = setup_postgres_container()
+                .await
+                .expect("Failed to start Postgres container");
+            println!("Migrerer databasemodell");
+            sqlx::migrate!("./migrations")
+                .run(&postgres_guard.pg_pool)
+                .await
+                .expect("Failed to run migrations");
 
-    async fn init() -> anyhow::Result<&'static TestContext> {
-        let context = INIT
-            .get_or_init(|| async {
-                let postgres_guard = setup_postgres_container()
-                    .await
-                    .expect("Failed to start Postgres container");
-                println!("Migrerer databasemodell");
-                sqlx::migrate!("./migrations")
-                    .run(&postgres_guard.pg_pool)
-                    .await
-                    .expect("Failed to run migrations");
-
-                TestContext {
-                    pg_pool: postgres_guard.pg_pool,
-                    arbeidssoeker_id_1: 12345,
-                    arbeidssoeker_id_5: 56789,
-                    aktor_id_5: "501701234500",
-                    identitetsnummer_1_1: "41017012345",
-                    identitetsnummer_1_2: "01017012345",
-                    identitetsnummer_4: "04017012345",
-                    identitetsnummer_5: "05017012345",
-                    periode_id_1: Uuid::new_v4(),
-                    periode_id_2: Uuid::new_v4(),
-                    periode_id_3: Uuid::new_v4(),
-                    periode_id_4: Uuid::new_v4(),
-                    periode_id_5_1: Uuid::new_v4(),
-                    periode_id_5_2: Uuid::new_v4(),
-                }
-            })
-            .await;
+            TestContext {
+                pg_pool: postgres_guard.pg_pool,
+                arbeidssoeker_id_1: 12345,
+                arbeidssoeker_id_5: 56789,
+                aktor_id_5: "501701234500",
+                identitetsnummer_1_1: "41017012345",
+                identitetsnummer_1_2: "01017012345",
+                identitetsnummer_4: "04017012345",
+                identitetsnummer_5: "05017012345",
+                periode_id_1: Uuid::new_v4(),
+                periode_id_2: Uuid::new_v4(),
+                periode_id_3: Uuid::new_v4(),
+                periode_id_4: Uuid::new_v4(),
+                periode_id_5_1: Uuid::new_v4(),
+                periode_id_5_2: Uuid::new_v4(),
+            }
+        };
 
         Ok(context)
     }

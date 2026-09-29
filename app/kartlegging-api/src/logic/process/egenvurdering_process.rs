@@ -78,12 +78,11 @@ mod tests {
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::create_dummy_egenvurdering;
-    use tokio::sync::OnceCell;
     use uuid::Uuid;
 
     #[tokio::test]
     async fn test_process_messages() {
-        let context = init().await;
+        let context = &init().await;
 
         let identitetsnummer = "01017012345";
         let periode_id = Uuid::new_v4();
@@ -123,10 +122,8 @@ mod tests {
         );
     }
 
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
+    async fn init() -> TestContext {
+        {
             let pdl_mock_responses = default_pdl_mock_responses();
             let mut mockito_server = Server::new_async().await;
 
@@ -158,8 +155,7 @@ mod tests {
                 avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
                 processor: EgenvurderingProcessor::new(schema_registry_settings.clone()),
             }
-        })
-        .await
+        }
     }
 
     struct TestContext {
