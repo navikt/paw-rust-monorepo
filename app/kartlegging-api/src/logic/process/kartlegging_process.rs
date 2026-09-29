@@ -214,7 +214,6 @@ mod tests {
     use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgPool;
-    use test_data_generator::eksterne_hendelser::create_dummy_start_periode;
     use tracing_test::traced_test;
 
     #[traced_test]
@@ -304,10 +303,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let periode_id = context.periode_id_4;
-        let identitetsnummer = context.identitetsnummer_4;
         let periode_startet = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-        let periode =
-            create_dummy_start_periode(identitetsnummer, periode_id, Some(periode_startet));
 
         let bekreftelse_row = BekreftelseRow {
             id: Uuid::new_v4(),
@@ -397,7 +393,7 @@ mod tests {
             arbeidsledig_fra: None,
         };
 
-        let arbeidsledig_fra_1 = tidligere_periode_startet + Duration::days(1);
+        let _arbeidsledig_fra_1 = tidligere_periode_startet + Duration::days(1);
         let arbeidsledig_fra_2 = tidligere_periode_startet + Duration::days(2);
         let arbeidsledig_fra_3 = tidligere_periode_startet + Duration::days(3);
 
@@ -752,6 +748,7 @@ mod tests {
         Ok(context)
     }
 
+    #[allow(unused)]
     struct TestContext {
         pg_pool: PgPool,
         arbeidssoeker_id_1: i64,

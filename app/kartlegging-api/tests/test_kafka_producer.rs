@@ -55,6 +55,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(unused)]
 struct TestData {
     aktor_id: &'static str,
     identitetsnummer: &'static str,
@@ -107,6 +108,7 @@ impl TestKafkaProducer {
         })
     }
 
+    #[allow(unused)]
     async fn send_start_perioder(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message =
@@ -119,6 +121,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_avslutt_perioder(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             if d.periode_avsluttet.is_some() {
@@ -137,6 +140,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_opplysninger(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message =
@@ -149,6 +153,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_profileringer(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_profilering(
@@ -165,6 +170,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_egenvurderinger(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_egenvurdering(
@@ -181,6 +187,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_bekreftelser(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_bekreftelse(
@@ -200,6 +207,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_start_paavegneav(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_start_paavegneav(
@@ -214,6 +222,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_stopp_paavegneav(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_stopp_paavegneav(
@@ -228,6 +237,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_start_oppfolgingsperioder(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
         for d in data {
             let message = create_dummy_start_oppfolgingsperiode(
@@ -244,6 +254,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_avro_messages(&self, topic: &str, message: impl Serialize) -> anyhow::Result<()> {
         let naming_strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
         let payload = self.serializer.serialize(message, &naming_strategy).await?;
@@ -260,6 +271,7 @@ impl TestKafkaProducer {
         Ok(())
     }
 
+    #[allow(unused)]
     async fn send_json_messages(&self, topic: &str, message: impl Serialize) -> anyhow::Result<()> {
         let payload = serde_json::to_vec(&message)?;
         self.producer

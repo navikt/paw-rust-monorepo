@@ -295,12 +295,7 @@ mod tests {
     use crate::config::read_app_config;
     use crate::logic::process::PayloadProcessor;
     use crate::logic::process::periode_process::PeriodeProcessor;
-    use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
-    use crate::model::dao::bekreftelse::BekreftelseRow;
-    use crate::model::dao::kartlegging::KartleggingRow;
-    use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
-    use chrono::{Duration, TimeZone, Utc};
-    use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
+    use crate::model::dao::{arbeidssoeker, kartlegging, periode};
     use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
     use paw_key_gen_client::client::PawKeyGenClient;
