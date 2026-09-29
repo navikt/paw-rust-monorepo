@@ -32,13 +32,24 @@ pub(crate) struct DirectTeamLogs {
 
 #[derive(Serialize)]
 struct Entry<'a> {
+    #[serde(rename = "@timestamp")]
+    timestamp: &'a str,
+    #[serde(rename = "@version")]
+    version: &'static str,
     google_cloud_project: &'a str,
     nais_namespace_name: &'a str,
     nais_pod_name: &'a str,
     nais_container_name: &'a str,
     logger_name: &'a str,
     level: &'a str,
+    level_value: u32,
     message: &'a str,
+    tags: [&'static str; 1],
+    thread_name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    queue_capacity: Option<usize>,
 }
 
 impl DirectTeamLogs {
@@ -68,20 +79,25 @@ impl DirectTeamLogs {
         }
     }
 
-    pub(crate) fn startup_message(&self, capacity: usize) -> String {
-        format!(
-            "Buffered TeamLogs initialized: endpoint={}, project={}, namespace={}, pod={}, app={}, queue_capacity={capacity}",
-            self.address, self.project, self.namespace, self.pod, self.app,
-        )
-    }
-
     pub(crate) async fn send(
         &self,
         level: LogLevel,
         logger_name: &str,
         message: &str,
+        timestamp: &str,
+        thread_name: &str,
+        startup_capacity: Option<usize>,
     ) -> Result<(), TeamLogsError> {
-        let result = self.send_inner(level, logger_name, message).await;
+        let result = self
+            .send_inner(
+                level,
+                logger_name,
+                message,
+                timestamp,
+                thread_name,
+                startup_capacity,
+            )
+            .await;
         if result.is_err() {
             DELIVERY_FAILURES.with_label_values(&[level.as_str()]).inc();
         }
@@ -93,17 +109,18 @@ impl DirectTeamLogs {
         level: LogLevel,
         logger_name: &str,
         message: &str,
+        timestamp: &str,
+        thread_name: &str,
+        startup_capacity: Option<usize>,
     ) -> Result<(), TeamLogsError> {
-        let entry = Entry {
-            google_cloud_project: &self.project,
-            nais_namespace_name: &self.namespace,
-            nais_pod_name: &self.pod,
-            nais_container_name: &self.app,
+        let bytes = self.encode(
+            level,
             logger_name,
-            level: level.as_str(),
             message,
-        };
-        let bytes = encode(&entry)?;
+            timestamp,
+            thread_name,
+            startup_capacity,
+        )?;
         timeout(SEND_TIMEOUT, async {
             let mut socket = TcpStream::connect(&self.address).await?;
             socket.write_all(&bytes).await?;
@@ -112,6 +129,34 @@ impl DirectTeamLogs {
         .await
         .map_err(|_| TeamLogsError::Timeout)??;
         Ok(())
+    }
+
+    fn encode(
+        &self,
+        level: LogLevel,
+        logger_name: &str,
+        message: &str,
+        timestamp: &str,
+        thread_name: &str,
+        startup_capacity: Option<usize>,
+    ) -> Result<Vec<u8>, TeamLogsError> {
+        let entry = Entry {
+            timestamp,
+            version: "1",
+            google_cloud_project: &self.project,
+            nais_namespace_name: &self.namespace,
+            nais_pod_name: &self.pod,
+            nais_container_name: &self.app,
+            logger_name,
+            level: level.as_str(),
+            level_value: level.value(),
+            message,
+            tags: ["TEAM_LOGS"],
+            thread_name,
+            endpoint: startup_capacity.map(|_| self.address.as_str()),
+            queue_capacity: startup_capacity,
+        };
+        Ok(encode(&entry)?)
     }
 }
 
@@ -136,25 +181,6 @@ mod tests {
 
     #[test]
     fn encodes_one_json_line_without_exposing_message_as_metadata() {
-        let entry = Entry {
-            google_cloud_project: "dev-gcp",
-            nais_namespace_name: "paw",
-            nais_pod_name: "pod-1",
-            nais_container_name: "app-1",
-            logger_name: "team-logs-logger",
-            level: "WARN",
-            message: "Ugyldig signatur \"abc\"",
-        };
-        let bytes = encode(&entry).unwrap();
-        assert_eq!(bytes.last(), Some(&b'\n'));
-        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(value["message"], entry.message);
-        assert_eq!(value["level"], "WARN");
-        assert_eq!(value["nais_namespace_name"], "paw");
-    }
-
-    #[test]
-    fn startup_entry_describes_destination_and_configuration() {
         let client = DirectTeamLogs::new(
             "team-logs.nais-system:5170",
             "dev-gcp",
@@ -162,10 +188,58 @@ mod tests {
             "pod-1",
             "app-1",
         );
-        assert_eq!(
-            client.startup_message(100),
-            "Buffered TeamLogs initialized: endpoint=team-logs.nais-system:5170, project=dev-gcp, namespace=paw, pod=pod-1, app=app-1, queue_capacity=100"
+        let bytes = client
+            .encode(
+                LogLevel::Warn,
+                "team-logs-logger",
+                "Ugyldig signatur \"abc\"",
+                "2026-09-29T09:52:18.314744215Z",
+                "tokio-runtime-worker",
+                None,
+            )
+            .unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["message"], "Ugyldig signatur \"abc\"");
+        assert_eq!(value["level"], "WARN");
+        assert_eq!(value["level_value"], 30_000);
+        assert_eq!(value["@timestamp"], "2026-09-29T09:52:18.314744215Z");
+        assert_eq!(value["@version"], "1");
+        assert_eq!(value["tags"], serde_json::json!(["TEAM_LOGS"]));
+        assert_eq!(value["thread_name"], "tokio-runtime-worker");
+        assert_eq!(value["nais_namespace_name"], "paw");
+        assert!(value.get("endpoint").is_none());
+        assert!(value.get("queue_capacity").is_none());
+    }
+
+    #[test]
+    fn startup_entry_has_short_message_and_separate_settings() {
+        let client = DirectTeamLogs::new(
+            "team-logs.nais-system:5170",
+            "dev-gcp",
+            "paw",
+            "pod-1",
+            "app-1",
         );
+        let value: serde_json::Value = serde_json::from_slice(
+            &client
+                .encode(
+                    LogLevel::Info,
+                    "team-logs-logger",
+                    "Buffered TeamLogs initialized",
+                    "2026-09-29T09:52:18.314744215Z",
+                    "main",
+                    Some(100),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value["message"], "Buffered TeamLogs initialized");
+        assert_eq!(value["level"], "INFO");
+        assert_eq!(value["level_value"], 20_000);
+        assert_eq!(value["endpoint"], "team-logs.nais-system:5170");
+        assert_eq!(value["queue_capacity"], 100);
+        assert_eq!(value["nais_pod_name"], "pod-1");
     }
 
     #[tokio::test]
@@ -187,12 +261,21 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&line).unwrap()
         });
         client
-            .send(LogLevel::Warn, "team-logs-logger", "Ugyldig signatur")
+            .send(
+                LogLevel::Warn,
+                "team-logs-logger",
+                "Ugyldig signatur",
+                "2026-09-29T09:52:18.314744215Z",
+                "test-thread",
+                None,
+            )
             .await
             .unwrap();
         let entry = receiver.await.unwrap();
         assert_eq!(entry["level"], "WARN");
         assert_eq!(entry["message"], "Ugyldig signatur");
+        assert_eq!(entry["level_value"], 30_000);
+        assert_eq!(entry["tags"], serde_json::json!(["TEAM_LOGS"]));
         assert_eq!(entry["google_cloud_project"], "dev-gcp");
         assert_eq!(entry["nais_namespace_name"], "paw");
         assert_eq!(entry["nais_pod_name"], "pod-1");

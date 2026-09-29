@@ -39,6 +39,14 @@ impl LogLevel {
             Self::Error => "ERROR",
         }
     }
+
+    pub(crate) fn value(self) -> u32 {
+        match self {
+            Self::Info => 20_000,
+            Self::Warn => 30_000,
+            Self::Error => 40_000,
+        }
+    }
 }
 
 /// Accepts a private log entry; a successful call does not guarantee delivery.
