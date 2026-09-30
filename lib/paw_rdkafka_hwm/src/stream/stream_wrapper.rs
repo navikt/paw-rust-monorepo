@@ -205,27 +205,31 @@ fn record_message_receive_span(wrapper: &MessageWrapper) {
     );
 }
 
-/// Increments the message delivery counters for `wrapper`, and observes the
-/// backward timestamp jump size when both `back_in_time_ms` is positive and
-/// the message's own offset was still in sequence.
+/// Increments the message delivery counters for `wrapper`, observes the
+/// backward timestamp jump size (labelled by whether the message's own offset
+/// was in sequence) when `back_in_time_ms` is positive, and observes the age
+/// of the message at delivery.
 fn record_message_metrics(back_in_time_ms: i64, wrapper: &MessageWrapper) {
+    let source_in_sequence = if wrapper.is_in_sequence() {
+        "true"
+    } else {
+        "false"
+    };
     STREAM_WRAPPER_MESSAGES
         .with_label_values(&[
             if back_in_time_ms > 0 { "true" } else { "false" },
-            if wrapper.is_in_sequence() {
-                "true"
-            } else {
-                "false"
-            },
+            source_in_sequence,
         ])
         .inc();
-    if back_in_time_ms > 0 && wrapper.is_in_sequence() {
+    if back_in_time_ms > 0 {
         BACK_IN_TIME_MS
-            .with_label_values(&[
-                wrapper.message.topic(),
-                wrapper.timestamp_info.to_string().as_str(),
-            ])
+            .with_label_values(&[wrapper.message.topic(), source_in_sequence])
             .observe(back_in_time_ms as f64);
+    }
+    if let Some(ts) = wrapper.message.timestamp().to_millis() {
+        MESSAGE_AGE_SECONDS
+            .with_label_values(&[wrapper.message.topic()])
+            .observe(age_of(ts, SystemTime::now()).as_secs_f64());
     }
 }
 
@@ -511,8 +515,23 @@ static BACK_IN_TIME_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         "paw_kafka_stream_back_in_time_ms",
         "Size of backward timestamp jumps in milliseconds, by topic",
-        &["topic", "source_timestamp"],
+        &["topic", "source_in_sequence"],
         exponential_buckets(1.0, 10.0, 9).expect("Failed to create buckets")
+    )
+    .expect("Failed to create histogram")
+});
+
+/// Age of a message when `receive()` hands it over: now minus the Kafka
+/// timestamp. With `CreateTime` this includes time spent at the producer, so
+/// it is an upper estimate of broker-to-consumer latency. Timestamps in the
+/// future (clock skew) are recorded as zero.
+static MESSAGE_AGE_SECONDS: LazyLock<HistogramVec> = LazyLock::new(|| {
+    register_histogram_vec!(
+        "paw_kafka_stream_message_age_seconds",
+        "Age of delivered messages (now - message timestamp) when receive() returns them, by topic",
+        &["topic"],
+        // 5 ms .. ~45 min
+        exponential_buckets(0.005, 2.0, 20).expect("Failed to create buckets")
     )
     .expect("Failed to create histogram")
 });
@@ -529,4 +548,21 @@ static MAIN_QUEUE_MESSAGES: LazyLock<CounterVec> = LazyLock::new(|| {
 pub fn init_stream_wrapper_metrics() {
     LazyLock::force(&STREAM_WRAPPER_MESSAGES);
     LazyLock::force(&RECEIVE_RESULT);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn age_of_gir_differansen_mellom_naa_og_timestamp() {
+        let now = UNIX_EPOCH + Duration::from_millis(10_000);
+        assert_eq!(age_of(8_500, now), Duration::from_millis(1_500));
+    }
+
+    #[test]
+    fn age_of_gir_null_for_timestamp_fram_i_tid() {
+        let now = UNIX_EPOCH + Duration::from_millis(10_000);
+        assert_eq!(age_of(12_000, now), Duration::ZERO);
+    }
 }

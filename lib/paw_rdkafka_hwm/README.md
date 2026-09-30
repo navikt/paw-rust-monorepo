@@ -81,22 +81,58 @@ sum by (topic) (rate(paw_kafka_stream_main_queue_messages_total{outcome="below_h
 ### `paw_kafka_stream_back_in_time_ms`
 *Kilde: `src/stream/stream_wrapper.rs`*
 
-Størrelsen (i ms) på bakoverhopp i tidsstempel, kun observert når meldingen
-selv hadde et monotont stigende tidsstempel innenfor sin topic-partition
-(dvs. bakoverhoppet skyldes multipleksingen, ikke datakilden). Eksponentielle
-bøtter (`exponential_buckets(1.0, 10.0, 9)`), altså 1 ms, 10 ms, 100 ms, ...,
-opp til 10^8 ms.
+Størrelsen (i ms) på bakoverhopp i tidsstempel i den multipleksede streamen.
+Eksponentielle bøtter (`exponential_buckets(1.0, 10.0, 9)`), altså 1 ms,
+10 ms, 100 ms, ..., opp til 10^8 ms.
 
 Labels:
 - `topic`
-- `source_timestamp` — `wrapper.timestamp_info` (kilden til tidsstempelet på meldingen)
+- `source_in_sequence` (`true`/`false`) — samme betydning som på
+  `paw_kafka_stream_messages_total`. `true` betyr at meldingens tidsstempel
+  var monotont stigende innenfor sin topic-partition, så bakoverhoppet
+  skyldes multipleksingen. `false` betyr at kilden selv hoppet bakover,
+  eller at meldingen manglet tidsstempel.
 
-Grafana-eksempel — p99 for størrelsen på bakoverhopp per topic:
+Grafana-eksempel — p99 for størrelsen på bakoverhopp per topic, bare hopp
+som skyldes multipleksingen:
 ```promql
 histogram_quantile(
   0.99,
-  sum by (le, topic) (rate(paw_kafka_stream_back_in_time_ms_bucket[5m]))
+  sum by (le, topic) (rate(paw_kafka_stream_back_in_time_ms_bucket{source_in_sequence="true"}[5m]))
 )
+```
+
+### `paw_kafka_stream_message_age_seconds`
+*Kilde: `src/stream/stream_wrapper.rs`*
+
+Alderen (i sekunder) på meldingen når `receive()` leverer den: nå minus
+meldingens tidsstempel. Med `CreateTime` er tiden hos produsenten med, så
+verdien er et øvre anslag på latensen fra broker til applikasjonen. Tiden
+meldingen holdes igjen av `grace` er med. Tidsstempler fram i tid
+(klokkeskjevhet) registreres som 0, og meldinger uten tidsstempel registreres
+ikke. Eksponentielle bøtter (`exponential_buckets(0.005, 2.0, 20)`), altså
+5 ms, 10 ms, 20 ms, ..., opp til omtrent 45 min.
+
+Under replay havner meldingene i de øverste bøttene eller i `+Inf`, og
+kvantiler over et vindu med replay blir misvisende.
+
+Labels:
+- `topic`
+
+Grafana-eksempel — p99 for alder ved levering per topic:
+```promql
+histogram_quantile(
+  0.99,
+  sum by (le, topic) (rate(paw_kafka_stream_message_age_seconds_bucket[5m]))
+)
+```
+
+Grafana-eksempel — andel meldinger levert innen 2,56 s (tåler replay bedre
+enn kvantiler):
+```promql
+sum(rate(paw_kafka_stream_message_age_seconds_bucket{le="2.56"}[5m]))
+/
+sum(rate(paw_kafka_stream_message_age_seconds_count[5m]))
 ```
 
 ## Gauges
