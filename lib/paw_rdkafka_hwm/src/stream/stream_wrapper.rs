@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, LazyLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use prometheus::{
@@ -83,6 +83,9 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     hwm_version: i16,
     main_consumer_none_treshold: usize,
     topic_priorities: TopicPriorityList,
+    /// Minimum age of a messages that can be returned from the stream.
+    /// Newer messages will be held in the internal buffer until they are old enough to be returned.
+    grace: chrono::Duration,
 }
 
 impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
@@ -105,12 +108,31 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .filter(|q| q.has_stalled())
             .map(|q| q.key().partition)
             .collect::<Vec<_>>();
+        let empty_partitions = self
+            .queues
+            .iter()
+            .filter(|q| q.is_empty())
+            .map(|q| q.key().partition)
+            .collect::<Vec<_>>();
         Span::current().record("stalled_partitions", stalled_partitions.len() as u64);
+        let current_time = Utc::now();
         let Some(wrapper) = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
             .filter(|q| !stalled_partitions.contains(&q.key().partition))
+            .filter(|q| {
+                let Some(ts) = q
+                    .timestamp()
+                    .and_then(|t| t.to_millis())
+                    .and_then(|t| DateTime::from_timestamp_millis(t))
+                else {
+                    return true;
+                };
+                let old_enough = current_time.signed_duration_since(ts) >= self.grace;
+                let has_empty = empty_partitions.contains(&q.key().partition);
+                old_enough || !has_empty
+            })
             .min_by_key(|q| (q.timestamp(), q.priority()))
             .and_then(|q| q.take_head())
         else {
@@ -248,6 +270,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
             hwm_version,
             main_consumer_none_treshold,
             topic_priorities,
+            grace: chrono::Duration::milliseconds(1500),
         }
     }
 
