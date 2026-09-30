@@ -1,10 +1,9 @@
-use std::cmp::min;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, LazyLock};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 use prometheus::{
@@ -104,25 +103,29 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .map(|q| q.key().partition)
             .collect::<Vec<_>>();
         Span::current().record("stalled_partitions", stalled_partitions.len() as u64);
-        let now_ms = Utc::now().timestamp_millis();
-        let grace_ms = self.config.grace.as_millis() as i64;
-        let mut time_til_next = i64::MAX;
+        let now = SystemTime::now();
+        let grace = self.config.grace;
+        // Shortest time until a message held back by grace becomes old enough.
+        let mut next_ready: Option<Duration> = None;
         let Some(wrapper) = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
             .filter(|q| !stalled_partitions.contains(&q.key().partition))
             .filter(|q| {
-                let Some(ts_ms) = q.timestamp().and_then(|t| t.to_millis()) else {
+                let Some(age) = q
+                    .timestamp()
+                    .and_then(|t| t.to_millis())
+                    .map(|ts| age_of(ts, now))
+                else {
                     return true;
                 };
-                let time_to_ready = grace_ms - now_ms.saturating_sub(ts_ms);
-                let old_enough = time_to_ready <= 0;
-                let has_empty = empty_partitions.contains(&q.key().partition);
-                if !old_enough && has_empty && time_to_ready < time_til_next {
-                    time_til_next = time_to_ready;
+                if age >= grace || !empty_partitions.contains(&q.key().partition) {
+                    return true;
                 }
-                old_enough || !has_empty
+                let wait = grace - age;
+                next_ready = Some(next_ready.map_or(wait, |w| w.min(wait)));
+                false
             })
             .min_by_key(|q| (q.timestamp(), q.priority()))
             .and_then(|q| q.take_head())
@@ -138,17 +141,10 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             }
             record_empty_receive_span(span_text);
             RECEIVE_RESULT.with_label_values(&[metrics_text]).inc();
-            let elapsed = started.elapsed();
-            let remaining: i64 = self
-                .config
-                .max_idle
-                .saturating_sub(elapsed)
-                .as_millis()
-                .try_into()
-                .unwrap_or(i64::MAX);
-            let sleep_duration: u64 = min(time_til_next, remaining).try_into().unwrap_or(0);
-            if sleep_duration > 0 {
-                tokio::time::sleep(Duration::from_millis(sleep_duration)).await;
+            let remaining = self.config.max_idle.saturating_sub(started.elapsed());
+            let sleep = next_ready.map_or(remaining, |ready| ready.min(remaining));
+            if !sleep.is_zero() {
+                tokio::time::sleep(sleep).await;
             }
             return Ok((self, None));
         };
@@ -170,6 +166,14 @@ pub struct StreamState {
     pub topic: String,
     pub offset: i64,
     pub timestamp: i64,
+}
+
+/// Age of a Kafka timestamp (milliseconds since the Unix epoch) relative to
+/// `now`. Timestamps in the future, from a producer clock running ahead,
+/// count as age zero.
+fn age_of(ts_ms: i64, now: SystemTime) -> Duration {
+    let ts = UNIX_EPOCH + Duration::from_millis(ts_ms.max(0) as u64);
+    now.duration_since(ts).unwrap_or(Duration::ZERO)
 }
 
 /// Records the current span's `topic`/`partition`/`offset`/`timestamp` fields
@@ -258,10 +262,6 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
         pg_pool: PgPool,
         config: PawKafkaStreamConfig,
     ) -> Self {
-        assert!(
-            i64::try_from(config.grace.as_millis()).is_ok(),
-            "grace must fit in i64 milliseconds (about 292 million years)"
-        );
         Self {
             receiver,
             consumer: consumer.into(),
