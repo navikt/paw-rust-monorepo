@@ -8,6 +8,7 @@ use paw_rdkafka_hwm::rebalance::topic_partition_update::{
 };
 use paw_rdkafka_hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use paw_rdkafka_hwm::stream::queue_handler::PartitionMessageSource;
+use paw_rdkafka_hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_rdkafka_hwm::stream::stream_wrapper::{ConsumerMessageSource, PawKafkaConsumerStream};
 use paw_rdkafka_hwm::stream::topic_priority::TopicPriorityList;
 use rdkafka::Message;
@@ -169,14 +170,17 @@ fn stream(
     let stream = PawKafkaConsumerStream::new(
         receiver,
         consumer,
-        Duration::from_millis(10),
-        10,
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
         1,
-        1,
-        prioriteter,
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(10),
+            internal_buffer_size: 10,
+            hwm_version: 1,
+            topic_priorities: prioriteter,
+            grace: Duration::from_millis(1500),
+        },
     );
     (stream, sender)
 }

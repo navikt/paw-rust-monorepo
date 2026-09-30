@@ -30,6 +30,7 @@ use crate::stream::message_wrapper::MessageWrapper;
 use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::{PartitionMessageSource, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
+use crate::stream::stream_config::PawKafkaStreamConfig;
 use crate::stream::topic_priority::TopicPriorityList;
 
 pub trait ConsumerMessageSource: Send + Sync {
@@ -125,7 +126,7 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
                 let Some(ts) = q
                     .timestamp()
                     .and_then(|t| t.to_millis())
-                    .and_then(|t| DateTime::from_timestamp_millis(t))
+                    .and_then(DateTime::from_timestamp_millis)
                 else {
                     return true;
                 };
@@ -147,6 +148,7 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             }
             record_empty_receive_span(span_text);
             RECEIVE_RESULT.with_label_values(&[metrics_text]).inc();
+            tokio::time::sleep(Duration::from_millis(20)).await;
             return Ok((self, None));
         };
 
@@ -252,25 +254,23 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
     pub fn new(
         receiver: UnboundedReceiver<TopicPartitionUpdate>,
         consumer: C,
-        max_idle: Duration,
-        internal_buffer_size: usize,
         pg_pool: PgPool,
-        hwm_version: i16,
         main_consumer_none_treshold: usize,
-        topic_priorities: TopicPriorityList,
+        config: PawKafkaStreamConfig,
     ) -> Self {
         Self {
             receiver,
             consumer: consumer.into(),
             queues: Vec::new(),
-            max_idle,
-            internal_buffer_size,
+            max_idle: config.max_idle,
+            internal_buffer_size: config.internal_buffer_size,
             stream_times: HashMap::new(),
             pg_pool,
-            hwm_version,
+            hwm_version: config.hwm_version,
             main_consumer_none_treshold,
-            topic_priorities,
-            grace: chrono::Duration::milliseconds(1500),
+            topic_priorities: config.topic_priorities,
+            grace: chrono::Duration::from_std(config.grace)
+                .expect("grace must fit in chrono::Duration (about 292 million years)"),
         }
     }
 

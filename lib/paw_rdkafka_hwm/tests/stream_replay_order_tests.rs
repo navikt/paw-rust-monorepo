@@ -8,6 +8,7 @@ use paw_rdkafka_hwm::rebalance::topic_partition_update::{
 };
 use paw_rdkafka_hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use paw_rdkafka_hwm::stream::queue_handler::PartitionMessageSource;
+use paw_rdkafka_hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_rdkafka_hwm::stream::stream_wrapper::{ConsumerMessageSource, PawKafkaConsumerStream};
 use paw_rdkafka_hwm::stream::topic_priority::TopicPriorityList;
 use rdkafka::Message;
@@ -59,14 +60,17 @@ async fn replay_hopper_ikke_bakover_i_tid() {
     let stream = PawKafkaConsumerStream::new(
         receiver,
         consumer,
-        Duration::from_millis(10),
-        7,
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
         1,
-        1,
-        TopicPriorityList::empty(),
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(10),
+            internal_buffer_size: 7,
+            hwm_version: 1,
+            topic_priorities: TopicPriorityList::empty(),
+            grace: Duration::from_millis(1500),
+        },
     );
 
     let expected_count = TOPIC_COUNT * MESSAGES_PER_TOPIC;
@@ -148,14 +152,17 @@ async fn next_offset_forbi_control_record_blokkerer_ikke_andre_koer() {
     let stream = PawKafkaConsumerStream::new(
         receiver,
         consumer,
-        Duration::from_millis(1),
-        8,
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
         1,
-        1,
-        TopicPriorityList::empty(),
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(1),
+            internal_buffer_size: 8,
+            hwm_version: 1,
+            topic_priorities: TopicPriorityList::empty(),
+            grace: Duration::from_millis(1500),
+        },
     );
 
     let (stream, first) = stream.receive().await.unwrap();
@@ -265,14 +272,17 @@ async fn run_reassign_case(first_snapshot: KafkaOffsets) -> i64 {
     let mut stream = PawKafkaConsumerStream::new(
         receiver,
         consumer,
-        Duration::from_millis(10),
-        200,
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
         1,
-        1,
-        TopicPriorityList::empty(),
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(10),
+            internal_buffer_size: 200,
+            hwm_version: 1,
+            topic_priorities: TopicPriorityList::empty(),
+            grace: Duration::from_millis(1500),
+        },
     );
     let mut newest = i64::MIN;
     let mut largest_jump = 0;
@@ -346,14 +356,17 @@ async fn run_fuzz_case(seed: u64) {
     let mut stream = PawKafkaConsumerStream::new(
         receiver,
         consumer,
-        Duration::from_millis(1),
-        internal_buffer_size,
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         random.range(1, 11),
-        TopicPriorityList::empty(),
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(1),
+            internal_buffer_size,
+            hwm_version: 1,
+            topic_priorities: TopicPriorityList::empty(),
+            grace: Duration::from_millis(1500),
+        },
     );
     let mut received = Vec::with_capacity(expected_count);
     let mut receive_calls = 0;
@@ -480,14 +493,17 @@ async fn run_high_watermark_fuzz_case(
     let mut stream = PawKafkaConsumerStream::new(
         receiver,
         FakeConsumer::new(sources),
-        Duration::from_millis(10),
-        random.range(2, 10),
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
         1,
-        1,
-        TopicPriorityList::empty(),
+        PawKafkaStreamConfig {
+            max_idle: Duration::from_millis(10),
+            internal_buffer_size: random.range(2, 10),
+            hwm_version: 1,
+            topic_priorities: TopicPriorityList::empty(),
+            grace: Duration::from_millis(1500),
+        },
     );
     let mut received = Vec::with_capacity(expected_count);
     while received.len() < expected_count {

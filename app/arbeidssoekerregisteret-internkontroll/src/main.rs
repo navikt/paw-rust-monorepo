@@ -6,6 +6,7 @@ use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::{config::read_toml_config, read_config_file};
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
+use paw_rdkafka_hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_rdkafka_hwm::stream::topic_priority::{TopicPriority, TopicPriorityList};
 use paw_rdkafka_hwm::{
     hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
@@ -99,12 +100,15 @@ async fn run_app(_team_logger: &dyn TeamLogger) -> Result<(), Box<dyn Error>> {
     let stream = PawKafkaConsumerStream::new(
         rx,
         consumer,
-        max_idle,
-        internal_buffer_size,
         pg_pool.clone(),
-        hwm_version,
         main_consumer_none_treshold,
-        topic_priorities,
+        PawKafkaStreamConfig {
+            max_idle,
+            internal_buffer_size,
+            hwm_version,
+            topic_priorities,
+            grace: Duration::from_millis(1500),
+        },
     );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
