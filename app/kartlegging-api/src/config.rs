@@ -48,7 +48,7 @@ pub struct AppKafkaConfig {
 impl AppKafkaConfig {
     pub fn all_topics(&self) -> Vec<&str> {
         vec![
-            //self.paw_periode_topic.as_str(),
+            self.paw_periode_topic.as_str(),
             self.paw_opplysninger_topic.as_str(),
             self.paw_profilering_topic.as_str(),
             self.paw_egenvurdering_topic.as_str(),
