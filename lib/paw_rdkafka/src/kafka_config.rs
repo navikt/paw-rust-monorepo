@@ -4,7 +4,7 @@ use rdkafka::ClientConfig;
 use rdkafka::config::RDKafkaLogLevel;
 use serde::Deserialize;
 use serde_env_field::{EnvField, env_field_wrap};
-use std::time::{SystemTime, SystemTimeError};
+use std::time::{Duration, SystemTime, SystemTimeError};
 
 #[env_field_wrap]
 #[derive(Debug, Clone, Deserialize)]
@@ -80,10 +80,29 @@ impl KafkaConfig {
     pub fn rdkafka_client_config(&self) -> Result<ClientConfig, KafkaError> {
         create_kafka_client_config(self.clone())
     }
+
+    /// `statistics.interval.ms` as sent to librdkafka, default applied.
+    /// Zero means statistics are disabled.
+    pub fn statistics_interval(&self) -> Duration {
+        millis(value_ref_or(
+            &self.statistics_interval_ms,
+            defaults::STATISTICS_INTERVAL_MS,
+        ))
+    }
+
+    /// `fetch.wait.max.ms` as sent to librdkafka, default applied.
+    pub fn fetch_wait_max(&self) -> Duration {
+        millis(value_ref_or(
+            &self.fetch_wait_max_ms,
+            defaults::FETCH_WAIT_MAX_MS,
+        ))
+    }
 }
 
 pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientConfig, KafkaError> {
     let hwm_version = kafka_config.hwm_version.into_inner();
+    let statistics_interval_ms = kafka_config.statistics_interval().as_millis();
+    let fetch_wait_max_ms = kafka_config.fetch_wait_max().as_millis();
     let client_nonce = unix_timestamp_millis().expect("Failed to get unix timestamp millis");
     let group_id_prefix = kafka_config.group_id_prefix.into_inner();
     let group_id = format!("{}-v{}", group_id_prefix, hwm_version);
@@ -92,10 +111,6 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
     let session_timeout_ms = value_or(
         kafka_config.session_timeout_ms,
         defaults::SESSION_TIMEOUT_MS,
-    );
-    let statistics_interval_ms = value_or(
-        kafka_config.statistics_interval_ms,
-        defaults::STATISTICS_INTERVAL_MS,
     );
     let auto_offset_reset = value_or(
         kafka_config.auto_offset_reset,
@@ -135,7 +150,6 @@ pub fn create_kafka_client_config(kafka_config: KafkaConfig) -> Result<ClientCon
         defaults::SOCKET_SEND_BUFFER_BYTES,
     );
     let fetch_min_bytes = value_or(kafka_config.fetch_min_bytes, defaults::FETCH_MIN_BYTES);
-    let fetch_wait_max_ms = value_or(kafka_config.fetch_wait_max_ms, defaults::FETCH_WAIT_MAX_MS);
     let fetch_queue_backoff_ms = value_or(
         kafka_config.fetch_queue_backoff_ms,
         defaults::FETCH_QUEUE_BACKOFF_MS,
@@ -221,6 +235,15 @@ fn value_or<T>(field: Option<EnvField<T>>, default: T) -> T {
     field.map(EnvField::into_inner).unwrap_or(default)
 }
 
+fn value_ref_or<T: Copy>(field: &Option<EnvField<T>>, default: T) -> T {
+    field.as_ref().map_or(default, |value| **value)
+}
+
+/// Negative millisecond settings are clamped to zero.
+fn millis(value: impl Into<i64>) -> Duration {
+    Duration::from_millis(value.into().max(0) as u64)
+}
+
 fn parse_log_level(value: &str) -> Result<RDKafkaLogLevel, KafkaError> {
     match value.to_lowercase().as_str() {
         "emerg" => Ok(RDKafkaLogLevel::Emerg),
@@ -299,6 +322,33 @@ mod tests {
         .rdkafka_client_config();
 
         assert!(matches!(result, Err(KafkaError::Config(_))));
+    }
+
+    #[test]
+    fn timing_accessors_match_client_config() {
+        let default = KafkaConfig::new("test", "PLAINTEXT");
+        assert_eq!(
+            default.statistics_interval(),
+            Duration::from_millis(defaults::STATISTICS_INTERVAL_MS as u64)
+        );
+        assert_eq!(
+            default.fetch_wait_max(),
+            Duration::from_millis(defaults::FETCH_WAIT_MAX_MS as u64)
+        );
+
+        let overridden = KafkaConfig {
+            statistics_interval_ms: Some(EnvField::from(1000)),
+            fetch_wait_max_ms: Some(EnvField::from(250)),
+            ..KafkaConfig::new("test", "PLAINTEXT")
+        };
+        let client = overridden.rdkafka_client_config().unwrap();
+        assert_eq!(
+            overridden.statistics_interval(),
+            Duration::from_millis(1000)
+        );
+        assert_eq!(overridden.fetch_wait_max(), Duration::from_millis(250));
+        assert_eq!(client.get("statistics.interval.ms"), Some("1000"));
+        assert_eq!(client.get("fetch.wait.max.ms"), Some("250"));
     }
 
     #[test]

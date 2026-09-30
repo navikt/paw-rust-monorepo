@@ -1,5 +1,5 @@
 use std::pin::Pin;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use axum_health::spawn_health_server;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
@@ -71,16 +71,6 @@ async fn run_app(_team_logger: &dyn TeamLogger) -> Result<(), Box<dyn Error>> {
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let (tx, rx) = mpsc::unbounded_channel::<TopicPartitionUpdate>();
-    let consumer = create_kafka_consumer_with_sender(
-        app_state.clone(),
-        pg_pool.clone(),
-        kafka_config,
-        &topics,
-        tx,
-    )?;
-    let internal_buffer_size = 200;
-    let max_idle = Duration::from_millis(500);
-    let main_consumer_none_treshold = 10;
     let topic_priorities = TopicPriorityList::new(vec![
         (
             get_topic(&runtime_env, &Topic::BekreftelseHendelseLogg).to_string(),
@@ -97,19 +87,16 @@ async fn run_app(_team_logger: &dyn TeamLogger) -> Result<(), Box<dyn Error>> {
         ),
         (get_topic(&runtime_env, &Topic::Profilering).to_string(), 70),
     ]);
-    let stream = PawKafkaConsumerStream::new(
-        rx,
-        consumer,
+    // Må bygges før kafka_config flyttes inn i consumeren.
+    let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
+    let consumer = create_kafka_consumer_with_sender(
+        app_state.clone(),
         pg_pool.clone(),
-        PawKafkaStreamConfig {
-            max_idle,
-            internal_buffer_size,
-            hwm_version,
-            main_consumer_none_treshold,
-            topic_priorities,
-            grace: Duration::from_millis(1500),
-        },
-    );
+        kafka_config,
+        &topics,
+        tx,
+    )?;
+    let stream = PawKafkaConsumerStream::new(rx, consumer, pg_pool.clone(), stream_config);
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();

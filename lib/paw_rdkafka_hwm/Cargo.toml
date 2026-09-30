@@ -21,6 +21,7 @@ chrono = { workspace = true }
 
 [dev-dependencies]
 paw_test = { path = "../paw_test" }
+serde-env-field = { workspace = true }
 postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
 tokio = { workspace = true, features = ["test-util"] }
 sqlx = { workspace = true }

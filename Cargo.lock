@@ -3190,6 +3190,7 @@ dependencies = [
  "postgres_testcontainer",
  "prometheus",
  "rdkafka",
+ "serde-env-field",
  "sqlx",
  "thiserror 2.0.20",
  "tokio",
