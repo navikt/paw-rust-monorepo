@@ -104,7 +104,6 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .collect::<Vec<_>>();
         Span::current().record("stalled_partitions", stalled_partitions.len() as u64);
         let now = SystemTime::now();
-        let grace = self.config.grace;
         // Shortest time until a message held back by grace becomes old enough.
         let mut next_ready: Option<Duration> = None;
         let Some(wrapper) = self
@@ -120,10 +119,10 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
                 else {
                     return true;
                 };
-                if age >= grace || !empty_partitions.contains(&q.key().partition) {
+                if age >= self.config.grace || !empty_partitions.contains(&q.key().partition) {
                     return true;
                 }
-                let wait = grace - age;
+                let wait = self.config.grace - age;
                 next_ready = Some(next_ready.map_or(wait, |w| w.min(wait)));
                 false
             })
