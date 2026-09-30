@@ -11,6 +11,9 @@ pub struct PawKafkaStreamConfig {
     pub internal_buffer_size: usize,
     /// HWM version used when filtering messages from the main consumer queue.
     pub hwm_version: i16,
+    /// Number of empty polls of the main consumer queue (with no rebalance
+    /// events) before `drain_and_rebalance` stops polling.
+    pub main_consumer_none_treshold: usize,
     /// Tie-breaker between topics when head timestamps are equal.
     pub topic_priorities: TopicPriorityList,
     /// Minimum age of a message before it is returned while another queue for

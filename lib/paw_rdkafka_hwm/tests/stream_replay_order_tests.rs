@@ -63,11 +63,11 @@ async fn replay_hopper_ikke_bakover_i_tid() {
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(10),
             internal_buffer_size: 7,
             hwm_version: 1,
+            main_consumer_none_treshold: 1,
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
@@ -155,11 +155,11 @@ async fn next_offset_forbi_control_record_blokkerer_ikke_andre_koer() {
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(1),
             internal_buffer_size: 8,
             hwm_version: 1,
+            main_consumer_none_treshold: 1,
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
@@ -275,11 +275,11 @@ async fn run_reassign_case(first_snapshot: KafkaOffsets) -> i64 {
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(10),
             internal_buffer_size: 200,
             hwm_version: 1,
+            main_consumer_none_treshold: 1,
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
@@ -359,11 +359,11 @@ async fn run_fuzz_case(seed: u64) {
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        random.range(1, 11),
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(1),
             internal_buffer_size,
             hwm_version: 1,
+            main_consumer_none_treshold: random.range(1, 11),
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
@@ -496,11 +496,11 @@ async fn run_high_watermark_fuzz_case(
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(10),
             internal_buffer_size: random.range(2, 10),
             hwm_version: 1,
+            main_consumer_none_treshold: 1,
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },

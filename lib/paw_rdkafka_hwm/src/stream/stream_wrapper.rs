@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, LazyLock};
@@ -31,7 +32,6 @@ use crate::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::stream::queue_handler::{PartitionMessageSource, QueueHandler};
 use crate::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
 use crate::stream::stream_config::PawKafkaStreamConfig;
-use crate::stream::topic_priority::TopicPriorityList;
 
 pub trait ConsumerMessageSource: Send + Sync {
     type PartitionSource: PartitionMessageSource;
@@ -72,21 +72,9 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     consumer: Arc<C>,
     /// Currently active queues for each assigned topic partition.
     queues: Vec<QueueHandler<C::PartitionSource>>,
-    /// Maximum time the internal buffer can be empty before we consider it idle and
-    /// no longer wait for it to be filled.
-    /// This is used to avoid slowing down the stream when a partition
-    /// has no messages for a while.
-    max_idle: Duration,
-    /// Soft limit for the number of messages to buffer internally for each partition queue.
-    internal_buffer_size: usize,
     stream_times: HashMap<i32, StreamState>,
     pg_pool: PgPool,
-    hwm_version: i16,
-    main_consumer_none_treshold: usize,
-    topic_priorities: TopicPriorityList,
-    /// Minimum age of a messages that can be returned from the stream.
-    /// Newer messages will be held in the internal buffer until they are old enough to be returned.
-    grace: chrono::Duration,
+    config: PawKafkaStreamConfig,
 }
 
 impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
@@ -100,9 +88,9 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
     /// Consumes self and returns it self if safe to continue receiving messages,
     /// or an error if the stream is disconnected or failed.
     async fn receive(mut self) -> Result<(Self, Option<OwnedMessage>), StreamError> {
+        let started = Instant::now();
         self.drain_and_rebalance().await?;
-        load(&mut self.queues, self.max_idle).await?;
-
+        load(&mut self.queues, self.config.max_idle).await?;
         let stalled_partitions = self
             .queues
             .iter()
@@ -116,22 +104,24 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             .map(|q| q.key().partition)
             .collect::<Vec<_>>();
         Span::current().record("stalled_partitions", stalled_partitions.len() as u64);
-        let current_time = Utc::now();
+        let now_ms = Utc::now().timestamp_millis();
+        let grace_ms = self.config.grace.as_millis() as i64;
+        let mut time_til_next = i64::MAX;
         let Some(wrapper) = self
             .queues
             .iter_mut()
             .filter(|q| !q.is_empty())
             .filter(|q| !stalled_partitions.contains(&q.key().partition))
             .filter(|q| {
-                let Some(ts) = q
-                    .timestamp()
-                    .and_then(|t| t.to_millis())
-                    .and_then(DateTime::from_timestamp_millis)
-                else {
+                let Some(ts_ms) = q.timestamp().and_then(|t| t.to_millis()) else {
                     return true;
                 };
-                let old_enough = current_time.signed_duration_since(ts) >= self.grace;
+                let time_to_ready = grace_ms - now_ms.saturating_sub(ts_ms);
+                let old_enough = time_to_ready <= 0;
                 let has_empty = empty_partitions.contains(&q.key().partition);
+                if !old_enough && has_empty && time_to_ready < time_til_next {
+                    time_til_next = time_to_ready;
+                }
                 old_enough || !has_empty
             })
             .min_by_key(|q| (q.timestamp(), q.priority()))
@@ -148,7 +138,18 @@ impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
             }
             record_empty_receive_span(span_text);
             RECEIVE_RESULT.with_label_values(&[metrics_text]).inc();
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            let elapsed = started.elapsed();
+            let remaining: i64 = self
+                .config
+                .max_idle
+                .saturating_sub(elapsed)
+                .as_millis()
+                .try_into()
+                .unwrap_or(i64::MAX);
+            let sleep_duration: u64 = min(time_til_next, remaining).try_into().unwrap_or(0);
+            if sleep_duration > 0 {
+                tokio::time::sleep(Duration::from_millis(sleep_duration)).await;
+            }
             return Ok((self, None));
         };
 
@@ -255,22 +256,19 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
         receiver: UnboundedReceiver<TopicPartitionUpdate>,
         consumer: C,
         pg_pool: PgPool,
-        main_consumer_none_treshold: usize,
         config: PawKafkaStreamConfig,
     ) -> Self {
+        assert!(
+            i64::try_from(config.grace.as_millis()).is_ok(),
+            "grace must fit in i64 milliseconds (about 292 million years)"
+        );
         Self {
             receiver,
             consumer: consumer.into(),
             queues: Vec::new(),
-            max_idle: config.max_idle,
-            internal_buffer_size: config.internal_buffer_size,
             stream_times: HashMap::new(),
             pg_pool,
-            hwm_version: config.hwm_version,
-            main_consumer_none_treshold,
-            topic_priorities: config.topic_priorities,
-            grace: chrono::Duration::from_std(config.grace)
-                .expect("grace must fit in chrono::Duration (about 292 million years)"),
+            config,
         }
     }
 
@@ -348,11 +346,11 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                                     .split_partition_queue(&key.topic, key.partition)
                                     .map(|pt_queue| {
                                         let priority =
-                                            self.topic_priorities.get_priority(&key.topic);
+                                            self.config.topic_priorities.get_priority(&key.topic);
                                         QueueHandler::new(
                                             key,
                                             pt_queue,
-                                            self.internal_buffer_size,
+                                            self.config.internal_buffer_size,
                                             hwm,
                                             priority,
                                         )
@@ -390,7 +388,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
     async fn drain_and_rebalance(&mut self) -> Result<(), StreamError> {
         let mut messages = Vec::new();
         let mut none_counter = 0;
-        while none_counter < self.main_consumer_none_treshold {
+        while none_counter < self.config.main_consumer_none_treshold {
             match self.consumer.recv().now_or_never() {
                 Some(Ok(msg)) => {
                     tracing::debug!(
@@ -406,7 +404,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                         .map_err(|_| StreamError::HwmFilterDbError)?;
                     let hwm = get_hwm(
                         &mut tx,
-                        self.hwm_version,
+                        self.config.hwm_version,
                         msg.topic(),
                         msg.partition() as u16,
                     )
@@ -439,7 +437,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                         none_counter += 1;
                     } else {
                         self.handle_topic_update_events(rebalance_events)?;
-                        none_counter = self.main_consumer_none_treshold.saturating_sub(3);
+                        none_counter = self.config.main_consumer_none_treshold.saturating_sub(3);
                     }
                 }
             }

@@ -101,11 +101,11 @@ async fn run_app(_team_logger: &dyn TeamLogger) -> Result<(), Box<dyn Error>> {
         rx,
         consumer,
         pg_pool.clone(),
-        main_consumer_none_treshold,
         PawKafkaStreamConfig {
             max_idle,
             internal_buffer_size,
             hwm_version,
+            main_consumer_none_treshold,
             topic_priorities,
             grace: Duration::from_millis(1500),
         },

@@ -173,11 +173,11 @@ fn stream(
         PgPoolOptions::new()
             .connect_lazy("postgres://localhost/unused")
             .unwrap(),
-        1,
         PawKafkaStreamConfig {
             max_idle: Duration::from_millis(10),
             internal_buffer_size: 10,
             hwm_version: 1,
+            main_consumer_none_treshold: 1,
             topic_priorities: prioriteter,
             grace: Duration::from_millis(1500),
         },
