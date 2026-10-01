@@ -49,3 +49,12 @@ Authorization: Bearer {{$auth.token("azure")}}
 ### GET /api/v1/statistics
 GET {{baseUrl}}/api/v1/statistics
 Accept: application/json
+
+### POST /api/v1/statistics
+POST {{baseUrl}}/api/v1/statistics
+Accept: application/json
+Content-Type: application/json
+
+{
+    "kontorId": "4154"
+}

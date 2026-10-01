@@ -61,6 +61,7 @@ mod tests {
     use crate::model::dto::response::{
         ArbeidsledighetResponse, KartleggingResponse, PagingResponse, StatisticsResponse,
     };
+    use crate::model::dto::statistics::{LedighetStatistics, PeriodeStatistics};
     use crate::model::sort::SortOrder;
     use chrono::DateTime;
     use paw_error_handling::problem_details::ProblemDetails;
@@ -375,14 +376,6 @@ mod tests {
         assert_conforms(&spec, "QueryRequest", instance);
     }
 
-    /// Request og response er bevisst asymmetriske.
-    ///
-    /// Serveren deserialiserer `Option`-felt med serde, som godtar både utelatt felt
-    /// og eksplisitt `null`. Request-skjemaene er derfor nullable, ellers ville spec
-    /// avvist forespørsler serveren faktisk godtar.
-    ///
-    /// Response-DTO-ene bruker `skip_serializing_none`, så `None` gir fravær av
-    /// nøkkelen. Response-skjemaene er derfor ikke nullable.
     #[test]
     fn request_godtar_eksplisitt_null() {
         let spec = spec();
@@ -439,16 +432,22 @@ mod tests {
     fn statistics_response_konformerer() {
         let spec = spec();
         let dto = StatisticsResponse {
-            total: 10000,
-            is_null: 100,
-            is_not_null: 9900,
-            over_0030_days: 8000,
-            over_0060_days: 6000,
-            over_0090_days: 4000,
-            over_0180_days: 2000,
-            over_0365_days: 1000,
-            over_0730_days: 500,
-            over_1095_days: 250,
+            perioder: PeriodeStatistics {
+                totalt: 10000,
+                er_aktiv: 9000,
+                er_avsluttet: 1000,
+            },
+            ledighet: LedighetStatistics {
+                er_null: 100,
+                er_ikke_null: 8900,
+                over_0030_dager: 7000,
+                over_0060_dager: 5000,
+                over_0090_dager: 3000,
+                over_0180_dager: 2000,
+                over_0365_dager: 1000,
+                over_0730_dager: 500,
+                over_1095_dager: 250,
+            },
         };
         let instance = serde_json::to_value(&dto).unwrap();
         assert_conforms(&spec, "StatisticsResponse", instance);

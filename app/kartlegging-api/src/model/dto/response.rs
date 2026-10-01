@@ -1,4 +1,5 @@
 use crate::model::dto::arbeidssoeker::{Arbeidssoeker, ArbeidssoekerKompakt};
+use crate::model::dto::statistics::{LedighetStatistics, PeriodeStatistics};
 use crate::model::sort::SortOrder;
 use serde::Serialize;
 
@@ -19,16 +20,8 @@ pub struct ArbeidsledighetResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatisticsResponse {
-    pub total: i64,
-    pub is_null: i64,
-    pub is_not_null: i64,
-    pub over_0030_days: i64,
-    pub over_0060_days: i64,
-    pub over_0090_days: i64,
-    pub over_0180_days: i64,
-    pub over_0365_days: i64,
-    pub over_0730_days: i64,
-    pub over_1095_days: i64,
+    pub perioder: PeriodeStatistics,
+    pub ledighet: LedighetStatistics,
 }
 
 #[derive(Debug, Serialize)]

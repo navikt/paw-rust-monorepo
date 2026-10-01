@@ -1,5 +1,5 @@
-use crate::model::dao::kartlegging;
-use crate::model::dao::kartlegging::KartleggingMetricsRow;
+use crate::model::dao::statistics::KartleggingStatisticsRow;
+use crate::model::dao::statistics;
 use prometheus::{GaugeVec, register_gauge_vec};
 use sqlx::PgPool;
 use std::sync::LazyLock;
@@ -18,47 +18,47 @@ pub(crate) fn init() {}
 pub(crate) async fn register_kartlegging_metrics(pg_pool: &PgPool) -> anyhow::Result<()> {
     let row = fetch_kartlegging_metrics(pg_pool).await?;
     KARTLEGGING_GAUGE
-        .with_label_values(&["total"])
-        .set(row.total as f64);
+        .with_label_values(&["perioder_total"])
+        .set(row.perioder_total as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["is_active"])
-        .set(row.is_active as f64);
+        .with_label_values(&["perioder_aktiv"])
+        .set(row.perioder_aktiv as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["is_not_active"])
-        .set(row.is_not_active as f64);
+        .with_label_values(&["perioder_avsluttet"])
+        .set(row.perioder_avsluttet as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["is_null"])
-        .set(row.is_null as f64);
+        .with_label_values(&["ledighet_null"])
+        .set(row.ledighet_null as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["is_not_null"])
-        .set(row.is_not_null as f64);
+        .with_label_values(&["ledighet_ikke_null"])
+        .set(row.ledighet_ikke_null as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0030_days"])
-        .set(row.over_0030_days as f64);
+        .with_label_values(&["ledighet_over_0030_dager"])
+        .set(row.ledighet_over_0030_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0060_days"])
-        .set(row.over_0060_days as f64);
+        .with_label_values(&["ledighet_over_0060_dager"])
+        .set(row.ledighet_over_0060_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0090_days"])
-        .set(row.over_0090_days as f64);
+        .with_label_values(&["ledighet_over_0090_dager"])
+        .set(row.ledighet_over_0090_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0180_days"])
-        .set(row.over_0180_days as f64);
+        .with_label_values(&["ledighet_over_0180_dager"])
+        .set(row.ledighet_over_0180_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0365_days"])
-        .set(row.over_0365_days as f64);
+        .with_label_values(&["ledighet_over_0365_dager"])
+        .set(row.ledighet_over_0365_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_0730_days"])
-        .set(row.over_0730_days as f64);
+        .with_label_values(&["ledighet_over_0730_dager"])
+        .set(row.ledighet_over_0730_dager as f64);
     KARTLEGGING_GAUGE
-        .with_label_values(&["over_1095_days"])
-        .set(row.over_1095_days as f64);
+        .with_label_values(&["ledighet_over_1095_dager"])
+        .set(row.ledighet_over_1095_dager as f64);
     Ok(())
 }
 
-async fn fetch_kartlegging_metrics(pg_pool: &PgPool) -> anyhow::Result<KartleggingMetricsRow> {
+async fn fetch_kartlegging_metrics(pg_pool: &PgPool) -> anyhow::Result<KartleggingStatisticsRow> {
     let mut tx = pg_pool.begin().await?;
-    let row = kartlegging::count_metrics(&mut tx).await?;
+    let row = statistics::count(&mut tx).await?;
     tx.commit().await?;
     Ok(row)
 }

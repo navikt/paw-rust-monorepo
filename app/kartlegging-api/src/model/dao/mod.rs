@@ -9,3 +9,4 @@ pub(crate) mod ledighetsperiode_kompakt;
 pub(crate) mod opplysninger;
 pub(crate) mod periode;
 pub(crate) mod profilering;
+pub(crate) mod statistics;

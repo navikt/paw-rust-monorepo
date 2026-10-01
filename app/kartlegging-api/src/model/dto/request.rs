@@ -129,6 +129,13 @@ impl PagingRequest {
     }
 }
 
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatisticsQueryRequest {
+    pub kontor_id: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
