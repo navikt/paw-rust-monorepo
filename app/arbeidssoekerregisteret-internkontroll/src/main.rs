@@ -1,15 +1,17 @@
-use std::pin::Pin;
+mod message_processor;
+
 use std::sync::Arc;
 
 use axum_health::spawn_health_server;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
+use message_processor::InternkontrollMessageProcessor;
 use paw_app_config::{config::read_toml_config, read_config_file};
 use paw_rdkafka::kafka_config::KafkaConfig;
 use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_rdkafka_hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_rdkafka_hwm::stream::topic_priority::{TopicPriority, TopicPriorityList};
 use paw_rdkafka_hwm::{
-    hwm_message_processor::{MessageProcessor, ProcessorError, hwm_process_message},
+    hwm_message_processor::{ProcessorError, hwm_process_message},
     rebalance::topic_partition_update::TopicPartitionUpdate,
     stream::{
         paw_kafka_stream::PawKafkaStream,
@@ -25,9 +27,6 @@ use paw_rust_base::{
 };
 use paw_sqlx::config::DatabaseConfig;
 use paw_team_logs::{BufferedTeamLogs, TeamLogger};
-use rdkafka::Message;
-use rdkafka::message::OwnedMessage;
-use sqlx::{Postgres, Transaction};
 use std::error::Error;
 use tokio::sync::mpsc;
 use tracing::info;
@@ -95,7 +94,7 @@ async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), 
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
         async move {
-            let message_processor = MultiplexerTestMessageProcessor {};
+            let message_processor = InternkontrollMessageProcessor {};
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;
@@ -137,43 +136,4 @@ async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), 
     let _ = pg_pool.close().await;
     info!("Pg pool lukket");
     Ok(())
-}
-
-pub struct MultiplexerTestMessageProcessor {}
-
-impl MessageProcessor for MultiplexerTestMessageProcessor {
-    fn process_message<'a>(
-        &'a self,
-        _: &'a mut Transaction<'_, Postgres>,
-        msg: &'a OwnedMessage,
-    ) -> Pin<Box<dyn Future<Output = Result<(), ProcessorError>> + Send + 'a>> {
-        Box::pin(async move {
-            process(msg).await;
-            Ok::<(), ProcessorError>(())
-        })
-    }
-}
-
-#[tracing::instrument(
-    skip(msg),
-    name = "paw_internkontroll.process",
-    fields(
-        topic = msg.topic(),
-        partition = msg.partition(),
-        offset = msg.offset(),
-        timestamp = msg.timestamp().to_millis().unwrap_or(-1),
-    )
-)]
-pub async fn process(msg: &OwnedMessage) {
-    let partition = msg.partition();
-    let topic = msg.topic();
-    let offset = msg.offset();
-    let timstamp = msg.timestamp().to_millis();
-    tracing::debug!(
-        "Processed {}-{}-{} at {}",
-        partition,
-        topic,
-        offset,
-        timstamp.unwrap_or(-1)
-    );
 }
