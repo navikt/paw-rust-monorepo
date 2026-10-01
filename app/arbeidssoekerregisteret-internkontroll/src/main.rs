@@ -24,30 +24,24 @@ use paw_rust_base::{
     topics::{Topic, get_topic_names},
 };
 use paw_sqlx::config::DatabaseConfig;
-use paw_team_logs::{BufferedTeamLogs, NoopTeamLogs, TeamLogger};
+use paw_team_logs::{BufferedTeamLogs, TeamLogger};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
 use std::error::Error;
 use tokio::sync::mpsc;
-use tracing::{info, warn};
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
     setup_nais_otel().unwrap();
     init_stream_wrapper_metrics();
-    let team_logger: Box<dyn TeamLogger> = match BufferedTeamLogs::from_nais_env(100) {
-        Ok(logs) => Box::new(logs),
-        Err(error) => {
-            warn!(%error, "Could not initialize Team Logs");
-            Box::new(NoopTeamLogs)
-        }
-    };
-    run_app(team_logger.as_ref()).await
+    let team_logger = BufferedTeamLogs::from_nais_env(100)?;
+    run_app(team_logger).await
 }
 
-async fn run_app(_team_logger: &dyn TeamLogger) -> Result<(), Box<dyn Error>> {
+async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), Box<dyn Error>> {
     let kafka_config: KafkaConfig = read_toml_config(read_config_file!("kafka_config.toml"))?;
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
