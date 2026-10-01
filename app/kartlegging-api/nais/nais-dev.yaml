@@ -87,4 +87,5 @@ spec:
         - application: azure-token-generator
           namespace: nais
         - application: paw-dev-proxy
+        - application: paw-brukerstotte
         - application: arbeidssokerregistrering-for-veileder

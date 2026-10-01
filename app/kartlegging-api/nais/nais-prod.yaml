@@ -89,4 +89,5 @@ spec:
         - host: pdl-api.prod-fss-pub.nais.io
     inbound:
       rules:
+        - application: paw-brukerstotte
         - application: arbeidssokerregistrering-for-veileder
