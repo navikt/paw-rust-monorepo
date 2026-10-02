@@ -94,17 +94,16 @@ impl AuthState {
             return Err(AppError::MissingConfig("".to_string()));
         }
 
-        let azure_issuer_state = IssuerState::new(http_client.clone(), azure_config).await?;
-        let tokenx_issuer_state = IssuerState::new(http_client.clone(), tokenx_config).await?;
-        let idporten_issuer_state = IssuerState::new(http_client.clone(), idporten_config).await?;
-        let maskinporten_issuer_state =
-            IssuerState::new(http_client.clone(), maskinporten_config).await?;
+        let azure_state = IssuerState::new(http_client.clone(), azure_config).await?;
+        let tokenx_state = IssuerState::new(http_client.clone(), tokenx_config).await?;
+        let idporten_state = IssuerState::new(http_client.clone(), idporten_config).await?;
+        let maskinporten_state = IssuerState::new(http_client.clone(), maskinporten_config).await?;
 
         Ok(Arc::new(Self {
-            azure: azure_issuer_state,
-            tokenx: tokenx_issuer_state,
-            idporten: idporten_issuer_state,
-            maskinporten: maskinporten_issuer_state,
+            azure: azure_state,
+            tokenx: tokenx_state,
+            idporten: idporten_state,
+            maskinporten: maskinporten_state,
         }))
     }
 }
