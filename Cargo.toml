@@ -5,6 +5,7 @@ members = [
     "domain/errors",
     "domain/oauth2",
     "domain/interne_hendelser",
+    "domain/bekreftelse_interne_hendelser",
     "domain/eksterne_hendelser",
     "domain/regler_arbeidssoeker",
     "domain/dab_oppfolgingperioder",
