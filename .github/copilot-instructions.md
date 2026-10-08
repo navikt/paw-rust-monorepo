@@ -67,7 +67,7 @@ Config is compile-time selected via the `nais` feature flag using `read_config_f
 | `paw_kafka::hwm` | High-water-mark Kafka consumer with sqlx-backed offset tracking |
 | `texas_client` | Nais Texas token operations (M2M, exchange, validation) |
 | `paw_sqlx` | Postgres pool init and helpers |
-| `paw_app_config` | `read_config_file!` macro for TOML config loading |
+| `paw_rust_base` | `read_config_file!` macro and `config::read_toml_config` for TOML config, env helpers, `ServerError` |
 
 `azure_m2m_client` is deprecated — use `texas_client` for all auth.
 

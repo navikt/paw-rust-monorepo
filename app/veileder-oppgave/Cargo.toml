@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [features]
-nais = ["paw_app_config/nais"]
+nais = []
 
 [lib]
 name = "veileder_oppgave"
@@ -15,7 +15,6 @@ types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
 interne_hendelser = { path = "../../domain/interne_hendelser" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
-paw_app_config = { path = "../../lib/paw_app_config" }
 paw_kafka = { path = "../../lib/paw_kafka" }
 texas_client = { path = "../../lib/texas_client" }
 paw_observability = { path = "../../lib/paw_observability" }

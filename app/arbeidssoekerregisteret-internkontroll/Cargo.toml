@@ -14,7 +14,6 @@ paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_kafka = { path = "../../lib/paw_kafka" }
 paw_team_logs = { path = "../../lib/paw_team_logs" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
-paw_app_config = { path = "../../lib/paw_app_config" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 sqlx = { workspace = true }

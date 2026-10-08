@@ -138,7 +138,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
- "paw_app_config",
  "paw_kafka",
  "paw_observability",
  "paw_rust_base",
@@ -2329,8 +2328,6 @@ dependencies = [
  "jsonschema",
  "mockito",
  "nais_schema_registry",
- "paw_app_config",
- "paw_date_time",
  "paw_error_handling",
  "paw_kafka",
  "paw_kafka_key_gen_api_mock",
@@ -3025,24 +3022,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paw_app_config"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror 2.0.20",
- "toml",
-]
-
-[[package]]
-name = "paw_date_time"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror 2.0.20",
- "toml",
-]
-
-[[package]]
 name = "paw_error_handling"
 version = "0.1.0"
 dependencies = [
@@ -3159,9 +3138,11 @@ name = "paw_rust_base"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "serde",
  "temp-env",
  "thiserror 2.0.20",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -3872,7 +3853,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "interne_hendelser",
- "paw_app_config",
+ "paw_rust_base",
  "pdl_graphql",
  "serde",
  "serde-env-field",
@@ -4992,7 +4973,6 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "paw_app_config",
  "paw_kafka",
  "paw_observability",
  "paw_rust_base",
@@ -5722,7 +5702,6 @@ dependencies = [
  "interne_hendelser",
  "mockito",
  "opentelemetry",
- "paw_app_config",
  "paw_kafka",
  "paw_observability",
  "paw_rust_base",
@@ -5838,7 +5817,6 @@ dependencies = [
  "errors",
  "interne_hendelser",
  "mockito",
- "paw_app_config",
  "paw_kafka",
  "paw_observability",
  "paw_rust_base",

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [features]
-nais = ["paw_app_config/nais"]
+nais = []
 
 [lib]
 name = "kartlegging_api"
@@ -15,10 +15,8 @@ types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
-paw_date_time = { path = "../../lib/paw_date_time" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_observability = { path = "../../lib/paw_observability" }
-paw_app_config = { path = "../../lib/paw_app_config" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_kafka = { path = "../../lib/paw_kafka" }

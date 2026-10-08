@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use paw_app_config::config::read_toml_config;
 use paw_kafka::kafka_config::KafkaConfig;
+use paw_rust_base::config::read_toml_config;
 use paw_rust_base::env;
 use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;

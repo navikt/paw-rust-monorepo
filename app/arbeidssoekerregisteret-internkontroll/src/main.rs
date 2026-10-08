@@ -3,7 +3,6 @@ mod message_processor;
 use std::sync::Arc;
 
 use message_processor::InternkontrollMessageProcessor;
-use paw_app_config::{config::read_toml_config, read_config_file};
 use paw_kafka::hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_kafka::hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_kafka::hwm::stream::topic_priority::TopicPriorityList;
@@ -25,6 +24,7 @@ use paw_rust_base::{
     panic_logger::register_panic_logger,
     topics::{Topic, get_topic_names},
 };
+use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
 use paw_team_logs::{BufferedTeamLogs, TeamLogger};
 use std::error::Error;

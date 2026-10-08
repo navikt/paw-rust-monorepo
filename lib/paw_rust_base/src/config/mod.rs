@@ -1,4 +1,7 @@
-use crate::error::ConfigError;
+pub mod duration;
+pub mod error;
+
+use error::ConfigError;
 use serde::Deserialize;
 
 pub fn read_toml_config<'de, T: Deserialize<'de>>(content: &'de str) -> Result<T, ConfigError> {

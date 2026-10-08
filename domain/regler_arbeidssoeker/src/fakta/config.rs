@@ -1,5 +1,5 @@
-use paw_app_config::config::read_toml_config;
-use paw_app_config::error::ConfigError;
+use paw_rust_base::config::error::ConfigError;
+use paw_rust_base::config::read_toml_config;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 

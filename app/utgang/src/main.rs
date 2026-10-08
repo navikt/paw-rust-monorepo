@@ -1,11 +1,11 @@
 use anyhow::Result;
 use chrono::TimeDelta;
-use paw_app_config::read_config_file;
 use paw_kafka::hwm::hwm_message_processor::hwm_process_message;
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
+use paw_rust_base::read_config_file;
 use paw_sqlx::config::DatabaseConfig;
 use paw_sqlx::postgres::init_db;
 use rdkafka::Message;

@@ -9,7 +9,6 @@ paw_observability = { path = "../../lib/paw_observability" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_kafka = { path = "../../lib/paw_kafka" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
-paw_app_config = { path = "../../lib/paw_app_config" }
 tokio = { workspace = true }
 axum = { workspace = true }
 prometheus = { workspace = true }
