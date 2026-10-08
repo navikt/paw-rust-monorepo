@@ -1,24 +1,24 @@
 use crate::claim::IssClaim;
 use axum::extract::Request;
 use axum::http::header;
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, dangerous::insecure_decode, decode};
 use serde::Deserialize;
 
-pub fn extract_bearer_token(request: &Request) -> Result<&str, AuthError> {
+pub fn extract_bearer_token(request: &Request) -> Result<&str, OAuthError> {
     request
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        .ok_or(AuthError::MissingToken)
+        .ok_or(OAuthError::MissingToken)
 }
 
-pub fn peek_issuer(token: &str) -> Result<String, AuthError> {
+pub fn peek_issuer(token: &str) -> Result<String, OAuthError> {
     insecure_decode::<IssClaim>(token)
         .map(|data| data.claims.iss)
         .map_err(|e| {
-            AuthError::InvalidToken(format!("Kunne ikke trekke ut 'iss' claim pga {}", &e))
+            OAuthError::InvalidToken(format!("Kunne ikke trekke ut 'iss' claim pga {}", &e))
         })
 }
 
@@ -28,7 +28,7 @@ pub fn validate_token<C: for<'de> Deserialize<'de>>(
     key: &DecodingKey,
     issuer: &str,
     client_id: &str,
-) -> Result<C, AuthError> {
+) -> Result<C, OAuthError> {
     let mut validation = Validation::new(alg);
     validation.set_audience(&[client_id]);
     validation.set_issuer(&[issuer]);
@@ -40,7 +40,7 @@ pub fn validate_token<C: for<'de> Deserialize<'de>>(
     decode::<C>(token, key, &validation)
         .map(|data| data.claims)
         .map_err(|e| {
-            AuthError::InvalidToken(format!(
+            OAuthError::InvalidToken(format!(
                 "Kunne ikke trekke ut ett av ['exp', 'iss', 'aud'] claims pga {}",
                 &e
             ))

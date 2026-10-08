@@ -1,7 +1,7 @@
 use crate::config::{AuthConfig, IssuerConfig, JWKS_MIN_REFRESH_INTERVAL, JWKS_TTL};
 use crate::oidc::{JwksCache, fetch_jwks};
 use errors::app::AppError;
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::DecodingKey;
 use reqwest::Client;
 use std::sync::Arc;
@@ -40,7 +40,7 @@ impl IssuerState {
         }
     }
 
-    pub async fn get_decoding_key(&self, kid: &str) -> Result<DecodingKey, AuthError> {
+    pub async fn get_decoding_key(&self, kid: &str) -> Result<DecodingKey, OAuthError> {
         let needs_refresh = {
             let cache = self.cache.read().await;
             cache.fetched_at.elapsed() > JWKS_TTL || !cache.keys.contains_key(kid)
@@ -56,7 +56,7 @@ impl IssuerState {
                 let jwks = fetch_jwks(&self.well_known_url, &self.http_client).await?;
                 *cache = jwks.cache;
             } else if kid_missing && !can_refresh {
-                return Err(AuthError::InvalidToken(
+                return Err(OAuthError::InvalidToken(
                     "Kan ikke oppdatere cache".to_string(),
                 ));
             }
@@ -64,7 +64,7 @@ impl IssuerState {
 
         let decoding_key = self.cache.read().await.keys.get(kid).cloned();
         match decoding_key {
-            None => Err(AuthError::InvalidToken(
+            None => Err(OAuthError::InvalidToken(
                 "Kunne ikke hente token fra cache".to_string(),
             )),
             Some(key) => Ok(key),

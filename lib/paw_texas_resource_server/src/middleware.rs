@@ -3,7 +3,7 @@ use crate::state::AuthState;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::decode_header;
 use oauth2::claim::{EntraIdClaims, IdPortenClaims, MaskinportenClaims, TokenXClaims};
 use oauth2::issuer::IdentityProvider;
@@ -14,28 +14,29 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub fn texas_middleware(state: Arc<AuthState>) -> TexasMiddlewareLayer {
-    type F = fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>;
-    axum::middleware::from_fn_with_state(state, texas_auth_handler_boxed as F)
-}
-
-type BoxFut<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+type BoxedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 pub type TexasMiddlewareLayer = axum::middleware::FromFnLayer<
-    fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>,
+    fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>,
     Arc<AuthState>,
     (State<Arc<AuthState>>, Request),
 >;
+
+pub fn texas_middleware(state: Arc<AuthState>) -> TexasMiddlewareLayer {
+    type F =
+        fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>;
+    axum::middleware::from_fn_with_state(state, texas_auth_handler_boxed as F)
+}
 
 fn texas_auth_handler_boxed(
     state: State<Arc<AuthState>>,
     request: Request,
     next: Next,
-) -> BoxFut<Result<Response, ProblemDetails>> {
+) -> BoxedFuture<Result<Response, ProblemDetails>> {
     Box::pin(texas_auth_handler(state, request, next))
 }
 
-#[tracing::instrument(skip(state, request, next), fields(path = %request.uri().path()))]
+#[tracing::instrument(skip_all, fields(path = %request.uri().path()))]
 pub async fn texas_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
@@ -52,8 +53,8 @@ pub async fn texas_auth_handler(
 
     let token = extract_bearer_token(&request)?;
     let header = decode_header(token)
-        .map_err(|_| AuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
-    let kid = header.kid.ok_or(AuthError::InvalidToken(
+        .map_err(|_| OAuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
+    let kid = header.kid.ok_or(OAuthError::InvalidToken(
         "Mangler 'kid' header claim".to_string(),
     ))?;
     let alg = header.alg;
@@ -69,7 +70,7 @@ pub async fn texas_auth_handler(
     tracing::debug!("Validerer token fra issuer '{}'", peeked_iss);
 
     let identity_provider = match state.config.identity_provider(&peeked_iss) {
-        None => return Err(AuthError::InvalidIssuer.into()),
+        None => return Err(OAuthError::InvalidIssuer.into()),
         Some(ip) => ip,
     };
     let introspection_endpoint = state
@@ -89,19 +90,19 @@ pub async fn texas_auth_handler(
         .map_err(|e| {
             ProblemDetails::unauthorized(
                 path.as_str(),
-                AuthError::IntrospectionFailed(e.to_string()),
+                OAuthError::IntrospectionFailed(e.to_string()),
             )
         })?;
 
     let response_status = response.status();
     let response_body = response.text().await.map_err(|e| {
-        ProblemDetails::unauthorized(path.as_str(), AuthError::IntrospectionFailed(e.to_string()))
+        ProblemDetails::unauthorized(path.as_str(), OAuthError::IntrospectionFailed(e.to_string()))
     })?;
     let introspect_response = serde_json::from_str::<IntrospectResponse>(response_body.as_str())
         .map_err(|e| {
             ProblemDetails::unauthorized(
                 path.as_str(),
-                AuthError::IntrospectionFailed(e.to_string()),
+                OAuthError::IntrospectionFailed(e.to_string()),
             )
         })?;
 
@@ -115,7 +116,7 @@ pub async fn texas_auth_handler(
                     serde_json::from_str::<TokenXClaims>(response_body.as_str()).map_err(|e| {
                         ProblemDetails::unauthorized(
                             path.as_str(),
-                            AuthError::InvalidToken(e.to_string()),
+                            OAuthError::InvalidToken(e.to_string()),
                         )
                     })?;
                 claims.as_principal()?
@@ -125,7 +126,7 @@ pub async fn texas_auth_handler(
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
                             path.as_str(),
-                            AuthError::InvalidToken(e.to_string()),
+                            OAuthError::InvalidToken(e.to_string()),
                         )
                     })?;
                 claims.as_principal()?
@@ -135,7 +136,7 @@ pub async fn texas_auth_handler(
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
                             path.as_str(),
-                            AuthError::InvalidToken(e.to_string()),
+                            OAuthError::InvalidToken(e.to_string()),
                         )
                     })?;
                 claims.as_principal()?
@@ -145,7 +146,7 @@ pub async fn texas_auth_handler(
                     .map_err(|e| {
                         ProblemDetails::unauthorized(
                             path.as_str(),
-                            AuthError::InvalidToken(e.to_string()),
+                            OAuthError::InvalidToken(e.to_string()),
                         )
                     })?;
                 claims.as_principal()?
@@ -169,7 +170,7 @@ pub async fn texas_auth_handler(
             elapsed = elapsed,
             "Fullførte OAuth2-middleware med invalid-token-error"
         );
-        Err(AuthError::InvalidToken("Gyldighet er utløpt".to_string()).into())
+        Err(OAuthError::InvalidToken("Gyldighet er utløpt".to_string()).into())
     } else {
         let elapsed = format!("{}ms", start.elapsed().as_millis());
         tracing::event!(
@@ -181,6 +182,6 @@ pub async fn texas_auth_handler(
         let error = introspect_response
             .error
             .unwrap_or("Ukjent feil".to_string());
-        Err(AuthError::IntrospectionFailed(error).into())
+        Err(OAuthError::IntrospectionFailed(error).into())
     }
 }

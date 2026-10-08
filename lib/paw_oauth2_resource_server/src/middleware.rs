@@ -2,7 +2,7 @@ use crate::state::AuthState;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::decode_header;
 use oauth2::principal::{
     build_azure_principal, build_idporten_principal, build_maskinporten_principal,
@@ -13,28 +13,29 @@ use paw_error_handling::problem_details::ProblemDetails;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub fn oauth2_middleware(state: Arc<AuthState>) -> OAuth2MiddlewareLayer {
-    type F = fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>;
-    axum::middleware::from_fn_with_state(state, oauth2_auth_handler_boxed as F)
-}
-
-type BoxFut<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+type BoxedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 pub type OAuth2MiddlewareLayer = axum::middleware::FromFnLayer<
-    fn(State<Arc<AuthState>>, Request, Next) -> BoxFut<Result<Response, ProblemDetails>>,
+    fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>,
     Arc<AuthState>,
     (State<Arc<AuthState>>, Request),
 >;
+
+pub fn oauth2_middleware(state: Arc<AuthState>) -> OAuth2MiddlewareLayer {
+    type F =
+        fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>;
+    axum::middleware::from_fn_with_state(state, oauth2_auth_handler_boxed as F)
+}
 
 fn oauth2_auth_handler_boxed(
     state: State<Arc<AuthState>>,
     request: Request,
     next: Next,
-) -> BoxFut<Result<Response, ProblemDetails>> {
+) -> BoxedFuture<Result<Response, ProblemDetails>> {
     Box::pin(oauth2_auth_handler(state, request, next))
 }
 
-#[tracing::instrument(skip(state, request, next), fields(path = %request.uri().path()))]
+#[tracing::instrument(skip_all, fields(path = %request.uri().path()))]
 pub async fn oauth2_auth_handler(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
@@ -51,8 +52,8 @@ pub async fn oauth2_auth_handler(
 
     let token = extract_bearer_token(&request)?;
     let header = decode_header(token)
-        .map_err(|_| AuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
-    let kid = header.kid.ok_or(AuthError::InvalidToken(
+        .map_err(|_| OAuthError::InvalidToken("Kunne ikke tolke header".to_string()))?;
+    let kid = header.kid.ok_or(OAuthError::InvalidToken(
         "Mangler 'kid' header claim".to_string(),
     ))?;
     let alg = header.alg;
@@ -141,6 +142,6 @@ pub async fn oauth2_auth_handler(
             elapsed = elapsed,
             "Fullførte OAuth2-middleware med unknown-issuer-error"
         );
-        Err(AuthError::UnknownIssuer.into())
+        Err(OAuthError::UnknownIssuer.into())
     }
 }

@@ -1,6 +1,6 @@
 use crate::claim::{EntraIdClaims, IdPortenClaims, MaskinportenClaims, TokenXClaims};
 use crate::token::validate_token;
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::{Algorithm, DecodingKey};
 use types::identitetsnummer::Identitetsnummer;
 use types::nav_ident::NavIdent;
@@ -42,34 +42,34 @@ pub enum Principal {
 }
 
 pub trait AsPrincipal {
-    fn as_principal(&self) -> Result<Principal, AuthError>;
+    fn as_principal(&self) -> Result<Principal, OAuthError>;
 }
 
 impl AsPrincipal for TokenXClaims {
-    fn as_principal(&self) -> Result<Principal, AuthError> {
+    fn as_principal(&self) -> Result<Principal, OAuthError> {
         let pid = self
             .pid
             .clone()
             .filter(|s| !s.is_empty())
-            .ok_or(AuthError::MissingClaim("pid".to_string()))?;
+            .ok_or(OAuthError::MissingClaim("pid".to_string()))?;
         Ok(Principal::Borger(Borger {
-            ident: Identitetsnummer::new(pid).ok_or(AuthError::MissingClaim("pid".to_string()))?,
+            ident: Identitetsnummer::new(pid).ok_or(OAuthError::MissingClaim("pid".to_string()))?,
         }))
     }
 }
 
 impl AsPrincipal for EntraIdClaims {
-    fn as_principal(&self) -> Result<Principal, AuthError> {
+    fn as_principal(&self) -> Result<Principal, OAuthError> {
         if self.is_obo_token() && !self.is_m2m_token() {
             let nav_ident = self
                 .nav_ident
                 .clone()
                 .filter(|s| !s.is_empty())
-                .ok_or(AuthError::MissingClaim("NavIdent".to_string()))?;
+                .ok_or(OAuthError::MissingClaim("NavIdent".to_string()))?;
             Ok(Principal::NavAnsatt(NavAnsatt {
                 oid: self.oid.clone(),
                 ident: NavIdent::new(nav_ident.clone())
-                    .ok_or(AuthError::MissingClaim("NavIdent".to_string()))?,
+                    .ok_or(OAuthError::MissingClaim("NavIdent".to_string()))?,
                 name: self.name.clone(),
                 roles: self.roles.clone().unwrap_or_default(),
             }))
@@ -78,13 +78,13 @@ impl AsPrincipal for EntraIdClaims {
                 .roles
                 .clone()
                 .filter(|s| !s.is_empty())
-                .ok_or(AuthError::MissingClaim("roles".to_string()))?;
+                .ok_or(OAuthError::MissingClaim("roles".to_string()))?;
             Ok(Principal::NavSystem(NavSystem {
                 oid: self.oid.clone(),
                 roles: roles.clone(),
             }))
         } else {
-            Err(AuthError::InvalidToken(
+            Err(OAuthError::InvalidToken(
                 "Mangler påkrevde claims".to_string(),
             ))
         }
@@ -92,20 +92,20 @@ impl AsPrincipal for EntraIdClaims {
 }
 
 impl AsPrincipal for IdPortenClaims {
-    fn as_principal(&self) -> Result<Principal, AuthError> {
+    fn as_principal(&self) -> Result<Principal, OAuthError> {
         let pid = self
             .pid
             .clone()
             .filter(|s| !s.is_empty())
-            .ok_or(AuthError::MissingClaim("pid".to_string()))?;
+            .ok_or(OAuthError::MissingClaim("pid".to_string()))?;
         Ok(Principal::Borger(Borger {
-            ident: Identitetsnummer::new(pid).ok_or(AuthError::MissingClaim("pid".to_string()))?,
+            ident: Identitetsnummer::new(pid).ok_or(OAuthError::MissingClaim("pid".to_string()))?,
         }))
     }
 }
 
 impl AsPrincipal for MaskinportenClaims {
-    fn as_principal(&self) -> Result<Principal, AuthError> {
+    fn as_principal(&self) -> Result<Principal, OAuthError> {
         Ok(Principal::EksterntSystem(EksterntSystem {
             sub: self.sub.clone(),
         }))
@@ -118,7 +118,7 @@ pub fn build_tokenx_principal(
     key: &DecodingKey,
     issuer: &str,
     client_id: &str,
-) -> Result<Principal, AuthError> {
+) -> Result<Principal, OAuthError> {
     let claims = validate_token::<TokenXClaims>(token, alg, key, issuer, client_id)?;
     claims.as_principal()
 }
@@ -129,7 +129,7 @@ pub fn build_azure_principal(
     key: &DecodingKey,
     issuer: &str,
     client_id: &str,
-) -> Result<Principal, AuthError> {
+) -> Result<Principal, OAuthError> {
     let claims = validate_token::<EntraIdClaims>(token, alg, key, issuer, client_id)?;
     claims.as_principal()
 }
@@ -140,7 +140,7 @@ pub fn build_idporten_principal(
     key: &DecodingKey,
     issuer: &str,
     client_id: &str,
-) -> Result<Principal, AuthError> {
+) -> Result<Principal, OAuthError> {
     let claims = validate_token::<IdPortenClaims>(token, alg, key, issuer, client_id)?;
     claims.as_principal()
 }
@@ -151,7 +151,7 @@ pub fn build_maskinporten_principal(
     key: &DecodingKey,
     issuer: &str,
     client_id: &str,
-) -> Result<Principal, AuthError> {
+) -> Result<Principal, OAuthError> {
     let claims = validate_token::<MaskinportenClaims>(token, alg, key, issuer, client_id)?;
     claims.as_principal()
 }
@@ -168,7 +168,7 @@ mod tests {
     const PID: &str = "12345678901";
 
     type PrincipalBuilder =
-        fn(&str, Algorithm, &DecodingKey, &str, &str) -> Result<Principal, AuthError>;
+        fn(&str, Algorithm, &DecodingKey, &str, &str) -> Result<Principal, OAuthError>;
 
     #[derive(Serialize)]
     struct TestClaims<'a> {
@@ -220,7 +220,7 @@ mod tests {
         .unwrap()
     }
 
-    fn extract(builder: PrincipalBuilder, token: &str) -> Result<Principal, AuthError> {
+    fn extract(builder: PrincipalBuilder, token: &str) -> Result<Principal, OAuthError> {
         builder(
             token,
             Algorithm::HS256,
@@ -270,7 +270,7 @@ mod tests {
                 assert!(
                     matches!(
                         extract(builder, &token),
-                        Err(AuthError::MissingClaim(claim)) if claim == "pid"
+                        Err(OAuthError::MissingClaim(claim)) if claim == "pid"
                     ),
                     "expected MissingClaim(pid) for {pid:?}"
                 );
@@ -360,7 +360,7 @@ mod tests {
                 assert!(
                     matches!(
                         extract(build_azure_principal, &token),
-                        Err(AuthError::InvalidToken(_))
+                        Err(OAuthError::InvalidToken(_))
                     ),
                     "expected InvalidToken for NAVident={nav_ident:?}, roles={roles:?}"
                 );
@@ -383,7 +383,7 @@ mod tests {
 
             assert!(matches!(
                 extract(build_azure_principal, &token),
-                Err(AuthError::InvalidToken(_))
+                Err(OAuthError::InvalidToken(_))
             ));
         }
     }
@@ -402,7 +402,7 @@ mod tests {
         ] {
             assert!(matches!(
                 extract(build_azure_principal, &make_token(&claims)),
-                Err(AuthError::InvalidToken(_))
+                Err(OAuthError::InvalidToken(_))
             ));
         }
     }
@@ -517,7 +517,7 @@ mod tests {
             );
             for (case, token) in &invalid_tokens {
                 assert!(
-                    matches!(extract(builder, token), Err(AuthError::InvalidToken(_))),
+                    matches!(extract(builder, token), Err(OAuthError::InvalidToken(_))),
                     "{name} should reject {case}"
                 );
             }

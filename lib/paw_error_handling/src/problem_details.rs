@@ -2,13 +2,14 @@ use axum::Json;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
-use errors::auth::AuthError;
+use errors::access::AccessError;
+use errors::auth::OAuthError;
 use errors::database::DatabaseError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ProblemDetails {
     pub id: Uuid,
     #[serde(rename = "type")]
@@ -33,13 +34,49 @@ impl ProblemDetails {
             timestamp: Utc::now(),
         }
     }
-    pub fn unauthorized(instance: &str, error: AuthError) -> Self {
+    pub fn unauthorized(instance: &str, error: OAuthError) -> Self {
         Self {
             id: Uuid::new_v4(),
             problem_type: "urn:paw:http:unauthorized".to_string(),
             title: "Unauthorized".to_string(),
             status: 401u16,
             detail: Some(error.to_string()),
+            instance: instance.to_string(),
+            timestamp: Utc::now(),
+        }
+    }
+
+    pub fn forbidden(instance: &str, error: AccessError) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            problem_type: "urn:paw:http:forbidden".to_string(),
+            title: "Forbidden".to_string(),
+            status: 403u16,
+            detail: Some(error.to_string()),
+            instance: instance.to_string(),
+            timestamp: Utc::now(),
+        }
+    }
+
+    pub fn payload_too_large(instance: &str, detail: &str) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            problem_type: "urn:paw:http:payload-too-large".to_string(),
+            title: "Payload Too Large".to_string(),
+            status: 413u16,
+            detail: Some(detail.to_string()),
+            instance: instance.to_string(),
+            timestamp: Utc::now(),
+        }
+    }
+
+    pub fn service_unavailable(instance: &str, detail: &str) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            problem_type: "urn:paw:http:service-unavailable".to_string(),
+            title: "Service Unavailable".to_string(),
+            status: 503u16,
+            detail: Some(detail.to_string()),
             instance: instance.to_string(),
             timestamp: Utc::now(),
         }
@@ -82,10 +119,17 @@ impl IntoResponse for ProblemDetails {
     }
 }
 
-impl From<AuthError> for ProblemDetails {
-    fn from(e: AuthError) -> Self {
+impl From<OAuthError> for ProblemDetails {
+    fn from(e: OAuthError) -> Self {
         tracing::warn!(error = %e, "Autentisering feilet");
         Self::unauthorized("/", e)
+    }
+}
+
+impl From<AccessError> for ProblemDetails {
+    fn from(e: AccessError) -> Self {
+        tracing::warn!(error = %e, "Autorisering feilet");
+        Self::forbidden("/", e)
     }
 }
 

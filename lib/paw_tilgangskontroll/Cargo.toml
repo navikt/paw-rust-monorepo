@@ -1,0 +1,17 @@
+[package]
+name = "paw_tilgangskontroll"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+paw_error_handling = { path = "../../lib/paw_error_handling" }
+
+axum = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+errors = { path = "../../domain/errors" }
+oauth2 = { path = "../../domain/oauth2" }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true, features = ["util"] }

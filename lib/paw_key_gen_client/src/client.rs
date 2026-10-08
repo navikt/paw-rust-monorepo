@@ -92,48 +92,13 @@ impl PawKeyGenClient {
 mod tests {
     use crate::client::PawKeyGenClient;
     use crate::model::IdentitetType;
-    use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
+    use paw_kafka_key_gen_api_mock::{
+        default_kafka_key_gen_mock_responses, init_kafka_key_gen_api_mocks,
+    };
     use std::sync::Arc;
     use token_client_stub::TokenClientStub;
     use tokio::sync::OnceCell;
-
-    struct TestContext {
-        #[allow(unused)]
-        mockito_server: ServerGuard,
-        #[allow(unused)]
-        mocks: Vec<Mock>,
-        client: PawKeyGenClient,
-    }
-
-    static INIT: OnceCell<TestContext> = OnceCell::const_new();
-
-    async fn init() -> &'static TestContext {
-        INIT.get_or_init(|| async {
-            let mock_responses = default_kafka_key_gen_mock_responses();
-            let mut mockito_server = Server::new_async().await;
-            let kafka_key_gen_mock_guard =
-                init_kafka_key_gen_mock(&mut mockito_server, mock_responses)
-                    .await
-                    .expect("Kunne ikke initialisere Kafka Key Gen mock");
-            let client = PawKeyGenClient::new(
-                mockito_server.url(),
-                "test-scope".to_string(),
-                reqwest::Client::builder()
-                    .no_proxy()
-                    .build()
-                    .expect("Failed to build reqwest client"),
-                Arc::new(TokenClientStub::new()),
-            );
-
-            TestContext {
-                mockito_server,
-                mocks: kafka_key_gen_mock_guard.mocks,
-                client,
-            }
-        })
-        .await
-    }
 
     #[tokio::test]
     async fn test_finn_identiteter() {
@@ -199,5 +164,42 @@ mod tests {
         assert_eq!(folkeregisterident_2.gjeldende, false);
         assert!(response.pdl_identiteter.is_none());
         assert!(response.konflikter.is_none());
+    }
+
+    struct TestContext {
+        #[allow(unused)]
+        mockito_server: ServerGuard,
+        #[allow(unused)]
+        mocks: Vec<Mock>,
+        client: PawKeyGenClient,
+    }
+
+    static INIT: OnceCell<TestContext> = OnceCell::const_new();
+
+    async fn init() -> &'static TestContext {
+        INIT.get_or_init(|| async {
+            let mock_responses = default_kafka_key_gen_mock_responses();
+            let mut mockito_server = Server::new_async().await;
+            let kafka_key_gen_mock_guard =
+                init_kafka_key_gen_api_mocks(&mut mockito_server, mock_responses)
+                    .await
+                    .expect("Kunne ikke initialisere Kafka Key Gen mock");
+            let client = PawKeyGenClient::new(
+                mockito_server.url(),
+                "test-scope".to_string(),
+                reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .expect("Failed to build reqwest client"),
+                Arc::new(TokenClientStub::new()),
+            );
+
+            TestContext {
+                mockito_server,
+                mocks: kafka_key_gen_mock_guard.mocks,
+                client,
+            }
+        })
+        .await
     }
 }

@@ -1,0 +1,10 @@
+[package]
+name = "paw_kafka_key_gen_api_mock"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+env_logger = { workspace = true }
+mockito = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

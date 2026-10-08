@@ -29,6 +29,8 @@ members = [
     "lib/texas_client",
     "lib/paw_oauth2_resource_server",
     "lib/paw_texas_resource_server",
+    "lib/paw_tilgangskontroll",
+    "lib/paw_tilgangskontroll_client",
     "app/test-app",
     "app/kafka-topic-backup",
     "app/veileder-oppgave",
@@ -39,7 +41,8 @@ members = [
     "test/schema_registry_mock",
     "test/token_client_stub",
     "test/pdl_api_mock",
-    "test/kafka_key_gen_mock",
+    "test/paw_kafka_key_gen_api_mock",
+    "test/paw_tilgangskontroll_api_mock",
     "test/postgres_testcontainer",
     "test/kafka_broker_testcontainer",
     "test/schema_registry_testcontainer",
@@ -54,9 +57,11 @@ quote = "1.0"
 rand = "0.10"
 async-trait = "0.1"
 axum = "0.8"
+axum-test = "21.1"
 base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3.32"
+http-body-util = "0.1"
 log = "0.4.29"
 log4rs = "1.4.0"
 env_logger = "0.11"

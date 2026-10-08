@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::string::ToString;
 use std::time::Instant;
 
-use errors::auth::AuthError;
+use errors::auth::OAuthError;
 use jsonwebtoken::DecodingKey;
 use jsonwebtoken::jwk::JwkSet;
 use reqwest::Client;
@@ -36,32 +36,32 @@ pub struct OidcDiscovery {
     jwks_uri: String,
 }
 
-pub async fn fetch_jwks(well_known_url: &str, client: &Client) -> Result<Jwks, AuthError> {
+pub async fn fetch_jwks(well_known_url: &str, client: &Client) -> Result<Jwks, OAuthError> {
     tracing::info!("Henter JWKS fra {}", well_known_url);
     let oidc_response = client
         .get(well_known_url)
         .send()
         .await
-        .map_err(|e| AuthError::OidcFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::OidcFetchFailed(e.to_string()))?;
     let oidc_response = oidc_response
         .error_for_status()
-        .map_err(|e| AuthError::OidcFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::OidcFetchFailed(e.to_string()))?;
     let discovery: OidcDiscovery = oidc_response
         .json()
         .await
-        .map_err(|e| AuthError::OidcFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::OidcFetchFailed(e.to_string()))?;
     let jwks_response = client
         .get(&discovery.jwks_uri)
         .send()
         .await
-        .map_err(|e| AuthError::JwksFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::JwksFetchFailed(e.to_string()))?;
     let jwks_response = jwks_response
         .error_for_status()
-        .map_err(|e| AuthError::JwksFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::JwksFetchFailed(e.to_string()))?;
     let jwks: JwkSet = jwks_response
         .json()
         .await
-        .map_err(|e| AuthError::JwksFetchFailed(e.to_string()))?;
+        .map_err(|e| OAuthError::JwksFetchFailed(e.to_string()))?;
 
     let keys: HashMap<String, DecodingKey> = jwks
         .keys
@@ -74,7 +74,7 @@ pub async fn fetch_jwks(well_known_url: &str, client: &Client) -> Result<Jwks, A
         .collect();
 
     if keys.is_empty() {
-        return Err(AuthError::NoValidKeysFound);
+        return Err(OAuthError::NoValidKeysFound);
     }
 
     Ok(Jwks {

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum AuthError {
+pub enum OAuthError {
     #[error("Manglende eller ugyldig Authorization-header")]
     MissingToken,
     #[error("Ugyldig token: {0}")]

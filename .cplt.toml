@@ -35,7 +35,7 @@
 #   test/schema_registry_mock (Cargo.toml [workspace]): Rust
 #   test/token_client_stub (Cargo.toml [workspace]): Rust
 #   test/pdl_api_mock (Cargo.toml [workspace]): Rust
-#   test/kafka_key_gen_mock (Cargo.toml [workspace]): Rust
+#   test/paw_kafka_key_gen_api_mock (Cargo.toml [workspace]): Rust
 #   test/postgres_testcontainer (Cargo.toml [workspace]): Rust
 #   test/kafka_broker_testcontainer (Cargo.toml [workspace]): Rust
 #   test/schema_registry_testcontainer (Cargo.toml [workspace]): Rust

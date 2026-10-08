@@ -2353,16 +2353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kafka_key_gen_mock"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "mockito",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "kartlegging-api"
 version = "0.1.0"
 dependencies = [
@@ -2376,12 +2366,12 @@ dependencies = [
  "futures",
  "health_and_monitoring",
  "jsonschema",
- "kafka_key_gen_mock",
  "mockito",
  "nais_schema_registry",
  "paw_app_config",
  "paw_date_time",
  "paw_error_handling",
+ "paw_kafka_key_gen_api_mock",
  "paw_key_gen_client",
  "paw_oauth2_resource_server",
  "paw_otel_tracing",
@@ -3108,6 +3098,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "paw_kafka_key_gen_api_mock"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "mockito",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "paw_kafka_signing"
 version = "0.1.0"
 dependencies = [
@@ -3123,8 +3123,8 @@ name = "paw_key_gen_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "kafka_key_gen_mock",
  "mockito",
+ "paw_kafka_key_gen_api_mock",
  "reqwest 0.13.5",
  "serde",
  "serde-env-field",
@@ -3276,6 +3276,48 @@ dependencies = [
  "serde",
  "serde-env-field",
  "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "paw_tilgangskontroll"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "errors",
+ "oauth2",
+ "paw_error_handling",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "paw_tilgangskontroll_api_mock"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "mockito",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "paw_tilgangskontroll_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mockito",
+ "paw_tilgangskontroll_api_mock",
+ "reqwest 0.13.5",
+ "serde",
+ "serde-env-field",
+ "strum",
+ "texas_client",
+ "thiserror 2.0.20",
+ "token_client_stub",
+ "tokio",
  "tracing",
 ]
 

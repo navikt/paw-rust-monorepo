@@ -296,8 +296,8 @@ mod tests {
     use crate::logic::process::PayloadProcessor;
     use crate::logic::process::periode_process::PeriodeProcessor;
     use crate::model::dao::{arbeidssoeker, kartlegging, periode};
-    use kafka_key_gen_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_mock};
     use mockito::{Mock, Server, ServerGuard};
+    use paw_kafka_key_gen_api_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_api_mocks};
     use paw_key_gen_client::client::PawKeyGenClient;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
@@ -498,7 +498,7 @@ mod tests {
 
             let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
             let kafka_key_gen_mock_guard =
-                init_kafka_key_gen_mock(&mut mockito_server, kafka_key_gen_mock_responses)
+                    init_kafka_key_gen_api_mocks(&mut mockito_server, kafka_key_gen_mock_responses)
                     .await
                     .expect("Kunne ikke initialisere Kafka Key Gen mock");
 

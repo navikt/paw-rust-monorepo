@@ -58,7 +58,7 @@ test_data_generator = { path = "../../test/test_data_generator" }
 schema_registry_mock = { path = "../../test/schema_registry_mock" }
 postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
 pdl_api_mock = { path = "../../test/pdl_api_mock" }
-kafka_key_gen_mock = { path = "../../test/kafka_key_gen_mock" }
+paw_kafka_key_gen_api_mock = { path = "../../test/paw_kafka_key_gen_api_mock" }
 token_client_stub = { path = "../../test/token_client_stub" }
 mockito = { workspace = true }
 jsonschema = { workspace = true }

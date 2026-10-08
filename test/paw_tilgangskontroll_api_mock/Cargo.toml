@@ -1,5 +1,5 @@
 [package]
-name = "kafka_key_gen_mock"
+name = "paw_tilgangskontroll_api_mock"
 version = "0.1.0"
 edition.workspace = true
 
