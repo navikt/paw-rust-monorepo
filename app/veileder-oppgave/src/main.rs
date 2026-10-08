@@ -1,9 +1,9 @@
 use anyhow::Result;
-use axum_health::spawn_health_server;
 use errors::database::DatabaseError;
-use health_and_monitoring::nais_otel_setup::setup_nais_otel;
-use health_and_monitoring::simple_app_state::AppState;
 use paw_kafka::error::KafkaError;
+use paw_observability::health::simple_app_state::AppState;
+use paw_observability::otel::setup_nais_otel;
+use paw_observability::server::spawn_health_server;
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;

@@ -1,5 +1,5 @@
-use crate::CheckType;
-use crate::HealthCheck;
+use super::CheckType;
+use super::HealthCheck;
 
 pub struct CompoundHealth {
     health_checks: Vec<Box<dyn HealthCheck + Send + Sync + 'static>>,

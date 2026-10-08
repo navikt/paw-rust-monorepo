@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
 use paw_oauth2_resource_server::middleware::oauth2_middleware;
 use paw_oauth2_resource_server::state::AuthState;
-use paw_otel_tracing::otel_middleware::otel_middleware;
+use paw_observability::http_tracing::otel_middleware;
 use sqlx::PgPool;
 use std::sync::Arc;
 

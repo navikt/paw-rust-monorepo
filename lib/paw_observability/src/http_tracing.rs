@@ -1,6 +1,8 @@
-use crate::header_extractor::extract_trace_context;
+use axum::Router;
 use axum::extract::MatchedPath;
-use axum::http::Request;
+use axum::http::{HeaderMap, Request};
+use opentelemetry::Context;
+use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::Status;
 use std::time::Duration;
 use tower_http::classify::ServerErrorsFailureClass;
@@ -9,6 +11,27 @@ use tower_http::trace::{
 };
 use tracing::{Span, info_span, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+struct HeaderExtractor<'a>(&'a HeaderMap);
+
+impl<'a> Extractor for HeaderExtractor<'a> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).and_then(|v| v.to_str().ok())
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.0.keys().map(|k| k.as_str()).collect()
+    }
+}
+
+pub fn extract_trace_context(headers: &HeaderMap) -> Context {
+    let extractor = HeaderExtractor(headers);
+    opentelemetry::global::get_text_map_propagator(|propagator| propagator.extract(&extractor))
+}
+
+pub fn add_otel_trace_layer<S: Clone + Send + Sync + 'static>(router: Router<S>) -> Router<S> {
+    router.layer(otel_middleware())
+}
 
 pub type OtelTraceLayer = TraceLayer<
     HttpMakeClassifier,

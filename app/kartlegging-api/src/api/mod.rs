@@ -4,8 +4,8 @@ pub(crate) mod kartlegging;
 pub(crate) mod statistics;
 
 use axum::Router;
-use health_and_monitoring::simple_app_state::AppState;
 use paw_oauth2_resource_server::state::AuthState;
+use paw_observability::health::simple_app_state::AppState;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -14,7 +14,7 @@ pub fn build_router(
     pg_pool: PgPool,
     auth_state: Arc<AuthState>,
 ) -> Router {
-    let health_routes = axum_health::routes(app_state);
+    let health_routes = paw_observability::server::routes(app_state);
     let docs_routes = docs::routes();
     let kartlegging_routes = kartlegging::routes(pg_pool.clone(), auth_state.clone());
     let arbeidsledighet_routes = arbeidsledighet::routes(pg_pool.clone(), auth_state.clone());

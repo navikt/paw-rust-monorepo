@@ -1,9 +1,9 @@
-use crate::error::OtelError;
+use super::error::OtelError;
 use opentelemetry_otlp::{Protocol, SpanExporter, WithExportConfig};
 use paw_rust_base::env::get_env;
 use std::time::Duration;
 
-pub fn nais_otlp_exporter() -> anyhow::Result<Option<SpanExporter>> {
+pub(super) fn nais_otlp_exporter() -> anyhow::Result<Option<SpanExporter>> {
     let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
     if let Some(otel_endpoint) = otel_endpoint {
         let exporter = SpanExporter::builder()

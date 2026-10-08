@@ -136,12 +136,11 @@ dependencies = [
 name = "arbeidssoekerregisteret-internkontroll"
 version = "0.1.0"
 dependencies = [
- "axum_health",
  "base64 0.23.1",
  "chrono",
- "health_and_monitoring",
  "paw_app_config",
  "paw_kafka",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "paw_team_logs",
@@ -326,21 +325,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "axum_health"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "health_and_monitoring",
- "opentelemetry",
- "prometheus",
- "tokio",
- "tower-http 0.7.1",
- "tracing",
- "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -1670,24 +1654,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "health_and_monitoring"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "opentelemetry",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
- "paw_rust_base",
- "serde_json",
- "thiserror 2.0.20",
- "tonic",
- "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2320,11 +2286,10 @@ name = "kafka-topic-backup"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum_health",
  "base64 0.23.1",
  "chrono",
- "health_and_monitoring",
  "paw_kafka",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -2356,13 +2321,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "axum_health",
  "chrono",
  "dab_oppfolgingperioder",
  "eksterne_hendelser",
  "errors",
  "futures",
- "health_and_monitoring",
  "jsonschema",
  "mockito",
  "nais_schema_registry",
@@ -2373,7 +2336,7 @@ dependencies = [
  "paw_kafka_key_gen_api_mock",
  "paw_key_gen_client",
  "paw_oauth2_resource_server",
- "paw_otel_tracing",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "pdl_api_mock",
@@ -3102,10 +3065,10 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "futures",
- "health_and_monitoring",
  "log",
  "opentelemetry",
  "p256",
+ "paw_observability",
  "paw_rust_base",
  "paw_team_logs",
  "paw_test",
@@ -3169,7 +3132,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "paw_otel_tracing"
+name = "paw_observability"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -3179,8 +3142,12 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "paw_rust_base",
+ "prometheus",
  "serde",
+ "serde_json",
  "thiserror 2.0.20",
+ "tokio",
+ "tonic",
  "tower-http 0.7.1",
  "tracing",
  "tracing-opentelemetry",
@@ -5016,12 +4983,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "axum_health",
  "base64 0.23.1",
  "chrono",
  "errors",
  "futures",
- "health_and_monitoring",
  "log",
  "log4rs",
  "opentelemetry",
@@ -5029,6 +4994,7 @@ dependencies = [
  "opentelemetry_sdk",
  "paw_app_config",
  "paw_kafka",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -5749,17 +5715,16 @@ dependencies = [
  "apache-avro",
  "async-trait",
  "axum",
- "axum_health",
  "base64 0.23.1",
  "chrono",
  "futures",
  "graphql_client",
- "health_and_monitoring",
  "interne_hendelser",
  "mockito",
  "opentelemetry",
  "paw_app_config",
  "paw_kafka",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -5869,14 +5834,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "axum_health",
  "chrono",
  "errors",
- "health_and_monitoring",
  "interne_hendelser",
  "mockito",
  "paw_app_config",
  "paw_kafka",
+ "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",

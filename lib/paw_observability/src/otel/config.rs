@@ -1,4 +1,4 @@
-use crate::otel_format::OtelFormat;
+use super::format::OtelFormat;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

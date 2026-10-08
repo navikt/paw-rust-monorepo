@@ -1,34 +1,16 @@
-use crate::error::OtelError;
-use crate::otel_json_format_layer;
+use super::exporter::nais_otlp_exporter;
+use super::json_format as otel_json_format_layer;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{KeyValue, global};
-use opentelemetry_otlp::{Protocol, SpanExporter, WithExportConfig};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
-use paw_rust_base::env::{get_env, nais_namespace, nais_otel_service_name};
-use std::time::Duration;
+use paw_rust_base::env::{nais_namespace, nais_otel_service_name};
 use tracing::info;
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt};
-
-pub fn nais_otlp_exporter() -> Result<Option<SpanExporter>> {
-    let otel_endpoint = get_env("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
-    if let Some(otel_endpoint) = otel_endpoint {
-        let exporter = SpanExporter::builder()
-            .with_tonic()
-            .with_protocol(Protocol::Grpc)
-            .with_endpoint(otel_endpoint)
-            .with_timeout(Duration::from_secs(5))
-            .build()
-            .map_err(OtelError::CreateOtlpExporter)?;
-        Ok(Some(exporter))
-    } else {
-        Ok(None)
-    }
-}
 
 pub fn setup_nais_otel() -> Result<()> {
     let exporter = nais_otlp_exporter()?;

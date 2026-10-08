@@ -9,9 +9,8 @@ nais = []
 local = []
 
 [dependencies]
-axum_health = { path = "../../lib/axum_health" }
+paw_observability = { path = "../../lib/paw_observability" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
-health_and_monitoring = { path = "../../lib/health_and_monitoring"}
 paw_kafka = { path = "../../lib/paw_kafka" }
 paw_team_logs = { path = "../../lib/paw_team_logs" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

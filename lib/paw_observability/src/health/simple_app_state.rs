@@ -1,4 +1,4 @@
-use crate::{CheckType, HealthCheck};
+use super::{CheckType, HealthCheck};
 use std::sync::atomic::AtomicBool;
 
 #[derive(Debug)]

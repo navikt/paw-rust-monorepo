@@ -17,9 +17,7 @@ eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
 paw_date_time = { path = "../../lib/paw_date_time" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
-axum_health = { path = "../../lib/axum_health" }
-paw_otel_tracing = { path = "../../lib/paw_otel_tracing" }
-health_and_monitoring = { path = "../../lib/health_and_monitoring" }
+paw_observability = { path = "../../lib/paw_observability" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

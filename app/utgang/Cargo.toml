@@ -19,8 +19,7 @@ texas_client = { path = "../../lib/texas_client" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_kafka = { path = "../../lib/paw_kafka" }
-axum_health = { path = "../../lib/axum_health" }
-health_and_monitoring = { path = "../../lib/health_and_monitoring" }
+paw_observability = { path = "../../lib/paw_observability" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 regler_arbeidssoeker = { path = "../../domain/regler_arbeidssoeker" }
 

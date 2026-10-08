@@ -5,8 +5,7 @@ edition.workspace = true
 
 [dependencies]
 errors = { path = "../../domain/errors" }
-health_and_monitoring = { path = "../../lib/health_and_monitoring" }
-axum_health = { path = "../../lib/axum_health" }
+paw_observability = { path = "../../lib/paw_observability" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_kafka = { path = "../../lib/paw_kafka" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }

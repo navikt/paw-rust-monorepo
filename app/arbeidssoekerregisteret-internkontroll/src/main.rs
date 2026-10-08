@@ -2,11 +2,8 @@ mod message_processor;
 
 use std::sync::Arc;
 
-use axum_health::spawn_health_server;
-use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use message_processor::InternkontrollMessageProcessor;
 use paw_app_config::{config::read_toml_config, read_config_file};
-use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_kafka::hwm::stream::stream_config::PawKafkaStreamConfig;
 use paw_kafka::hwm::stream::topic_priority::TopicPriorityList;
@@ -18,6 +15,9 @@ use paw_kafka::hwm::{
         stream_wrapper::{PawKafkaConsumerStream, init_stream_wrapper_metrics},
     },
 };
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_observability::server::spawn_health_server;
+use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::topics::get_topic;
 use paw_rust_base::{
     await_signal::await_signal,

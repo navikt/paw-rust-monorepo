@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chrono::TimeDelta;
-use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use paw_app_config::read_config_file;
-use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::hwm::hwm_message_processor::hwm_process_message;
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::error::ServerError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::config::DatabaseConfig;
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
         reqwest_client.clone(),
     ));
     let app_state = Arc::new(simple_app_state::AppState::new());
-    let health_routes = axum_health::routes(app_state.clone());
+    let health_routes = paw_observability::server::routes(app_state.clone());
     let web_server_task: JoinHandle<Result<()>> = tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
         axum::serve(listener, health_routes).await?;

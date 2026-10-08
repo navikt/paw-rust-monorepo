@@ -6,7 +6,7 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_otel_tracing::otel_middleware::otel_middleware;
+use paw_observability::http_tracing::otel_middleware;
 use sqlx::PgPool;
 
 pub const API_STATISTICS_PATH: &str = "/api/v1/statistics";

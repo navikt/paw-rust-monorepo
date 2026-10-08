@@ -5,7 +5,7 @@ edition.workspace = true
 
 [features]
 default = ["hwm", "signing"]
-hwm = ["dep:health_and_monitoring", "dep:log", "dep:sqlx", "dep:futures", "dep:anyhow", "dep:tracing", "dep:prometheus", "dep:tracing-opentelemetry", "dep:tokio", "dep:chrono"]
+hwm = ["dep:paw_observability", "dep:log", "dep:sqlx", "dep:futures", "dep:anyhow", "dep:tracing", "dep:prometheus", "dep:tracing-opentelemetry", "dep:tokio", "dep:chrono"]
 signing = ["dep:paw_team_logs", "dep:p256", "dep:base64"]
 
 [dependencies]
@@ -15,7 +15,7 @@ serde = { workspace = true, features = ["derive"] }
 serde-env-field = { workspace = true }
 thiserror = { workspace = true }
 opentelemetry = { workspace = true }
-health_and_monitoring = { path = "../health_and_monitoring", optional = true }
+paw_observability = { path = "../paw_observability", default-features = false, optional = true }
 log = { workspace = true, optional = true }
 sqlx = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }

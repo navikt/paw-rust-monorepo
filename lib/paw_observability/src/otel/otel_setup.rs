@@ -1,5 +1,5 @@
-use crate::config::OtelTracingConfig;
-use crate::otlp_exporter::nais_otlp_exporter;
+use super::config::OtelTracingConfig;
+use super::exporter::nais_otlp_exporter;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::{KeyValue, global};

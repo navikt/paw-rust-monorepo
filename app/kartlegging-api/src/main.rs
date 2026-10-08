@@ -1,6 +1,5 @@
 use errors::app::AppError;
 use errors::database::DatabaseError;
-use health_and_monitoring::simple_app_state;
 use kartlegging_api::api::build_router;
 use kartlegging_api::config::{
     HTTP_TIMEOUT, read_app_config, read_auth_config, read_database_config, read_kafka_config,
@@ -16,10 +15,11 @@ use kartlegging_api::server::{
     async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
 };
 use nais_schema_registry::config::create_schema_registry_settings;
+use paw_kafka::error::KafkaError;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_oauth2_resource_server::state::AuthState;
-use paw_otel_tracing::otel_setup::setup_otel;
-use paw_kafka::error::KafkaError;
+use paw_observability::health::simple_app_state;
+use paw_observability::otel::setup_otel;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
 use pdl_client::client::PDLClient;

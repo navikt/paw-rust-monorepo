@@ -7,8 +7,8 @@ use axum::{
     http::StatusCode,
     routing::post,
 };
-use axum_health::paw_tracing::add_otel_trace_layer;
-use health_and_monitoring::HealthCheck;
+use paw_observability::health::HealthCheck;
+use paw_observability::http_tracing::add_otel_trace_layer;
 use std::num::NonZeroU16;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -19,7 +19,7 @@ pub fn register_http_apis(
     logic: Arc<AppLogic>,
 ) -> JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>> {
     tokio::spawn(async move {
-        let health_routes = axum_health::routes(app_state);
+        let health_routes = paw_observability::server::routes(app_state);
         let app_routes = api_routes(logic);
         let routes = health_routes.merge(app_routes);
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;

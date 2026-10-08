@@ -1,7 +1,7 @@
 use anyhow::Result;
-use health_and_monitoring::simple_app_state::AppState;
-use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_observability::health::simple_app_state::AppState;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 use std::sync::Arc;

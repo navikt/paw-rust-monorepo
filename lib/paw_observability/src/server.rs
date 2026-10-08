@@ -1,11 +1,8 @@
-pub mod paw_tracing;
-pub use paw_tracing::extract_trace_context;
-
-use axum::{Router, extract::State, http::StatusCode, routing::get};
-use health_and_monitoring::{
+use crate::health::{
     CheckType::{HasStarted, IsAlive, IsReady},
     HealthCheck,
 };
+use axum::{Router, extract::State, http::StatusCode, routing::get};
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
 use tokio::task::JoinHandle;

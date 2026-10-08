@@ -18,8 +18,7 @@ paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_app_config = { path = "../../lib/paw_app_config" }
 paw_kafka = { path = "../../lib/paw_kafka" }
 texas_client = { path = "../../lib/texas_client" }
-health_and_monitoring = { path = "../../lib/health_and_monitoring" }
-axum_health = { path = "../../lib/axum_health" }
+paw_observability = { path = "../../lib/paw_observability" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 uuid = { workspace = true, features = ["serde"] }
 tokio = { workspace = true }

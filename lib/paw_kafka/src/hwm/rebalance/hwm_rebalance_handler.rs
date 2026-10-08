@@ -1,6 +1,6 @@
 use crate::hwm::rebalance::get_hwms::get_hwms;
 use crate::hwm::rebalance::topic_partition_update::{TopicPartition, TopicPartitionUpdate};
-use health_and_monitoring::simple_app_state::AppState;
+use paw_observability::health::simple_app_state::AppState;
 use rdkafka::consumer::ConsumerContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 use rdkafka::topic_partition_list::TopicPartitionList;
