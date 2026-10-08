@@ -1,7 +1,5 @@
-use opentelemetry::trace::TraceContextExt;
-use paw_rust_base::git;
+use super::json_format::OtelJsonFormat;
 use serde::Deserialize;
-use std::fmt::Write as FmtWrite;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
@@ -46,92 +44,43 @@ where
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
-pub struct OtelJsonFormat;
+#[cfg(test)]
+mod tests {
+    use super::OtelFormat;
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
 
-impl<S, N> FormatEvent<S, N> for OtelJsonFormat
-where
-    S: Subscriber + for<'a> LookupSpan<'a>,
-    N: for<'a> FormatFields<'a> + 'static,
-{
-    fn format_event(
-        &self,
-        ctx: &FmtContext<'_, S, N>,
-        mut writer: Writer<'_>,
-        event: &Event<'_>,
-    ) -> std::fmt::Result {
-        let meta = event.metadata();
+    #[derive(Clone, Default)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
 
-        // Start JSON object
-        write!(&mut writer, "{{")?;
-
-        // Add timestamp
-        let now = chrono::Utc::now();
-        write!(&mut writer, "\"timestamp\":\"{}\"", now.to_rfc3339())?;
-
-        // Add level
-        write!(&mut writer, ",\"log_level\":\"{}\"", meta.level())?;
-
-        // Add target
-        write!(&mut writer, ",\"target\":\"{}\"", meta.target())?;
-
-        write!(&mut writer, ",\"git_sha\":\"{}\"", git::commit_hash())?;
-
-        // Add file and line
-        if let Some(file) = meta.file() {
-            write!(&mut writer, ",\"file\":\"{}\"", file)?;
-            //Tar med logger_name slik at rust apper logger med samme format som andre språk,
-            //blir enklere å kjøre felles søk i loki.
-            let logger_name = file.strip_suffix(".rs").unwrap_or(file).replace("/", ".");
-            write!(&mut writer, ",\"logger_name\":\"{}\"", logger_name)?;
-        }
-        if let Some(line) = meta.line() {
-            write!(&mut writer, ",\"line\":{}", line)?;
+    impl Write for Buffer {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().write(buf)
         }
 
-        let otel_context = opentelemetry::Context::current();
-        let otel_span = otel_context.span();
-        let span_context = otel_span.span_context();
-
-        if span_context.is_valid() {
-            write!(&mut writer, ",\"trace_id\":\"{}\"", span_context.trace_id())?;
-            write!(&mut writer, ",\"span_id\":\"{}\"", span_context.span_id())?;
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
         }
+    }
 
-        if let Some(span) = ctx.lookup_current() {
-            write!(&mut writer, ",\"span\":\"{}\"", span.name())?;
-        }
+    #[test]
+    fn otel_json_gir_gyldig_json_for_verdier_med_sitattegn_og_linjeskift() {
+        let buffer = Buffer::default();
+        let writer = buffer.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .event_format(OtelFormat::OtelJson)
+            .with_writer(move || writer.clone())
+            .finish();
 
-        struct FieldVisitor<W> {
-            writer: W,
-            result: std::fmt::Result,
-        }
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!(felt = "a\"b\nc", debug_felt = ?"x\"y", "melding med \"sitat\"\nog linjeskift");
+        });
 
-        impl<W: FmtWrite> tracing::field::Visit for FieldVisitor<W> {
-            fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
-                if self.result.is_err() {
-                    return;
-                }
-                self.result = write!(&mut self.writer, ",\"{}\":\"{}\"", field.name(), value);
-            }
-
-            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-                if self.result.is_err() {
-                    return;
-                }
-                self.result = write!(&mut self.writer, ",\"{}\":\"{:?}\"", field.name(), value);
-            }
-        }
-
-        let mut visitor = FieldVisitor {
-            writer: &mut writer,
-            result: Ok(()),
-        };
-        event.record(&mut visitor);
-        visitor.result?;
-
-        write!(&mut writer, "}}")?;
-
-        writeln!(&mut writer)
+        let output = String::from_utf8(buffer.0.lock().unwrap().clone()).unwrap();
+        let line = output.lines().next().unwrap();
+        let json: serde_json::Value = serde_json::from_str(line).unwrap();
+        assert_eq!(json["felt"], "a\"b\nc");
+        assert_eq!(json["debug_felt"], "\"x\\\"y\"");
+        assert_eq!(json["message"], "melding med \"sitat\"\nog linjeskift");
     }
 }

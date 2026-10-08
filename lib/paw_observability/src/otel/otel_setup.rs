@@ -1,4 +1,4 @@
-use super::config::OtelTracingConfig;
+use super::config::{OtelTracingConfig, default_config};
 use super::exporter::nais_otlp_exporter;
 use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
@@ -12,6 +12,10 @@ use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, fmt};
+
+pub fn setup_nais_otel() -> Result<()> {
+    setup_otel(default_config())
+}
 
 pub fn setup_otel(config: OtelTracingConfig) -> Result<()> {
     let exporter = nais_otlp_exporter()?;

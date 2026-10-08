@@ -1,4 +1,3 @@
-use chrono;
 use opentelemetry::trace::TraceContextExt;
 use paw_rust_base::git;
 use std::fmt::Write as FmtWrite;
