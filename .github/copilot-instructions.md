@@ -64,7 +64,7 @@ Config is compile-time selected via the `nais` feature flag using `read_config_f
 | Crate | Purpose |
 |-------|---------|
 | `axum_health` | Health endpoints (`/isalive`, `/isready`) + Prometheus metrics |
-| `paw_rdkafka_hwm` | High-water-mark Kafka consumer with sqlx-backed offset tracking |
+| `paw_kafka::hwm` | High-water-mark Kafka consumer with sqlx-backed offset tracking |
 | `texas_client` | Nais Texas token operations (M2M, exchange, validation) |
 | `paw_sqlx` | Postgres pool init and helpers |
 | `paw_app_config` | `read_config_file!` macro for TOML config loading |

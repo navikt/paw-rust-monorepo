@@ -1,7 +1,7 @@
 use crate::kafka::message_processor::BackupMessageProcessor;
 use anyhow::Result;
-use paw_rdkafka_hwm::hwm_message_processor::hwm_process_message;
-use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
+use paw_kafka::hwm::hwm_message_processor::hwm_process_message;
+use paw_kafka::hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::error::ServerError;
 use rdkafka::consumer::StreamConsumer;
 use sqlx::PgPool;

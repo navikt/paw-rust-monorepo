@@ -1,4 +1,4 @@
-use paw_rdkafka::kafka_config::KafkaConfig;
+use paw_kafka::kafka_config::KafkaConfig;
 use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;

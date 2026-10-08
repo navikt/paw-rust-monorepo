@@ -1,6 +1,6 @@
 use crate::kafka::hwm;
 use crate::kafka::hwm::hwm_dao::HwmStatus;
-use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
+use paw_kafka::hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::Offset;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use rdkafka::topic_partition_list::TopicPartitionList;

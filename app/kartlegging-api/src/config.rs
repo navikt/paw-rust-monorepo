@@ -3,7 +3,7 @@ use paw_date_time::duration;
 use paw_key_gen_client::config::PawKeyGenClientConfig;
 use paw_oauth2_resource_server::config::AuthConfig;
 use paw_otel_tracing::config::OtelTracingConfig;
-use paw_rdkafka::kafka_config::KafkaConfig;
+use paw_kafka::kafka_config::KafkaConfig;
 use paw_sqlx::config::DatabaseConfig;
 use pdl_client::config::PDLClientConfig;
 use serde::Deserialize;

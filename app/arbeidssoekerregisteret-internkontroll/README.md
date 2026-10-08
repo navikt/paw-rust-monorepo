@@ -10,7 +10,7 @@ Målet omfatter signaturvalidering, funn knyttet til traces og kontroll av forve
 
 Internkontroll abonnerer på åtte topics: perioder, opplysninger, profilering, på-vegne-av, bekreftelser, hendelseslogg, bekreftelseshendelseslogg og egenvurdering. Appen fletter meldinger fra topicene og bruker HWM til å følge framdriften per topic-partisjon. Meldingsprosessoren lagrer foreløpig ikke observasjoner eller integritetsfunn.
 
-Biblioteket `paw_kafka_signing` kan validere en Kafka-melding uten å endre den. Det skiller mellom manglende signatur, ukjent nøkkel, ugyldig signatur og teknisk feil. Biblioteket har offentlige nøkler for historisk validering. En gyldig signatur viser ikke i seg selv at nøkkelen var tillatt på meldingens offset; den vurderingen ligger hos den som bruker biblioteket.
+Modulen `paw_kafka::signing` kan validere en Kafka-melding uten å endre den. Den skiller mellom manglende signatur, ukjent nøkkel, ugyldig signatur og teknisk feil. Modulen har offentlige nøkler for historisk validering. En gyldig signatur viser ikke i seg selv at nøkkelen var tillatt på meldingens offset; den vurderingen ligger hos den som bruker modulen.
 
 ## Signeringsgrense
 

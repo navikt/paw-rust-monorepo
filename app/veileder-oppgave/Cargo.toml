@@ -16,12 +16,11 @@ errors = { path = "../../domain/errors" }
 interne_hendelser = { path = "../../domain/interne_hendelser" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_app_config = { path = "../../lib/paw_app_config" }
-paw_rdkafka = { path = "../../lib/paw_rdkafka" }
+paw_kafka = { path = "../../lib/paw_kafka" }
 texas_client = { path = "../../lib/texas_client" }
 health_and_monitoring = { path = "../../lib/health_and_monitoring" }
 axum_health = { path = "../../lib/axum_health" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
-paw_rdkafka_hwm = { path = "../../lib/paw_rdkafka_hwm" }
 uuid = { workspace = true, features = ["serde"] }
 tokio = { workspace = true }
 rdkafka = { workspace = true }

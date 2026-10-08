@@ -10,7 +10,7 @@ use crate::logic::process::profilering_process::ProfileringProcessor;
 use crate::model::error::PayloadProcessorError;
 use crate::model::result::ProcessorResult;
 use paw_key_gen_client::client::PawKeyGenClient;
-use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
+use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -135,10 +135,10 @@ impl MessageProcessor for KartleggingMessageProcessor {
                             synced_topics
                         );
                         // Denne oversettelsen til `Err` er en nødvendig implementasjonsdetalj ved
-                        // grensen mot det delte biblioteket `paw_rdkafka_hwm`, som ruller tilbake
+                        // grensen mot det delte biblioteket `paw_kafka::hwm`, som ruller tilbake
                         // transaksjonen (inkludert HWM-oppdateringen) på `Err`, slik at meldingen
                         // leveres på nytt senere i stedet for å bli ansett som ferdig prosessert.
-                        // `paw_rdkafka_hwm` selv skiller ikke mellom pause og feil i sin egen
+                        // `paw_kafka::hwm` selv skiller ikke mellom pause og feil i sin egen
                         // logging/metrikk (den behandler alle `Err` likt), men `hwm_pause_processor.rs`
                         // gjenkjenner `PauseSignal` via nedcasting for å styre pause-oppførselen
                         // riktig i denne appen.
@@ -185,7 +185,7 @@ mod tests {
         default_kafka_key_gen_mock_responses, init_kafka_key_gen_api_mocks,
     };
     use paw_key_gen_client::client::PawKeyGenClient;
-    use paw_rdkafka_hwm::hwm_message_processor::MessageProcessor;
+    use paw_kafka::hwm::hwm_message_processor::MessageProcessor;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
     use postgres_testcontainer::postgres::setup_postgres_container;

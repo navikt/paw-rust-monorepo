@@ -6,11 +6,11 @@ use axum_health::spawn_health_server;
 use health_and_monitoring::{nais_otel_setup::setup_nais_otel, simple_app_state};
 use message_processor::InternkontrollMessageProcessor;
 use paw_app_config::{config::read_toml_config, read_config_file};
-use paw_rdkafka::kafka_config::KafkaConfig;
-use paw_rdkafka_hwm::kafka_connection::create_kafka_consumer_with_sender;
-use paw_rdkafka_hwm::stream::stream_config::PawKafkaStreamConfig;
-use paw_rdkafka_hwm::stream::topic_priority::{TopicPriority, TopicPriorityList};
-use paw_rdkafka_hwm::{
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_kafka::hwm::kafka_connection::create_kafka_consumer_with_sender;
+use paw_kafka::hwm::stream::stream_config::PawKafkaStreamConfig;
+use paw_kafka::hwm::stream::topic_priority::TopicPriorityList;
+use paw_kafka::hwm::{
     hwm_message_processor::{ProcessorError, hwm_process_message},
     rebalance::topic_partition_update::TopicPartitionUpdate,
     stream::{

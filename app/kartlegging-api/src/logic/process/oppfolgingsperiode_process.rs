@@ -7,7 +7,7 @@ use crate::model::result::ProcessorResult;
 use dab_oppfolgingperioder::oppfolgingsperiode::{
     Oppfolgingsperiode, OppfolgingsperiodeAvsluttet, OppfolgingsperiodeEndret,
 };
-use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};

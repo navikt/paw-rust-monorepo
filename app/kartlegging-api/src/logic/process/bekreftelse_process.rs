@@ -8,7 +8,7 @@ use crate::model::result::ProcessorResult;
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
 use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
-use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;

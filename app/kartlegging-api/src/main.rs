@@ -19,7 +19,7 @@ use nais_schema_registry::config::create_schema_registry_settings;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_otel_tracing::otel_setup::setup_otel;
-use paw_rdkafka::error::KafkaError;
+use paw_kafka::error::KafkaError;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
 use pdl_client::client::PDLClient;

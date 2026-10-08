@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
+use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};

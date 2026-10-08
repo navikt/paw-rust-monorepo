@@ -1,8 +1,8 @@
 use std::{error::Error, sync::Arc};
 
 use health_and_monitoring::simple_app_state::AppState;
-use paw_rdkafka::kafka_config::KafkaConfig;
-use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_kafka::hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 use rdkafka::consumer::{Consumer, StreamConsumer};
 use sqlx::PgPool;
 

@@ -1,7 +1,7 @@
 use crate::kafka::hwm::hwm_pause;
 use crate::model::error::PayloadProcessorError;
-use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
-use paw_rdkafka_hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
+use paw_kafka::hwm::rebalance::hwm_rebalance_handler::HwmRebalanceHandler;
 use paw_rust_base::error::ServerError;
 use rdkafka::Message;
 use rdkafka::consumer::StreamConsumer;

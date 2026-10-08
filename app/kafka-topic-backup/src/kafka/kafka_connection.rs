@@ -1,7 +1,7 @@
 use anyhow::Result;
 use health_and_monitoring::simple_app_state::AppState;
-use paw_rdkafka::kafka_config::KafkaConfig;
-use paw_rdkafka_hwm::rebalance::{
+use paw_kafka::kafka_config::KafkaConfig;
+use paw_kafka::hwm::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler, topic_partition_update::TopicPartitionUpdate,
 };
 use rdkafka::consumer::{Consumer, StreamConsumer};

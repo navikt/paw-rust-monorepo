@@ -1,5 +1,5 @@
 use crate::model::result::ProcessorResult;
-use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
 

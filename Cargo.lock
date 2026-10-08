@@ -141,8 +141,7 @@ dependencies = [
  "chrono",
  "health_and_monitoring",
  "paw_app_config",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
+ "paw_kafka",
  "paw_rust_base",
  "paw_sqlx",
  "paw_team_logs",
@@ -2325,8 +2324,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "health_and_monitoring",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
+ "paw_kafka",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -2371,12 +2369,11 @@ dependencies = [
  "paw_app_config",
  "paw_date_time",
  "paw_error_handling",
+ "paw_kafka",
  "paw_kafka_key_gen_api_mock",
  "paw_key_gen_client",
  "paw_oauth2_resource_server",
  "paw_otel_tracing",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
  "paw_rust_base",
  "paw_sqlx",
  "pdl_api_mock",
@@ -3098,6 +3095,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "paw_kafka"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "chrono",
+ "futures",
+ "health_and_monitoring",
+ "log",
+ "opentelemetry",
+ "p256",
+ "paw_rust_base",
+ "paw_team_logs",
+ "paw_test",
+ "postgres_testcontainer",
+ "prometheus",
+ "rdkafka",
+ "serde",
+ "serde-env-field",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+]
+
+[[package]]
 name = "paw_kafka_key_gen_api_mock"
 version = "0.1.0"
 dependencies = [
@@ -3105,17 +3129,6 @@ dependencies = [
  "mockito",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "paw_kafka_signing"
-version = "0.1.0"
-dependencies = [
- "base64 0.23.1",
- "p256",
- "paw_team_logs",
- "rdkafka",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3172,41 +3185,6 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "paw_rdkafka"
-version = "0.1.0"
-dependencies = [
- "opentelemetry",
- "paw_rust_base",
- "rdkafka",
- "serde",
- "serde-env-field",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "paw_rdkafka_hwm"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "futures",
- "health_and_monitoring",
- "log",
- "paw_rdkafka",
- "paw_rust_base",
- "paw_test",
- "postgres_testcontainer",
- "prometheus",
- "rdkafka",
- "serde-env-field",
- "sqlx",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
- "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -5050,8 +5028,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "paw_app_config",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
+ "paw_kafka",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -5782,8 +5759,7 @@ dependencies = [
  "mockito",
  "opentelemetry",
  "paw_app_config",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
+ "paw_kafka",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",
@@ -5900,8 +5876,7 @@ dependencies = [
  "interne_hendelser",
  "mockito",
  "paw_app_config",
- "paw_rdkafka",
- "paw_rdkafka_hwm",
+ "paw_kafka",
  "paw_rust_base",
  "paw_sqlx",
  "paw_test",

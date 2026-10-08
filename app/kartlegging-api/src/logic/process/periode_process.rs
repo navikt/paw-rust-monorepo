@@ -17,7 +17,7 @@ use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_key_gen_client::model::IdentitetType;
-use paw_rdkafka_hwm::hwm_message_processor::ProcessorError;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;

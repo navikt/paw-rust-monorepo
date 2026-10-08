@@ -1,0 +1,61 @@
+[package]
+name = "paw_kafka"
+version = "0.1.0"
+edition.workspace = true
+
+[features]
+default = ["hwm", "signing"]
+hwm = ["dep:health_and_monitoring", "dep:log", "dep:sqlx", "dep:futures", "dep:anyhow", "dep:tracing", "dep:prometheus", "dep:tracing-opentelemetry", "dep:tokio", "dep:chrono"]
+signing = ["dep:paw_team_logs", "dep:p256", "dep:base64"]
+
+[dependencies]
+paw_rust_base = { path = "../paw_rust_base" }
+rdkafka = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde-env-field = { workspace = true }
+thiserror = { workspace = true }
+opentelemetry = { workspace = true }
+health_and_monitoring = { path = "../health_and_monitoring", optional = true }
+log = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
+tracing-opentelemetry = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+paw_team_logs = { path = "../paw_team_logs", optional = true }
+p256 = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+
+[[test]]
+name = "compatibility"
+required-features = ["signing"]
+
+[[test]]
+name = "hwm_sql_tests"
+required-features = ["hwm"]
+
+[[test]]
+name = "stream_grace_tests"
+required-features = ["hwm"]
+
+[[test]]
+name = "stream_replay_order_tests"
+required-features = ["hwm"]
+
+[[test]]
+name = "stream_topic_priority_tests"
+required-features = ["hwm"]
+
+[[test]]
+name = "stream_value_chain_tests"
+required-features = ["hwm"]
+
+[dev-dependencies]
+paw_test = { path = "../paw_test" }
+serde-env-field = { workspace = true }
+postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
+tokio = { workspace = true, features = ["test-util"] }
+sqlx = { workspace = true }

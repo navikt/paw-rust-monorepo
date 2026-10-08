@@ -1,7 +1,7 @@
 use crate::database::insert_data::insert_data;
 use crate::kafka::headers::extract_headers_as_json;
 use chrono::DateTime;
-use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
+use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};

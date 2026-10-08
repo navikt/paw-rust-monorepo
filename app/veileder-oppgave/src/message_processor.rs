@@ -1,7 +1,7 @@
 use crate::config::ApplicationConfig;
 use crate::ferdigstilling::ferdigstill_oppgave::ferdigstill_oppgave;
 use crate::opprettelse::process_hendelselogg_message;
-use paw_rdkafka_hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
+use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
