@@ -1,8 +1,7 @@
-pub(crate) mod arbeidsledighet;
 pub(crate) mod docs;
-pub(crate) mod kartlegging;
-pub(crate) mod statistics;
+mod v1;
 
+use crate::api::v1::{arbeidsledighet, kartlegging, statistics};
 use axum::Router;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_observability::health::simple_app_state::AppState;
