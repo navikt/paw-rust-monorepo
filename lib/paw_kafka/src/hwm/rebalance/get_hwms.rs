@@ -1,5 +1,5 @@
-use crate::hwm::hwm::{DEFAULT_HWM_OFFSET, Hwm};
 use crate::hwm::hwm_functions::{get_hwm, insert_hwm};
+use crate::hwm::model::{DEFAULT_HWM_OFFSET, Hwm};
 use anyhow::Result;
 use futures::executor::block_on;
 use rdkafka::topic_partition_list::TopicPartitionList;

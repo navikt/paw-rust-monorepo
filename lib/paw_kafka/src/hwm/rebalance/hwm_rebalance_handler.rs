@@ -72,7 +72,7 @@ impl ConsumerContext for HwmRebalanceHandler {
                                         topic: hwm.topic,
                                         partition,
                                     },
-                                    hwm.offset.unwrap_or(crate::hwm::hwm::DEFAULT_HWM_OFFSET),
+                                    hwm.offset.unwrap_or(crate::hwm::model::DEFAULT_HWM_OFFSET),
                                 )
                             })
                             .collect(),

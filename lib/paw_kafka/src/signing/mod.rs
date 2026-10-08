@@ -3,12 +3,12 @@
 
 use thiserror::Error;
 
-mod signing;
+mod signer;
 mod verifier;
 mod warning;
 mod wire;
 
-pub use signing::{RecordSigner, strip_signing_headers};
+pub use signer::{RecordSigner, strip_signing_headers};
 pub use verifier::{RecordVerifier, SignatureError, ValidSignature};
 pub use wire::signature_payload;
 
