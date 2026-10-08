@@ -5,7 +5,7 @@ edition.workspace = true
 
 [features]
 default = ["server"]
-server = ["dep:axum", "dep:tower-http", "dep:prometheus", "dep:tokio"]
+server = ["dep:axum", "dep:tower-http", "dep:prometheus", "dep:tokio", "dep:tower", "dep:pin-project-lite"]
 
 [dependencies]
 paw_rust_base = { path = "../paw_rust_base" }
@@ -25,3 +25,9 @@ axum = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+pin-project-lite = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tower = { workspace = true, features = ["util"] }

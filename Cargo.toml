@@ -73,6 +73,7 @@ tokio = { version = "1.5", features = ["full"] }
 toml = "1"
 tonic = { version = "0.14", features = ["transport"] }
 tower = "0.5.3"
+pin-project-lite = "0.2"
 tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1.44"
 tracing-test = "0.2.6"
