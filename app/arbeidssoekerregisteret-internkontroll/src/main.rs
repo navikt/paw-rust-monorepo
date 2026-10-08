@@ -15,14 +15,11 @@ use paw_kafka::hwm::{
     },
 };
 use paw_kafka::kafka_config::KafkaConfig;
+use paw_kafka::topics::{Topic, get_topic, get_topic_names};
 use paw_observability::server::spawn_health_server;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
-use paw_rust_base::topics::get_topic;
 use paw_rust_base::{
-    await_signal::await_signal,
-    env::runtime_env,
-    panic_logger::register_panic_logger,
-    topics::{Topic, get_topic_names},
+    await_signal::await_signal, env::runtime_env, panic_logger::register_panic_logger,
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
