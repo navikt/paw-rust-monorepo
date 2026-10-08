@@ -15,9 +15,9 @@ pub type TilgangskontrollLayer<P> = FromFnLayer<
     (State<Arc<P>>, Request),
 >;
 
-pub fn tilgangskontroll<P: Policy>(policy: P) -> TilgangskontrollLayer<P> {
+pub fn tilgangskontroll<P: Policy>(policy: Arc<P>) -> TilgangskontrollLayer<P> {
     from_fn_with_state(
-        Arc::new(policy),
+        policy,
         tilgangskontroll_middleware_boxed::<P>
             as fn(State<Arc<P>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>,
     )

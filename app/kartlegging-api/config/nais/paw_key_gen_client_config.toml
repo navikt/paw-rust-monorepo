@@ -1,0 +1,2 @@
+url = "http://paw-kafka-key-generator"
+target_scope = "${PAW_KAFKA_KEY_GEN_SCOPE}"
