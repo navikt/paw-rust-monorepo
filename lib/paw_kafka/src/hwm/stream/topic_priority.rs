@@ -1,3 +1,7 @@
+use paw_rust_base::env::RuntimeEnv;
+
+use crate::topics::Topic;
+
 pub struct TopicPriority {
     pub topic: String,
     pub priority: i64,
@@ -9,7 +13,23 @@ pub struct TopicPriorityList {
 }
 
 impl TopicPriorityList {
-    pub fn new(topics: Vec<(String, i64)>) -> Self {
+    pub fn new(runtime: &RuntimeEnv, topics: Vec<(&Topic, i64)>) -> Self {
+        TopicPriorityList {
+            list: topics
+                .into_iter()
+                .map(|(topic, priority)| {
+                    (
+                        crate::topics::get_topic(runtime, topic).to_string(),
+                        priority,
+                    )
+                })
+                .map(|(topic, priority)| TopicPriority { topic, priority })
+                .collect(),
+            default_priority: 100,
+        }
+    }
+
+    pub fn new_from_strings(topics: Vec<(String, i64)>) -> Self {
         TopicPriorityList {
             list: topics
                 .into_iter()

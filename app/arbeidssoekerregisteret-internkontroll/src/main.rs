@@ -60,33 +60,32 @@ async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), 
     );
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    let (tx, rx) = mpsc::unbounded_channel::<TopicPartitionUpdate>();
-    let topic_priorities = TopicPriorityList::new(vec![
-        (
-            get_topic(&runtime_env, &Topic::BekreftelseHendelseLogg).to_string(),
-            0,
-        ),
-        (
-            get_topic(&runtime_env, &Topic::Hendelselogg).to_string(),
-            10,
-        ),
-        (get_topic(&runtime_env, &Topic::Periode).to_string(), 50),
-        (
-            get_topic(&runtime_env, &Topic::Opplysninger).to_string(),
-            60,
-        ),
-        (get_topic(&runtime_env, &Topic::Profilering).to_string(), 70),
-    ]);
-    // Må bygges før kafka_config flyttes inn i consumeren.
+    let (topic_update_sender, topic_update_receiver) =
+        mpsc::unbounded_channel::<TopicPartitionUpdate>();
+    let topic_priorities = TopicPriorityList::new(
+        &runtime_env,
+        vec![
+            (&Topic::BekreftelseHendelseLogg, 0),
+            (&Topic::Hendelselogg, 10),
+            (&Topic::Periode, 50),
+            (&Topic::Opplysninger, 60),
+            (&Topic::Profilering, 70),
+        ],
+    );
     let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
     let consumer = create_kafka_consumer_with_sender(
         app_state.clone(),
         pg_pool.clone(),
         kafka_config,
         &topics,
-        tx,
+        topic_update_sender,
     )?;
-    let stream = PawKafkaConsumerStream::new(rx, consumer, pg_pool.clone(), stream_config);
+    let stream = PawKafkaConsumerStream::new(
+        topic_update_receiver,
+        consumer,
+        pg_pool.clone(),
+        stream_config,
+    );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();

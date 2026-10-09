@@ -44,7 +44,7 @@ async fn likt_timestamp_leveres_i_prioritert_rekkefolge() {
             topic_middels.clone(),
             topic_hoyest.clone(),
         ],
-        TopicPriorityList::new(vec![
+        TopicPriorityList::new_from_strings(vec![
             ("topic-hoyest".to_string(), 1),
             ("topic-middels".to_string(), 50),
         ]),
@@ -78,7 +78,7 @@ async fn timestamp_veier_tyngre_enn_prioritet() {
     let (stream, _sender) = stream(
         consumer,
         vec![topic_hoyest.clone(), topic_lavest.clone()],
-        TopicPriorityList::new(vec![
+        TopicPriorityList::new_from_strings(vec![
             ("topic-hoyest".to_string(), 1),
             ("topic-lavest".to_string(), 900),
         ]),
@@ -118,7 +118,7 @@ async fn prioritet_brukes_paa_hvert_likt_timestamp() {
     let (mut stream, _sender) = stream(
         consumer,
         vec![topic_vanlig.clone(), topic_prioritert.clone()],
-        TopicPriorityList::new(vec![("topic-prioritert".to_string(), 10)]),
+        TopicPriorityList::new_from_strings(vec![("topic-prioritert".to_string(), 10)]),
     );
 
     let mut mottatt = Vec::with_capacity(4);

@@ -11,7 +11,7 @@ local = []
 [dependencies]
 paw_observability = { path = "../../lib/paw_observability" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
-paw_kafka = { path = "../../lib/paw_kafka" }
+paw_kafka = { path = "../../lib/paw_kafka", features = ["hwm", "signing"] }
 paw_team_logs = { path = "../../lib/paw_team_logs" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
 tokio = { workspace = true }
