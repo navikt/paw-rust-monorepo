@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
+oauth2 = { path = "../../domain/oauth2" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
@@ -25,6 +26,8 @@ paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }
 texas_client = { path = "../../lib/texas_client" }
 paw_key_gen_client = { path = "../../lib/paw_key_gen_client" }
 pdl_client = { path = "../../lib/pdl_client" }
+paw_tilgangskontroll = { path = "../../lib/paw_tilgangskontroll" }
+paw_tilgangskontroll_client = { path = "../../lib/paw_tilgangskontroll_client" }
 
 sqlx = { workspace = true }
 chrono = { workspace = true }

@@ -1,4 +1,5 @@
 use crate::logic::query;
+use crate::logic::security::policy::KartleggingPolicy;
 use crate::model::dto::request::QueryRequest;
 use crate::model::dto::response::ArbeidsledighetResponse;
 use crate::model::state::RouterState;
@@ -8,17 +9,25 @@ use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
 use paw_oauth2_resource_server::middleware::oauth2_middleware;
 use paw_oauth2_resource_server::state::AuthState;
+use paw_observability::http_metrics::http_metrics_layer;
 use paw_observability::http_tracing::otel_middleware;
+use paw_tilgangskontroll::tilgangskontroll;
 use sqlx::PgPool;
 use std::sync::Arc;
 
 pub(crate) const API_ARBEIDSLEDIGHET_PATH: &str = "/api/v1/arbeidsledighet";
 
-pub(crate) fn routes(pg_pool: PgPool, auth_state: Arc<AuthState>) -> Router {
+pub(crate) fn routes(
+    pg_pool: PgPool,
+    auth_state: Arc<AuthState>,
+    policy: Arc<KartleggingPolicy>,
+) -> Router {
     Router::new()
         .route(API_ARBEIDSLEDIGHET_PATH, post(finn_arbeidsledighet))
-        .route_layer(otel_middleware())
+        .route_layer(tilgangskontroll(policy))
         .route_layer(oauth2_middleware(auth_state.clone()))
+        .route_layer(http_metrics_layer())
+        .route_layer(otel_middleware())
         .with_state(RouterState::new(pg_pool.clone()))
 }
 

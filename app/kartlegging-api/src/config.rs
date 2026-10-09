@@ -9,6 +9,7 @@ use pdl_client::config::PDLClientConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::time::Duration;
+use paw_tilgangskontroll_client::config::PawTilgangskontrollClientConfig;
 use texas_client::config::TokenClientConfig;
 
 pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -98,11 +99,16 @@ pub fn read_token_client_config() -> anyhow::Result<TokenClientConfig> {
 }
 
 pub fn read_paw_key_gen_client_config() -> anyhow::Result<PawKeyGenClientConfig> {
-    let content = read_config_file!("key_gen_client_config.toml");
+    let content = read_config_file!("paw_key_gen_client_config.toml");
     Ok(read_toml_config::<PawKeyGenClientConfig>(content)?)
 }
 
 pub fn read_pdl_client_config() -> anyhow::Result<PDLClientConfig> {
     let content = read_config_file!("pdl_client_config.toml");
     Ok(read_toml_config::<PDLClientConfig>(content)?)
+}
+
+pub fn read_paw_tilgangskontroll_client_config() -> anyhow::Result<PawTilgangskontrollClientConfig> {
+    let content = read_config_file!("paw_tilgangskontroll_client_config.toml");
+    Ok(read_toml_config::<PawTilgangskontrollClientConfig>(content)?)
 }

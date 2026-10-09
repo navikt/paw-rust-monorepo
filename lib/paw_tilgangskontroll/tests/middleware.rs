@@ -7,6 +7,7 @@ use errors::access::AccessError;
 use oauth2::principal::{NavSystem, Principal};
 use paw_error_handling::problem_details::ProblemDetails;
 use paw_tilgangskontroll::{Policy, tilgangskontroll};
+use std::sync::Arc;
 use tower::ServiceExt;
 
 struct PrincipalCheckPolicy;
@@ -54,7 +55,7 @@ fn test_routes<P: Policy>(policy: P) -> Router {
                 to_bytes(request.into_body(), 256).await.unwrap()
             }),
         )
-        .route_layer(tilgangskontroll(policy))
+        .route_layer(tilgangskontroll(Arc::new(policy)))
 }
 
 fn test_request(principal: Option<Principal>, body: &str) -> Request {
@@ -63,7 +64,6 @@ fn test_request(principal: Option<Principal>, body: &str) -> Request {
         .uri("/test")
         .body(Body::from(body.to_string()))
         .unwrap();
-    request.extensions_mut().insert(42usize);
     if let Some(principal) = principal {
         request.extensions_mut().insert(principal);
     }

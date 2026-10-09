@@ -44,9 +44,9 @@ fn spec_json() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{SPEC_YAML, spec_json};
-    use crate::api::arbeidsledighet::API_ARBEIDSLEDIGHET_PATH;
-    use crate::api::kartlegging::API_KARTLEGGING_PATH;
-    use crate::api::statistics::API_STATISTICS_PATH;
+    use crate::api::v1::arbeidsledighet::API_ARBEIDSLEDIGHET_PATH;
+    use crate::api::v1::kartlegging::API_KARTLEGGING_PATH;
+    use crate::api::v1::statistics::API_STATISTICS_PATH;
     use crate::model::dto::arbeidssoeker::{Arbeidssoeker, ArbeidssoekerKompakt};
     use crate::model::dto::bekreftelse::{Bekreftelse, Bekreftelsesloesning};
     use crate::model::dto::egenvurdering::Egenvurdering;

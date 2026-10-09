@@ -1,0 +1,2 @@
+url = "http://paw-tilgangskontroll"
+target_scope = "${PAW_TILGANGSKONTROLL_SCOPE}"
