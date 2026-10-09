@@ -15,9 +15,9 @@ CREATE TABLE kafka_header (
 CREATE TABLE kafka_record (
     id                       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     topic                    VARCHAR(255) NOT NULL,
-    partition                INTEGER NOT NULL,
-    offset                   BIGINT NOT NULL,
-    timestamp_ms             BIGINT NOT NULL,
+    record_partition                INTEGER NOT NULL,
+    record_offset            BIGINT NOT NULL,
+    record_timestamp_ms      BIGINT NOT NULL,
     observed_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     data_id                  BIGINT NOT NULL UNIQUE REFERENCES kafka_record_data (id),
     traceparent_parse_status VARCHAR(32) NOT NULL,
@@ -27,10 +27,9 @@ CREATE TABLE kafka_record (
     trace_flags              VARCHAR(2),
     signature_status         VARCHAR(32) NOT NULL,
     signing_key_id           VARCHAR(128),
-    UNIQUE (topic, partition, offset)
+    UNIQUE (topic, record_partition, record_offset)
 );
 
 CREATE INDEX kafka_record_trace_id_idx
     ON kafka_record (trace_id)
     WHERE trace_id IS NOT NULL;
-

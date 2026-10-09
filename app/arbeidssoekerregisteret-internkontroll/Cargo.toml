@@ -24,3 +24,7 @@ chrono = { workspace = true }
 serde-env-field = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
+
+[dev-dependencies]
+testcontainers = { workspace = true }
+postgres_testcontainer = { path = "../../test/postgres_testcontainer" }

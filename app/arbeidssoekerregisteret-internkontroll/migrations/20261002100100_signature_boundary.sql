@@ -4,6 +4,5 @@ CREATE TABLE signature_boundary (
     boundary_offset BIGINT NOT NULL,
     PRIMARY KEY (topic, partition),
     FOREIGN KEY (topic, partition, boundary_offset)
-        REFERENCES kafka_record (topic, partition, offset)
+        REFERENCES kafka_record (topic, record_partition, record_offset)
 );
-
