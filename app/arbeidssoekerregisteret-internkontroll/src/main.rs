@@ -15,6 +15,7 @@ use paw_kafka::hwm::{
     },
 };
 use paw_kafka::kafka_config::KafkaConfig;
+use paw_kafka::signing::RecordVerifier;
 use paw_kafka::topics::{Topic, get_topic, get_topic_names};
 use paw_observability::server::spawn_health_server;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
@@ -34,10 +35,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     setup_nais_otel().unwrap();
     init_stream_wrapper_metrics();
     let team_logger = BufferedTeamLogs::from_nais_env(100)?;
-    run_app(team_logger).await
+    let record_verifier = RecordVerifier::from_embedded_keys()?;
+    run_app(team_logger, record_verifier).await
 }
 
-async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), Box<dyn Error>> {
+async fn run_app(
+    team_logger: impl TeamLogger + Clone + 'static,
+    record_verifier: RecordVerifier,
+) -> Result<(), Box<dyn Error>> {
     let kafka_config: KafkaConfig = read_toml_config(read_config_file!("kafka_config.toml"))?;
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
@@ -90,7 +95,8 @@ async fn run_app(_team_logger: impl TeamLogger + Clone + 'static) -> Result<(), 
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
         async move {
-            let message_processor = InternkontrollMessageProcessor {};
+            let message_processor =
+                InternkontrollMessageProcessor::new(record_verifier, team_logger);
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;

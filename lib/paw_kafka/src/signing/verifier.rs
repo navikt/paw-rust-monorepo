@@ -11,7 +11,7 @@ use p256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
 use p256::pkcs8::DecodePublicKey;
 use paw_team_logs::{TeamLogger, TeamLogsError};
 use rdkafka::Message;
-use std::{collections::HashMap, fs, path::Path};
+use std::collections::HashMap;
 
 /// A signature verified with the public key identified by `key_id`.
 /// Whether this key was permitted at the record's offset is up to the caller.
@@ -148,26 +148,6 @@ impl RecordVerifier {
         Ok(())
     }
 
-    /// Loads the same `index` and `<key-id>.pub.b64` directory used by Kotlin.
-    /// Call at startup; missing/invalid entries must not silently disable validation.
-    pub fn from_key_directory(dir: &Path) -> Result<Self, SigningError> {
-        let index = fs::read_to_string(dir.join("index"))?;
-        let mut verifier = Self::new();
-        for key_id in index.lines().map(str::trim).filter(|id| !id.is_empty()) {
-            if !valid_key_id(key_id) {
-                return Err(SigningError::KeyId);
-            }
-            verifier.add_key(
-                key_id,
-                &fs::read_to_string(dir.join(format!("{key_id}.pub.b64")))?,
-            )?;
-        }
-        if verifier.keys.is_empty() {
-            return Err(SigningError::KeyId);
-        }
-        Ok(verifier)
-    }
-
     /// Examines raw Kafka bytes without modifying or consuming the record.
     /// A valid signature does not imply the key was allowed at this offset.
     pub fn validate<M: Message>(&self, message: &M) -> Result<ValidSignature, SignatureError> {
@@ -261,7 +241,7 @@ impl RecordVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
+    use std::{collections::HashSet, fs, path::Path};
 
     #[test]
     fn embedded_keys_match_catalog_and_parse() {
