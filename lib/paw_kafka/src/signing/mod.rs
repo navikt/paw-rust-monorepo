@@ -3,6 +3,7 @@
 
 use thiserror::Error;
 
+mod key_catalog;
 mod signer;
 mod verifier;
 mod warning;
