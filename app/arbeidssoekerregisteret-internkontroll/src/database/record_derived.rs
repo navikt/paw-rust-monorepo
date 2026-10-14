@@ -14,16 +14,22 @@ pub enum SignatureStatus {
     TechnicalError,
 }
 
-/// Signature result for a record. `signing_key_id` is `signing_key.id`,
+/// Signature result for a record. `signing_key_id` is the verifier's text key ID,
 /// only present where the key was found among the known keys.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Signature {
-    Valid { signing_key_id: i16 },
-    Invalid { signing_key_id: i16 },
+    Valid {
+        signing_key_id: String,
+    },
+    Invalid {
+        signing_key_id: String,
+    },
     Missing,
     UnknownKey,
     /// `signing_key_id` is set when the error came after the key lookup.
-    TechnicalError { signing_key_id: Option<i16> },
+    TechnicalError {
+        signing_key_id: Option<String>,
+    },
 }
 
 impl Signature {
@@ -37,12 +43,12 @@ impl Signature {
         }
     }
 
-    pub fn signing_key_id(&self) -> Option<i16> {
+    pub fn signing_key_id(&self) -> Option<&str> {
         match self {
             Signature::Valid { signing_key_id } | Signature::Invalid { signing_key_id } => {
-                Some(*signing_key_id)
+                Some(signing_key_id)
             }
-            Signature::TechnicalError { signing_key_id } => *signing_key_id,
+            Signature::TechnicalError { signing_key_id } => signing_key_id.as_deref(),
             Signature::Missing | Signature::UnknownKey => None,
         }
     }
@@ -50,7 +56,7 @@ impl Signature {
     /// Fails on combinations the table's CHECK constraint does not allow.
     pub fn from_columns(
         status: SignatureStatus,
-        signing_key_id: Option<i16>,
+        signing_key_id: Option<String>,
     ) -> Result<Self, InvalidSignatureColumns> {
         match (status, signing_key_id) {
             (SignatureStatus::Valid, Some(id)) => Ok(Signature::Valid { signing_key_id: id }),
@@ -74,7 +80,7 @@ impl Signature {
 #[error("invalid signature columns: status {status:?} with signing_key_id {signing_key_id:?}")]
 pub struct InvalidSignatureColumns {
     pub status: SignatureStatus,
-    pub signing_key_id: Option<i16>,
+    pub signing_key_id: Option<String>,
 }
 
 /// Values derived from one Kafka record, as written to `record_derived`.
@@ -180,23 +186,33 @@ pub async fn get_record_derived(
 mod tests {
     use super::*;
     use crate::database::kafka_record::{KafkaRecordRow, KafkaTimestampType, insert_kafka_record};
-    use crate::database::signing_key::{SigningKeyEntry, sync_signing_keys};
     use crate::database::topic::{load_topic_ids, register_topics};
     use postgres_testcontainer::postgres::setup_postgres_container;
 
     #[test]
     fn signatur_konverteres_begge_veier() {
         let all = [
-            Signature::Valid { signing_key_id: 1 },
-            Signature::Invalid { signing_key_id: 2 },
+            Signature::Valid {
+                signing_key_id: "key-a".to_string(),
+            },
+            Signature::Invalid {
+                signing_key_id: "key-b".to_string(),
+            },
             Signature::Missing,
             Signature::UnknownKey,
-            Signature::TechnicalError { signing_key_id: None },
-            Signature::TechnicalError { signing_key_id: Some(3) },
+            Signature::TechnicalError {
+                signing_key_id: None,
+            },
+            Signature::TechnicalError {
+                signing_key_id: Some("key-c".to_string()),
+            },
         ];
         for signature in all {
             assert_eq!(
-                Signature::from_columns(signature.status(), signature.signing_key_id()),
+                Signature::from_columns(
+                    signature.status(),
+                    signature.signing_key_id().map(str::to_owned),
+                ),
                 Ok(signature)
             );
         }
@@ -206,8 +222,13 @@ mod tests {
     fn ugyldige_kombinasjoner_avvises() {
         assert!(Signature::from_columns(SignatureStatus::Valid, None).is_err());
         assert!(Signature::from_columns(SignatureStatus::InvalidSignature, None).is_err());
-        assert!(Signature::from_columns(SignatureStatus::MissingSignature, Some(1)).is_err());
-        assert!(Signature::from_columns(SignatureStatus::UnknownKey, Some(1)).is_err());
+        assert!(
+            Signature::from_columns(SignatureStatus::MissingSignature, Some("key-a".into()))
+                .is_err()
+        );
+        assert!(
+            Signature::from_columns(SignatureStatus::UnknownKey, Some("key-a".into())).is_err()
+        );
     }
 
     #[tokio::test]
@@ -218,13 +239,6 @@ mod tests {
 
         register_topics(&pool, &["topic-a"]).await.unwrap();
         let topic_id = load_topic_ids(&pool).await.unwrap().get("topic-a").unwrap();
-        sync_signing_keys(&pool, &[SigningKeyEntry { key_id: "key-a", revocation: None }])
-            .await
-            .unwrap();
-        let signing_key_id: i16 = sqlx::query_scalar("SELECT id FROM signing_key")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
         for offset in [0, 1] {
             let row = KafkaRecordRow {
                 topic_id,
@@ -245,16 +259,24 @@ mod tests {
             topic_id,
             record_partition: 0,
             record_offset: 0,
-            signature: Signature::Valid { signing_key_id },
+            signature: Signature::Valid {
+                signing_key_id: "key-a".to_string(),
+            },
             timestamp_delta_ms: None,
             trace_id: Some(Uuid::from_u128(1)),
             derived_at,
         };
         upsert_record_derived(&pool, &first).await.unwrap();
-        let second = RecordDerived { record_offset: 1, ..first.clone() };
+        let second = RecordDerived {
+            record_offset: 1,
+            ..first.clone()
+        };
         upsert_record_derived(&pool, &second).await.unwrap();
 
-        let stored = get_record_derived(&pool, topic_id, 0, 0).await.unwrap().unwrap();
+        let stored = get_record_derived(&pool, topic_id, 0, 0)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(stored.record, first);
         let first_sequence = stored.sequence_number;
         let second_sequence = get_record_derived(&pool, topic_id, 0, 1)
@@ -265,12 +287,17 @@ mod tests {
         assert!(second_sequence > first_sequence);
 
         let rederived = RecordDerived {
-            signature: Signature::TechnicalError { signing_key_id: None },
+            signature: Signature::TechnicalError {
+                signing_key_id: None,
+            },
             derived_at: DateTime::from_timestamp_millis(20_000).unwrap(),
             ..first.clone()
         };
         upsert_record_derived(&pool, &rederived).await.unwrap();
-        let stored = get_record_derived(&pool, topic_id, 0, 0).await.unwrap().unwrap();
+        let stored = get_record_derived(&pool, topic_id, 0, 0)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(stored.record, rederived);
         assert_eq!(stored.sequence_number, first_sequence);
 
@@ -278,9 +305,19 @@ mod tests {
             "UPDATE record_derived SET signature_status = 'missing_signature',
                  signing_key_id = $1 WHERE record_offset = 0",
         )
-        .bind(signing_key_id)
+        .bind("key-a")
         .execute(&pool)
         .await;
-        assert!(rejected.is_err(), "CHECK should reject missing_signature with a key");
+        assert!(
+            rejected.is_err(),
+            "CHECK should reject missing_signature with a key"
+        );
+
+        let rejected = sqlx::query(
+            "UPDATE record_derived SET signature_status = 'valid', signing_key_id = '' WHERE record_offset = 0",
+        )
+        .execute(&pool)
+        .await;
+        assert!(rejected.is_err(), "CHECK should reject an empty key ID");
     }
 }

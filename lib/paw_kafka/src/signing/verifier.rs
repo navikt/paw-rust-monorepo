@@ -7,6 +7,7 @@ use base64::{
     Engine,
     engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD},
 };
+use chrono::{DateTime, Utc};
 use p256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
 use p256::pkcs8::DecodePublicKey;
 use paw_team_logs::{TeamLogger, TeamLogsError};
@@ -41,76 +42,94 @@ pub enum SignatureError {
 // each key was valid, using topic/partition/offset rather than record timestamp.
 // Source: paw-arbeidssoekerregisteret-monorepo-intern and -ekstern,
 // lib/kafka-signing/src/main/resources/paw-signing-public-keys/.
-const EMBEDDED_KEYS: &[(&str, &str)] = &[
-    (
-        "dev-paw-api-bekreftelse-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-api-bekreftelse-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-bekreftelse-filter-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-bekreftelse-filter-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-bekreftelse-tjeneste-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-bekreftelse-tjeneste-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-bekreftelse-utgang-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-bekreftelse-utgang-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-egenvurdering-api-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-egenvurdering-api-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-event-processor-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-event-processor-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "dev-paw-profilering-ecdsa-v1",
-        include_str!("../../public-keys/dev-paw-profilering-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "paw-api-inngang-kafka-signing-key",
-        include_str!("../../public-keys/paw-api-inngang-kafka-signing-key.pub.b64"),
-    ),
-    (
-        "paw-api-inngang-kafka-signing-key-v2",
-        include_str!("../../public-keys/paw-api-inngang-kafka-signing-key-v2.pub.b64"),
-    ),
-    (
-        "prod-paw-api-bekreftelse-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-api-bekreftelse-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-api-inngang-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-api-inngang-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-bekreftelse-filter-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-bekreftelse-filter-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-bekreftelse-tjeneste-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-bekreftelse-tjeneste-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-bekreftelse-utgang-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-bekreftelse-utgang-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-egenvurdering-api-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-egenvurdering-api-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-event-processor-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-event-processor-ecdsa-v1.pub.b64"),
-    ),
-    (
-        "prod-paw-profilering-ecdsa-v1",
-        include_str!("../../public-keys/prod-paw-profilering-ecdsa-v1.pub.b64"),
-    ),
-];
+enum EmbeddedKey {
+    Active {
+        id: &'static str,
+        encoded: &'static str,
+    },
+    // Revocation is metadata only. Verification still accepts this public key;
+    // the caller must decide whether it was allowed for a particular record.
+    #[allow(dead_code, reason = "No public keys are revoked yet")]
+    Revoked {
+        id: &'static str,
+        encoded: &'static str,
+        revoked_after: DateTime<Utc>,
+        recorded_at: DateTime<Utc>,
+    },
+}
+
+impl EmbeddedKey {
+    fn id(&self) -> &'static str {
+        match self {
+            Self::Active { id, .. } | Self::Revoked { id, .. } => id,
+        }
+    }
+
+    fn encoded(&self) -> &'static str {
+        match self {
+            Self::Active { encoded, .. } | Self::Revoked { encoded, .. } => encoded,
+        }
+    }
+
+    #[allow(dead_code, reason = "Used when a key is marked revoked in the catalog")]
+    fn revoked(
+        id: &'static str,
+        encoded: &'static str,
+        revoked_after: &str,
+        recorded_at: &str,
+    ) -> Result<Self, SigningError> {
+        let parse = |timestamp: &str| {
+            DateTime::parse_from_rfc3339(timestamp)
+                .map(|date| date.with_timezone(&Utc))
+                .map_err(|_| SigningError::InvalidRevocationDate)
+        };
+        Ok(Self::Revoked {
+            id,
+            encoded,
+            revoked_after: parse(revoked_after)?,
+            recorded_at: parse(recorded_at)?,
+        })
+    }
+}
+
+macro_rules! embedded_key {
+    ($id:literal) => {
+        EmbeddedKey::Active {
+            id: $id,
+            encoded: include_str!(concat!("../../public-keys/", $id, ".pub.b64")),
+        }
+    };
+    (revoked $id:literal, $revoked_after:literal, $recorded_at:literal) => {
+        EmbeddedKey::revoked(
+            $id,
+            include_str!(concat!("../../public-keys/", $id, ".pub.b64")),
+            $revoked_after,
+            $recorded_at,
+        )?
+    };
+}
+
+fn embedded_keys() -> Result<Vec<EmbeddedKey>, SigningError> {
+    Ok(vec![
+        embedded_key!("dev-paw-api-bekreftelse-ecdsa-v1"),
+        embedded_key!("dev-paw-bekreftelse-filter-ecdsa-v1"),
+        embedded_key!("dev-paw-bekreftelse-tjeneste-ecdsa-v1"),
+        embedded_key!("dev-paw-bekreftelse-utgang-ecdsa-v1"),
+        embedded_key!("dev-paw-egenvurdering-api-ecdsa-v1"),
+        embedded_key!("dev-paw-event-processor-ecdsa-v1"),
+        embedded_key!("dev-paw-profilering-ecdsa-v1"),
+        embedded_key!("paw-api-inngang-kafka-signing-key"),
+        embedded_key!("paw-api-inngang-kafka-signing-key-v2"),
+        embedded_key!("prod-paw-api-bekreftelse-ecdsa-v1"),
+        embedded_key!("prod-paw-api-inngang-ecdsa-v1"),
+        embedded_key!("prod-paw-bekreftelse-filter-ecdsa-v1"),
+        embedded_key!("prod-paw-bekreftelse-tjeneste-ecdsa-v1"),
+        embedded_key!("prod-paw-bekreftelse-utgang-ecdsa-v1"),
+        embedded_key!("prod-paw-egenvurdering-api-ecdsa-v1"),
+        embedded_key!("prod-paw-event-processor-ecdsa-v1"),
+        embedded_key!("prod-paw-profilering-ecdsa-v1"),
+    ])
+}
 
 #[derive(Default)]
 pub struct RecordVerifier {
@@ -126,8 +145,8 @@ impl RecordVerifier {
     /// Fails at startup if any embedded key is invalid.
     pub fn from_embedded_keys() -> Result<Self, SigningError> {
         let mut verifier = Self::new();
-        for &(key_id, encoded) in EMBEDDED_KEYS {
-            verifier.add_key(key_id, encoded)?;
+        for key in embedded_keys()? {
+            verifier.add_key(key.id(), key.encoded())?;
         }
         Ok(verifier)
     }
@@ -250,9 +269,14 @@ mod tests {
             .unwrap()
             .map(|entry| entry.unwrap().file_name().into_string().unwrap())
             .collect();
-        let ids: HashSet<_> = EMBEDDED_KEYS.iter().map(|(id, _)| *id).collect();
-        assert_eq!(EMBEDDED_KEYS.len(), 17);
-        assert_eq!(ids.len(), EMBEDDED_KEYS.len());
+        let keys = embedded_keys().unwrap();
+        let ids: HashSet<_> = keys.iter().map(EmbeddedKey::id).collect();
+        assert_eq!(keys.len(), 17);
+        assert_eq!(ids.len(), keys.len());
+        assert!(
+            keys.iter()
+                .all(|key| matches!(key, EmbeddedKey::Active { .. }))
+        );
         assert_eq!(
             filenames,
             ids.iter().map(|id| format!("{id}.pub.b64")).collect()
@@ -260,5 +284,52 @@ mod tests {
         let verifier = RecordVerifier::from_embedded_keys().unwrap();
         assert_eq!(verifier.keys.len(), 17);
         assert!(ids.iter().all(|id| verifier.keys.contains_key(*id)));
+    }
+
+    #[test]
+    fn duplicate_key_id_fails() {
+        let mut verifier = RecordVerifier::new();
+        let key = embedded_key!("prod-paw-api-inngang-ecdsa-v1");
+        verifier.add_key(key.id(), key.encoded()).unwrap();
+        assert!(matches!(
+            verifier.add_key(key.id(), key.encoded()),
+            Err(SigningError::KeyId)
+        ));
+    }
+
+    #[test]
+    fn revoked_key_dates_must_parse_at_startup() {
+        let key = (|| -> Result<EmbeddedKey, SigningError> {
+            Ok(embedded_key!(
+                revoked "prod-paw-api-inngang-ecdsa-v1",
+                "2026-10-01T12:30:00Z",
+                "2026-10-02T12:30:00Z"
+            ))
+        })()
+        .unwrap();
+        assert_eq!(key.id(), "prod-paw-api-inngang-ecdsa-v1");
+        assert_eq!(
+            key.encoded(),
+            embedded_key!("prod-paw-api-inngang-ecdsa-v1").encoded()
+        );
+        let EmbeddedKey::Revoked {
+            revoked_after,
+            recorded_at,
+            ..
+        } = key
+        else {
+            panic!("expected revoked key");
+        };
+        assert_eq!(revoked_after.to_rfc3339(), "2026-10-01T12:30:00+00:00");
+        assert_eq!(recorded_at.to_rfc3339(), "2026-10-02T12:30:00+00:00");
+
+        assert!(matches!(
+            EmbeddedKey::revoked("example", "unused", "invalid", "2026-10-02T12:30:00Z"),
+            Err(SigningError::InvalidRevocationDate)
+        ));
+        assert!(matches!(
+            EmbeddedKey::revoked("example", "unused", "2026-10-01T12:30:00Z", "invalid"),
+            Err(SigningError::InvalidRevocationDate)
+        ));
     }
 }

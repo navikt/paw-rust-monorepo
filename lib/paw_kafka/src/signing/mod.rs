@@ -27,6 +27,8 @@ pub enum SigningError {
     Base64(#[from] base64::DecodeError),
     #[error("invalid key ID")]
     KeyId,
+    #[error("invalid signing key revocation date")]
+    InvalidRevocationDate,
     #[error("signed field exceeds the 32-bit length limit")]
     FieldTooLong,
     #[error("could not determine record timestamp")]

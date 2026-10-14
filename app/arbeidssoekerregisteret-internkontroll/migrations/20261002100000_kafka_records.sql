@@ -42,21 +42,6 @@ CREATE TABLE kafka_record (
     PRIMARY KEY (topic_id, record_partition, record_offset)
 );
 
--- Signing keys known to the application, registered at startup from the embedded keys.
--- Never registered from record headers: the key ID in a header is an untrusted claim.
--- Never truncated on replay: record_derived refers to the IDs.
-CREATE TABLE signing_key (
-    id     SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    key_id VARCHAR(128) NOT NULL UNIQUE,
-    -- Revoked key: the last stream time (ms) the key is accepted for.
-    -- NULL when the key is not revoked. Set from code, never from record headers.
-    revoked_after_ms   BIGINT,
-    -- When the revocation was registered in code. Set from code with revoked_after_ms.
-    -- Records derived before this time may need a new derivation.
-    revocation_recorded_at TIMESTAMPTZ,
-    CHECK ((revoked_after_ms IS NULL) = (revocation_recorded_at IS NULL))
-);
-
 CREATE TYPE signature_status AS ENUM
     ('valid', 'missing_signature', 'unknown_key', 'invalid_signature', 'technical_error');
 
@@ -70,7 +55,7 @@ CREATE TABLE record_derived (
     -- Required for 'valid' and 'invalid_signature', where the key was known.
     -- Optional for 'technical_error': set when the error came after the key lookup.
     -- Never set for 'missing_signature' and 'unknown_key'.
-    signing_key_id     SMALLINT REFERENCES signing_key (id),
+    signing_key_id     VARCHAR(128) CHECK (signing_key_id <> ''),
     -- record_timestamp_ms minus the highest timestamp of earlier offsets
     -- in the same topic-partition. NULL when there is nothing to compare with.
     timestamp_delta_ms BIGINT,
