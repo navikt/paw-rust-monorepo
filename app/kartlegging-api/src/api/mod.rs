@@ -1,4 +1,5 @@
 pub(crate) mod docs;
+pub(crate) mod query_request;
 mod v1;
 
 use crate::logic::security::policy::KartleggingPolicy;

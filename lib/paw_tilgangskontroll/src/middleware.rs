@@ -9,17 +9,16 @@ use std::sync::Arc;
 
 type BoxedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
-pub type TilgangskontrollLayer<P> = FromFnLayer<
-    fn(State<Arc<P>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>,
-    Arc<P>,
-    (State<Arc<P>>, Request),
->;
+type QueryRequestMiddleware<P> =
+    fn(State<Arc<P>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>;
+
+pub type TilgangskontrollLayer<P> =
+    FromFnLayer<QueryRequestMiddleware<P>, Arc<P>, (State<Arc<P>>, Request)>;
 
 pub fn tilgangskontroll<P: Policy>(policy: Arc<P>) -> TilgangskontrollLayer<P> {
     from_fn_with_state(
         policy,
-        tilgangskontroll_middleware_boxed::<P>
-            as fn(State<Arc<P>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>,
+        tilgangskontroll_middleware_boxed::<P> as QueryRequestMiddleware<P>,
     )
 }
 

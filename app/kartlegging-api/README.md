@@ -44,7 +44,6 @@ graph LR
     bekrefter_har_jobbet -->|Nei| er_ledighet_satt{Er ledighet allerede satt?}
     er_ledighet_satt -->|Ja| ferdig
     er_ledighet_satt -->|Nei| ledighet_fra_bekreftelse[Sett ledighet fra bekreftelse]
-    ignorer_bekreftelse --> ferdig
     ingen_ledighet --> ferdig
     ledighet_fra_bekreftelse --> ferdig
 ```

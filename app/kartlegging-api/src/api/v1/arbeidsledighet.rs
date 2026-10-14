@@ -1,9 +1,13 @@
+use crate::api::query_request::{
+    QUERY_REQUEST_BODY_LIMIT, SharedQueryRequest, query_request_layer,
+};
 use crate::logic::query;
 use crate::logic::security::policy::KartleggingPolicy;
 use crate::model::dto::request::QueryRequest;
 use crate::model::dto::response::ArbeidsledighetResponse;
 use crate::model::state::RouterState;
-use axum::extract::{FromRequest, Request, State};
+use axum::extract::State;
+use axum::http::Uri;
 use axum::routing::post;
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
@@ -25,6 +29,7 @@ pub(crate) fn routes(
     Router::new()
         .route(API_ARBEIDSLEDIGHET_PATH, post(finn_arbeidsledighet))
         .route_layer(tilgangskontroll(policy))
+        .route_layer(query_request_layer(QUERY_REQUEST_BODY_LIMIT))
         .route_layer(oauth2_middleware(auth_state.clone()))
         .route_layer(http_metrics_layer())
         .route_layer(otel_middleware())
@@ -34,25 +39,20 @@ pub(crate) fn routes(
 #[tracing::instrument(skip_all)]
 async fn finn_arbeidsledighet(
     State(state): State<RouterState>,
-    request: Request,
+    uri: Uri,
+    SharedQueryRequest(query_request): SharedQueryRequest,
 ) -> Result<Json<ArbeidsledighetResponse>, ProblemDetails> {
-    let path = request.uri().path().to_owned();
-    let Json(query_request) = Json::<QueryRequest>::from_request(request, &state)
-        .await
-        .map_err(|e| {
-            tracing::error!("Feil ved deserialisering av request body: {}", e);
-            ProblemDetails::validation_error(&path, "Ugyldig request body")
-        })?;
+    let path = uri.path().to_owned();
 
     let mut tx = state.pg_pool.begin().await.map_err(|e| {
         tracing::error!("Kunne ikke starte transaksjon: {}", e);
         ProblemDetails::database_error(&path, "Transaksjon feilet")
     })?;
 
-    let response = match query_request {
+    let response = match query_request.as_ref() {
         QueryRequest::Identitetsnummer(query) => {
             query.validate(&path)?;
-            query::arbeidsledighet_query::finn_for_identitetsnummer_query_request(&mut tx, &query)
+            query::arbeidsledighet_query::finn_for_identitetsnummer_query_request(&mut tx, query)
                 .await
                 .map_err(|e| {
                     tracing::error!("Feil ved spørring: {}", e);
@@ -61,7 +61,7 @@ async fn finn_arbeidsledighet(
         }
         QueryRequest::TilknyttetKontor(query) => {
             query.validate(&path)?;
-            query::arbeidsledighet_query::finn_for_kontortilknytning_query_request(&mut tx, &query)
+            query::arbeidsledighet_query::finn_for_kontortilknytning_query_request(&mut tx, query)
                 .await
                 .map_err(|e| {
                     tracing::error!("Feil ved spørring: {}", e);

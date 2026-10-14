@@ -1,3 +1,4 @@
+use crate::api::query_request::shared_query_request;
 use axum::extract::Request;
 use errors::access::AccessError;
 use oauth2::principal::Principal;
@@ -7,23 +8,18 @@ use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
 use std::sync::Arc;
 
 pub struct KartleggingPolicy {
-    client: Arc<PawTilgangskontrollClient>,
+    _client: Arc<PawTilgangskontrollClient>,
 }
 
 impl KartleggingPolicy {
     pub fn new(client: Arc<PawTilgangskontrollClient>) -> Self {
-        Self { client }
+        Self { _client: client }
     }
 }
 
 impl Policy for KartleggingPolicy {
     async fn evaluate(&self, request: Request) -> Result<Request, ProblemDetails> {
         let path = request.uri().path().to_owned();
-        if request.extensions().is_empty() {
-            tracing::trace!("No extensions found");
-        } else {
-            tracing::trace!("Extensions: {:?}", request.extensions());
-        }
         match request.extensions().get::<Principal>() {
             None => {
                 tracing::warn!("No principal found");
@@ -34,12 +30,16 @@ impl Policy for KartleggingPolicy {
             }
             Some(principal) => match principal {
                 Principal::NavAnsatt(_nav_ansatt) => {
+                    let (parts, body) = request.into_parts();
+                    let _query = shared_query_request(&parts)?;
                     tracing::debug!("OBO Access");
-                    Ok(request)
+                    Ok(Request::from_parts(parts, body))
                 }
                 Principal::NavSystem(_nav_system) => {
+                    let (parts, body) = request.into_parts();
+                    let _query = shared_query_request(&parts)?;
                     tracing::debug!("M2M Access");
-                    Ok(request)
+                    Ok(Request::from_parts(parts, body))
                 }
                 _ => {
                     tracing::warn!("Incorrect principal");
