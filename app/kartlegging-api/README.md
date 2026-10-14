@@ -4,10 +4,103 @@ API som kunne kartlegge porteføljen til saksbehandlere for sitt kontor. Det er 
 Arbeidssøkerregisteret med fokus på arbeidssøkeres ledighet og andre viktige datapunkter. Skal kunne filtrere på
 ledighet og egenvurdering nyere enn en gitt dato.
 
+## Utleding av ledighet
+
+* Aktiv arbeidssøker
+    * Leverer bekreftelse
+        * Har jobbet -> Resett ledighet
+        * Har ikke jobbet
+            * Ledighet ikke satt -> Sett ledighet til start av bekreftelse
+* Ikke aktiv arbeidssøker
+    * Registrerer seg som arbeidssøker
+        * Var tidligere registrert som arbeidssøker
+            * Det er mindre en 14 dager siden avslutning
+                * Tidligere ledighet er satt -> Viderefør tidligere ledighet
+            * Det er over 14 dager siden avslutning -> Ikke sett ledighet (venter på bekreftelse)
+
+### Flytdiagram
+
+#### Arbeidssøker registrerer seg
+
+```mermaid
+graph LR
+    periode_startet((Periode startet)) --> har_tidligere_periode{Har tidligere periode?}
+    har_tidligere_periode -->|Nei| ingen_ledighet[Sett ingen ledighet]
+    har_tidligere_periode -->|Ja| er_avsluttet_nylig_ja{Er avsluttet nylig?}
+    er_avsluttet_nylig_ja -->|Nei| ingen_ledighet
+    er_avsluttet_nylig_ja -->|Ja| viderefør_ledighet[Viderefør ledighet]
+    ingen_ledighet --> ferdig((Ferdig))
+    viderefør_ledighet --> ferdig
+```
+
+#### Arbeidssøker leverer bekreftelse
+
+```mermaid
+graph LR
+    bekreftelse_levert((Bekreftelse levert)) --> er_bekreftelse_eldre_enn_periode{Er bekreftelse eldre enn periode?}
+    er_bekreftelse_eldre_enn_periode -->|Ja| ferdig((Ferdig))
+    er_bekreftelse_eldre_enn_periode -->|Nei| bekrefter_har_jobbet{Bekrefter har jobbet?}
+    bekrefter_har_jobbet -->|Ja| ingen_ledighet[Sett ingen ledighet]
+    bekrefter_har_jobbet -->|Nei| er_ledighet_satt{Er ledighet allerede satt?}
+    er_ledighet_satt -->|Ja| ferdig
+    er_ledighet_satt -->|Nei| ledighet_fra_bekreftelse[Sett ledighet fra bekreftelse]
+    ignorer_bekreftelse --> ferdig
+    ingen_ledighet --> ferdig
+    ledighet_fra_bekreftelse --> ferdig
+```
+
+### Tidslinjer
+
+#### Ikke tidligere vært arbeidssøker
+
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    tickInterval 1week
+    weekday monday
+    Ledighet: done, 2026-01-05, 28d
+    Ledighet: done, 2026-02-16, 14d
+    Registrering: milestone, 2026-01-05, 1m
+    Er arbeidssøker: active, 2026-01-05, 56d
+    Levert bekreftelse: milestone, 2026-01-16, 1m
+    Har ikke jobbet: active, 2026-01-05, 14d
+    Levert bekreftelse: milestone, 2026-01-30, 1m
+    Har ikke jobbet: active, 2026-01-19, 14d
+    Levert bekreftelse: milestone, 2026-02-13, 1m
+    Har jobbet: crit, active, 2026-02-02, 14d
+    Levert bekreftelse: milestone, 2026-02-27, 1m
+    Har ikke jobbet: active, 2026-02-16, 14d
+```
+
+#### Har tidligere vært arbeidssøker siste 14 dager
+
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    tickInterval 1week
+    weekday monday
+    Ledighet: done, 2026-01-05, 49d
+    Avslutning: milestone, 2026-01-19, 1m
+    Var arbeidssøker: done, 2026-01-05, 14d
+    Levert bekreftelse: milestone, 2026-01-16, 1m
+    Har ikke jobbet: done, 2026-01-05, 14d
+    Registrering: milestone, 2026-01-26, 1m
+    Er arbeidssøker: active, 2026-01-26, 42d
+    Levert bekreftelse: milestone, 2026-02-06, 1m
+    Har ikke jobbet: active, 2026-01-26, 14d
+    Levert bekreftelse: milestone, 2026-02-20, 1m
+    Har ikke jobbet: active, 2026-02-09, 14d
+    Levert bekreftelse: milestone, 2026-03-06, 1m
+    Har jobbet: crit, active, 2026-02-23, 14d
+```
+
 ## Dataelementer
 
-* Identitet - Vedlikehold ved hjelp av identitet-topic
-* ~~ArbeidssøkerId?~~
+* Identitet
+    * Fra periode start
+    * Vedlikehold ved hjelp av identitet-topic
+* ArbeidssøkerId
+    * Hentet fra Kafka Key Gen ved periode start
 * Navn
     * Hent fra PDL ved periode start
 * Periode
@@ -33,6 +126,7 @@ ledighet og egenvurdering nyere enn en gitt dato.
     * Liste
 
 ### Hendelser
+
 Logikk for mottak av hendelser.
 
 ```mermaid
@@ -41,96 +135,30 @@ graph LR
     lagre_periode --> hent_pdl_data[Hent PDL-data]
     hent_pdl_data --> lagre_navn[Lagre navn]
     lagre_navn --> done((Ferdig))
-    
     opplysninger((Opplysninger)) --> ledig_siden_satt{Er ledig_siden satt?}
     ledig_siden_satt -->|Ja| lagre_opplysninger_for_ja[Lagre opplysninger]
     ledig_siden_satt -->|Nei| lagre_opplysninger_for_nei[Lagre opplysninger]
     lagre_opplysninger_for_ja --> done
     lagre_opplysninger_for_nei --> kalkulere_ledig_siden_for_opplysninger[Kalkuler ledig_siden]
     kalkulere_ledig_siden_for_opplysninger --> done
-    
     bekreftelse((Bekreftelse)) --> har_jobbet_siste_periode{Har jobbet siste periode?}
     har_jobbet_siste_periode -->|Ja| lagre_bekreftelse_for_ja[Lagre bekreftelse]
     har_jobbet_siste_periode -->|Nei| lagre_bekreftelse_for_nei[Lagre bekreftelse]
     lagre_bekreftelse_for_ja --> kalkulere_ledig_siden_for_bekreftelse[Kalkuler ledig_siden]
     kalkulere_ledig_siden_for_bekreftelse --> done
     lagre_bekreftelse_for_nei --> done
-
     profilering((Profilering)) --> har_eldre_egenvurdering{Har eldre egenvurdering?}
     har_eldre_egenvurdering -->|Ja| lagre_profilering_for_ja[Lagre profilering]
     har_eldre_egenvurdering -->|Nei| lagre_profilering_for_nei[Lagre profilering]
     lagre_profilering_for_ja --> slett_egenvurdering[Slett egenvurdering]
     slett_egenvurdering --> done
     lagre_profilering_for_nei --> done
-
     egenvurdering(("Egenvurdering")) --> lagre_egenvurdering[Lagre egenvurdering]
     lagre_egenvurdering --> done
-
     bekreftelse_paa_vegne_av(("Bekreftelse på-vegne-av")) --> lagre_bekreftelse_paa_vegne_av[Lagre bekreftelse på-vegne-av]
     lagre_bekreftelse_paa_vegne_av --> done
-
     tilknyttet_kontor(("Kontortilhørlighet")) --> lagre_tilknyttet_kontor[Lagre kontortilhørlighet]
     lagre_tilknyttet_kontor --> done
-```
-
-## Utleding
-
-### Ledighet
-* Aktiv arbeidssøker
-  * Leverer bekreftelse
-    * Har jobbet -> Resett ledighet
-    * Har ikke jobbet
-      * Ledighet ikke satt -> Sett ledighet til start av bekreftelse
-* Ikke aktiv arbeidssøker
-  * Registrerer seg som arbeidssøker
-    * Var tidligere registrert som arbeidssøker
-      * Det er mindre en 14 dager siden avslutning
-        * Tidligere ledighet er satt -> Viderefør tidligere ledighet
-      * Det er over 14 dager siden avslutning -> Ikke sett ledighet (venter på bekreftelse)
-
-```mermaid
-gantt
-    title Ikke tidligere vært arbeidssøker
-    dateFormat  YYYY-MM-DD
-    tickInterval 1week
-    weekday monday
-
-    Registrering: milestone, 2026-01-05, 1m
-    Levert bekreftelse: milestone, 2026-01-16, 1m
-    Levert bekreftelse: milestone, 2026-01-30, 1m
-    Levert bekreftelse: milestone, 2026-02-13, 1m
-    Levert bekreftelse: milestone, 2026-02-27, 1m
-    Ledighet: done, 2026-01-05, 28d
-    Ledighet: done, 2026-02-16, 14d
-    Er arbeidssøker: active, 2026-01-05, 56d
-    Har ikke jobbet: active, 2026-01-05, 14d
-    Har ikke jobbet: active, 2026-01-19, 14d
-    Har jobbet: crit, active, 2026-02-02, 14d
-    Har ikke jobbet: active, 2026-02-16, 14d
-
-    section Variant 2
-    Arbeidssøkerperiode: done, des1, 2026-01-05, 30d
-    Bekreftelse 1             :active,  des2, 2026-01-05, 14d
-```
-
-```mermaid
-gantt
-    title Har tidligere vært arbeidssøker siste 14 dager
-    dateFormat  YYYY-MM-DD
-    tickInterval 1week
-    weekday monday
-
-    Avslutning: milestone, 2026-01-19, 1m
-    Registrering: milestone, 2026-01-26, 1m
-    Levert bekreftelse: milestone, 2026-02-06, 1m
-    Levert bekreftelse: milestone, 2026-02-20, 1m
-    Levert bekreftelse: milestone, 2026-03-06, 1m
-    Ledighet: done, 2026-01-05, 63d
-    Var arbeidssøker: done, 2026-01-05, 14d
-    Er arbeidssøker: active, 2026-01-26, 42d
-    Har ikke jobbet: active, 2026-01-26, 14d
-    Har ikke jobbet: active, 2026-02-09, 14d
-    Har ikke jobbet: active, 2026-02-23, 14d
 ```
 
 ## Spørringer
@@ -158,9 +186,10 @@ gantt
 ## Poison Pills i dev
 
 * `paw.arbeidssokerperioder-v1`
-  * Partition 0
-    * hwm 1730
-      * fnr: 13497632174, aktor-id: 2078784314389, arbeidssøker-id: 139451 er splittet og ligger med feil state i Arbeidssøkerregister
-  * Partition 1
-    * hwm 438, 452
-      * fnr: 02447919705, arbeidssøker-id: 133777 finnes ikke i lengre PDL
+    * Partition 0
+        * hwm 1730
+            * fnr: 13497632174, aktor-id: 2078784314389, arbeidssøker-id: 139451 er splittet og ligger med feil state i
+              Arbeidssøkerregister
+    * Partition 1
+        * hwm 438, 452
+            * fnr: 02447919705, arbeidssøker-id: 133777 finnes ikke i lengre PDL
