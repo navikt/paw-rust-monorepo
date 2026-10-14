@@ -8,4 +8,6 @@ pub enum AccessError {
     IncorrectPrincipal,
     #[error("Bruker mangler påkrevd rolle: {0}")]
     InsufficientRoles(String),
+    #[error("Bruker har ikke tilgang: {0}")]
+    AccessDenied(String),
 }

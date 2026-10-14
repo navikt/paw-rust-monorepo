@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/api/v1/tilgang"
+  },
+  "response": {
+    "status": 200,
+    "body": "{\"harTilgang\": {{#if (or (eq (jsonPath request.body '$.identitetsnummer') '01017012345') (eq (jsonPath request.body '$.identitetsnummer') '02017012345'))}}true{{else}}false{{/if}} }",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
