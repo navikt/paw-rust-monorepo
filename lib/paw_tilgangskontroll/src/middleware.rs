@@ -1,4 +1,4 @@
-use crate::policy::Policy;
+use crate::model::Policy;
 use axum::extract::{Request, State};
 use axum::middleware::{FromFnLayer, Next, from_fn_with_state};
 use axum::response::Response;

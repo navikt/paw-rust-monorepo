@@ -73,10 +73,67 @@ graph LR
     lagre_tilknyttet_kontor --> done
 ```
 
-* Etablere en ny domene-entitet ledighet-periode
-  * 
+## Utleding
 
-## Spørre
+### Ledighet
+* Aktiv arbeidssøker
+  * Leverer bekreftelse
+    * Har jobbet -> Resett ledighet
+    * Har ikke jobbet
+      * Ledighet ikke satt -> Sett ledighet til start av bekreftelse
+* Ikke aktiv arbeidssøker
+  * Registrerer seg som arbeidssøker
+    * Var tidligere registrert som arbeidssøker
+      * Det er mindre en 14 dager siden avslutning
+        * Tidligere ledighet er satt -> Viderefør tidligere ledighet
+      * Det er over 14 dager siden avslutning -> Ikke sett ledighet (venter på bekreftelse)
+
+```mermaid
+gantt
+    title Ikke tidligere vært arbeidssøker
+    dateFormat  YYYY-MM-DD
+    tickInterval 1week
+    weekday monday
+
+    Registrering: milestone, 2026-01-05, 1m
+    Levert bekreftelse: milestone, 2026-01-16, 1m
+    Levert bekreftelse: milestone, 2026-01-30, 1m
+    Levert bekreftelse: milestone, 2026-02-13, 1m
+    Levert bekreftelse: milestone, 2026-02-27, 1m
+    Ledighet: done, 2026-01-05, 28d
+    Ledighet: done, 2026-02-16, 14d
+    Er arbeidssøker: active, 2026-01-05, 56d
+    Har ikke jobbet: active, 2026-01-05, 14d
+    Har ikke jobbet: active, 2026-01-19, 14d
+    Har jobbet: crit, active, 2026-02-02, 14d
+    Har ikke jobbet: active, 2026-02-16, 14d
+
+    section Variant 2
+    Arbeidssøkerperiode: done, des1, 2026-01-05, 30d
+    Bekreftelse 1             :active,  des2, 2026-01-05, 14d
+```
+
+```mermaid
+gantt
+    title Har tidligere vært arbeidssøker siste 14 dager
+    dateFormat  YYYY-MM-DD
+    tickInterval 1week
+    weekday monday
+
+    Avslutning: milestone, 2026-01-19, 1m
+    Registrering: milestone, 2026-01-26, 1m
+    Levert bekreftelse: milestone, 2026-02-06, 1m
+    Levert bekreftelse: milestone, 2026-02-20, 1m
+    Levert bekreftelse: milestone, 2026-03-06, 1m
+    Ledighet: done, 2026-01-05, 63d
+    Var arbeidssøker: done, 2026-01-05, 14d
+    Er arbeidssøker: active, 2026-01-26, 42d
+    Har ikke jobbet: active, 2026-01-26, 14d
+    Har ikke jobbet: active, 2026-02-09, 14d
+    Har ikke jobbet: active, 2026-02-23, 14d
+```
+
+## Spørringer
 
 * Ledighet nyere/eldre enn
 * Egenvurdert nyere enn

@@ -2,7 +2,7 @@ use axum::extract::Request;
 use errors::access::AccessError;
 use oauth2::principal::Principal;
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_tilgangskontroll::Policy;
+use paw_tilgangskontroll::model::Policy;
 use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
 use std::sync::Arc;
 
@@ -18,7 +18,7 @@ impl KartleggingPolicy {
 
 impl Policy for KartleggingPolicy {
     async fn evaluate(&self, request: Request) -> Result<Request, ProblemDetails> {
-        let path = request.uri().path().to_string();
+        let path = request.uri().path().to_owned();
         if request.extensions().is_empty() {
             tracing::trace!("No extensions found");
         } else {
@@ -26,16 +26,27 @@ impl Policy for KartleggingPolicy {
         }
         match request.extensions().get::<Principal>() {
             None => {
-                tracing::trace!("No principal found");
+                tracing::warn!("No principal found");
                 Err(ProblemDetails::forbidden(
-                    path.as_str(),
+                    &path,
                     AccessError::MissingPrincipal,
                 ))
             }
             Some(principal) => match principal {
-                _ => {
-                    tracing::info!("We out here!");
+                Principal::NavAnsatt(_nav_ansatt) => {
+                    tracing::debug!("OBO Access");
                     Ok(request)
+                }
+                Principal::NavSystem(_nav_system) => {
+                    tracing::debug!("M2M Access");
+                    Ok(request)
+                }
+                _ => {
+                    tracing::warn!("Incorrect principal");
+                    Err(ProblemDetails::forbidden(
+                        &path,
+                        AccessError::IncorrectPrincipal,
+                    ))
                 }
             },
         }

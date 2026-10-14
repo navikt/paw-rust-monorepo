@@ -6,7 +6,8 @@ use axum::routing::post;
 use errors::access::AccessError;
 use oauth2::principal::{NavSystem, Principal};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_tilgangskontroll::{Policy, tilgangskontroll};
+use paw_tilgangskontroll::middleware::tilgangskontroll;
+use paw_tilgangskontroll::model::Policy;
 use std::sync::Arc;
 use tower::ServiceExt;
 
