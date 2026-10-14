@@ -4,6 +4,7 @@
 use thiserror::Error;
 
 mod key_catalog;
+mod key_catalog_tools;
 mod signer;
 mod verifier;
 mod warning;
