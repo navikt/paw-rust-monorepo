@@ -150,9 +150,11 @@ dependencies = [
  "serde_json",
  "sqlx",
  "testcontainers",
+ "thiserror 2.0.20",
  "tokio",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

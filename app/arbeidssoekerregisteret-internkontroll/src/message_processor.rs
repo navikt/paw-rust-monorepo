@@ -37,6 +37,10 @@ impl InternkontrollMessageProcessor {
         let topic = msg.topic();
         let offset = msg.offset();
         let timstamp = msg.timestamp().to_millis();
+        let _headers = msg.headers();
+        let _key = msg.key();
+        let _body = msg.payload();
+
         let verification_result = self.record_verifier.validate(msg);
         match verification_result {
             Ok(_) => {

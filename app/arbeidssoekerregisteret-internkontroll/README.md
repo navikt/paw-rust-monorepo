@@ -12,15 +12,15 @@ Internkontroll abonnerer på åtte topics: perioder, opplysninger, profilering, 
 
 Modulen `paw_kafka::signing` kan validere en Kafka-melding uten å endre den. Den skiller mellom manglende signatur, ukjent nøkkel, ugyldig signatur og teknisk feil. Modulen har offentlige nøkler for historisk validering. En gyldig signatur viser ikke i seg selv at nøkkelen var tillatt på meldingens offset; den vurderingen ligger hos den som bruker modulen.
 
-## Signeringsgrense
+## Signeringskrav
 
-Signering ble innført etter at topicene allerede inneholdt usignerte meldinger. Internkontroll fastsetter derfor en egen grense for hver topic-partisjon.
+Signering ble innført etter at topicene allerede inneholdt usignerte meldinger. Vi setter derfor et tidspunkt per topic i koden, fra og med når alle meldinger må være signert. Tidspunktet settes først når vi har sett at alle produsentene på topicet signerer. Endringen spores i git, og et krav fjernes aldri.
 
-Den første meldingen med minst én av headerne `x-paw-signature` eller `x-paw-signing-key-id` setter grenseoffseten. Det gjelder også hvis headeren er tom, den andre headeren mangler eller signaturen er ugyldig. Meldingen valideres og eventuelle feil registreres. Fra og med denne offseten er gyldig signatur påkrevd for alle meldinger på partisjonen.
+Kravet sammenlignes med effektiv stream time for topic-partisjonen: det høyeste av meldingens tidsstempel og stream time før meldingen. En tilbakedatert melding kan dermed ikke unngå kravet så lenge partisjonen har sett en melding etter tidspunktet.
 
-Grensen lagres varig og flyttes ikke ved omstart eller replay. Meldinger før grensen kan være historisk usignerte uten at det er et signaturavvik. Meldinger etter grensen som mangler gyldig signatur, flagges.
+Meldinger uten signatur før tidspunktet er historisk usignerte og ikke et avvik. Meldinger uten signatur etter tidspunktet flagges. En signert melding valideres uansett tidspunkt, og en ugyldig signatur er alltid et funn.
 
-Grensen, valideringsresultatet og HWM-oppdateringen skal inngå i samme Postgres-transaksjon. En feil ved lagring skal hindre at HWM flyttes forbi meldingen.
+En partisjon uten lagret stream time, eller som har vært stille siden før tidspunktet, kan godta en tilbakedatert melding uten signatur. Vi aksepterer dette.
 
 ## Traces og funn
 
@@ -38,7 +38,7 @@ Vi starter med én konkret prosess. Regelen må angi hvilke meldinger som hører
 
 ## Lagring og dokumentasjon
 
-Postgres er utgangspunktet for HWM, signeringsgrenser, åpne traces, funn og data som den asynkrone kontrollen må slå opp. Med flere titalls millioner meldinger i året og minst ti års dokumentasjonsbehov bør vi ikke uten videre lagre hele historikken med rå payload i aktive Postgres-tabeller.
+Postgres er utgangspunktet for HWM, stream time, åpne traces, funn og data som den asynkrone kontrollen må slå opp. Med flere titalls millioner meldinger i året og minst ti års dokumentasjonsbehov bør vi ikke uten videre lagre hele historikken med rå payload i aktive Postgres-tabeller.
 
 Kompakte observasjoner kan støtte søk og kontroll, men de er ikke alene nok til å etterprøve hva en melding inneholdt i en klagesak. Vi må avklare hvor originalt meldingsinnhold bevares, hvordan det knyttes til observasjoner og funn, og hvordan det kan hentes fram etter at Kafka-retention er utløpt. Et mulig framtidig skille er aktive og søkbare data i Postgres, med lukkede traces og dokumentasjonsgrunnlag i GCP buckets.
 
@@ -54,8 +54,8 @@ Før internkontroll eventuelt erstatter backupen, må vi avklare hvilke topics s
 
 ## Foreslått rekkefølge
 
-1. Lagre signeringsgrensen per topic-partisjon.
-2. Valider hver melding mot grensen og lagre resultat og funn i HWM-transaksjonen. Test særlig meldingen som setter grensen, ufullstendige headere, omstart og replay.
+1. Lagre stream time per topic-partisjon og sett signeringskravet per topic i koden.
+2. Valider hver melding mot signeringskravet og lagre resultat og funn i HWM-transaksjonen. Test særlig meldinger like før og etter tidspunktet, tilbakedaterte meldinger, ufullstendige headere, omstart og replay.
 3. Lagre trace-observasjoner og marker manglende eller ugyldig trace-kontekst.
 4. Beskriv og prøv ut én regel for en kjent meldingsflyt. Kjør vurderingen asynkront over åpne traces.
 5. Fastsett dokumentasjons- og oppbevaringskrav. Vurder deretter arkivering av lukkede traces og om internkontroll kan overta oppgaven til `kafka-topic-backup`.
