@@ -1,8 +1,9 @@
 use std::pin::Pin;
 
+use chrono::{DateTime, Utc};
 use paw_kafka::{
     hwm::hwm_message_processor::{MessageProcessor, ProcessorError},
-    signing::{RecordVerifier, SignatureError},
+    signing::{RecordVerifier, VerificationError},
 };
 use paw_team_logs::TeamLogger;
 use rdkafka::Message;
@@ -41,7 +42,9 @@ impl InternkontrollMessageProcessor {
         let _key = msg.key();
         let _body = msg.payload();
 
-        let verification_result = self.record_verifier.validate(msg);
+        let reference_time: DateTime<Utc> =
+            DateTime::from_timestamp_millis(timstamp.unwrap_or_default()).unwrap_or_else(Utc::now);
+        let verification_result = self.record_verifier.validate(reference_time, msg);
         match verification_result {
             Ok(_) => {
                 tracing::info!(
@@ -51,19 +54,18 @@ impl InternkontrollMessageProcessor {
                     offset
                 );
             }
-            Err(SignatureError::InvalidSignature { key_id }) => {
+            Err(VerificationError::SignatureMismatch) => {
                 tracing::warn!(
-                    "Message {}-{}-{} failed signature verification with key_id: {}",
+                    "Message {}-{}-{} signature verification failed: cryptographic mismatch",
                     partition,
                     topic,
-                    offset,
-                    key_id
+                    offset
                 );
                 let _ = self.team_logger.warn(
                     "arbeidssoekerregisteret-internkontroll",
                     &format!(
-                        "Message {}-{}-{} failed signature verification with key_id: {}",
-                        partition, topic, offset, key_id
+                        "Message {}-{}-{} signature verification failed: cryptographic mismatch",
+                        partition, topic, offset
                     ),
                 );
             }

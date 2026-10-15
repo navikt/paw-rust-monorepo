@@ -1,15 +1,17 @@
-use super::key_catalog::embedded_keys;
+use crate::signing::key_catalog::get_embedded_keys;
+use crate::signing::key_catalog_tools::PublicKey;
+use crate::signing::wire::signature_payload_from_message;
+use crate::signing::{KeyError, VerificationError};
+
 use super::warning::warning_message;
-use super::wire::{last_header, signature_payload, valid_key_id};
-use super::{
-    LOGGER_NAME, SIGNATURE_HEADER, SIGNING_KEY_ID_HEADER, SigningError, TRACEPARENT_HEADER,
-};
+use super::wire::last_header;
+use super::{LOGGER_NAME, SIGNATURE_HEADER, SIGNING_KEY_ID_HEADER};
 use base64::{
     Engine,
-    engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD},
+    engine::general_purpose::{URL_SAFE, URL_SAFE_NO_PAD},
 };
-use p256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
-use p256::pkcs8::DecodePublicKey;
+use chrono::{DateTime, Utc};
+use p256::ecdsa::{Signature, signature::Verifier};
 use paw_team_logs::{TeamLogger, TeamLogsError};
 use rdkafka::Message;
 use std::collections::HashMap;
@@ -18,29 +20,12 @@ use std::collections::HashMap;
 /// Whether this key was permitted at the record's offset is up to the caller.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidSignature {
-    pub key_id: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SignatureError {
-    MissingSignature,
-    /// The ID is an untrusted claim from the record's header.
-    UnknownKey {
-        key_id: String,
-    },
-    /// The ID is an untrusted claim from the record's header.
-    InvalidSignature {
-        key_id: String,
-    },
-    /// A controlled reason, never raw record contents or parser output.
-    TechnicalError {
-        reason: &'static str,
-    },
+    pub key_id: &'static str,
 }
 
 #[derive(Default)]
 pub struct RecordVerifier {
-    keys: HashMap<String, VerifyingKey>,
+    keys: HashMap<&'static str, &'static PublicKey>,
 }
 
 impl RecordVerifier {
@@ -50,110 +35,78 @@ impl RecordVerifier {
 
     /// Loads all known public keys, including old keys for historical records.
     /// Fails at startup if any embedded key is invalid.
-    pub fn from_embedded_keys() -> Result<Self, SigningError> {
+    pub fn from_embedded_keys() -> Result<Self, KeyError> {
         let mut verifier = Self::new();
-        for key in embedded_keys()? {
-            verifier.add_key(key.id(), key.encoded())?;
+        for key in get_embedded_keys() {
+            verifier.add_key(key)?;
         }
         Ok(verifier)
     }
 
     /// Registers an X.509/SPKI DER public key encoded as standard Base64.
-    pub fn add_key(
-        &mut self,
-        key_id: impl Into<String>,
-        encoded: &str,
-    ) -> Result<(), SigningError> {
-        let key_id = key_id.into();
-        if !valid_key_id(&key_id) || self.keys.contains_key(&key_id) {
-            return Err(SigningError::KeyId);
+    pub fn add_key(&mut self, key: &'static PublicKey) -> Result<(), KeyError> {
+        let key_id = key.id();
+        if self.keys.contains_key(key_id) {
+            return Err(KeyError::DuplicateKeyId { key_id });
         }
-        let der = STANDARD.decode(encoded.trim())?;
-        let key = VerifyingKey::from_public_key_der(&der).map_err(|_| SigningError::PublicKey)?;
         self.keys.insert(key_id, key);
         Ok(())
     }
 
     /// Examines raw Kafka bytes without modifying or consuming the record.
     /// A valid signature does not imply the key was allowed at this offset.
-    pub fn validate<M: Message>(&self, message: &M) -> Result<ValidSignature, SignatureError> {
+    pub fn validate<M: Message>(
+        &self,
+        reference_time: DateTime<Utc>,
+        message: &M,
+    ) -> Result<ValidSignature, VerificationError> {
         let signature = last_header(message.headers(), SIGNATURE_HEADER);
         let key_id = last_header(message.headers(), SIGNING_KEY_ID_HEADER);
         let Some(signature) = signature else {
-            return Err(SignatureError::MissingSignature);
+            return Err(VerificationError::NoSignaturePresent);
         };
         let Some(key_id) = key_id else {
-            return Err(SignatureError::TechnicalError {
-                reason: "missing key ID",
-            });
+            return Err(VerificationError::NoKeyIdPresent);
         };
         let Ok(key_id) = std::str::from_utf8(key_id) else {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid key ID encoding",
-            });
+            return Err(VerificationError::MalformedKeyId);
         };
-        if !valid_key_id(key_id) {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid key ID",
-            });
-        }
         let Some(key) = self.keys.get(key_id) else {
-            return Err(SignatureError::UnknownKey {
+            return Err(VerificationError::Key(KeyError::UnknownKeyId {
                 key_id: key_id.to_string(),
-            });
+            }));
         };
         let Ok(encoded_signature) = std::str::from_utf8(signature) else {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid signature encoding",
-            });
+            return Err(VerificationError::MalformedSignature);
         };
         let Ok(signature) = URL_SAFE_NO_PAD
             .decode(encoded_signature)
             .or_else(|_| URL_SAFE.decode(encoded_signature))
         else {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid signature base64",
-            });
+            return Err(VerificationError::MalformedSignature);
         };
         let Ok(signature) = Signature::from_der(&signature) else {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid signature DER",
-            });
+            return Err(VerificationError::MalformedSignature);
         };
-        // Kotlin's ConsumerRecord.timestamp() returns -1 when no timestamp exists.
-        let timestamp = message.timestamp().to_millis().unwrap_or(-1);
-        let traceparent = last_header(message.headers(), TRACEPARENT_HEADER).unwrap_or_default();
-        let Ok(payload) = signature_payload(
-            message.key().unwrap_or_default(),
-            traceparent,
-            timestamp,
-            message.payload().unwrap_or_default(),
-        ) else {
-            return Err(SignatureError::TechnicalError {
-                reason: "invalid signed payload",
-            });
-        };
-        if key.verify(&payload, &signature).is_ok() {
-            Ok(ValidSignature {
-                key_id: key_id.to_string(),
-            })
+        let payload = signature_payload_from_message(message)?;
+        if key.encoded().verify(&payload, &signature).is_ok() {
+            validate_revocation(key, reference_time).map_err(VerificationError::Key)
         } else {
-            Err(SignatureError::InvalidSignature {
-                key_id: key_id.to_string(),
-            })
+            Err(VerificationError::SignatureMismatch)
         }
     }
 
     /// Warns only in Team Logs. A failed log send is reported separately and never filters the message.
     pub fn validate_and_warn<M: Message>(
         &self,
+        reference_time: DateTime<Utc>,
         message: &M,
         logs: &impl TeamLogger,
     ) -> (
-        Result<ValidSignature, SignatureError>,
+        Result<ValidSignature, VerificationError>,
         Option<TeamLogsError>,
     ) {
-        let result = self.validate(message);
+        let result = self.validate(reference_time, message);
         let Err(error) = &result else {
             return (result, None);
         };
@@ -164,6 +117,32 @@ impl RecordVerifier {
     }
 }
 
+pub fn validate_revocation(
+    key: &PublicKey,
+    reference_time: DateTime<Utc>,
+) -> Result<ValidSignature, KeyError> {
+    match key {
+        PublicKey::Active { id, encoded: _ } => Ok(ValidSignature { key_id: id }),
+        PublicKey::Revoked {
+            id,
+            encoded: _,
+            revoked_after,
+            recorded_at,
+        } => {
+            if reference_time >= *revoked_after {
+                Err(KeyError::KeyRevoked {
+                    key_id: id,
+                    not_valid_after: *revoked_after,
+                    recorded_revocation: *recorded_at,
+                    reference_time,
+                })
+            } else {
+                Ok(ValidSignature { key_id: id })
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,21 +150,22 @@ mod tests {
     #[test]
     fn duplicate_key_id_fails() {
         let mut verifier = RecordVerifier::new();
-        let key = embedded_keys()
-            .unwrap()
-            .into_iter()
+        let key = get_embedded_keys()
+            .iter()
             .find(|key| key.id() == "prod-paw-api-inngang-ecdsa-v1")
             .unwrap();
-        verifier.add_key(key.id(), key.encoded()).unwrap();
+        verifier.add_key(key).unwrap();
         assert!(matches!(
-            verifier.add_key(key.id(), key.encoded()),
-            Err(SigningError::KeyId)
+            verifier.add_key(key),
+            Err(KeyError::DuplicateKeyId {
+                key_id: "prod-paw-api-inngang-ecdsa-v1"
+            })
         ));
     }
 
     #[test]
     fn embedded_keys_load_into_verifier() {
-        let keys = embedded_keys().unwrap();
+        let keys = get_embedded_keys();
         let verifier = RecordVerifier::from_embedded_keys().unwrap();
         assert_eq!(verifier.keys.len(), 17);
         assert!(keys.iter().all(|key| verifier.keys.contains_key(key.id())));

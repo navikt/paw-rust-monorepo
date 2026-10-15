@@ -1,10 +1,11 @@
 use rdkafka::Message;
 
-use super::verifier::SignatureError;
-use super::wire::{last_header, valid_key_id};
+use crate::signing::{KeyError, VerificationError};
+
+use super::wire::last_header;
 use super::{SIGNATURE_HEADER, SIGNING_KEY_ID_HEADER, TRACEPARENT_HEADER};
 
-pub(crate) fn warning_message<M: Message>(error: &SignatureError, message: &M) -> String {
+pub(crate) fn warning_message<M: Message>(error: &VerificationError, message: &M) -> String {
     let topic = message.topic();
     let partition = message.partition();
     let offset = message.offset();
@@ -16,36 +17,53 @@ pub(crate) fn warning_message<M: Message>(error: &SignatureError, message: &M) -
         .unwrap_or("ukjent");
     let trace_id = traceparent.split('-').nth(1).unwrap_or("ukjent");
     match error {
-        SignatureError::MissingSignature => {
+        VerificationError::NoSignaturePresent | VerificationError::NoKeyIdPresent => {
             let signature = last_header(message.headers(), SIGNATURE_HEADER).is_some();
             let key_id = last_header(message.headers(), SIGNING_KEY_ID_HEADER).is_some();
             format!(
                 "[kafka-signing] Mangler signaturheader(er) — topic={topic}, partition={partition}, offset={offset}, harSignatur={signature}, harNøkkelId={key_id}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        SignatureError::UnknownKey { key_id } => {
-            let key_id = if valid_key_id(key_id) {
-                key_id.as_str()
-            } else {
-                "ukjent"
-            };
+        VerificationError::Key(KeyError::UnknownKeyId { key_id }) => {
             format!(
                 "[kafka-signing] Ukjent signeringsnøkkel-id='{key_id}' — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        SignatureError::InvalidSignature { key_id } => {
-            let key_id = if valid_key_id(key_id) {
-                key_id.as_str()
-            } else {
-                "ukjent"
-            };
+        VerificationError::Key(KeyError::KeyRevoked {
+            key_id,
+            not_valid_after,
+            recorded_revocation,
+            reference_time,
+        }) => {
             format!(
-                "[kafka-signing] Ugyldig signatur — topic={topic}, partition={partition}, offset={offset}, keyId='{key_id}', trace_id={trace_id}, traceparent={traceparent}"
+                "[kafka-signing] Signeringsnøkkel-id='{key_id}' er tilbakekalt etter {not_valid_after:?}, tilbakekallingsdato registrert {recorded_revocation:?}, referansetidspunkt {reference_time:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        SignatureError::TechnicalError { reason } => format!(
-            "[kafka-signing] Teknisk feil ved signaturvalidering ({reason}) — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
-        ),
+        VerificationError::Key(KeyError::MalformedKey) => {
+            format!(
+                "[kafka-signing] Uleselig signeringsnøkkel — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+            )
+        }
+        VerificationError::SignatureMismatch => {
+            format!(
+                "[kafka-signing] Ugyldig signatur — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+            )
+        }
+        VerificationError::MalformedSignature | VerificationError::MalformedKeyId => {
+            format!(
+                "[kafka-signing] Uleselig signatur eller nøkkel-id — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+            )
+        }
+        VerificationError::Payload(payload_error) => {
+            format!(
+                "[kafka-signing] Ugyldig payload: {payload_error:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+            )
+        }
+        _ => {
+            format!(
+                "[kafka-signing] Feil: {error:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+            )
+        }
     }
 }
 
