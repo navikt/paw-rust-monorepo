@@ -2,14 +2,15 @@ use paw_kafka::kafka_config::KafkaConfig;
 use paw_key_gen_client::config::PawKeyGenClientConfig;
 use paw_oauth2_resource_server::config::AuthConfig;
 use paw_observability::otel::config::OtelTracingConfig;
+use paw_observability::otel::format::OtelFormat;
 use paw_rust_base::config::duration;
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
+use paw_tilgangskontroll_client::config::PawTilgangskontrollClientConfig;
 use pdl_client::config::PDLClientConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::time::Duration;
-use paw_tilgangskontroll_client::config::PawTilgangskontrollClientConfig;
 use texas_client::config::TokenClientConfig;
 
 pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -32,6 +33,32 @@ pub struct HwmPauseConfig {
     /// Hvor ofte bakgrunnsjobben sjekker om noen pausede partisjoner har blitt stående for lenge.
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
     pub check_paused_partitions_interval: Duration,
+}
+
+#[env_field_wrap]
+#[derive(Debug, Deserialize)]
+pub struct AppOtelTracingConfig {
+    pub format: String,
+    pub directives: Vec<String>,
+}
+
+impl AppOtelTracingConfig {
+    pub fn as_config(&self) -> OtelTracingConfig {
+        let format = match self.format.clone().into_inner().to_uppercase().as_str() {
+            "JSON" => OtelFormat::Json,
+            "OTEL_JSON" => OtelFormat::OtelJson,
+            "FULL" => OtelFormat::Full,
+            "PRETTY" => OtelFormat::Pretty,
+            "COMPACT" => OtelFormat::Compact,
+            _ => OtelFormat::default(),
+        };
+        let directives = self
+            .directives
+            .iter()
+            .map(|c| c.clone().into_inner())
+            .collect();
+        OtelTracingConfig { format, directives }
+    }
 }
 
 #[env_field_wrap]
@@ -75,7 +102,7 @@ pub fn read_app_config() -> anyhow::Result<AppConfig> {
 
 pub fn read_otel_tracing_config() -> anyhow::Result<OtelTracingConfig> {
     let content = read_config_file!("otel_tracing_config.toml");
-    Ok(read_toml_config::<OtelTracingConfig>(content)?)
+    Ok(read_toml_config::<AppOtelTracingConfig>(content)?.as_config())
 }
 
 pub fn read_database_config() -> anyhow::Result<DatabaseConfig> {
@@ -108,7 +135,10 @@ pub fn read_pdl_client_config() -> anyhow::Result<PDLClientConfig> {
     Ok(read_toml_config::<PDLClientConfig>(content)?)
 }
 
-pub fn read_paw_tilgangskontroll_client_config() -> anyhow::Result<PawTilgangskontrollClientConfig> {
+pub fn read_paw_tilgangskontroll_client_config() -> anyhow::Result<PawTilgangskontrollClientConfig>
+{
     let content = read_config_file!("paw_tilgangskontroll_client_config.toml");
-    Ok(read_toml_config::<PawTilgangskontrollClientConfig>(content)?)
+    Ok(read_toml_config::<PawTilgangskontrollClientConfig>(
+        content,
+    )?)
 }

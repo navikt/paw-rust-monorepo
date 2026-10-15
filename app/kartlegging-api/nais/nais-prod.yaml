@@ -13,6 +13,8 @@ spec:
       value: "1"
     - name: RUST_LOG
       value: "INFO"
+    - name: PAW_LOG_LEVEL
+      value: "INFO"
     - name: PGSSLMODE
       value: "VerifyFull"
     - name: PGSSLROOTCERT

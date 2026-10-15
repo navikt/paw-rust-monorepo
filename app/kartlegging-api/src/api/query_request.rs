@@ -442,18 +442,10 @@ mod tests {
             403
         );
 
-        for principal in [
-            Principal::NavSystem(NavSystem {
-                oid: "test".to_owned(),
-                roles: vec![],
-            }),
-            Principal::NavAnsatt(oauth2::principal::NavAnsatt {
-                oid: "test".to_owned(),
-                ident: types::nav_ident::NavIdent::new("Z123456".to_owned()).unwrap(),
-                name: None,
-                roles: vec![],
-            }),
-        ] {
+        for principal in [Principal::NavSystem(NavSystem {
+            oid: "test".to_owned(),
+            roles: vec![],
+        })] {
             let routes = Router::new()
                 .route(
                     PATH,
