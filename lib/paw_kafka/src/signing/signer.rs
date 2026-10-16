@@ -48,7 +48,7 @@ impl RecordSigner {
 
     /// Signs already-serialized Kafka bytes and fixes the timestamp before sending.
     /// On an error, any stale signing headers are removed before returning the record.
-    fn sign_record<'a, K: ToBytes + ?Sized, P: ToBytes + ?Sized>(
+    pub fn sign_record<'a, K: ToBytes + ?Sized, P: ToBytes + ?Sized>(
         &self,
         record: FutureRecord<'a, K, P>,
     ) -> Result<FutureRecord<'a, K, P>, SignError> {
