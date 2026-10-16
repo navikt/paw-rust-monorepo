@@ -9,7 +9,7 @@ pub async fn finn_for_aktor_ider(
     tx: &mut Transaction<'_, Postgres>,
     aktor_ider: &[String],
 ) -> anyhow::Result<HashMap<String, Vec<Kontortilknytning>>> {
-    tracing::info!("Henter tilknyttede kontorer for parent ider");
+    tracing::debug!("Henter tilknyttede kontorer for parent ider");
 
     let rows = kontortilknytning::select_by_aktor_ids(tx, aktor_ider).await?;
     let mut kontortilknytninger_by_aktor_id: HashMap<String, Vec<Kontortilknytning>> =

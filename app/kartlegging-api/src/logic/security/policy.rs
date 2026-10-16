@@ -32,7 +32,6 @@ impl Policy for KartleggingPolicy {
             }
             Some(principal) => match principal {
                 Principal::NavAnsatt(nav_ansatt) => {
-                    tracing::debug!("OBO Access");
                     let nav_ansatt_id = nav_ansatt.ident.as_ref().to_string();
                     let (parts, body) = request.into_parts();
                     let query = shared_query_request(&parts)?;
@@ -55,10 +54,10 @@ impl Policy for KartleggingPolicy {
                                     )
                                 })?;
                             if tilgang.har_tilgang {
-                                tracing::debug!("Har tilgang til person");
+                                tracing::info!("Nav-ansatt har tilgang til person (OBO token)");
                                 Ok(Request::from_parts(parts, body))
                             } else {
-                                tracing::warn!("Har ikke tilgang til person");
+                                tracing::warn!("Nav-ansatt har ikke tilgang til person (OBO token)");
                                 let error = format!("Ingen {}-tilgang", TilgangType::Lese.as_ref());
                                 Err(ProblemDetails::forbidden(
                                     &path,
@@ -67,7 +66,7 @@ impl Policy for KartleggingPolicy {
                             }
                         }
                         QueryRequest::TilknyttetKontor(_) => {
-                            tracing::debug!("Har tilgang til kontor");
+                            tracing::info!("Nav-ansatt har tilgang til kontor (OBO token)");
                             Ok(Request::from_parts(parts, body))
                         }
                     }
@@ -75,7 +74,7 @@ impl Policy for KartleggingPolicy {
                 Principal::NavSystem(_nav_system) => {
                     let (parts, body) = request.into_parts();
                     let _query = shared_query_request(&parts)?;
-                    tracing::debug!("M2M Access");
+                    tracing::info!("Nav-system har tilgang (M2M token)");
                     Ok(Request::from_parts(parts, body))
                 }
                 _ => {

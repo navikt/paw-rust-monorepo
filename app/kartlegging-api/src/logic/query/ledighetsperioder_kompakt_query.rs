@@ -13,7 +13,7 @@ pub async fn finn_for_arbeidssoeker_ider(
     tx: &mut Transaction<'_, Postgres>,
     arbeidssoeker_ider: &[i64],
 ) -> anyhow::Result<HashMap<i64, LedighetsperiodeKompakt>> {
-    tracing::info!("Henter kartlegging for parent ider");
+    tracing::debug!("Henter kartlegging for parent ider");
     let rows =
         ledighetsperiode_kompakt::select_by_arbeidssoeker_ids(tx, arbeidssoeker_ider).await?;
 
