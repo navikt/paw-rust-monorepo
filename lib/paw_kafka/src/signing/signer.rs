@@ -1,7 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use base64::{Engine, engine::general_purpose::STANDARD};
+use base64::{
+    Engine,
+    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+};
 use p256::SecretKey;
 use p256::ecdsa::{Signature, SigningKey, signature::Signer};
 use p256::pkcs8::DecodePrivateKey;
@@ -55,7 +58,7 @@ impl RecordSigner {
         let headers = strip_signing_headers(record.headers.as_ref())
             .insert(Header {
                 key: SIGNATURE_HEADER,
-                value: Some(signature.to_der().as_bytes()),
+                value: Some(URL_SAFE_NO_PAD.encode(signature.to_der()).as_bytes()),
             })
             .insert(Header {
                 key: SIGNING_KEY_ID_HEADER,
