@@ -70,3 +70,24 @@ pub(crate) fn last_header<'a, H: Headers>(headers: Option<&'a H>, name: &str) ->
         .last()
         .and_then(|h| h.value)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kotlin_payload_layout_and_mutations() {
+        const TIMESTAMP: i64 = 1_700_000_000_000;
+        const TRACEPARENT: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        let bytes = signature_payload(b"key", TRACEPARENT.as_bytes(), TIMESTAMP, b"value").unwrap();
+        assert_eq!(&bytes[..7], b"\0\0\0\x03key");
+        assert_eq!(&bytes[7..11], &[0, 0, 0, TRACEPARENT.len() as u8]);
+        let timestamp_at = 11 + TRACEPARENT.len();
+        assert_eq!(
+            &bytes[timestamp_at..timestamp_at + 8],
+            &TIMESTAMP.to_be_bytes()
+        );
+        assert_eq!(&bytes[timestamp_at + 8..timestamp_at + 12], &[0, 0, 0, 5]);
+        assert_eq!(&bytes[timestamp_at + 12..], b"value");
+    }
+}

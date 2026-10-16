@@ -164,10 +164,11 @@ mod tests {
         assert_eq!(recorded_at.to_rfc3339(), "2026-10-02T12:30:00+00:00");
 
         let invalid_date_time = "invalid".to_string();
+        let encoded = include_str!("../../public-keys/prod-paw-api-inngang-ecdsa-v1.pub.b64");
         assert!(matches!(
             PublicKey::revoked(
                 "example",
-                "unused",
+                encoded,
                 &invalid_date_time,
                 "2026-10-02T12:30:00Z"
             ),
@@ -176,7 +177,7 @@ mod tests {
             }) if provided_time_as_string == &invalid_date_time
         ));
         assert!(matches!(
-            PublicKey::revoked("example", "unused", &invalid_date_time, "2026-10-02T12:30:00Z"),
+            PublicKey::revoked("example", encoded, "2026-10-01T12:30:00Z", &invalid_date_time),
             Err(KeyError::InvalidRevocationDateTime { ref provided_time_as_string })
                 if provided_time_as_string == &invalid_date_time
         ));

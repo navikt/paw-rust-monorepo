@@ -84,26 +84,21 @@ mod tests {
             None,
         );
         assert_eq!(
-            warning_message(&SignatureError::MissingSignature, &record),
+            warning_message(&VerificationError::NoSignaturePresent, &record),
             "[kafka-signing] Mangler signaturheader(er) — topic=topic, partition=2, offset=42, harSignatur=false, harNøkkelId=false, trace_id=ukjent, traceparent=ukjent"
         );
         assert_eq!(
             warning_message(
-                &SignatureError::UnknownKey {
-                    key_id: "key-id".into()
-                },
+                &VerificationError::Key(KeyError::UnknownKeyId {
+                    key_id: "key-id".into(),
+                }),
                 &record
             ),
             "[kafka-signing] Ukjent signeringsnøkkel-id='key-id' — topic=topic, partition=2, offset=42, trace_id=ukjent, traceparent=ukjent"
         );
         assert_eq!(
-            warning_message(
-                &SignatureError::InvalidSignature {
-                    key_id: "key-id".into()
-                },
-                &record
-            ),
-            "[kafka-signing] Ugyldig signatur — topic=topic, partition=2, offset=42, keyId='key-id', trace_id=ukjent, traceparent=ukjent"
+            warning_message(&VerificationError::SignatureMismatch, &record),
+            "[kafka-signing] Ugyldig signatur — topic=topic, partition=2, offset=42, trace_id=ukjent, traceparent=ukjent"
         );
     }
 
@@ -121,12 +116,7 @@ mod tests {
                 value: Some("hello\nsecret"),
             })),
         );
-        let line = warning_message(
-            &SignatureError::TechnicalError {
-                reason: "invalid signature DER",
-            },
-            &record,
-        );
+        let line = warning_message(&VerificationError::MalformedSignature, &record);
         assert!(line.contains("traceparent=ukjent"));
         assert!(!line.contains("secret"));
     }
