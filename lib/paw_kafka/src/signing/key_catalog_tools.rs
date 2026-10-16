@@ -1,3 +1,4 @@
+use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Utc};
 use p256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
 use p256::pkcs8::DecodePublicKey;
@@ -44,8 +45,7 @@ impl PublicKey {
     }
 
     pub fn active(id: &'static str, encoded: &'static str) -> Result<Self, KeyError> {
-        let encoded: VerifyingKey = VerifyingKey::from_public_key_der(encoded.as_bytes())
-            .map_err(|_| KeyError::MalformedKey)?;
+        let encoded = decode_public_key(encoded)?;
         Ok(Self::Active { id, encoded })
     }
 
@@ -63,8 +63,7 @@ impl PublicKey {
                     provided_time_as_string: timestamp.to_string(),
                 })
         };
-        let encoded: VerifyingKey = VerifyingKey::from_public_key_der(encoded.as_bytes())
-            .map_err(|_| KeyError::MalformedKey)?;
+        let encoded = decode_public_key(encoded)?;
 
         Ok(Self::Revoked {
             id,
@@ -73,6 +72,13 @@ impl PublicKey {
             recorded_at: parse(recorded_at)?,
         })
     }
+}
+
+fn decode_public_key(encoded: &str) -> Result<VerifyingKey, KeyError> {
+    let der = STANDARD
+        .decode(encoded.trim())
+        .map_err(|_| KeyError::MalformedKey)?;
+    VerifyingKey::from_public_key_der(&der).map_err(|_| KeyError::MalformedKey)
 }
 
 macro_rules! active_key {
@@ -107,6 +113,14 @@ mod tests {
     use super::*;
     use crate::signing::key_catalog::get_embedded_keys;
     use std::{collections::HashSet, fs, path::Path};
+
+    #[test]
+    fn invalid_public_key_base64_is_rejected() {
+        assert!(matches!(
+            PublicKey::active("test", "not-base64!"),
+            Err(KeyError::MalformedKey)
+        ));
+    }
 
     #[test]
     fn embedded_keys_match_catalog_and_parse() {
