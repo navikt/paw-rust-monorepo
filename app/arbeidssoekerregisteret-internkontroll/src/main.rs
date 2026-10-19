@@ -1,7 +1,8 @@
 mod database;
 mod message_processor;
 mod reset_db;
-mod signing_required;
+mod signing_required_tools;
+mod topic_catalog;
 mod topic_ids;
 mod trace_operation_type;
 use std::sync::Arc;
@@ -28,27 +29,23 @@ use paw_rust_base::{
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
-use paw_team_logs::{BufferedTeamLogs, TeamLogger};
 use std::error::Error;
 use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::reset_db::reset_db_if_needed;
+use crate::topic_catalog::{subscribed_topics, topic_priorities};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
     setup_nais_otel().unwrap();
     init_stream_wrapper_metrics();
-    let team_logger = BufferedTeamLogs::from_nais_env(100)?;
     let record_verifier = RecordVerifier::from_embedded_keys()?;
-    run_app(team_logger, record_verifier).await
+    run_app(record_verifier).await
 }
 
-async fn run_app(
-    team_logger: impl TeamLogger + Clone + 'static,
-    record_verifier: RecordVerifier,
-) -> Result<(), Box<dyn Error>> {
+async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> {
     let kafka_config: KafkaConfig = read_toml_config(read_config_file!("kafka_config.toml"))?;
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
@@ -56,35 +53,16 @@ async fn run_app(
     let http_server_task = spawn_health_server(app_state.clone());
     let hwm_version = *kafka_config.hwm_version;
     let runtime_env = runtime_env();
-    let topics = get_topic_names(
-        &runtime_env,
-        &[
-            Topic::Periode,
-            Topic::Opplysninger,
-            Topic::Profilering,
-            Topic::PaaVegneAv,
-            Topic::Bekreftelse,
-            Topic::Hendelselogg,
-            Topic::BekreftelseHendelseLogg,
-            Topic::Egenvurdering,
-        ],
-    );
+    let subscribed_topics = subscribed_topics();
+    let topics = get_topic_names(&runtime_env, &subscribed_topics);
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     reset_db_if_needed(&pg_pool, hwm_version).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     database::topic::register_topics(&pg_pool, &topics).await?;
+    let topic_ids = database::topic::load_topic_ids(&pg_pool).await?;
     let (topic_update_sender, topic_update_receiver) =
         mpsc::unbounded_channel::<TopicPartitionUpdate>();
-    let topic_priorities = TopicPriorityList::new(
-        &runtime_env,
-        vec![
-            (&Topic::BekreftelseHendelseLogg, 0),
-            (&Topic::Hendelselogg, 10),
-            (&Topic::Periode, 50),
-            (&Topic::Opplysninger, 60),
-            (&Topic::Profilering, 70),
-        ],
-    );
+    let topic_priorities = topic_priorities(runtime_env);
     let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
     let consumer = create_kafka_consumer_with_sender(
         app_state.clone(),
@@ -103,8 +81,7 @@ async fn run_app(
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
         async move {
-            let message_processor =
-                InternkontrollMessageProcessor::new(record_verifier, team_logger);
+            let message_processor = InternkontrollMessageProcessor::new(record_verifier, topic_ids);
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;

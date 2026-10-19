@@ -1,5 +1,4 @@
 use postgres_testcontainer::postgres::setup_postgres_container;
-use rdkafka::message::{Header, OwnedHeaders, OwnedMessage, Timestamp};
 
 #[tokio::test]
 pub async fn test_basic_app_core_flow() {

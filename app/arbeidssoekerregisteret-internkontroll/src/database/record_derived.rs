@@ -12,6 +12,8 @@ pub enum SignatureStatus {
     UnknownKey,
     InvalidSignature,
     TechnicalError,
+    PayloadExceedMaxBytes,
+    NoRecordTimestamp,
 }
 
 /// Signature result for a record. `signing_key_id` is the verifier's text key ID,
@@ -30,6 +32,7 @@ pub enum Signature {
     TechnicalError {
         signing_key_id: Option<String>,
     },
+    NoRecordTimestamp,
 }
 
 impl Signature {
@@ -40,6 +43,7 @@ impl Signature {
             Signature::Missing => SignatureStatus::MissingSignature,
             Signature::UnknownKey => SignatureStatus::UnknownKey,
             Signature::TechnicalError { .. } => SignatureStatus::TechnicalError,
+            Signature::NoRecordTimestamp => SignatureStatus::NoRecordTimestamp,
         }
     }
 
@@ -50,6 +54,7 @@ impl Signature {
             }
             Signature::TechnicalError { signing_key_id } => signing_key_id.as_deref(),
             Signature::Missing | Signature::UnknownKey => None,
+            Signature::NoRecordTimestamp => None,
         }
     }
 

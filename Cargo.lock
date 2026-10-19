@@ -142,7 +142,6 @@ dependencies = [
  "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
- "paw_team_logs",
  "postgres_testcontainer",
  "rdkafka",
  "serde",
