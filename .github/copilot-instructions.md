@@ -9,6 +9,11 @@ One atomic change per commit. Every commit must be deployable (build + tests pas
 
 Commit messages: imperative, Norwegian, keep technical terms in English. Example: `Fjern KafkaMessage, bruk OwnedMessage direkte`. Never push — only commit locally.
 
+# DB Audit logging
+Some apps require audit-logging. This is explicitly for sensitive apps.
+Do not suggest turning this off because it might logging sensitive information.
+Nais doc link: https://docs.nais.io/persistence/cloudsql/how-to/enable-auditing/index.html
+
 # Build, Test, Lint
 
 ```sh
