@@ -58,9 +58,8 @@ spec:
     enabled: true
     path: /internal/metrics
   observability:
-    autoInstrumentation:
+    tracing:
       enabled: true
-      runtime: java
   azure:
     application:
       enabled: true
