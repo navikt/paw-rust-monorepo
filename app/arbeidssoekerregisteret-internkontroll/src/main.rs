@@ -1,9 +1,9 @@
 mod database;
 mod message_processor;
+mod reset_db;
 mod signing_required;
 mod topic_ids;
 mod trace_operation_type;
-
 use std::sync::Arc;
 
 use message_processor::InternkontrollMessageProcessor;
@@ -29,63 +29,11 @@ use paw_rust_base::{
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
 use paw_team_logs::{BufferedTeamLogs, TeamLogger};
-use sqlx::{Connection, PgConnection, PgPool};
 use std::error::Error;
 use tokio::sync::mpsc;
 use tracing::info;
 
-const RESET_SQL: &str = include_str!("../reset.sql");
-
-async fn reset_db_if_needed(pool: &PgPool, configured_hwm_version: i16) -> Result<bool, sqlx::Error> {
-    let mut connection = pool.acquire().await?;
-    reset_db_on_connection(&mut connection, configured_hwm_version).await
-}
-
-async fn reset_db_on_connection(
-    connection: &mut PgConnection,
-    configured_hwm_version: i16,
-) -> Result<bool, sqlx::Error> {
-    let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-        .fetch_one(&mut *connection)
-        .await?;
-
-    if !hwm_exists {
-        info!("HWM-tabellen mangler, hopper over nullstilling av DB");
-        return Ok(false);
-    }
-
-    let max_hwm_version: Option<i16> = sqlx::query_scalar("SELECT MAX(version) FROM public.hwm")
-        .fetch_one(&mut *connection)
-        .await?;
-
-    match max_hwm_version {
-        Some(version) if configured_hwm_version <= version => {
-            info!(
-                configured_hwm_version,
-                stored_hwm_version = version,
-                "Konfigurert HWM-versjon er ikke nyere enn lagret versjon, hopper over nullstilling av DB"
-            );
-            return Ok(false);
-        }
-        Some(version) => {
-            info!(
-                configured_hwm_version,
-                stored_hwm_version = version,
-                "Konfigurert HWM-versjon er nyere enn lagret versjon, nullstiller DB"
-            );
-        }
-        None => {
-            info!(
-                configured_hwm_version,
-                "HWM-tabellen er tom, nullstiller DB"
-            );
-        }
-    }
-    let mut transaction = connection.begin().await?;
-    sqlx::raw_sql(RESET_SQL).execute(&mut *transaction).await?;
-    transaction.commit().await?;
-    Ok(true)
-}
+use crate::reset_db::reset_db_if_needed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -198,153 +146,4 @@ async fn run_app(
     let _ = pg_pool.close().await;
     info!("Pg pool lukket");
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use postgres_testcontainer::postgres::setup_postgres_container;
-    use tokio::sync::Mutex;
-
-    static TEST_LOCK: Mutex<()> = Mutex::const_new(());
-
-    async fn clean_public_schema(connection: &mut PgConnection) {
-        let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        if hwm_exists {
-            assert!(reset_db_on_connection(connection, i16::MAX).await.unwrap());
-        }
-    }
-
-    async fn migrate(connection: &mut PgConnection) {
-        sqlx::migrate!("./migrations")
-            .run(&mut *connection)
-            .await
-            .unwrap();
-    }
-
-    async fn insert_test_rows(connection: &mut PgConnection, version: i16) {
-        sqlx::query("INSERT INTO public.topic (name) VALUES ('reset-test-topic')")
-            .execute(&mut *connection)
-            .await
-            .unwrap();
-        sqlx::query(
-            "INSERT INTO public.hwm (version, topic, partition, hwm) VALUES ($1, 'reset-test-topic', 0, 42)",
-        )
-        .bind(version)
-        .execute(&mut *connection)
-        .await
-        .unwrap();
-    }
-
-    async fn setup_public_connection() -> (
-        postgres_testcontainer::postgres::TestContainerGuard,
-        sqlx::pool::PoolConnection<sqlx::Postgres>,
-    ) {
-        let guard = setup_postgres_container().await.unwrap();
-        let mut connection = guard.pg_pool.acquire().await.unwrap();
-        sqlx::query("SET search_path TO public")
-            .execute(&mut *connection)
-            .await
-            .unwrap();
-        clean_public_schema(&mut connection).await;
-        (guard, connection)
-    }
-
-    #[tokio::test]
-    async fn manglende_hwm_tabell_nullstilles_ikke() {
-        let _lock = TEST_LOCK.lock().await;
-        let (_guard, mut connection) = setup_public_connection().await;
-
-        assert!(!reset_db_on_connection(&mut connection, 20).await.unwrap());
-        let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert!(!hwm_exists);
-    }
-
-    #[tokio::test]
-    async fn tom_hwm_tabell_nullstilles_og_migrerer_paa_nytt() {
-        let _lock = TEST_LOCK.lock().await;
-        let (_guard, mut connection) = setup_public_connection().await;
-        migrate(&mut connection).await;
-
-        assert!(reset_db_on_connection(&mut connection, 20).await.unwrap());
-        let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert!(!hwm_exists);
-
-        migrate(&mut connection).await;
-        let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert!(hwm_exists);
-    }
-
-    #[tokio::test]
-    async fn nyere_konfigurert_hwm_versjon_nullstiller_appdata() {
-        let _lock = TEST_LOCK.lock().await;
-        let (_guard, mut connection) = setup_public_connection().await;
-        migrate(&mut connection).await;
-        insert_test_rows(&mut connection, 10).await;
-
-        assert!(reset_db_on_connection(&mut connection, 11).await.unwrap());
-        let topic_exists: bool =
-            sqlx::query_scalar("SELECT to_regclass('public.topic') IS NOT NULL")
-                .fetch_one(&mut *connection)
-                .await
-                .unwrap();
-        assert!(!topic_exists);
-
-        migrate(&mut connection).await;
-        let topic_exists: bool =
-            sqlx::query_scalar("SELECT to_regclass('public.topic') IS NOT NULL")
-                .fetch_one(&mut *connection)
-                .await
-                .unwrap();
-        let hwm_exists: bool = sqlx::query_scalar("SELECT to_regclass('public.hwm') IS NOT NULL")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert!(topic_exists);
-        assert!(hwm_exists);
-
-        let topic_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.topic")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        let hwm_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.hwm")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert_eq!(topic_count, 0);
-        assert_eq!(hwm_count, 0);
-    }
-
-    #[tokio::test]
-    async fn samme_eller_lavere_hwm_versjon_beholder_appdata() {
-        let _lock = TEST_LOCK.lock().await;
-        let (_guard, mut connection) = setup_public_connection().await;
-        migrate(&mut connection).await;
-        insert_test_rows(&mut connection, 10).await;
-
-        assert!(!reset_db_on_connection(&mut connection, 9).await.unwrap());
-        assert!(!reset_db_on_connection(&mut connection, 10).await.unwrap());
-        let topic_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.topic")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert_eq!(topic_count, 1);
-        let hwm_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.hwm")
-            .fetch_one(&mut *connection)
-            .await
-            .unwrap();
-        assert_eq!(hwm_count, 1);
-    }
 }
