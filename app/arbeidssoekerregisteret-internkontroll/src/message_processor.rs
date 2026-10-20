@@ -63,14 +63,15 @@ impl InternkontrollMessageProcessor {
             None => None,
         };
 
-        let reference_time: Option<DateTime<Utc>> =
-            get_stream_time(&mut **tx, topic_id, msg.partition())
-                .await?
-                .and_then(DateTime::<Utc>::from_timestamp_millis);
-        let signature = match reference_time {
-            Some(reference_time) => {
-                signature_from_verification(self.record_verifier.validate(reference_time, msg))
-            }
+        let reference_time_ms = get_stream_time(&mut **tx, topic_id, msg.partition()).await?;
+        let signature = match reference_time_ms
+            .and_then(|ms| DateTime::<Utc>::from_timestamp_millis(ms).map(|time| (ms, time)))
+        {
+            Some((reference_time_ms, reference_time)) => apply_signing_requirement(
+                signature_from_verification(self.record_verifier.validate(reference_time, msg)),
+                reference_time_ms,
+                self.signing_required_from.get(msg.topic()),
+            ),
             None => Signature::NoRecordTimestamp,
         };
         upsert_record_derived(
@@ -139,6 +140,19 @@ fn signature_from_verification(
             | KeyError::IO(_)
             | KeyError::DuplicateKeyId { .. },
         )) => Signature::TechnicalError,
+    }
+}
+
+fn apply_signing_requirement(
+    signature: Signature,
+    reference_time_ms: i64,
+    signing_required_from_ms: i64,
+) -> Signature {
+    match signature {
+        Signature::Missing if reference_time_ms < signing_required_from_ms => {
+            Signature::UnsignedBeforeRequired
+        }
+        signature => signature,
     }
 }
 
@@ -324,6 +338,35 @@ mod tests {
     }
 
     #[test]
+    fn manglende_signatur_for_kravet_gir_unsigned_before_required() {
+        assert_eq!(
+            apply_signing_requirement(Signature::Missing, 999, 1_000),
+            Signature::UnsignedBeforeRequired
+        );
+    }
+
+    #[test]
+    fn manglende_signatur_fra_kravet_gir_missing() {
+        assert_eq!(
+            apply_signing_requirement(Signature::Missing, 1_000, 1_000),
+            Signature::Missing
+        );
+    }
+
+    #[test]
+    fn andre_statuser_endres_ikke_for_kravet() {
+        for signature in crate::database::signature::tests::alle_signaturer()
+            .into_iter()
+            .filter(|signature| *signature != Signature::Missing)
+        {
+            assert_eq!(
+                apply_signing_requirement(signature.clone(), 0, 1_000),
+                signature
+            );
+        }
+    }
+
+    #[test]
     fn trace_id_is_null_for_missing_or_invalid_traceparent() {
         let trace = "0af7651916cd43dd8448eb211c80319c";
         let valid = format!("00-{trace}-b7ad6b7169203331-01");
@@ -414,7 +457,7 @@ mod tests {
         .fetch_one(pool)
         .await
         .unwrap();
-        assert_eq!(status, "missing_signature");
+        assert_eq!(status, "unsigned_before_required");
         assert_eq!(delta, None);
         assert_eq!(
             trace,

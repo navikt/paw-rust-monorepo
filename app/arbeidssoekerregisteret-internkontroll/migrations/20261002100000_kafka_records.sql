@@ -44,7 +44,7 @@ CREATE TABLE kafka_record (
 
 CREATE TYPE signature_status AS ENUM
     ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large',
-     'missing_signature', 'unknown_key', 'no_record_timestamp', 'technical_error');
+     'missing_signature', 'unsigned_before_required', 'unknown_key', 'no_record_timestamp', 'technical_error');
 
 -- Values derived from one Kafka record. One row per record, latest derivation only.
 CREATE TABLE record_derived (

@@ -8,6 +8,7 @@ pub enum SignatureStatus {
     KeyRevoked,
     PayloadTooLarge,
     MissingSignature,
+    UnsignedBeforeRequired,
     UnknownKey,
     NoRecordTimestamp,
     TechnicalError,
@@ -21,6 +22,7 @@ pub enum Signature {
     KeyRevoked { signing_key_id: String },
     PayloadTooLarge { signing_key_id: String },
     Missing,
+    UnsignedBeforeRequired,
     UnknownKey,
     NoRecordTimestamp,
     TechnicalError,
@@ -35,6 +37,7 @@ impl Signature {
             Signature::KeyRevoked { .. } => SignatureStatus::KeyRevoked,
             Signature::PayloadTooLarge { .. } => SignatureStatus::PayloadTooLarge,
             Signature::Missing => SignatureStatus::MissingSignature,
+            Signature::UnsignedBeforeRequired => SignatureStatus::UnsignedBeforeRequired,
             Signature::UnknownKey => SignatureStatus::UnknownKey,
             Signature::NoRecordTimestamp => SignatureStatus::NoRecordTimestamp,
             Signature::TechnicalError => SignatureStatus::TechnicalError,
@@ -49,6 +52,7 @@ impl Signature {
             | Signature::KeyRevoked { signing_key_id }
             | Signature::PayloadTooLarge { signing_key_id } => Some(signing_key_id),
             Signature::Missing
+            | Signature::UnsignedBeforeRequired
             | Signature::UnknownKey
             | Signature::NoRecordTimestamp
             | Signature::TechnicalError => None,
@@ -93,6 +97,9 @@ impl Signature {
                 signing_key_id,
             ),
             SignatureStatus::MissingSignature => without_key(Signature::Missing, signing_key_id),
+            SignatureStatus::UnsignedBeforeRequired => {
+                without_key(Signature::UnsignedBeforeRequired, signing_key_id)
+            }
             SignatureStatus::UnknownKey => without_key(Signature::UnknownKey, signing_key_id),
             SignatureStatus::NoRecordTimestamp => {
                 without_key(Signature::NoRecordTimestamp, signing_key_id)
@@ -134,6 +141,7 @@ pub(crate) mod tests {
                 signing_key_id: key(),
             },
             Signature::Missing,
+            Signature::UnsignedBeforeRequired,
             Signature::UnknownKey,
             Signature::NoRecordTimestamp,
             Signature::TechnicalError,
