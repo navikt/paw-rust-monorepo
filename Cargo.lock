@@ -3371,6 +3371,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "poao_tilgang_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mockito",
+ "paw_tilgangskontroll_api_mock",
+ "reqwest 0.13.5",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "strum",
+ "texas_client",
+ "thiserror 2.0.20",
+ "token_client_stub",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "portable-atomic"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

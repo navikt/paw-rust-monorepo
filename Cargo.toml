@@ -21,6 +21,7 @@ members = [
     "lib/paw_key_gen_client",
     "lib/pdl_client",
     "lib/texas_client",
+    "lib/poao_tilgang_client",
     "lib/paw_oauth2_resource_server",
     "lib/paw_texas_resource_server",
     "lib/paw_tilgangskontroll",
