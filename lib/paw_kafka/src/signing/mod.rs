@@ -59,10 +59,10 @@ pub enum SignError {
 
 #[derive(Debug, Error)]
 pub enum VerificationError {
-    #[error("signature is malformed")]
-    MalformedSignature,
-    #[error("signature verification failed: cryptographic mismatch")]
-    SignatureMismatch,
+    #[error("signature is malformed (key {key_id})")]
+    MalformedSignature { key_id: &'static str },
+    #[error("signature verification failed: cryptographic mismatch (key {key_id})")]
+    SignatureMismatch { key_id: &'static str },
     #[error("signature header is missing")]
     NoSignaturePresent,
     #[error("signing key id header is missing")]
@@ -71,6 +71,10 @@ pub enum VerificationError {
     Key(#[from] KeyError),
     #[error("key id is malformed")]
     MalformedKeyId,
-    #[error("payload error: {0}")]
-    Payload(#[from] PayloadError),
+    #[error("payload error for key {key_id}: {error}")]
+    Payload {
+        key_id: &'static str,
+        #[source]
+        error: PayloadError,
+    },
 }

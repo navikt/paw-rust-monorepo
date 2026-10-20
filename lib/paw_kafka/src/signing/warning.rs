@@ -44,26 +44,37 @@ pub(crate) fn warning_message<M: Message>(error: &VerificationError, message: &M
                 "[kafka-signing] Uleselig signeringsnøkkel — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        VerificationError::SignatureMismatch => {
+        VerificationError::SignatureMismatch { key_id } => {
             format!(
-                "[kafka-signing] Ugyldig signatur — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+                "[kafka-signing] Ugyldig signatur for nøkkel-id='{key_id}' — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        VerificationError::MalformedSignature | VerificationError::MalformedKeyId => {
+        VerificationError::MalformedSignature { key_id } => {
             format!(
-                "[kafka-signing] Uleselig signatur eller nøkkel-id — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+                "[kafka-signing] Uleselig signatur for nøkkel-id='{key_id}' — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        VerificationError::Payload(payload_error) => {
+        VerificationError::MalformedKeyId => {
             format!(
-                "[kafka-signing] Ugyldig payload: {payload_error:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+                "[kafka-signing] Uleselig nøkkel-id — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
-        _ => {
+        VerificationError::Payload { key_id, error } => {
             format!(
-                "[kafka-signing] Feil: {error:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+                "[kafka-signing] Ugyldig payload for nøkkel-id='{key_id}': {error:?} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
             )
         }
+        VerificationError::Key(KeyError::InvalidRevocationDateTime {
+            provided_time_as_string,
+        }) => format!(
+            "[kafka-signing] Ugyldig dato for tilbakekalling '{provided_time_as_string}' — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+        ),
+        VerificationError::Key(KeyError::IO(error)) => format!(
+            "[kafka-signing] Kunne ikke lese signeringsnøkkel: {error} — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+        ),
+        VerificationError::Key(KeyError::DuplicateKeyId { key_id }) => format!(
+            "[kafka-signing] Duplikat signeringsnøkkel-id='{key_id}' — topic={topic}, partition={partition}, offset={offset}, trace_id={trace_id}, traceparent={traceparent}"
+        ),
     }
 }
 
@@ -97,8 +108,11 @@ mod tests {
             "[kafka-signing] Ukjent signeringsnøkkel-id='key-id' — topic=topic, partition=2, offset=42, trace_id=ukjent, traceparent=ukjent"
         );
         assert_eq!(
-            warning_message(&VerificationError::SignatureMismatch, &record),
-            "[kafka-signing] Ugyldig signatur — topic=topic, partition=2, offset=42, trace_id=ukjent, traceparent=ukjent"
+            warning_message(
+                &VerificationError::SignatureMismatch { key_id: "test-key" },
+                &record
+            ),
+            "[kafka-signing] Ugyldig signatur for nøkkel-id='test-key' — topic=topic, partition=2, offset=42, trace_id=ukjent, traceparent=ukjent"
         );
     }
 
@@ -116,7 +130,10 @@ mod tests {
                 value: Some("hello\nsecret"),
             })),
         );
-        let line = warning_message(&VerificationError::MalformedSignature, &record);
+        let line = warning_message(
+            &VerificationError::MalformedSignature { key_id: "test-key" },
+            &record,
+        );
         assert!(line.contains("traceparent=ukjent"));
         assert!(!line.contains("secret"));
     }

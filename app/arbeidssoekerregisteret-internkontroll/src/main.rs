@@ -34,6 +34,7 @@ use tokio::sync::mpsc;
 use tracing::info;
 
 use crate::reset_db::reset_db_if_needed;
+use crate::signing_required_tools::SigningRequiredFrom;
 use crate::topic_catalog::{subscribed_topics, topic_priorities};
 
 #[tokio::main]
@@ -62,6 +63,7 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let topic_ids = database::topic::load_topic_ids(&pg_pool).await?;
     let (topic_update_sender, topic_update_receiver) =
         mpsc::unbounded_channel::<TopicPartitionUpdate>();
+    let signing_required_from = SigningRequiredFrom::for_runtime(&runtime_env);
     let topic_priorities = topic_priorities(runtime_env);
     let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
     let consumer = create_kafka_consumer_with_sender(
@@ -81,7 +83,11 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
         async move {
-            let message_processor = InternkontrollMessageProcessor::new(record_verifier, topic_ids);
+            let message_processor = InternkontrollMessageProcessor::new(
+                signing_required_from,
+                record_verifier,
+                topic_ids,
+            );
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;

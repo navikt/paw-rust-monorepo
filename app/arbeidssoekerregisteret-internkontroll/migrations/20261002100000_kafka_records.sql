@@ -43,7 +43,8 @@ CREATE TABLE kafka_record (
 );
 
 CREATE TYPE signature_status AS ENUM
-    ('valid', 'missing_signature', 'unknown_key', 'invalid_signature', 'technical_error', 'no_record_timestamp');
+    ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large',
+     'missing_signature', 'unknown_key', 'no_record_timestamp', 'technical_error');
 
 -- Values derived from one Kafka record. One row per record, latest derivation only.
 CREATE TABLE record_derived (
@@ -52,9 +53,6 @@ CREATE TABLE record_derived (
     record_offset      BIGINT NOT NULL,
     sequence_number    BIGINT GENERATED ALWAYS AS IDENTITY,
     signature_status   signature_status NOT NULL,
-    -- Required for 'valid' and 'invalid_signature', where the key was known.
-    -- Optional for 'technical_error': set when the error came after the key lookup.
-    -- Never set for 'missing_signature' and 'unknown_key'.
     signing_key_id     VARCHAR(128) CHECK (signing_key_id <> ''),
     -- record_timestamp_ms minus the highest timestamp of earlier offsets
     -- in the same topic-partition. NULL when there is nothing to compare with.
@@ -67,12 +65,8 @@ CREATE TABLE record_derived (
     FOREIGN KEY (topic_id, record_partition, record_offset)
         REFERENCES kafka_record (topic_id, record_partition, record_offset)
         ON DELETE CASCADE,
-    CHECK (CASE signature_status
-        WHEN 'valid' THEN signing_key_id IS NOT NULL
-        WHEN 'invalid_signature' THEN signing_key_id IS NOT NULL
-        WHEN 'technical_error' THEN TRUE
-        ELSE signing_key_id IS NULL
-    END)
+    CHECK ((signing_key_id IS NOT NULL) = (signature_status IN
+        ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large')))
 );
 
 CREATE INDEX record_derived_trace_id_idx

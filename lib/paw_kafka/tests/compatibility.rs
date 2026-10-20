@@ -199,21 +199,27 @@ fn sign_record_replaces_old_headers_and_validates_without_changing_message() {
             reference_time(),
             &record.clone().set_payload(Some(b"tampered".to_vec()))
         ),
-        Err(VerificationError::SignatureMismatch)
+        Err(VerificationError::SignatureMismatch {
+            key_id: "test-ecdsa-v1"
+        })
     ));
     assert!(matches!(
         verifier().validate(
             reference_time(),
             &record.clone().set_key(Some(b"tampered".to_vec()))
         ),
-        Err(VerificationError::SignatureMismatch)
+        Err(VerificationError::SignatureMismatch {
+            key_id: "test-ecdsa-v1"
+        })
     ));
     assert!(matches!(
         verifier().validate(
             reference_time(),
             &record.set_timestamp(Timestamp::CreateTime(timestamp + 1))
         ),
-        Err(VerificationError::SignatureMismatch)
+        Err(VerificationError::SignatureMismatch {
+            key_id: "test-ecdsa-v1"
+        })
     ));
 }
 
@@ -278,7 +284,9 @@ fn missing_or_bad_signatures_are_only_results_not_drops() {
         });
     assert!(matches!(
         verifier().validate(reference_time(), &message(Some(headers))),
-        Err(VerificationError::MalformedSignature)
+        Err(VerificationError::MalformedSignature {
+            key_id: "test-ecdsa-v1"
+        })
     ));
     let headers = OwnedHeaders::new()
         .insert(Header {

@@ -3,7 +3,7 @@ use std::pin::Pin;
 use chrono::{DateTime, Utc};
 use paw_kafka::{
     hwm::hwm_message_processor::{MessageProcessor, ProcessorError},
-    signing::{KeyError, RecordVerifier, VerificationError},
+    signing::{KeyError, PayloadError, RecordVerifier, VerificationError},
 };
 use rdkafka::Message;
 use rdkafka::message::{Headers, OwnedMessage};
@@ -14,7 +14,8 @@ use crate::topic_ids::TopicIds;
 use crate::{
     database::{
         kafka_record::{insert_kafka_record, kafka_record_row},
-        record_derived::{RecordDerived, Signature, upsert_record_derived},
+        record_derived::{RecordDerived, upsert_record_derived},
+        signature::Signature,
         stream_time::{get_stream_time, upsert_stream_time},
     },
     signing_required_tools::SigningRequiredFrom,
@@ -50,8 +51,6 @@ impl InternkontrollMessageProcessor {
         msg: &OwnedMessage,
     ) -> Result<(), ProcessorError> {
         let topic_id = self.topic_ids.get(msg.topic()).ok_or_else(|| {
-            // The topic table is populated before the consumer starts. Never skip a record
-            // if the lookup and subscription somehow become inconsistent.
             std::io::Error::new(std::io::ErrorKind::InvalidData, "unknown Kafka topic")
         })?;
         let row = kafka_record_row(topic_id, msg);
@@ -70,7 +69,7 @@ impl InternkontrollMessageProcessor {
                 .and_then(DateTime::<Utc>::from_timestamp_millis);
         let signature = match reference_time {
             Some(reference_time) => {
-                signature_from_verification(self.record_verifier.validate(reference_time, msg), msg)
+                signature_from_verification(self.record_verifier.validate(reference_time, msg))
             }
             None => Signature::NoRecordTimestamp,
         };
@@ -100,19 +99,33 @@ fn last_header<'a>(msg: &'a OwnedMessage, name: &str) -> Option<&'a [u8]> {
         .and_then(|header| header.value)
 }
 
-fn known_signing_key_id(msg: &OwnedMessage) -> Option<String> {
-    let id = std::str::from_utf8(last_header(msg, "x-paw-signing-key-id")?).ok()?;
-    (!id.is_empty() && id.len() <= 128).then(|| id.to_string())
-}
-
 fn signature_from_verification(
     result: Result<paw_kafka::signing::ValidSignature, VerificationError>,
-    msg: &OwnedMessage,
 ) -> Signature {
+    let key = |key_id: &str| key_id.to_string();
     match result {
         Ok(valid) => Signature::Valid {
-            signing_key_id: valid.key_id.to_string(),
+            signing_key_id: key(valid.key_id),
         },
+        Err(VerificationError::SignatureMismatch { key_id }) => Signature::CryptographicMismatch {
+            signing_key_id: key(key_id),
+        },
+        Err(VerificationError::MalformedSignature { key_id }) => Signature::Malformed {
+            signing_key_id: key(key_id),
+        },
+        Err(VerificationError::Key(KeyError::KeyRevoked { key_id, .. })) => Signature::KeyRevoked {
+            signing_key_id: key(key_id),
+        },
+        Err(VerificationError::Payload {
+            key_id,
+            error: PayloadError::ToManyBytes,
+        }) => Signature::PayloadTooLarge {
+            signing_key_id: key(key_id),
+        },
+        Err(VerificationError::Payload {
+            error: PayloadError::TimestampMissing,
+            ..
+        }) => Signature::NoRecordTimestamp,
         Err(VerificationError::NoSignaturePresent | VerificationError::NoKeyIdPresent) => {
             Signature::Missing
         }
@@ -120,23 +133,12 @@ fn signature_from_verification(
             VerificationError::MalformedKeyId
             | VerificationError::Key(KeyError::UnknownKeyId { .. }),
         ) => Signature::UnknownKey,
-        Err(VerificationError::SignatureMismatch | VerificationError::MalformedSignature) => {
-            match known_signing_key_id(msg) {
-                Some(signing_key_id) => Signature::Invalid { signing_key_id },
-                None => Signature::TechnicalError {
-                    signing_key_id: None,
-                },
-            }
-        }
-        // A revoked key is known, but is not allowed at the record's reference time.
-        Err(VerificationError::Key(KeyError::KeyRevoked { key_id, .. })) => Signature::Invalid {
-            signing_key_id: key_id.to_string(),
-        },
-        Err(VerificationError::Payload(_) | VerificationError::Key(_)) => {
-            Signature::TechnicalError {
-                signing_key_id: known_signing_key_id(msg),
-            }
-        }
+        Err(VerificationError::Key(
+            KeyError::MalformedKey
+            | KeyError::InvalidRevocationDateTime { .. }
+            | KeyError::IO(_)
+            | KeyError::DuplicateKeyId { .. },
+        )) => Signature::TechnicalError,
     }
 }
 
@@ -184,7 +186,7 @@ impl MessageProcessor for InternkontrollMessageProcessor {
 mod tests {
     use super::*;
     use paw_kafka::hwm::hwm_message_processor::hwm_process_message;
-    use paw_kafka::signing::PayloadError;
+    use paw_kafka::signing::ValidSignature;
     use rdkafka::Timestamp;
     use rdkafka::message::{Header, OwnedHeaders};
 
@@ -200,41 +202,124 @@ mod tests {
         )
     }
 
+    const KEY: &str = "key-a";
+
+    fn no_requirement() -> SigningRequiredFrom {
+        SigningRequiredFrom::new(i64::MAX, [] as [(String, i64); 0])
+    }
+
+    fn t() -> DateTime<Utc> {
+        DateTime::from_timestamp_millis(0).unwrap()
+    }
+
     #[test]
-    fn stores_signature_outcomes_without_panicking() {
-        let key = OwnedHeaders::new().insert(Header {
-            key: "x-paw-signing-key-id",
-            value: Some("known-key"),
-        });
-        let msg = message(Some(key));
+    fn ok_gir_valid() {
         assert_eq!(
-            signature_from_verification(Err(VerificationError::SignatureMismatch), &msg),
-            Signature::Invalid {
-                signing_key_id: "known-key".into()
+            signature_from_verification(Ok(ValidSignature { key_id: KEY })),
+            Signature::Valid {
+                signing_key_id: KEY.into()
             }
         );
+    }
+
+    #[test]
+    fn manglende_signatur_gir_missing() {
         assert_eq!(
-            signature_from_verification(Err(VerificationError::MalformedSignature), &msg),
-            Signature::Invalid {
-                signing_key_id: "known-key".into()
-            }
-        );
-        assert_eq!(
-            signature_from_verification(Err(VerificationError::NoSignaturePresent), &msg),
+            signature_from_verification(Err(VerificationError::NoSignaturePresent)),
             Signature::Missing
         );
+    }
+
+    #[test]
+    fn manglende_nokkel_id_gir_missing() {
         assert_eq!(
-            signature_from_verification(Err(VerificationError::MalformedKeyId), &msg),
+            signature_from_verification(Err(VerificationError::NoKeyIdPresent)),
+            Signature::Missing
+        );
+    }
+
+    #[test]
+    fn ugyldig_nokkel_id_gir_unknown_key() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::MalformedKeyId)),
             Signature::UnknownKey
         );
+    }
+
+    #[test]
+    fn ukjent_nokkel_gir_unknown_key() {
         assert_eq!(
-            signature_from_verification(
-                Err(VerificationError::Payload(PayloadError::TimestampMissing)),
-                &msg
-            ),
-            Signature::TechnicalError {
-                signing_key_id: Some("known-key".into())
+            signature_from_verification(Err(VerificationError::Key(KeyError::UnknownKeyId {
+                key_id: "x".into()
+            }))),
+            Signature::UnknownKey
+        );
+    }
+
+    #[test]
+    fn ugyldig_signatur_gir_malformed_signature() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::MalformedSignature { key_id: KEY })),
+            Signature::Malformed {
+                signing_key_id: KEY.into()
             }
+        );
+    }
+
+    #[test]
+    fn feil_signatur_gir_signature_mismatch() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::SignatureMismatch { key_id: KEY })),
+            Signature::CryptographicMismatch {
+                signing_key_id: KEY.into()
+            }
+        );
+    }
+
+    #[test]
+    fn tilbakekalt_nokkel_gir_key_revoked() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::Key(KeyError::KeyRevoked {
+                key_id: KEY,
+                not_valid_after: t(),
+                recorded_revocation: t(),
+                reference_time: t()
+            }))),
+            Signature::KeyRevoked {
+                signing_key_id: KEY.into()
+            }
+        );
+    }
+
+    #[test]
+    fn for_stor_payload_gir_payload_too_large() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::Payload {
+                key_id: KEY,
+                error: PayloadError::ToManyBytes
+            })),
+            Signature::PayloadTooLarge {
+                signing_key_id: KEY.into()
+            }
+        );
+    }
+
+    #[test]
+    fn manglende_tidsstempel_gir_no_record_timestamp() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::Payload {
+                key_id: KEY,
+                error: PayloadError::TimestampMissing
+            })),
+            Signature::NoRecordTimestamp
+        );
+    }
+
+    #[test]
+    fn ugyldig_nokkel_gir_technical_error() {
+        assert_eq!(
+            signature_from_verification(Err(VerificationError::Key(KeyError::MalformedKey))),
+            Signature::TechnicalError
         );
     }
 
@@ -282,7 +367,8 @@ mod tests {
             .await
             .unwrap();
 
-        let processor = InternkontrollMessageProcessor::new(RecordVerifier::new(), topic_ids);
+        let processor =
+            InternkontrollMessageProcessor::new(no_requirement(), RecordVerifier::new(), topic_ids);
         let valid = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
         let headers = OwnedHeaders::new()
             .insert(Header {
@@ -362,6 +448,7 @@ mod tests {
         assert_eq!(trace, None);
 
         let missing_topic = InternkontrollMessageProcessor::new(
+            no_requirement(),
             RecordVerifier::new(),
             TopicIds::new([] as [(String, i16); 0]),
         );

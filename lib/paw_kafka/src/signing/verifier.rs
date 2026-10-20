@@ -76,23 +76,25 @@ impl RecordVerifier {
                 key_id: key_id.to_string(),
             }));
         };
+        let key_id = key.id();
         let Ok(encoded_signature) = std::str::from_utf8(signature) else {
-            return Err(VerificationError::MalformedSignature);
+            return Err(VerificationError::MalformedSignature { key_id });
         };
         let Ok(signature) = URL_SAFE_NO_PAD
             .decode(encoded_signature)
             .or_else(|_| URL_SAFE.decode(encoded_signature))
         else {
-            return Err(VerificationError::MalformedSignature);
+            return Err(VerificationError::MalformedSignature { key_id });
         };
         let Ok(signature) = Signature::from_der(&signature) else {
-            return Err(VerificationError::MalformedSignature);
+            return Err(VerificationError::MalformedSignature { key_id });
         };
-        let payload = signature_payload_from_message(message)?;
+        let payload = signature_payload_from_message(message)
+            .map_err(|error| VerificationError::Payload { key_id, error })?;
         if key.encoded().verify(&payload, &signature).is_ok() {
             validate_revocation(key, reference_time).map_err(VerificationError::Key)
         } else {
-            Err(VerificationError::SignatureMismatch)
+            Err(VerificationError::SignatureMismatch { key_id })
         }
     }
 

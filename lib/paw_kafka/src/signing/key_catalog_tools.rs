@@ -38,10 +38,11 @@ impl PublicKey {
 
     pub fn verify(&self, payload: &[u8], signature: &[u8]) -> Result<(), VerificationError> {
         let signature =
-            Signature::from_der(signature).map_err(|_| VerificationError::MalformedSignature)?;
+            Signature::from_der(signature)
+                .map_err(|_| VerificationError::MalformedSignature { key_id: self.id() })?;
         self.encoded()
             .verify(payload, &signature)
-            .map_err(|_| VerificationError::SignatureMismatch)
+            .map_err(|_| VerificationError::SignatureMismatch { key_id: self.id() })
     }
 
     pub fn active(id: &'static str, encoded: &'static str) -> Result<Self, KeyError> {
