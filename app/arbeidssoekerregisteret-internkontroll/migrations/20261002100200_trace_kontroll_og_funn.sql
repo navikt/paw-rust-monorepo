@@ -45,3 +45,21 @@ CREATE TABLE funn (
 CREATE INDEX funn_kafka_record_idx
     ON funn (topic_id, record_partition, record_offset)
     WHERE topic_id IS NOT NULL;
+
+CREATE TABLE arbeidssoeker (
+    arbeidssoeker_id    BIGINT PRIMARY KEY,
+    registrert          BOOLEAN NOT NULL,
+    endret_av_trace_id  UUID REFERENCES trace (trace_id)
+);
+
+CREATE TABLE identitetsnummer (
+    identitetsnummer  TEXT PRIMARY KEY,
+    arbeidssoeker_id  BIGINT NOT NULL REFERENCES arbeidssoeker (arbeidssoeker_id)
+);
+
+CREATE INDEX identitetsnummer_arbeidssoeker_idx ON identitetsnummer (arbeidssoeker_id);
+
+CREATE TABLE status_fremdrift (
+    id                     BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+    siste_sequence_number  BIGINT NOT NULL DEFAULT 0
+);
