@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::sync::LazyLock;
 
-use futures::FutureExt;
 use crate::error::KafkaError;
+use futures::FutureExt;
 use prometheus::{Gauge, GaugeVec, register_gauge_vec};
 use rdkafka::{Message, Timestamp};
 
@@ -195,10 +195,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         let message_timestamp = msg.timestamp().to_millis();
         let current_timestamp = self.current_timestamp;
         let delta = match (current_timestamp, message_timestamp) {
-            (_, None) => {
-                self.current_timestamp = None;
-                None
-            }
+            (_, None) => None,
             (None, Some(msg_ts)) => {
                 self.current_timestamp = Some(msg_ts);
                 None
@@ -307,3 +304,41 @@ static QUEUE_HANDLER_LAG: LazyLock<GaugeVec> = LazyLock::new(|| {
     )
     .expect("Failed to create gauge")
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rdkafka::Timestamp;
+
+    struct NoSource;
+
+    impl PartitionMessageSource for NoSource {
+        async fn recv(&self) -> Result<OwnedMessage, StreamError> {
+            unreachable!()
+        }
+    }
+
+    fn message(offset: i64, timestamp: Timestamp) -> OwnedMessage {
+        OwnedMessage::new(None, None, "topic".into(), timestamp, 0, offset, None)
+    }
+
+    #[test]
+    fn melding_uten_tidsstempel_nullstiller_ikke_stroemtiden() {
+        let key = TopicPartition {
+            topic: "topic".into(),
+            partition: 0,
+        };
+        let mut queue = QueueHandler::new(key, NoSource, 10, -1, 0);
+        queue
+            .push(message(0, Timestamp::CreateTime(1_000)))
+            .unwrap();
+        queue.push(message(1, Timestamp::NotAvailable)).unwrap();
+        queue.push(message(2, Timestamp::CreateTime(900))).unwrap();
+
+        let infos: Vec<String> = std::iter::from_fn(|| queue.take_head())
+            .map(|wrapped| format!("{:?}", wrapped.timestamp_info))
+            .collect();
+        assert_eq!(infos[1], "none");
+        assert!(infos[2].starts_with("out_of_sequence"), "{infos:?}");
+    }
+}
