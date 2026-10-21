@@ -49,11 +49,12 @@ impl FromRow<'_, PgRow> for SequencedRecordDerived {
 
 /// Writes the derived values for a record. A new derivation replaces the
 /// previous one, but keeps the sequence number from the first write.
+/// Returns the record's sequence number.
 pub async fn upsert_record_derived(
     executor: impl PgExecutor<'_>,
     record: &RecordDerived,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(
         r#"
         INSERT INTO record_derived (
             topic_id, record_partition, record_offset,
@@ -67,6 +68,7 @@ pub async fn upsert_record_derived(
                 timestamp_delta_ms = EXCLUDED.timestamp_delta_ms,
                 trace_id = EXCLUDED.trace_id,
                 derived_at = EXCLUDED.derived_at
+        RETURNING sequence_number
         "#,
     )
     .bind(record.topic_id)
@@ -77,9 +79,8 @@ pub async fn upsert_record_derived(
     .bind(record.timestamp_delta_ms)
     .bind(record.trace_id)
     .bind(record.derived_at)
-    .execute(executor)
-    .await?;
-    Ok(())
+    .fetch_one(executor)
+    .await
 }
 
 pub async fn get_record_derived(

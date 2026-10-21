@@ -76,10 +76,7 @@ impl InternkontrollMessageProcessor {
             None => Signature::NoRecordTimestamp,
         };
         let trace_id = trace_id_from_message(msg);
-        if let (Some(trace_id), Some(reference_time_ms)) = (trace_id, reference_time_ms) {
-            upsert_trace(&mut **tx, trace_id, reference_time_ms).await?;
-        }
-        upsert_record_derived(
+        let sequence_number = upsert_record_derived(
             &mut **tx,
             &RecordDerived {
                 topic_id,
@@ -92,6 +89,9 @@ impl InternkontrollMessageProcessor {
             },
         )
         .await?;
+        if let (Some(trace_id), Some(reference_time_ms)) = (trace_id, reference_time_ms) {
+            upsert_trace(&mut **tx, trace_id, reference_time_ms, sequence_number).await?;
+        }
         Ok(())
     }
 }

@@ -23,11 +23,13 @@ CREATE TABLE trace (
     trace_id            UUID PRIMARY KEY,
     first_reference_ms  BIGINT NOT NULL,
     last_reference_ms   BIGINT NOT NULL,
+    last_sequence_number BIGINT NOT NULL,
     operation_type      SMALLINT,
     CHECK (first_reference_ms <= last_reference_ms)
 );
 
 CREATE INDEX trace_first_reference_idx ON trace (first_reference_ms);
+CREATE INDEX trace_last_sequence_idx ON trace (last_sequence_number);
 
 -- Simple type reflecting kafka timestamp types.
 CREATE TYPE kafka_timestamp_type AS ENUM ('not_available', 'create_time', 'log_append_time');
