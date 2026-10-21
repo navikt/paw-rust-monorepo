@@ -1,0 +1,2 @@
+url = "http://poao-tilgang.poao.svc.cluster.local"
+target_scope = "api://${NAIS_CLUSTER_NAME}.poao.poao-tilgang/.default"

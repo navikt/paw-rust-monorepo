@@ -1,0 +1,2 @@
+url = "http://localhost:8090"
+target_scope = "api://localhost.poao.poao-tilgang/.default"

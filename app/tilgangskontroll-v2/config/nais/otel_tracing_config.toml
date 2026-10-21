@@ -1,0 +1,7 @@
+format = "OTEL_JSON"
+directives = [
+    "INFO",
+    "kartlegging_api::logic::process=${PAW_LOG_LEVEL}",
+    "kartlegging_api::logic::security=${PAW_LOG_LEVEL}",
+    "kartlegging_api::logic::process::message_process=INFO",
+]

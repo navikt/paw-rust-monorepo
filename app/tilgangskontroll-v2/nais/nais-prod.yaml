@@ -1,0 +1,59 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: paw-tilgangskontroll-v2
+  namespace: paw
+  labels:
+    team: paw
+spec:
+  image: {{ image }}
+  port: 8080
+  env:
+    - name: RUST_BACKTRACE
+      value: "1"
+    - name: RUST_LOG
+      value: "INFO"
+    - name: PAW_LOG_LEVEL
+      value: "INFO"
+  replicas:
+    min: 2
+    max: 2
+  resources:
+    limits:
+      memory: 32Mi
+    requests:
+      cpu: 25m
+      memory: 32Mi
+  startup:
+    failureThreshold: 10
+    initialDelay: 2
+    path: /internal/hasStarted
+    periodSeconds: 10
+    timeout: 5
+  liveness:
+    path: /internal/isAlive
+    initialDelay: 10
+  readiness:
+    path: /internal/isReady
+    initialDelay: 10
+  prometheus:
+    enabled: true
+    path: /internal/metrics
+  observability:
+    tracing:
+      enabled: true
+  azure:
+    application:
+      enabled: true
+      allowAllUsers: true
+      claims:
+        extra:
+          - NAVident
+  accessPolicy:
+    outbound:
+      rules:
+        - application: poao-tilgang
+          namespace: poao
+    inbound:
+      rules:
+        - application: paw-arbeidssoekerregisteret-api-kartlegging

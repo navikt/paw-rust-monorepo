@@ -5155,6 +5155,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "tilgangskontroll-v2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "errors",
+ "jsonschema",
+ "jsonwebtoken",
+ "mockito",
+ "nais_schema_registry",
+ "oauth2",
+ "paw_error_handling",
+ "paw_oauth2_resource_server",
+ "paw_observability",
+ "paw_rust_base",
+ "poao_tilgang_client",
+ "reqwest 0.13.5",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "serde_with",
+ "serde_yaml",
+ "strum",
+ "texas_client",
+ "thiserror 2.0.20",
+ "token_client_stub",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-test",
+ "types",
+ "utoipa-swagger-ui",
+ "uuid",
+]
+
+[[package]]
 name = "time"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: PAW Tilgangskontroll V2
+  description: >-
+    API for å utlede tilgang.
+  license:
+    name: 'Apache 2.0'
+    identifier: 'Apache-2.0'
+  version: 1.0.0
+
+tags:
+  - name: tilgang
+    description: Tilgangsforespørsel for lesing eller skriving av informasjon
+
+paths:
+  /api/v1/tilgang/person:
+    post:
+      tags:
+        - tilgang
+      operationId: nav_ansatt_tilgang_til_person
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavAnsattPersonTilgangRequest'
+        required: true
+      responses:
+        '200':
+          description: Resultat av tilgangsforespørsel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TilgangResponse'
+        '400':
+          description: Ugyldig forespørsel
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Manglende eller ugyldig token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Intern feil
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/tilgang/kontor:
+    post:
+      tags:
+        - tilgang
+      operationId: nav_ansatt_tilgang_til_kontor
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavAnsattKontorTilgangRequest'
+        required: true
+      responses:
+        '200':
+          description: Resultat av tilgangsforespørsel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TilgangResponse'
+        '400':
+          description: Ugyldig forespørsel
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Manglende eller ugyldig token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: For stor equest body
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Intern feil
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  # SECURITY
+  securitySchemes:
+    BearerAuth:
+      scheme: bearer
+      type: http
+
+  # REQUESTS & RESPONSES
+  schemas:
+    # REQUESTS
+    NavAnsattPersonTilgangRequest:
+      type: object
+      required:
+        - type
+        - navIdent
+        - identitetsnummer
+      properties:
+        type:
+          $ref: '#/components/schemas/TilgangType'
+        navIdent:
+          type: string
+        identitetsnummer:
+          type: string
+      example:
+        type: "LESE"
+        navIdent: "Z123456"
+        identitetsnummer: "123456"
+    NavAnsattKontorTilgangRequest:
+      type: object
+      required:
+        - navIdent
+        - kontorId
+      properties:
+        navIdent:
+          type: string
+        kontorId:
+          type: string
+      example:
+        navIdent: "Z123456"
+        kontorId: "123456"
+
+    # RESPONSES
+    TilgangResponse:
+      type: object
+      required:
+        - harTilgang
+      properties:
+        harTilgang:
+          type: boolean
+      example:
+        harTilgang: true
+
+    # ENUMS
+    TilgangType:
+      type: string
+      enum:
+        - LESE
+        - SKRIVE
+        - LESE_SKRIVE
+
+    # COMMON
+    ProblemDetails:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - status
+        - instance
+        - timestamp
+      properties:
+        detail:
+          type: string
+        id:
+          type: string
+          format: uuid
+        instance:
+          type: string
+        status:
+          type: integer
+          format: int32
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        title:
+          type: string
+        type:
+          type: string
+      example:
+        id: "3cd944fb-6187-41a8-91b2-b172f2baf890"
+        type: "urn:paw:default:ukjent-feil"
+        status: 500
+        title: "Internal Server Error"
+        detail: "Ukjent feil"
+        instance: "/api/v1/kartlegging"
+        timestamp: "2021-01-01T12:00:00.000Z"

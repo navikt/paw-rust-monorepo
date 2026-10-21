@@ -1,0 +1,3 @@
+[issuers.azure]
+well_known_url = "${AZURE_APP_WELL_KNOWN_URL}"
+client_id = "${AZURE_APP_CLIENT_ID}"

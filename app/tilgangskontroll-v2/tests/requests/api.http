@@ -1,0 +1,22 @@
+### POST /api/v1/tilgang/person
+POST {{baseUrl}}/api/v1/tilgang/person
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "LESE",
+    "navIdent": "Z123456",
+    "identitetsnummer": "01017012345"
+}
+
+### POST /api/v1/tilgang/kontor
+POST {{baseUrl}}/api/v1/tilgang/kontor
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "navIdent": "Z123456",
+    "kontorId": "123456"
+}
