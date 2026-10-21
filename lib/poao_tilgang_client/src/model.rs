@@ -48,7 +48,7 @@ impl Policy {
         nav_ident: String,
         norsk_ident: String,
     ) -> Self {
-        Policy::NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(
+        Policy::NavAnsattNavIdentLesetilgangTilEksternBrukerV1(
             NavAnsattTilgangTilEksternBrukerPolicyInput::new(nav_ident, norsk_ident),
         )
     }

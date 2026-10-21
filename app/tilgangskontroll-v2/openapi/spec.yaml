@@ -51,18 +51,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/tilgang/kontor:
+  /api/v1/tilgang/enhet:
     post:
       tags:
         - tilgang
-      operationId: nav_ansatt_tilgang_til_kontor
+      operationId: nav_ansatt_tilgang_til_nav_enhet
       security:
         - BearerAuth: []
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NavAnsattKontorTilgangRequest'
+              $ref: '#/components/schemas/NavAnsattNavEnhetTilgangRequest'
         required: true
       responses:
         '200':
@@ -122,20 +122,20 @@ components:
       example:
         type: "LESE"
         navIdent: "Z123456"
-        identitetsnummer: "123456"
-    NavAnsattKontorTilgangRequest:
+        identitetsnummer: "01017012345"
+    NavAnsattNavEnhetTilgangRequest:
       type: object
       required:
         - navIdent
-        - kontorId
+        - navEnhetId
       properties:
         navIdent:
           type: string
-        kontorId:
+        navEnhetId:
           type: string
       example:
         navIdent: "Z123456"
-        kontorId: "123456"
+        navEnhetId: "1234"
 
     # RESPONSES
     TilgangResponse:

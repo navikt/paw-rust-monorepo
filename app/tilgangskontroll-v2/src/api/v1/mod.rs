@@ -1,2 +1,2 @@
-pub(crate) mod kontor_tilgang;
+pub(crate) mod nav_enhet_tilgang;
 pub(crate) mod person_tilgang;

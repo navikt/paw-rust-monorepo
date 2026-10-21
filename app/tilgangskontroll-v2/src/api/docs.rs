@@ -44,10 +44,10 @@ fn spec_json() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{SPEC_YAML, spec_json};
-    use crate::api::v1::kontor_tilgang::API_KONTOR_TILGANG_PATH;
+    use crate::api::v1::nav_enhet_tilgang::API_KONTOR_TILGANG_PATH;
     use crate::api::v1::person_tilgang::API_PERSON_TILGANG_PATH;
     use crate::model::dto::request::{
-        NavAnsattKontorTilgangRequest, NavAnsattPersonTilgangRequest,
+        NavAnsattNavEnhetTilgangRequest, NavAnsattPersonTilgangRequest,
     };
     use crate::model::dto::response::TilgangResponse;
     use crate::model::tilgang::TilgangType;
@@ -123,12 +123,12 @@ mod tests {
     #[test]
     fn query_request_tilknyttet_kontor_konformerer() {
         let spec = spec();
-        let dto = NavAnsattKontorTilgangRequest {
+        let dto = NavAnsattNavEnhetTilgangRequest {
             nav_ident: "Z123456".to_string(),
-            kontor_id: "123456".to_string(),
+            nav_enhet_id: "1234".to_string(),
         };
         let instance = serde_json::to_value(&dto).unwrap();
-        assert_conforms(&spec, "NavAnsattKontorTilgangRequest", instance);
+        assert_conforms(&spec, "NavAnsattNavEnhetTilgangRequest", instance);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::model::dto::request::NavAnsattKontorTilgangRequest;
+use crate::model::dto::request::NavAnsattNavEnhetTilgangRequest;
 use crate::model::dto::response::TilgangResponse;
 use crate::model::state::RouterState;
 use axum::extract::State;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use types::nav_ident::NavIdent;
 use types::nav_enhet_id::NavEnhetId;
 
-pub(crate) const API_KONTOR_TILGANG_PATH: &str = "/api/v1/tilgang/kontor";
+pub(crate) const API_KONTOR_TILGANG_PATH: &str = "/api/v1/tilgang/enhet";
 
 pub(crate) fn routes(
     auth_state: Arc<AuthState>,
@@ -31,13 +31,13 @@ pub(crate) fn routes(
 #[tracing::instrument(skip_all)]
 async fn handle_post(
     State(state): State<RouterState>,
-    Json(payload): Json<NavAnsattKontorTilgangRequest>,
+    Json(payload): Json<NavAnsattNavEnhetTilgangRequest>,
 ) -> Result<Json<TilgangResponse>, ProblemDetails> {
     let nav_ident = NavIdent::new(payload.nav_ident);
-    let kontor_id = NavEnhetId::new(payload.kontor_id);
+    let kontor_id = NavEnhetId::new(payload.nav_enhet_id);
     let har_tilgang = state
         .tilgangskontroll
-        .nav_ansatt_tilgang_til_kontor(nav_ident, kontor_id)
+        .nav_ansatt_tilgang_til_enhet(nav_ident, kontor_id)
         .await?;
     Ok(Json(TilgangResponse::new(har_tilgang)))
 }

@@ -32,18 +32,18 @@ impl NavAnsattPersonTilgangRequest {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NavAnsattKontorTilgangRequest {
+pub struct NavAnsattNavEnhetTilgangRequest {
     pub nav_ident: String,
-    pub kontor_id: String,
+    pub nav_enhet_id: String,
 }
 
-impl NavAnsattKontorTilgangRequest {
+impl NavAnsattNavEnhetTilgangRequest {
     pub fn validate(&self, path: &str) -> Result<(), ProblemDetails> {
         if self.nav_ident.is_empty() {
             let detail = format!("Felt 'nav_ident' har feil lengde: {}", self.nav_ident.len());
             Err(ProblemDetails::validation_error(path, detail.as_str()))
-        } else if self.kontor_id.is_empty() {
-            let detail = format!("Felt 'kontor_id' har feil lengde: {}", self.kontor_id.len());
+        } else if self.nav_enhet_id.is_empty() {
+            let detail = format!("Felt 'nav_enhet_id' har feil lengde: {}", self.nav_enhet_id.len());
             Err(ProblemDetails::validation_error(path, detail.as_str()))
         } else {
             Ok(())
