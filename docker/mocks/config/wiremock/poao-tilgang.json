@@ -1,13 +1,30 @@
 {
-  "request": {
-    "method": "POST",
-    "urlPathPattern": "/api/v1/policy/evaluate"
-  },
-  "response": {
-    "status": 200,
-    "body": "{\"harTilgang\": {{#if (or (eq (jsonPath request.body '$.identitetsnummer') '01017012345') (eq (jsonPath request.body '$.identitetsnummer') '02017012345'))}}true{{else}}false{{/if}} }",
-    "headers": {
-      "Content-Type": "application/json"
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/api/v1/policy/evaluate"
+    },
+    "response": {
+        "status": 200,
+        "jsonBody": {
+            "results": [
+                {
+                    "requestId": "738189bc-bebe-4257-b682-31a61b484b02",
+                    "decision": {
+                        "type": "PERMIT",
+                        "message": "Yeay you have access"
+                    }
+                },
+                {
+                    "requestId": "007dac25-b84c-4b74-bc8f-522a991e1cc2",
+                    "decision": {
+                        "type": "PERMIT",
+                        "message": "Yeay you have access"
+                    }
+                }
+            ]
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        }
     }
-  }
 }

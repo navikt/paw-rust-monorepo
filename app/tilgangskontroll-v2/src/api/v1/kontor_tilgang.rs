@@ -12,7 +12,7 @@ use paw_observability::http_tracing::otel_middleware;
 use poao_tilgang_client::client::PoaoTilgangClient;
 use std::sync::Arc;
 use types::nav_ident::NavIdent;
-use types::nav_kontor_id::NavKontorId;
+use types::nav_enhet_id::NavEnhetId;
 
 pub(crate) const API_KONTOR_TILGANG_PATH: &str = "/api/v1/tilgang/kontor";
 
@@ -34,7 +34,7 @@ async fn handle_post(
     Json(payload): Json<NavAnsattKontorTilgangRequest>,
 ) -> Result<Json<TilgangResponse>, ProblemDetails> {
     let nav_ident = NavIdent::new(payload.nav_ident);
-    let kontor_id = NavKontorId::new(payload.kontor_id);
+    let kontor_id = NavEnhetId::new(payload.kontor_id);
     let har_tilgang = state
         .tilgangskontroll
         .nav_ansatt_tilgang_til_kontor(nav_ident, kontor_id)

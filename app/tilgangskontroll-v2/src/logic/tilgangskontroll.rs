@@ -3,8 +3,8 @@ use poao_tilgang_client::client::PoaoTilgangClient;
 use poao_tilgang_client::model::{EvaluatePoliciesRequest, Policy, PolicyRequest};
 use std::sync::Arc;
 use types::identitetsnummer::Identitetsnummer;
+use types::nav_enhet_id::NavEnhetId;
 use types::nav_ident::NavIdent;
-use types::nav_kontor_id::NavKontorId;
 
 pub struct Tilgangskontroll {
     poao_tilgang_client: Arc<PoaoTilgangClient>,
@@ -23,28 +23,31 @@ impl Tilgangskontroll {
         nav_ident: NavIdent,
         identitetsnummer: Identitetsnummer,
     ) -> anyhow::Result<bool> {
+        let nav_ident_str = nav_ident.as_ref();
+        let identitetsnummer_str = identitetsnummer.as_ref();
+
         let policies = match tilgang_type {
             TilgangType::Lese => {
                 vec![Policy::nav_ansatt_lesetilgang_til_ekstern_bruker_v1(
-                    nav_ident.to_string(),
-                    identitetsnummer.to_string(),
+                    nav_ident_str.to_string(),
+                    identitetsnummer_str.to_string(),
                 )]
             }
             TilgangType::Skrive => {
                 vec![Policy::nav_ansatt_skrivetilgang_til_ekstern_bruker_v1(
-                    nav_ident.to_string(),
-                    identitetsnummer.to_string(),
+                    nav_ident_str.to_string(),
+                    identitetsnummer_str.to_string(),
                 )]
             }
             TilgangType::LeseSkrive => {
                 vec![
                     Policy::nav_ansatt_lesetilgang_til_ekstern_bruker_v1(
-                        nav_ident.to_string(),
-                        identitetsnummer.to_string(),
+                        nav_ident_str.to_string(),
+                        identitetsnummer_str.to_string(),
                     ),
                     Policy::nav_ansatt_skrivetilgang_til_ekstern_bruker_v1(
-                        nav_ident.to_string(),
-                        identitetsnummer.to_string(),
+                        nav_ident_str.to_string(),
+                        identitetsnummer_str.to_string(),
                     ),
                 ]
             }
@@ -55,11 +58,14 @@ impl Tilgangskontroll {
     pub async fn nav_ansatt_tilgang_til_kontor(
         &self,
         nav_ident: NavIdent,
-        kontor_id: NavKontorId,
+        nav_enhet_id: NavEnhetId,
     ) -> anyhow::Result<bool> {
+        let nav_ident_str = nav_ident.as_ref();
+        let nav_enhet_id_str = nav_enhet_id.as_ref();
+
         let policies = vec![Policy::nav_ansatt_tilgang_til_nav_enhet_v1(
-            nav_ident.to_string(),
-            kontor_id.to_string(),
+            nav_ident_str.to_string(),
+            nav_enhet_id_str.to_string(),
         )];
         self.tilgang(policies).await
     }

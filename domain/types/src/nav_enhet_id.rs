@@ -1,33 +1,33 @@
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct NavKontorId {
+pub struct NavEnhetId {
     value: String,
 }
 
-impl NavKontorId {
+impl NavEnhetId {
     pub fn new(value: String) -> Self {
         Self { value }
     }
 }
 
-impl AsRef<str> for NavKontorId {
+impl AsRef<str> for NavEnhetId {
     fn as_ref(&self) -> &str {
         &self.value
     }
 }
 
-impl From<NavKontorId> for String {
-    fn from(nav_ident: NavKontorId) -> Self {
+impl From<NavEnhetId> for String {
+    fn from(nav_ident: NavEnhetId) -> Self {
         nav_ident.value
     }
 }
 
-impl std::fmt::Debug for NavKontorId {
+impl std::fmt::Debug for NavEnhetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NavKontorId(*)")
     }
 }
 
-impl std::fmt::Display for NavKontorId {
+impl std::fmt::Display for NavEnhetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NavKontorId(*)")
     }
