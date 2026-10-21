@@ -13,6 +13,11 @@ paw_observability = { path = "../../lib/paw_observability" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_kafka = { path = "../../lib/paw_kafka", features = ["hwm", "signing"] }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
+interne_hendelser = { path = "../../domain/interne_hendelser" }
+bekreftelse_interne_hendelser = { path = "../../domain/bekreftelse_interne_hendelser" }
+eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
+schema_registry_converter = { workspace = true }
+apache-avro = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 sqlx = { workspace = true }
@@ -29,3 +34,6 @@ toml = { workspace = true }
 [dev-dependencies]
 testcontainers = { workspace = true }
 postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
+schema_registry_mock = { path = "../../test/schema_registry_mock" }
+test_data_generator = { path = "../../test/test_data_generator" }
+mockito = { workspace = true }

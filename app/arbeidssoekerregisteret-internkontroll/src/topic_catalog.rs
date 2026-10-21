@@ -14,7 +14,7 @@ pub fn subscribed_topics() -> Vec<Topic> {
     ]
 }
 
-pub fn topic_priorities(runtime_env: RuntimeEnv) -> TopicPriorityList {
+pub fn topic_priorities(runtime_env: &RuntimeEnv) -> TopicPriorityList {
     TopicPriorityList::new(
         &runtime_env,
         vec![

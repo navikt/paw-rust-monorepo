@@ -20,4 +20,6 @@ DROP TABLE IF EXISTS _sqlx_migrations;
 DROP TYPE IF EXISTS funn_status;
 DROP TYPE IF EXISTS trace_kontroll_status;
 DROP TYPE IF EXISTS signature_status;
+DROP TYPE IF EXISTS payload_status;
+DROP TYPE IF EXISTS meldingstype;
 DROP TYPE IF EXISTS kafka_timestamp_type;

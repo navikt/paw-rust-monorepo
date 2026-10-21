@@ -54,6 +54,25 @@ CREATE TYPE signature_status AS ENUM
      'missing_signature', 'unsigned_before_required', 'unknown_key', 'no_record_timestamp', 'technical_error');
 
 -- Values derived from one Kafka record. One row per record, latest derivation only.
+CREATE TYPE payload_status AS ENUM ('ok', 'ugyldig');
+
+CREATE TYPE meldingstype AS ENUM (
+    'hendelse_startet', 'hendelse_avsluttet', 'hendelse_avvist',
+    'hendelse_avvist_stopp_av_periode', 'hendelse_arbeidssoeker_id_flettet_inn',
+    'hendelse_automatisk_id_merge_ikke_mulig', 'hendelse_identitetsnummer_sammenslaatt',
+    'hendelse_opplysninger_om_arbeidssoeker_mottatt',
+    'bekreftelse_hendelse_leveringsfrist_utloept',
+    'bekreftelse_hendelse_ekstern_grace_periode_utloept',
+    'bekreftelse_hendelse_register_grace_periode_utloept', 'bekreftelse_hendelse_tilgjengelig',
+    'bekreftelse_hendelse_melding_mottatt', 'bekreftelse_hendelse_periode_avsluttet',
+    'bekreftelse_hendelse_register_grace_periode_gjenstaaende_tid',
+    'bekreftelse_hendelse_ba_om_aa_avslutte_periode',
+    'bekreftelse_hendelse_paa_vegne_av_startet',
+    'bekreftelse_hendelse_grace_utloept_etter_ekstern_innsamling',
+    'periode_startet', 'periode_avsluttet', 'opplysninger', 'profilering', 'egenvurdering',
+    'bekreftelse', 'paa_vegne_av_start', 'paa_vegne_av_stopp'
+);
+
 CREATE TABLE record_derived (
     topic_id           SMALLINT NOT NULL,
     record_partition   INTEGER NOT NULL,
@@ -67,6 +86,10 @@ CREATE TABLE record_derived (
     -- From the last traceparent header. NULL when missing or invalid,
     -- including the all-zero trace ID.
     trace_id           UUID,
+    payload_status     payload_status NOT NULL,
+    meldingstype       meldingstype,
+    periode_id         UUID,
+    arbeidssoeker_id   BIGINT,
     derived_at         TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (topic_id, record_partition, record_offset),
     FOREIGN KEY (topic_id, record_partition, record_offset)
@@ -75,6 +98,14 @@ CREATE TABLE record_derived (
     CHECK ((signing_key_id IS NOT NULL) = (signature_status IN
         ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large')))
 );
+
+CREATE INDEX record_derived_periode_id_idx
+    ON record_derived (periode_id)
+    WHERE periode_id IS NOT NULL;
+
+CREATE INDEX record_derived_arbeidssoeker_id_idx
+    ON record_derived (arbeidssoeker_id)
+    WHERE arbeidssoeker_id IS NOT NULL;
 
 CREATE INDEX record_derived_trace_id_idx
     ON record_derived (trace_id)

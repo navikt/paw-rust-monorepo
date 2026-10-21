@@ -10,11 +10,13 @@ use rdkafka::message::{Headers, OwnedMessage};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
+use crate::database::payload::PayloadStatus;
+use crate::meldinger::Dekodere;
 use crate::topic_ids::TopicIds;
 use crate::{
     database::{
         kafka_record::{insert_kafka_record, kafka_record_row},
-        record_derived::{RecordDerived, upsert_record_derived},
+        record_derived::{RecordDerived, insert_record_derived},
         signature::Signature,
         stream_time::{get_stream_time, upsert_stream_time},
         trace::upsert_trace,
@@ -26,6 +28,7 @@ pub struct InternkontrollMessageProcessor {
     signing_required_from: SigningRequiredFrom,
     record_verifier: RecordVerifier,
     topic_ids: TopicIds,
+    dekodere: Dekodere,
 }
 
 impl InternkontrollMessageProcessor {
@@ -33,8 +36,10 @@ impl InternkontrollMessageProcessor {
         signing_required_from: SigningRequiredFrom,
         record_verifier: RecordVerifier,
         topic_ids: TopicIds,
+        dekodere: Dekodere,
     ) -> Self {
         Self {
+            dekodere,
             signing_required_from,
             record_verifier,
             topic_ids,
@@ -76,7 +81,8 @@ impl InternkontrollMessageProcessor {
             None => Signature::NoRecordTimestamp,
         };
         let trace_id = trace_id_from_message(msg);
-        let sequence_number = upsert_record_derived(
+        let dekodet = self.dekodere.dekod(msg).await?;
+        let sequence_number = insert_record_derived(
             &mut **tx,
             &RecordDerived {
                 topic_id,
@@ -85,6 +91,13 @@ impl InternkontrollMessageProcessor {
                 signature,
                 timestamp_delta_ms,
                 trace_id,
+                payload_status: match dekodet {
+                    Some(_) => PayloadStatus::Ok,
+                    None => PayloadStatus::Ugyldig,
+                },
+                meldingstype: dekodet.map(|melding| melding.meldingstype),
+                periode_id: dekodet.and_then(|melding| melding.periode_id),
+                arbeidssoeker_id: dekodet.and_then(|melding| melding.arbeidssoeker_id),
                 derived_at: Utc::now(),
             },
         )
@@ -222,6 +235,21 @@ mod tests {
     }
 
     const KEY: &str = "key-a";
+
+    fn topics() -> Dekodere {
+        use paw_kafka::topics::Topic;
+        Dekodere::new(
+            [
+                ("topic", &Topic::Hendelselogg),
+                ("hendelselogg", &Topic::Hendelselogg),
+                ("bekreftelse_hendelselogg", &Topic::BekreftelseHendelseLogg),
+                ("periode", &Topic::Periode),
+            ],
+            schema_registry_converter::async_impl::schema_registry::SrSettings::new(
+                "http://127.0.0.1:1".into(),
+            ),
+        )
+    }
 
     fn no_requirement() -> SigningRequiredFrom {
         SigningRequiredFrom::new(i64::MAX, [] as [(String, i64); 0])
@@ -415,8 +443,12 @@ mod tests {
             .await
             .unwrap();
 
-        let processor =
-            InternkontrollMessageProcessor::new(no_requirement(), RecordVerifier::new(), topic_ids);
+        let processor = InternkontrollMessageProcessor::new(
+            no_requirement(),
+            RecordVerifier::new(),
+            topic_ids,
+            topics(),
+        );
         let valid = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
         let headers = OwnedHeaders::new()
             .insert(Header {
@@ -512,6 +544,7 @@ mod tests {
             no_requirement(),
             RecordVerifier::new(),
             TopicIds::new([] as [(String, i16); 0]),
+            topics(),
         );
         let third = OwnedMessage::new(
             None,
@@ -541,5 +574,97 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(count, 2);
+    }
+
+    #[tokio::test]
+    async fn identifikatorer_og_meldingstype_utledes_fra_payload() {
+        let guard = postgres_testcontainer::postgres::setup_postgres_container()
+            .await
+            .unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        crate::database::topic::register_topics(
+            pool,
+            &["hendelselogg", "periode", "bekreftelse_hendelselogg"],
+        )
+        .await
+        .unwrap();
+        let topic_ids = crate::database::topic::load_topic_ids(pool).await.unwrap();
+        let processor = InternkontrollMessageProcessor::new(
+            no_requirement(),
+            RecordVerifier::new(),
+            topic_ids,
+            topics(),
+        );
+        let metadata = r#""metadata": {"tidspunkt": 1770897349.3, "utfoertAv": {"type": "SYSTEM", "id": "x"}, "kilde": "x", "aarsak": "x"}"#;
+        let startet = format!(
+            r#"{{"hendelseType": "intern.v1.startet", "hendelseId": "00000000-0000-0000-0000-000000000001", "id": 42, "identitetsnummer": "1", {metadata}}}"#
+        );
+        let startet_igjen = format!(
+            r#"{{"hendelseType": "intern.v1.startet", "hendelseId": "00000000-0000-0000-0000-000000000002", "id": 42, "identitetsnummer": "1", {metadata}}}"#
+        );
+        let avsluttet = format!(
+            r#"{{"hendelseType": "intern.v1.avsluttet", "hendelseId": "00000000-0000-0000-0000-000000000003", "id": 42, "identitetsnummer": "1", {metadata}}}"#
+        );
+        let bekreftelse = br#"{"hendelseType": "bekreftelse.melding_mottatt", "hendelseId": "00000000-0000-0000-0000-000000000009", "periodeId": "00000000-0000-0000-0000-000000000001", "arbeidssoekerId": 42, "hendelseTidspunkt": 1770897349.3, "bekreftelseId": "00000000-0000-0000-0000-000000000008"}"#;
+        let records: [(&str, &[u8]); 6] = [
+            ("hendelselogg", startet.as_bytes()),
+            ("hendelselogg", startet_igjen.as_bytes()),
+            ("periode", startet.as_bytes()),
+            ("hendelselogg", b"ikke json"),
+            ("hendelselogg", avsluttet.as_bytes()),
+            ("bekreftelse_hendelselogg", bekreftelse),
+        ];
+        for (offset, (topic, payload)) in records.into_iter().enumerate() {
+            let msg = OwnedMessage::new(
+                Some(payload.to_vec()),
+                None,
+                topic.into(),
+                Timestamp::CreateTime(1_000),
+                0,
+                offset as i64,
+                None,
+            );
+            let mut tx = pool.begin().await.unwrap();
+            processor.process(&mut tx, &msg).await.unwrap();
+            tx.commit().await.unwrap();
+        }
+
+        type Rad = (Option<String>, Option<String>, Option<Uuid>, Option<i64>);
+        let rader: Vec<Rad> = sqlx::query_as(
+            "SELECT payload_status::text, meldingstype::text, periode_id, arbeidssoeker_id
+             FROM record_derived ORDER BY record_offset",
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap();
+        let ok = || Some("ok".to_string());
+        let t = |t: &str| Some(t.to_string());
+        assert_eq!(
+            rader,
+            vec![
+                (
+                    ok(),
+                    t("hendelse_startet"),
+                    Some(Uuid::from_u128(1)),
+                    Some(42)
+                ),
+                (
+                    ok(),
+                    t("hendelse_startet"),
+                    Some(Uuid::from_u128(2)),
+                    Some(42)
+                ),
+                (t("ugyldig"), None, None, None),
+                (t("ugyldig"), None, None, None),
+                (ok(), t("hendelse_avsluttet"), None, Some(42)),
+                (
+                    ok(),
+                    t("bekreftelse_hendelse_melding_mottatt"),
+                    Some(Uuid::from_u128(1)),
+                    Some(42)
+                ),
+            ]
+        );
     }
 }

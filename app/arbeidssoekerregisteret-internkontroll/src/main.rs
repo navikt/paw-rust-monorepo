@@ -1,6 +1,8 @@
 mod database;
+mod meldinger;
 mod message_processor;
 mod reset_db;
+mod schema_registry;
 mod signing_required_tools;
 mod topic_catalog;
 mod topic_ids;
@@ -21,7 +23,7 @@ use paw_kafka::hwm::{
 };
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::signing::RecordVerifier;
-use paw_kafka::topics::{Topic, get_topic_names};
+use paw_kafka::topics::get_topic_names;
 use paw_observability::server::spawn_health_server;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::{
@@ -33,7 +35,9 @@ use std::error::Error;
 use tokio::sync::mpsc;
 use tracing::info;
 
+use crate::meldinger::Dekodere;
 use crate::reset_db::reset_db_if_needed;
+use crate::schema_registry::create_schema_registry_settings;
 use crate::signing_required_tools::SigningRequiredFrom;
 use crate::topic_catalog::{subscribed_topics, topic_priorities};
 
@@ -64,7 +68,11 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let (topic_update_sender, topic_update_receiver) =
         mpsc::unbounded_channel::<TopicPartitionUpdate>();
     let signing_required_from = SigningRequiredFrom::for_runtime(&runtime_env);
-    let topic_priorities = topic_priorities(runtime_env);
+    let dekodere = Dekodere::new(
+        topics.iter().copied().zip(subscribed_topics.iter()),
+        create_schema_registry_settings(&runtime_env)?,
+    );
+    let topic_priorities = topic_priorities(&runtime_env);
     let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
     let consumer = create_kafka_consumer_with_sender(
         app_state.clone(),
@@ -87,6 +95,7 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
                 signing_required_from,
                 record_verifier,
                 topic_ids,
+                dekodere,
             );
             let mut paw_stream = stream;
             while state.is_alive() {

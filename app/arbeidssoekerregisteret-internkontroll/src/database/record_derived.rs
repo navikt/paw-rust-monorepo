@@ -3,6 +3,7 @@ use sqlx::postgres::PgRow;
 use sqlx::{FromRow, PgExecutor, Row};
 use uuid::Uuid;
 
+use crate::database::payload::{Meldingstype, PayloadStatus};
 use crate::database::signature::Signature;
 
 /// Values derived from one Kafka record, as written to `record_derived`.
@@ -15,6 +16,10 @@ pub struct RecordDerived {
     pub signature: Signature,
     pub timestamp_delta_ms: Option<i64>,
     pub trace_id: Option<Uuid>,
+    pub payload_status: PayloadStatus,
+    pub meldingstype: Option<Meldingstype>,
+    pub periode_id: Option<Uuid>,
+    pub arbeidssoeker_id: Option<i64>,
     pub derived_at: DateTime<Utc>,
 }
 
@@ -41,16 +46,19 @@ impl FromRow<'_, PgRow> for SequencedRecordDerived {
                 signature,
                 timestamp_delta_ms: row.try_get("timestamp_delta_ms")?,
                 trace_id: row.try_get("trace_id")?,
+                payload_status: row.try_get("payload_status")?,
+                meldingstype: row.try_get("meldingstype")?,
+                periode_id: row.try_get("periode_id")?,
+                arbeidssoeker_id: row.try_get("arbeidssoeker_id")?,
                 derived_at: row.try_get("derived_at")?,
             },
         })
     }
 }
 
-/// Writes the derived values for a record. A new derivation replaces the
-/// previous one, but keeps the sequence number from the first write.
-/// Returns the record's sequence number.
-pub async fn upsert_record_derived(
+/// Writes the derived values for a record and returns its sequence number.
+/// A record is derived once, so writing it again is an error.
+pub async fn insert_record_derived(
     executor: impl PgExecutor<'_>,
     record: &RecordDerived,
 ) -> Result<i64, sqlx::Error> {
@@ -59,15 +67,9 @@ pub async fn upsert_record_derived(
         INSERT INTO record_derived (
             topic_id, record_partition, record_offset,
             signature_status, signing_key_id,
-            timestamp_delta_ms, trace_id, derived_at
+            timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (topic_id, record_partition, record_offset) DO UPDATE
-            SET signature_status = EXCLUDED.signature_status,
-                signing_key_id = EXCLUDED.signing_key_id,
-                timestamp_delta_ms = EXCLUDED.timestamp_delta_ms,
-                trace_id = EXCLUDED.trace_id,
-                derived_at = EXCLUDED.derived_at
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING sequence_number
         "#,
     )
@@ -78,6 +80,10 @@ pub async fn upsert_record_derived(
     .bind(record.signature.signing_key_id())
     .bind(record.timestamp_delta_ms)
     .bind(record.trace_id)
+    .bind(record.payload_status)
+    .bind(record.meldingstype)
+    .bind(record.periode_id)
+    .bind(record.arbeidssoeker_id)
     .bind(record.derived_at)
     .fetch_one(executor)
     .await
@@ -93,7 +99,7 @@ pub async fn get_record_derived(
         r#"
         SELECT topic_id, record_partition, record_offset, sequence_number,
                signature_status, signing_key_id,
-               timestamp_delta_ms, trace_id, derived_at
+               timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
         FROM record_derived
         WHERE topic_id = $1 AND record_partition = $2 AND record_offset = $3
         "#,
@@ -114,7 +120,7 @@ mod tests {
     use postgres_testcontainer::postgres::setup_postgres_container;
 
     #[tokio::test]
-    async fn ny_utledning_erstatter_forrige_og_beholder_sekvensnummer() {
+    async fn record_derived_skrives_en_gang_og_leses_tilbake() {
         let guard = setup_postgres_container().await.unwrap();
         let pool = guard.pg_pool.clone();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
@@ -146,14 +152,18 @@ mod tests {
             },
             timestamp_delta_ms: None,
             trace_id: Some(Uuid::from_u128(1)),
+            payload_status: PayloadStatus::Ok,
+            meldingstype: Some(Meldingstype::HendelseStartet),
+            periode_id: Some(Uuid::from_u128(7)),
+            arbeidssoeker_id: Some(42),
             derived_at,
         };
-        upsert_record_derived(&pool, &first).await.unwrap();
+        insert_record_derived(&pool, &first).await.unwrap();
         let second = RecordDerived {
             record_offset: 1,
             ..first.clone()
         };
-        upsert_record_derived(&pool, &second).await.unwrap();
+        insert_record_derived(&pool, &second).await.unwrap();
 
         let stored = get_record_derived(&pool, topic_id, 0, 0)
             .await
@@ -168,18 +178,10 @@ mod tests {
             .sequence_number;
         assert!(second_sequence > first_sequence);
 
-        let rederived = RecordDerived {
-            signature: Signature::TechnicalError,
-            derived_at: DateTime::from_timestamp_millis(20_000).unwrap(),
-            ..first.clone()
-        };
-        upsert_record_derived(&pool, &rederived).await.unwrap();
-        let stored = get_record_derived(&pool, topic_id, 0, 0)
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(stored.record, rederived);
-        assert_eq!(stored.sequence_number, first_sequence);
+        assert!(
+            insert_record_derived(&pool, &first).await.is_err(),
+            "a record must not be derived twice"
+        );
 
         let rejected = sqlx::query(
             "UPDATE record_derived SET signature_status = 'valid', signing_key_id = '' WHERE record_offset = 0",
