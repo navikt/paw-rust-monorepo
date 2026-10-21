@@ -189,6 +189,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
         if self.head.is_empty() {
             self.next_timestamp_gauge.set(timestamp_ms(Some(&msg)));
         }
+        let previous_offset = self.current_offset;
         self.current_offset = msg.offset();
         self.has_received_message = true;
         let message_timestamp = msg.timestamp().to_millis();
@@ -208,7 +209,7 @@ impl<S: PartitionMessageSource> QueueHandler<S> {
                     tracing::warn!(
                         kafka.topic = self.key.topic,
                         kafka.partition = self.key.partition,
-                        previous_offset = self.current_offset,
+                        previous_offset,
                         message_offset = msg.offset(),
                         previous_timestamp_ms = current_timestamp,
                         message_timestamp_ms = message_timestamp,
