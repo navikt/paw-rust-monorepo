@@ -2,15 +2,82 @@ use poao_tilgang_client::client::PoaoTilgangClient;
 use poao_tilgang_client::model::{
     NavAnsattTilgangTilEksternBrukerPolicyInput, NavAnsattTilgangTilNavEnhetPolicyInput, Policy,
 };
-use serde_json::json;
 use std::sync::Arc;
 use token_client_stub::TokenClientStub;
 use uuid::Uuid;
 
 #[tokio::test]
-async fn evaluate_sends_heterogeneous_policy_batch() {
+async fn skal_evaluere_til_deny() {
     let mut server = mockito::Server::new_async().await;
-    let expected_body = json!({
+    let request_body = serde_json::json!({
+        "requests": [
+            {
+                "policyId": "NAV_ANSATT_NAV_IDENT_SKRIVETILGANG_TIL_EKSTERN_BRUKER_V1",
+                "policyInput": {
+                    "navIdent": "Z123456",
+                    "norskIdent": "01017012345"
+                }
+            },
+            {
+                "policyId": "NAV_ANSATT_NAV_IDENT_LESETILGANG_TIL_EKSTERN_BRUKER_V1",
+                "policyInput": {
+                    "navIdent": "Z234567",
+                    "norskIdent": "02017012345"
+                }
+            }
+        ]
+    });
+    let response_body = serde_json::json!({
+        "results": [
+            {
+                "requestId": "f547d1a2-e527-48cc-b1ae-0ac2229157f0",
+                "decision": {
+                    "type": "PERMIT"
+                }
+            },
+            {
+                "requestId": "1b9713ba-1bc6-46dc-b9ca-22e826656c24",
+                "decision": {
+                    "type": "DENY"
+                }
+            }
+        ]
+    });
+    let mock = server
+        .mock("POST", "/api/v1/policy/evaluate")
+        .match_request(move |request| match_mock_body(request, &request_body))
+        .with_status(200)
+        .with_body(response_body.to_string())
+        .create_async()
+        .await;
+    let policies = vec![
+        Policy::NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(
+            NavAnsattTilgangTilEksternBrukerPolicyInput {
+                nav_ident: "Z123456".to_string(),
+                norsk_ident: "01017012345".to_string(),
+            },
+        ),
+        Policy::NavAnsattNavIdentLesetilgangTilEksternBrukerV1(
+            NavAnsattTilgangTilEksternBrukerPolicyInput {
+                nav_ident: "Z234567".to_string(),
+                norsk_ident: "02017012345".to_string(),
+            },
+        ),
+    ];
+
+    let response = client(server.url())
+        .evaluate(&policies)
+        .await
+        .expect("evaluate request should succeed");
+
+    assert!(!response.is_permitted());
+    mock.assert_async().await;
+}
+
+#[tokio::test]
+async fn skal_evaluere_til_permit() {
+    let mut server = mockito::Server::new_async().await;
+    let request_body = serde_json::json!({
         "requests": [
             {
                 "policyId": "NAV_ANSATT_NAV_IDENT_SKRIVETILGANG_TIL_EKSTERN_BRUKER_V1",
@@ -35,11 +102,33 @@ async fn evaluate_sends_heterogeneous_policy_batch() {
             }
         ]
     });
+    let response_body = serde_json::json!({
+        "results": [
+            {
+                "requestId": "f547d1a2-e527-48cc-b1ae-0ac2229157f0",
+                "decision": {
+                    "type": "PERMIT"
+                }
+            },
+            {
+                "requestId": "1b9713ba-1bc6-46dc-b9ca-22e826656c24",
+                "decision": {
+                    "type": "PERMIT"
+                }
+            },
+            {
+                "requestId": "3d5b7fd6-66ea-4b07-aa7a-84b011cf6ea6",
+                "decision": {
+                    "type": "PERMIT"
+                }
+            }
+        ]
+    });
     let mock = server
         .mock("POST", "/api/v1/policy/evaluate")
-        .match_request(move |request| match_mock_body(request, &expected_body))
+        .match_request(move |request| match_mock_body(request, &request_body))
         .with_status(200)
-        .with_body(r#"{"results":true}"#)
+        .with_body(response_body.to_string())
         .create_async()
         .await;
     let policies = vec![
@@ -66,12 +155,12 @@ async fn evaluate_sends_heterogeneous_policy_batch() {
         .await
         .expect("evaluate request should succeed");
 
-    assert!(response.results);
+    assert!(response.is_permitted());
     mock.assert_async().await;
 }
 
 #[tokio::test]
-async fn evaluate_preserves_non_success_errors() {
+async fn skal_evaluere_til_error() {
     for status in [401, 403] {
         let mut server = mockito::Server::new_async().await;
         let mock = server

@@ -4,8 +4,8 @@ pub struct NavIdent {
 }
 
 impl NavIdent {
-    pub fn new(value: String) -> Option<Self> {
-        Some(Self { value })
+    pub fn new(value: String) -> Self {
+        Self { value }
     }
 }
 

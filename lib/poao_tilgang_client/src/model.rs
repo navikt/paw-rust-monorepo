@@ -60,7 +60,15 @@ pub struct NavAnsattTilgangTilNavEnhetPolicyInput {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EvaluatePoliciesResponse {
-    pub results: bool,
+    pub results: Vec<PolicyEvaluationResult>,
+}
+
+impl EvaluatePoliciesResponse {
+    pub fn is_permitted(&self) -> bool {
+        self.results
+            .iter()
+            .all(|r| r.decision.decision_type == DecisionType::Permit)
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -74,9 +82,21 @@ pub struct PolicyEvaluationResult {
 #[serde(rename_all = "camelCase")]
 pub struct PolicyDecision {
     #[serde(rename = "type")]
-    pub decision_type: String,
+    pub decision_type: DecisionType,
     pub message: Option<String>,
     pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]
+#[strum(
+    serialize_all = "SCREAMING_SNAKE_CASE",
+    parse_err_fn = enum_type_not_found,
+    parse_err_ty = EnumTypeParseError
+)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DecisionType {
+    Permit,
+    Deny,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]

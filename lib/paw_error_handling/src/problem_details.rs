@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use errors::access::AccessError;
 use errors::auth::OAuthError;
 use errors::database::DatabaseError;
+use errors::validation::ValidationError;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -116,6 +117,13 @@ impl IntoResponse for ProblemDetails {
             HeaderValue::from_static("application/problem+json"),
         );
         response
+    }
+}
+
+impl From<ValidationError> for ProblemDetails {
+    fn from(e: ValidationError) -> Self {
+        let instance = e.instance();
+        Self::validation_error(instance.as_str(), e.to_string().as_str())
     }
 }
 

@@ -68,8 +68,7 @@ impl AsPrincipal for EntraIdClaims {
                 .ok_or(OAuthError::MissingClaim("NavIdent".to_string()))?;
             Ok(Principal::NavAnsatt(NavAnsatt {
                 oid: self.oid.clone(),
-                ident: NavIdent::new(nav_ident.clone())
-                    .ok_or(OAuthError::MissingClaim("NavIdent".to_string()))?,
+                ident: NavIdent::new(nav_ident.clone()),
                 name: self.name.clone(),
                 roles: self.roles.clone().unwrap_or_default(),
             }))

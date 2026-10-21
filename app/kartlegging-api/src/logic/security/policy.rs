@@ -57,7 +57,9 @@ impl Policy for KartleggingPolicy {
                                 tracing::info!("Nav-ansatt har tilgang til person (OBO token)");
                                 Ok(Request::from_parts(parts, body))
                             } else {
-                                tracing::warn!("Nav-ansatt har ikke tilgang til person (OBO token)");
+                                tracing::warn!(
+                                    "Nav-ansatt har ikke tilgang til person (OBO token)"
+                                );
                                 let error = format!("Ingen {}-tilgang", TilgangType::Lese.as_ref());
                                 Err(ProblemDetails::forbidden(
                                     &path,
@@ -109,7 +111,7 @@ mod tests {
             .extensions_mut()
             .insert(Principal::NavAnsatt(NavAnsatt {
                 oid: "employee-oid".to_owned(),
-                ident: NavIdent::new(NAV_IDENT.to_owned()).unwrap(),
+                ident: NavIdent::new(NAV_IDENT.to_owned()),
                 name: None,
                 roles: vec![],
             }));
