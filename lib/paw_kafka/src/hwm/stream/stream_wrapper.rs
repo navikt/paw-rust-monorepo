@@ -280,6 +280,9 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
     /// a timestamp older than the last one observed for that partition.
     /// Returns the magnitude of the backward jump in milliseconds, or 0 if none.
     fn track_stream_time(&mut self, wrapper: &MessageWrapper) -> i64 {
+        if wrapper.is_out_of_sequence() {
+            return 0;
+        }
         let Some(new_ts) = wrapper.message.timestamp().to_millis() else {
             return 0;
         };
