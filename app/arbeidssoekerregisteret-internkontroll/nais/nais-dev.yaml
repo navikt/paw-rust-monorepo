@@ -8,6 +8,8 @@ metadata:
 spec:
   image: {{ image }}
   port: 8080
+  strategy:
+    type: Recreate
   replicas:
     min: 1
     max: 1
