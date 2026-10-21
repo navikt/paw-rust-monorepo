@@ -41,7 +41,7 @@ jobs:
       packages: "write"
     uses: ./.github/workflows/rust-builder.yml
     with:
-      app: ${{ env.APP_NAME }}
+      app: "${{ env.APP_NAME }}"
       # Må være lik FEATURES i build, ellers bommer cachen i builder-imaget.
       features: nais
 
