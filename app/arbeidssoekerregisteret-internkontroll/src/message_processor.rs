@@ -17,6 +17,7 @@ use crate::{
         record_derived::{RecordDerived, upsert_record_derived},
         signature::Signature,
         stream_time::{get_stream_time, upsert_stream_time},
+        trace::upsert_trace,
     },
     signing_required_tools::SigningRequiredFrom,
 };
@@ -74,6 +75,10 @@ impl InternkontrollMessageProcessor {
             ),
             None => Signature::NoRecordTimestamp,
         };
+        let trace_id = trace_id_from_message(msg);
+        if let (Some(trace_id), Some(reference_time_ms)) = (trace_id, reference_time_ms) {
+            upsert_trace(&mut **tx, trace_id, reference_time_ms).await?;
+        }
         upsert_record_derived(
             &mut **tx,
             &RecordDerived {
@@ -82,7 +87,7 @@ impl InternkontrollMessageProcessor {
                 record_offset: msg.offset(),
                 signature,
                 timestamp_delta_ms,
-                trace_id: trace_id_from_message(msg),
+                trace_id,
                 derived_at: Utc::now(),
             },
         )
@@ -489,6 +494,19 @@ mod tests {
         .unwrap();
         assert_eq!(delta, Some(200));
         assert_eq!(trace, None);
+        let traces: Vec<(Uuid, i64, i64)> =
+            sqlx::query_as("SELECT trace_id, first_reference_ms, last_reference_ms FROM trace")
+                .fetch_all(pool)
+                .await
+                .unwrap();
+        assert_eq!(
+            traces,
+            vec![(
+                Uuid::parse_str("0af7651916cd43dd8448eb211c80319c").unwrap(),
+                1_000,
+                1_000
+            )]
+        );
 
         let missing_topic = InternkontrollMessageProcessor::new(
             no_requirement(),

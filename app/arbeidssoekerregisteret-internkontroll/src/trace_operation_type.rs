@@ -1,4 +1,4 @@
-/// Operation type of a trace, stored as `trace_operation_type.operation_type`.
+/// Operation type of a trace, stored as `trace.operation_type`.
 /// The numbers are persisted: never reuse or renumber a value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]

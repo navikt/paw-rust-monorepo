@@ -6,6 +6,8 @@ DROP TABLE IF EXISTS stream_time;
 DROP TABLE IF EXISTS kafka_record;
 DROP TABLE IF EXISTS kafka_record_data;
 DROP TABLE IF EXISTS trace_kontroll;
+DROP TABLE IF EXISTS regel_fremdrift;
+DROP TABLE IF EXISTS trace;
 DROP TABLE IF EXISTS trace_operation_type;
 DROP TABLE IF EXISTS signing_key;
 DROP TABLE IF EXISTS topic;

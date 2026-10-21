@@ -16,13 +16,18 @@ CREATE TABLE stream_time (
     PRIMARY KEY (topic_id, topic_partition)
 );
 
--- Simple operation type of a trace, mapped in code.
--- Used to determin what kind of operation this is.
-CREATE TABLE trace_operation_type (
-    trace_id        uuid NOT NULL,
-    operation_type  SMALLINT NOT NULL,
-    PRIMARY KEY (trace_id)
+-- One row per trace ID. Reference times are stream times in ms.
+-- operation_type is mapped in code and written once.
+CREATE TABLE trace (
+    sequence_number     BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
+    trace_id            UUID PRIMARY KEY,
+    first_reference_ms  BIGINT NOT NULL,
+    last_reference_ms   BIGINT NOT NULL,
+    operation_type      SMALLINT,
+    CHECK (first_reference_ms <= last_reference_ms)
 );
+
+CREATE INDEX trace_first_reference_idx ON trace (first_reference_ms);
 
 -- Simple type reflecting kafka timestamp types.
 CREATE TYPE kafka_timestamp_type AS ENUM ('not_available', 'create_time', 'log_append_time');

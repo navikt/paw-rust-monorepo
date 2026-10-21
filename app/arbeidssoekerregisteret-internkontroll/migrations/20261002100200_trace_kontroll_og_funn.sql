@@ -2,7 +2,7 @@ CREATE TYPE trace_kontroll_status AS ENUM ('open', 'done');
 
 CREATE TABLE trace_kontroll (
     id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    trace_id         UUID NOT NULL,
+    trace_id         UUID NOT NULL REFERENCES trace (trace_id),
     -- Rule ID, mapped in code. Never reuse or renumber an ID.
     regel            SMALLINT NOT NULL,
     regelversjon     INTEGER NOT NULL,
@@ -13,7 +13,16 @@ CREATE TABLE trace_kontroll (
 );
 
 CREATE INDEX trace_kontroll_arbeidsliste_idx
-    ON trace_kontroll (status, neste_vurdering);
+    ON trace_kontroll (neste_vurdering)
+    WHERE status = 'open';
+
+-- Per rule version: the highest trace.sequence_number already given a trace_kontroll row.
+CREATE TABLE regel_fremdrift (
+    regel                  SMALLINT NOT NULL,
+    regelversjon           INTEGER NOT NULL,
+    siste_sequence_number  BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (regel, regelversjon)
+);
 
 CREATE TYPE funn_status AS ENUM ('ok', 'failed', 'technical_error');
 
