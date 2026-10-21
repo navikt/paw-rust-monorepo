@@ -8,6 +8,8 @@ metadata:
 spec:
   image: {{ image }}
   port: 8080
+  ingresses:
+    - https://tilgangskontroll-v2-arbeidssoekerregisteret.intern.dev.nav.no
   env:
     - name: RUST_BACKTRACE
       value: "1"

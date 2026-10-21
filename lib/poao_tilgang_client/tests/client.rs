@@ -1,6 +1,7 @@
 use poao_tilgang_client::client::PoaoTilgangClient;
 use poao_tilgang_client::model::{
-    NavAnsattTilgangTilEksternBrukerPolicyInput, NavAnsattTilgangTilNavEnhetPolicyInput, Policy,
+    EvaluatePoliciesRequest, NavAnsattTilgangTilEksternBrukerPolicyInput,
+    NavAnsattTilgangTilNavEnhetPolicyInput, Policy, PolicyRequest,
 };
 use std::sync::Arc;
 use token_client_stub::TokenClientStub;
@@ -64,9 +65,14 @@ async fn skal_evaluere_til_deny() {
             },
         ),
     ];
+    let policy_requests = policies
+        .iter()
+        .map(|policy| PolicyRequest::new(policy))
+        .collect();
+    let request = EvaluatePoliciesRequest::new(policy_requests);
 
     let response = client(server.url())
-        .evaluate(&policies)
+        .evaluate(request)
         .await
         .expect("evaluate request should succeed");
 
@@ -149,9 +155,14 @@ async fn skal_evaluere_til_permit() {
             nav_enhet_id: "03017012345".to_string(),
         }),
     ];
+    let policy_requests = policies
+        .iter()
+        .map(|policy| PolicyRequest::new(policy))
+        .collect();
+    let request = EvaluatePoliciesRequest::new(policy_requests);
 
     let response = client(server.url())
-        .evaluate(&policies)
+        .evaluate(request)
         .await
         .expect("evaluate request should succeed");
 
@@ -168,8 +179,9 @@ async fn skal_evaluere_til_error() {
             .with_status(status)
             .create_async()
             .await;
+        let request = EvaluatePoliciesRequest::new(Vec::new());
 
-        let result = client(server.url()).evaluate(&Vec::new()).await;
+        let result = client(server.url()).evaluate(request).await;
 
         assert!(result.is_err(), "status {status} should return an error");
         mock.assert_async().await;

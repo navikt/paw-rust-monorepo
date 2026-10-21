@@ -38,9 +38,34 @@ impl PolicyRequest {
     rename_all = "SCREAMING_SNAKE_CASE"
 )]
 pub enum Policy {
-    NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(NavAnsattTilgangTilEksternBrukerPolicyInput),
     NavAnsattNavIdentLesetilgangTilEksternBrukerV1(NavAnsattTilgangTilEksternBrukerPolicyInput),
+    NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(NavAnsattTilgangTilEksternBrukerPolicyInput),
     NavAnsattNavIdentTilgangTilNavEnhetV1(NavAnsattTilgangTilNavEnhetPolicyInput),
+}
+
+impl Policy {
+    pub fn nav_ansatt_lesetilgang_til_ekstern_bruker_v1(
+        nav_ident: String,
+        norsk_ident: String,
+    ) -> Self {
+        Policy::NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(
+            NavAnsattTilgangTilEksternBrukerPolicyInput::new(nav_ident, norsk_ident),
+        )
+    }
+    pub fn nav_ansatt_skrivetilgang_til_ekstern_bruker_v1(
+        nav_ident: String,
+        norsk_ident: String,
+    ) -> Self {
+        Policy::NavAnsattNavIdentSkrivetilgangTilEksternBrukerV1(
+            NavAnsattTilgangTilEksternBrukerPolicyInput::new(nav_ident, norsk_ident),
+        )
+    }
+    pub fn nav_ansatt_tilgang_til_nav_enhet_v1(nav_ident: String, nav_enhet_id: String) -> Self {
+        Policy::NavAnsattNavIdentTilgangTilNavEnhetV1(NavAnsattTilgangTilNavEnhetPolicyInput::new(
+            nav_ident,
+            nav_enhet_id,
+        ))
+    }
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -50,11 +75,29 @@ pub struct NavAnsattTilgangTilEksternBrukerPolicyInput {
     pub norsk_ident: String,
 }
 
+impl NavAnsattTilgangTilEksternBrukerPolicyInput {
+    pub fn new(nav_ident: String, norsk_ident: String) -> Self {
+        Self {
+            nav_ident,
+            norsk_ident,
+        }
+    }
+}
+
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NavAnsattTilgangTilNavEnhetPolicyInput {
     pub nav_ident: String,
     pub nav_enhet_id: String,
+}
+
+impl NavAnsattTilgangTilNavEnhetPolicyInput {
+    pub fn new(nav_ident: String, nav_enhet_id: String) -> Self {
+        Self {
+            nav_ident,
+            nav_enhet_id,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]

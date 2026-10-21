@@ -1,6 +1,6 @@
 use crate::config::PoaoTilgangClientConfig;
 use crate::error::PoaoTilgangClientError;
-use crate::model::{EvaluatePoliciesRequest, EvaluatePoliciesResponse, Policy, PolicyRequest};
+use crate::model::{EvaluatePoliciesRequest, EvaluatePoliciesResponse};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -45,11 +45,9 @@ impl PoaoTilgangClient {
     #[tracing::instrument(skip_all)]
     pub async fn evaluate(
         &self,
-        policies: &Vec<Policy>,
+        request: EvaluatePoliciesRequest,
     ) -> anyhow::Result<EvaluatePoliciesResponse> {
         let url = format!("{}/api/v1/policy/evaluate", self.url);
-        let policy_requests = policies.iter().map(|p| PolicyRequest::new(p)).collect();
-        let request = EvaluatePoliciesRequest::new(policy_requests);
         self.post(url, request).await
     }
 
