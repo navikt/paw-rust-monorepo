@@ -20,6 +20,7 @@ impl KartleggingPolicy {
 }
 
 impl Policy for KartleggingPolicy {
+    #[tracing::instrument(skip_all)]
     async fn evaluate(&self, request: Request) -> Result<Request, ProblemDetails> {
         let path = request.uri().path().to_owned();
         match request.extensions().get::<Principal>() {

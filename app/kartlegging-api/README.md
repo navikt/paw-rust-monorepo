@@ -6,17 +6,23 @@ ledighet og egenvurdering nyere enn en gitt dato.
 
 ## Utleding av ledighet
 
-* Aktiv arbeidssøker
-    * Leverer bekreftelse
-        * Har jobbet -> Resett ledighet
-        * Har ikke jobbet
-            * Ledighet ikke satt -> Sett ledighet til start av bekreftelse
 * Ikke aktiv arbeidssøker
     * Registrerer seg som arbeidssøker
         * Var tidligere registrert som arbeidssøker
             * Det er mindre en 14 dager siden avslutning
                 * Tidligere ledighet er satt -> Viderefør tidligere ledighet
             * Det er over 14 dager siden avslutning -> Ikke sett ledighet (venter på bekreftelse)
+* Aktiv arbeidssøker
+    * Leverer bekreftelse
+        * Bekreftelse er eldre enn periode -> ignorer
+        * Bekreftelse er ikke eldre enn periode
+            * Har jobbet -> Resett ledighet
+            * Har ikke jobbet
+                * Ledighet ikke satt
+                    * Bekreftelse overlapper periode start -> Sett ledighet til start av periode
+                    * Bekreftelse overlapper ikke periode start -> Sett ledighet til start av bekreftelse
+
+OBS! Bekreftelser fra `Dagpenger` og `Friskmeldt til arbeidsformidling` kan ha start (og stopp) fra før perioden ble startet.
 
 ### Flytdiagram
 
@@ -43,8 +49,11 @@ graph LR
     bekrefter_har_jobbet -->|Ja| ingen_ledighet[Sett ingen ledighet]
     bekrefter_har_jobbet -->|Nei| er_ledighet_satt{Er ledighet allerede satt?}
     er_ledighet_satt -->|Ja| ferdig
-    er_ledighet_satt -->|Nei| ledighet_fra_bekreftelse[Sett ledighet fra bekreftelse]
+    er_ledighet_satt -->|Nei| overlapper_bekreftelse_periode_start[Overlapper bekreftelse periode start?]
+    overlapper_bekreftelse_periode_start -->|Ja| ledighet_fra_periode_start[Sett ledighet fra periode start]
+    overlapper_bekreftelse_periode_start -->|Nei|ledighet_fra_bekreftelse[Sett ledighet fra bekreftelse]
     ingen_ledighet --> ferdig
+    ledighet_fra_periode_start --> ferdig
     ledighet_fra_bekreftelse --> ferdig
 ```
 
