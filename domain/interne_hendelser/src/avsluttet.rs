@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use uuid::Uuid;
 
-use crate::aarsak::Aarsak;
-use crate::vo::{Metadata, Opplysning};
+use crate::vo::{Aarsaksinformasjon, Metadata, Opplysning};
 
 pub const AVSLUTTET_HENDELSE_TYPE: &str = "intern.v1.avsluttet";
 
@@ -18,10 +17,8 @@ pub struct Avsluttet {
     pub opplysninger: HashSet<Opplysning>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub periode_id: Option<Uuid>,
-    #[serde(default)]
-    pub kalkulert_aarsak: Aarsak,
-    #[serde(default)]
-    pub oppgitt_aarsak: Aarsak,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aarsaks_informasjon: Option<Aarsaksinformasjon>,
 }
 
 impl Avsluttet {

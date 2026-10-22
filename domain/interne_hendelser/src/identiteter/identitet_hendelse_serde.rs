@@ -24,7 +24,7 @@ mod tests {
         let endret_hendelse_json = br#"{
                         "hendelseId": "475a7393-55a8-4e31-8a80-010d22ec4549",
                         "hendelseType": "identitet.v1.identiteter_endret",
-                        "hendelseTidspunkt": "2024-06-01T12:00:00Z",
+                        "hendelseTidspunkt": 1717243200.000000000,
                         "identiteter": [
                             {
                                 "identitet": "12345678901",
@@ -65,6 +65,39 @@ mod tests {
             Err(ouch) => {
                 panic!("Failed to deserialize endret hendelse: {}", ouch);
             }
+        }
+    }
+
+    #[test]
+    fn kotlin_eksempler_dekodes() {
+        let eksempler: [(&[u8], &str); 4] = [
+            (
+                include_bytes!("../../testdata/identitet/identiteter-endret.json"),
+                "identitet.v1.identiteter_endret",
+            ),
+            (
+                include_bytes!("../../testdata/identitet/identiteter-merget.json"),
+                "identitet.v1.identiteter_merget",
+            ),
+            (
+                include_bytes!("../../testdata/identitet/identiteter-splittet.json"),
+                "identitet.v1.identiteter_splittet",
+            ),
+            (
+                include_bytes!("../../testdata/identitet/identiteter-slettet.json"),
+                "identitet.v1.identiteter_slettet",
+            ),
+        ];
+        for (json, hendelse_type) in eksempler {
+            let hendelse = deserialize_identitet_hendelse(json)
+                .unwrap_or_else(|e| panic!("{hendelse_type}: {e}"));
+            let tidspunkt = match hendelse {
+                IdentitetHendelse::IdentiteterEndret(h) => h.hendelse_tidspunkt,
+                IdentitetHendelse::IdentiteterMerget(h) => h.hendelse_tidspunkt,
+                IdentitetHendelse::IdentiteterSplittet(h) => h.hendelse_tidspunkt,
+                IdentitetHendelse::IdentiteterSlettet(h) => h.hendelse_tidspunkt,
+            };
+            assert_eq!(tidspunkt.timestamp(), 1_741_944_413, "{hendelse_type}");
         }
     }
 }

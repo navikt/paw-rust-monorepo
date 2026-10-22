@@ -1,3 +1,4 @@
+pub mod aarsaksinformasjon;
 pub mod annet;
 pub mod arbeidserfaring;
 pub mod avviks_type;
@@ -16,6 +17,7 @@ pub mod tidspunkt_fra_kilde;
 pub mod unix_timestamp;
 pub mod utdanning;
 
+pub use aarsaksinformasjon::{Aarsaksinformasjon, AvsluttetAarsakType, RegelEvalResultat};
 pub use annet::Annet;
 pub use arbeidserfaring::Arbeidserfaring;
 pub use avviks_type::AvviksType;

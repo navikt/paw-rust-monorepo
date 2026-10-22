@@ -1,16 +1,15 @@
-pub mod aarsak;
 pub mod arbeidssoeker_id_flettet_inn;
 pub mod automatisk_id_merge_ikke_mulig;
 pub mod avsluttet;
 pub mod avvist;
 pub mod avvist_stopp_av_periode;
 mod hendelse;
+pub mod identiteter;
 pub mod identitetsnummer_sammenslaatt;
 pub mod opplysninger_om_arbeidssoeker_mottatt;
 pub mod startet;
 pub mod vo;
 
-pub use aarsak::Aarsak;
 pub use arbeidssoeker_id_flettet_inn::{
     ARBEIDSSOEKER_ID_FLETTET_INN, ArbeidssoekerIdFlettetInn, Kilde,
 };
@@ -148,5 +147,45 @@ mod tests {
             }
             _ => panic!("Expected Startet variant"),
         }
+    }
+
+    #[test]
+    fn avsluttet_med_aarsaksinformasjon_fra_kotlin() {
+        let json = r#"{
+            "hendelseId": "af52f6f9-ebd5-4cd3-eeb4-3aefdecd7b12",
+            "id": 139682,
+            "identitetsnummer": "45419942222",
+            "metadata": {
+                "tidspunkt": 1780358119.801662,
+                "utfoertAv": {"type": "SYSTEM", "id": "x", "sikkerhetsnivaa": null},
+                "kilde": "x",
+                "aarsak": "x",
+                "tidspunktFraKilde": null
+            },
+            "opplysninger": [],
+            "periodeId": "12b794c9-2d77-484f-8117-589a0d413566",
+            "kalkulertAarsak": "Udefinert",
+            "aarsaksInformasjon": {"aarsak": "SVARTE_NEI_I_BEKREFTELSE", "regelEvalResultat": "IKKE_RELEVANT"},
+            "hendelseType": "intern.v1.avsluttet"
+        }"#;
+        let InterneHendelser::Avsluttet(avsluttet) = serde_json::from_str(json).unwrap() else {
+            panic!("forventet Avsluttet");
+        };
+        assert_eq!(
+            avsluttet.aarsaks_informasjon,
+            Some(vo::Aarsaksinformasjon {
+                aarsak: vo::AvsluttetAarsakType::SvarteNeiIBekreftelse,
+                regel_eval_resultat: vo::RegelEvalResultat::IkkeRelevant,
+            })
+        );
+        let ny_verdi = json.replace("SVARTE_NEI_I_BEKREFTELSE", "NY_AARSAK");
+        let InterneHendelser::Avsluttet(avsluttet) = serde_json::from_str(&ny_verdi).unwrap()
+        else {
+            panic!("forventet Avsluttet");
+        };
+        assert_eq!(
+            avsluttet.aarsaks_informasjon.unwrap().aarsak,
+            vo::AvsluttetAarsakType::UkjentVerdi
+        );
     }
 }

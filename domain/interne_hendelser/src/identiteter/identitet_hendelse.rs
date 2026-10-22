@@ -20,6 +20,7 @@ pub enum IdentitetHendelse {
 #[serde(rename_all = "camelCase")]
 pub struct IdentiteterEndretHendelse {
     pub hendelse_id: Uuid,
+    #[serde(with = "crate::vo::unix_timestamp")]
     pub hendelse_tidspunkt: DateTime<Utc>,
     pub identiteter: Vec<Identitet>,
     #[serde(default)]
@@ -30,6 +31,7 @@ pub struct IdentiteterEndretHendelse {
 #[serde(rename_all = "camelCase")]
 pub struct IdentiteterMergetHendelse {
     pub hendelse_id: Uuid,
+    #[serde(with = "crate::vo::unix_timestamp")]
     pub hendelse_tidspunkt: DateTime<Utc>,
     pub identiteter: Vec<Identitet>,
     #[serde(default)]
@@ -40,6 +42,7 @@ pub struct IdentiteterMergetHendelse {
 #[serde(rename_all = "camelCase")]
 pub struct IdentiteterSplittetHendelse {
     pub hendelse_id: Uuid,
+    #[serde(with = "crate::vo::unix_timestamp")]
     pub hendelse_tidspunkt: DateTime<Utc>,
     pub identiteter: Vec<Identitet>,
     #[serde(default)]
@@ -50,6 +53,7 @@ pub struct IdentiteterSplittetHendelse {
 #[serde(rename_all = "camelCase")]
 pub struct IdentiteterSlettetHendelse {
     pub hendelse_id: Uuid,
+    #[serde(with = "crate::vo::unix_timestamp")]
     pub hendelse_tidspunkt: DateTime<Utc>,
     #[serde(default)]
     pub tidligere_identiteter: Vec<Identitet>,
