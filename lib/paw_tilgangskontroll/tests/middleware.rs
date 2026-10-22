@@ -6,7 +6,7 @@ use axum::routing::post;
 use errors::access::AccessError;
 use oauth2::principal::{NavSystem, Principal};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_tilgangskontroll::middleware::tilgangskontroll;
+use paw_tilgangskontroll::middleware::tilgangskontroll_layer;
 use paw_tilgangskontroll::model::Policy;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -56,7 +56,7 @@ fn test_routes<P: Policy>(policy: P) -> Router {
                 to_bytes(request.into_body(), 256).await.unwrap()
             }),
         )
-        .route_layer(tilgangskontroll(Arc::new(policy)))
+        .route_layer(tilgangskontroll_layer(Arc::new(policy)))
 }
 
 fn test_request(principal: Option<Principal>, body: &str) -> Request {

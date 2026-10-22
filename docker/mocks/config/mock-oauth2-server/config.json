@@ -19,7 +19,7 @@
                         "azp": "87f8731e-28bf-48c9-b1ef-585e147aa0ae",
                         "azp_name": "local:paw:paw-kafka-key-generator",
                         "name": "Nav Navesen",
-                        "NAVident": "NAV12345"
+                        "NAVident": "Z123456"
                     }
                 },
                 {
@@ -35,7 +35,7 @@
                         "azp": "87f8731e-28bf-48c9-b1ef-585e147aa0ae",
                         "azp_name": "local:paw:paw-arbeidssoekerregisteret-api-kartlegging",
                         "name": "Nav Navesen",
-                        "NAVident": "NAV12345"
+                        "NAVident": "Z123456"
                     }
                 }
             ]

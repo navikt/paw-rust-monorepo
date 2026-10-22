@@ -98,10 +98,11 @@ mod tests {
     use axum::http::{HeaderValue, Method, header};
     use axum::routing::post;
     use oauth2::principal::{Anonym, NavSystem, Principal};
-    use paw_oauth2_resource_server::middleware::oauth2_middleware;
+    use paw_oauth2_resource_server::middleware::oauth2_server_layer;
     use paw_oauth2_resource_server::state::AuthState;
-    use paw_tilgangskontroll::middleware::tilgangskontroll;
+    use paw_tilgangskontroll::middleware::tilgangskontroll_layer;
     use paw_tilgangskontroll::model::Policy;
+    use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
     use tower::ServiceExt;
@@ -189,7 +190,7 @@ mod tests {
                         }
                     }),
                 )
-                .route_layer(tilgangskontroll(Arc::new(InspectPolicy(observed))));
+                .route_layer(tilgangskontroll_layer(Arc::new(InspectPolicy(observed))));
             let mut req = request(body);
             req.headers_mut()
                 .insert("x-marker", HeaderValue::from_static("preserved"));
@@ -319,7 +320,7 @@ mod tests {
                     .insert(header::AUTHORIZATION, HeaderValue::from_static(value));
             }
             let response = router(1024)
-                .route_layer(oauth2_middleware(auth_state()))
+                .route_layer(oauth2_server_layer(auth_state()))
                 .oneshot(req)
                 .await
                 .unwrap();
@@ -330,14 +331,12 @@ mod tests {
 
     fn kartlegging_policy() -> Arc<crate::logic::security::policy::KartleggingPolicy> {
         Arc::new(crate::logic::security::policy::KartleggingPolicy::new(
-            Arc::new(
-                paw_tilgangskontroll_client::client::PawTilgangskontrollClient::new(
-                    "http://unused.invalid".to_owned(),
-                    "unused".to_owned(),
-                    reqwest::Client::new(),
-                    Arc::new(token_client_stub::TokenClientStub::new()),
-                ),
-            ),
+            Arc::new(PawTilgangskontrollClient::new(
+                "http://unused.invalid".to_owned(),
+                "unused".to_owned(),
+                reqwest::Client::new(),
+                Arc::new(token_client_stub::TokenClientStub::new()),
+            )),
         ))
     }
 
@@ -451,7 +450,7 @@ mod tests {
                     PATH,
                     post(|SharedQueryRequest(_): SharedQueryRequest| async { StatusCode::OK }),
                 )
-                .route_layer(tilgangskontroll(Arc::clone(&policy)))
+                .route_layer(tilgangskontroll_layer(Arc::clone(&policy)))
                 .route_layer(query_request_layer(1024));
             let mut req = request(IDENT);
             req.extensions_mut().insert(principal);
@@ -472,7 +471,7 @@ mod tests {
                         async { StatusCode::OK }
                     }),
                 )
-                .route_layer(tilgangskontroll(Arc::clone(&policy)));
+                .route_layer(tilgangskontroll_layer(Arc::clone(&policy)));
             let mut req = request(body);
             req.extensions_mut().insert(Principal::Anonym(Anonym));
             assert_problem(
@@ -491,7 +490,7 @@ mod tests {
         req.extensions_mut().insert(Principal::Anonym(Anonym));
         let routes = Router::new()
             .route(PATH, post(|| async { StatusCode::OK }))
-            .route_layer(tilgangskontroll(policy))
+            .route_layer(tilgangskontroll_layer(policy))
             .route_layer(query_request_layer(1024));
         assert_problem(
             routes.oneshot(req).await.unwrap(),

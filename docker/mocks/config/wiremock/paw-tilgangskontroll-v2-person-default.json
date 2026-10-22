@@ -1,0 +1,16 @@
+{
+    "priority": 10,
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/api/v1/tilgang/person"
+    },
+    "response": {
+        "status": 200,
+        "jsonBody": {
+            "harTilgang": false
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

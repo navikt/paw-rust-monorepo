@@ -22,22 +22,22 @@ pub type TexasMiddlewareLayer = axum::middleware::FromFnLayer<
     (State<Arc<AuthState>>, Request),
 >;
 
-pub fn texas_middleware(state: Arc<AuthState>) -> TexasMiddlewareLayer {
+pub fn texas_server_layer(state: Arc<AuthState>) -> TexasMiddlewareLayer {
     type F =
         fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>;
-    axum::middleware::from_fn_with_state(state, texas_auth_handler_boxed as F)
+    axum::middleware::from_fn_with_state(state, texas_middleware_boxed as F)
 }
 
-fn texas_auth_handler_boxed(
+fn texas_middleware_boxed(
     state: State<Arc<AuthState>>,
     request: Request,
     next: Next,
 ) -> BoxedFuture<Result<Response, ProblemDetails>> {
-    Box::pin(texas_auth_handler(state, request, next))
+    Box::pin(texas_middleware(state, request, next))
 }
 
 #[tracing::instrument(skip_all, fields(path = %request.uri().path()))]
-pub async fn texas_auth_handler(
+pub async fn texas_middleware(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
     next: Next,

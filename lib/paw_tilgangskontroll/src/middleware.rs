@@ -15,7 +15,7 @@ type QueryRequestMiddleware<P> =
 pub type TilgangskontrollLayer<P> =
     FromFnLayer<QueryRequestMiddleware<P>, Arc<P>, (State<Arc<P>>, Request)>;
 
-pub fn tilgangskontroll<P: Policy>(policy: Arc<P>) -> TilgangskontrollLayer<P> {
+pub fn tilgangskontroll_layer<P: Policy>(policy: Arc<P>) -> TilgangskontrollLayer<P> {
     from_fn_with_state(
         policy,
         tilgangskontroll_middleware_boxed::<P> as QueryRequestMiddleware<P>,

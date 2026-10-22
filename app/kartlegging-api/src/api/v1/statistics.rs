@@ -6,7 +6,8 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_observability::http_tracing::otel_middleware;
+use paw_observability::http_metrics::http_metrics_layer;
+use paw_observability::http_tracing::otel_trace_layer;
 use sqlx::PgPool;
 
 pub const API_STATISTICS_PATH: &str = "/api/v1/statistics";
@@ -15,7 +16,8 @@ pub(crate) fn routes(pg_pool: PgPool) -> Router {
     Router::new()
         .route(API_STATISTICS_PATH, get(get_statistics))
         .route(API_STATISTICS_PATH, post(post_statistics))
-        .route_layer(otel_middleware())
+        .route_layer(http_metrics_layer())
+        .route_layer(otel_trace_layer())
         .with_state(RouterState::new(pg_pool.clone()))
 }
 

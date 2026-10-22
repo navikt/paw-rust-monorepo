@@ -1,0 +1,36 @@
+{
+    "priority": 1,
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/api/v1/tilgang/person",
+        "bodyPatterns": [
+            {
+                "matchesJsonPath": {
+                    "expression": "$.navIdent",
+                    "matches": "^(Z123456)$"
+                }
+            },
+            {
+                "matchesJsonPath": {
+                    "expression": "$.identitetsnummer",
+                    "matches": "^(01017012345|02017012345|04896995192)$"
+                }
+            },
+            {
+                "matchesJsonPath": {
+                    "expression": "$.tilgang",
+                    "equalTo": "LESE"
+                }
+            }
+        ]
+    },
+    "response": {
+        "status": 200,
+        "jsonBody": {
+            "harTilgang": true
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

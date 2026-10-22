@@ -5,10 +5,10 @@ use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_oauth2_resource_server::middleware::oauth2_middleware;
+use paw_oauth2_resource_server::middleware::oauth2_server_layer;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_observability::http_metrics::http_metrics_layer;
-use paw_observability::http_tracing::otel_middleware;
+use paw_observability::http_tracing::otel_trace_layer;
 use poao_tilgang_client::client::PoaoTilgangClient;
 use std::sync::Arc;
 use types::identitetsnummer::Identitetsnummer;
@@ -22,9 +22,9 @@ pub(crate) fn routes(
 ) -> Router {
     Router::new()
         .route(API_PERSON_TILGANG_PATH, post(handle_post))
-        .route_layer(oauth2_middleware(auth_state.clone()))
+        .route_layer(oauth2_server_layer(auth_state.clone()))
         .route_layer(http_metrics_layer())
-        .route_layer(otel_middleware())
+        .route_layer(otel_trace_layer())
         .with_state(RouterState::new(poao_tilgang_client.clone()))
 }
 

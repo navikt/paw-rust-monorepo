@@ -11,11 +11,11 @@ use axum::http::Uri;
 use axum::routing::post;
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_oauth2_resource_server::middleware::oauth2_middleware;
+use paw_oauth2_resource_server::middleware::oauth2_server_layer;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_observability::http_metrics::http_metrics_layer;
-use paw_observability::http_tracing::otel_middleware;
-use paw_tilgangskontroll::middleware::tilgangskontroll;
+use paw_observability::http_tracing::otel_trace_layer;
+use paw_tilgangskontroll::middleware::tilgangskontroll_layer;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -28,11 +28,11 @@ pub(crate) fn routes(
 ) -> Router {
     Router::new()
         .route(API_KARTLEGGING_PATH, post(finn_kartlegging))
-        .route_layer(tilgangskontroll(policy))
+        .route_layer(tilgangskontroll_layer(policy))
         .route_layer(query_request_layer(QUERY_REQUEST_BODY_LIMIT))
-        .route_layer(oauth2_middleware(auth_state.clone()))
+        .route_layer(oauth2_server_layer(auth_state.clone()))
         .route_layer(http_metrics_layer())
-        .route_layer(otel_middleware())
+        .route_layer(otel_trace_layer())
         .with_state(RouterState::new(pg_pool.clone()))
 }
 

@@ -61,6 +61,10 @@ mocks-up:
     docker compose -f docker/mocks/docker-compose.yaml up -d
 
 # Stop local mock services
+mocks-stop:
+    docker compose -f docker/mocks/docker-compose.yaml stop
+
+# Remove local mock services
 mocks-down:
     docker compose -f docker/mocks/docker-compose.yaml down
 
@@ -69,6 +73,10 @@ postgres-up:
     docker compose -f docker/postgres/docker-compose.yaml up -d
 
 # Stop local Postgres
+postgres-stop:
+    docker compose -f docker/postgres/docker-compose.yaml stop
+
+# Remove local Postgres
 postgres-down:
     docker compose -f docker/postgres/docker-compose.yaml down
 
@@ -77,6 +85,10 @@ kafka-up:
     docker compose -f docker/kafka/docker-compose.yaml up -d
 
 # Stop local Kafka
+kafka-stop:
+    docker compose -f docker/kafka/docker-compose.yaml stop
+
+# Remove local Kafka
 kafka-down:
     docker compose -f docker/kafka/docker-compose.yaml down
 
@@ -84,6 +96,9 @@ kafka-down:
 infra-up: mocks-up postgres-up kafka-up
 
 # Stop all local infrastructure
+infra-stop: mocks-stop postgres-stop kafka-stop
+
+# Remove all local infrastructure
 infra-down: mocks-down postgres-down kafka-down
 
 # Build the builder image locally (pre-compiled deps, used by docker-build-fast)

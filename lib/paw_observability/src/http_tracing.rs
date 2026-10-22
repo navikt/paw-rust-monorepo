@@ -30,7 +30,7 @@ pub fn extract_trace_context(headers: &HeaderMap) -> Context {
 }
 
 pub fn add_otel_trace_layer<S: Clone + Send + Sync + 'static>(router: Router<S>) -> Router<S> {
-    router.layer(otel_middleware())
+    router.layer(otel_trace_layer())
 }
 
 pub type OtelTraceLayer = TraceLayer<
@@ -43,7 +43,7 @@ pub type OtelTraceLayer = TraceLayer<
     fn(ServerErrorsFailureClass, Duration, &Span),
 >;
 
-pub fn otel_middleware() -> OtelTraceLayer {
+pub fn otel_trace_layer() -> OtelTraceLayer {
     TraceLayer::new_for_http()
         .make_span_with(make_span as fn(&Request<axum::body::Body>) -> Span)
         .on_response(

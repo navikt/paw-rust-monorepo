@@ -21,22 +21,22 @@ pub type OAuth2MiddlewareLayer = axum::middleware::FromFnLayer<
     (State<Arc<AuthState>>, Request),
 >;
 
-pub fn oauth2_middleware(state: Arc<AuthState>) -> OAuth2MiddlewareLayer {
+pub fn oauth2_server_layer(state: Arc<AuthState>) -> OAuth2MiddlewareLayer {
     type F =
         fn(State<Arc<AuthState>>, Request, Next) -> BoxedFuture<Result<Response, ProblemDetails>>;
-    axum::middleware::from_fn_with_state(state, oauth2_auth_handler_boxed as F)
+    axum::middleware::from_fn_with_state(state, oauth2_middleware_boxed as F)
 }
 
-fn oauth2_auth_handler_boxed(
+fn oauth2_middleware_boxed(
     state: State<Arc<AuthState>>,
     request: Request,
     next: Next,
 ) -> BoxedFuture<Result<Response, ProblemDetails>> {
-    Box::pin(oauth2_auth_handler(state, request, next))
+    Box::pin(oauth2_middleware(state, request, next))
 }
 
 #[tracing::instrument(skip_all, fields(path = %request.uri().path()))]
-pub async fn oauth2_auth_handler(
+pub async fn oauth2_middleware(
     State(state): State<Arc<AuthState>>,
     mut request: Request,
     next: Next,

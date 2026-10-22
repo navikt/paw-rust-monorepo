@@ -201,3 +201,15 @@ graph LR
     * Partition 1
         * hwm 438, 452
             * fnr: 02447919705, arbeidssøker-id: 133777 finnes ikke i lengre PDL
+
+## SQLs
+
+### Flest dager ledig
+```sql
+SELECT k.arbeidssoeker_fra, k.arbeidsledig_fra, (CURRENT_TIMESTAMP::date - k.arbeidsledig_fra::date) as dager FROM kartlegginger k
+JOIN arbeidssoekere a ON a.id = k.arbeidssoeker_id
+JOIN kontortilknytninger kt ON a.aktor_id = kt.aktor_id
+WHERE k.arbeidssoeker_til IS NULL AND k.arbeidsledig_fra IS NOT NULL
+ORDER BY dager DESC
+LIMIT 100;
+```
