@@ -109,18 +109,18 @@ components:
     NavAnsattPersonTilgangRequest:
       type: object
       required:
-        - type
+        - tilgang
         - navIdent
         - identitetsnummer
       properties:
-        type:
+        tilgang:
           $ref: '#/components/schemas/TilgangType'
         navIdent:
           type: string
         identitetsnummer:
           type: string
       example:
-        type: "LESE"
+        tilgang: "LESE"
         navIdent: "Z123456"
         identitetsnummer: "01017012345"
     NavAnsattNavEnhetTilgangRequest:

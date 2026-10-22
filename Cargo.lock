@@ -3236,6 +3236,8 @@ dependencies = [
  "mockito",
  "serde",
  "serde_json",
+ "strum",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3254,6 +3256,37 @@ dependencies = [
  "token_client_stub",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "paw_tilgangskontroll_v2_api_mock"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "mockito",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "paw_tilgangskontroll_v2_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mockito",
+ "paw_tilgangskontroll_v2_api_mock",
+ "reqwest 0.13.5",
+ "serde",
+ "serde-env-field",
+ "strum",
+ "texas_client",
+ "thiserror 2.0.20",
+ "token_client_stub",
+ "tokio",
+ "tracing",
+ "types",
 ]
 
 [[package]]
@@ -5163,10 +5196,7 @@ dependencies = [
  "chrono",
  "errors",
  "jsonschema",
- "jsonwebtoken",
  "mockito",
- "nais_schema_registry",
- "oauth2",
  "paw_error_handling",
  "paw_oauth2_resource_server",
  "paw_observability",
@@ -5183,9 +5213,7 @@ dependencies = [
  "thiserror 2.0.20",
  "token_client_stub",
  "tokio",
- "tower",
  "tracing",
- "tracing-test",
  "types",
  "utoipa-swagger-ui",
  "uuid",

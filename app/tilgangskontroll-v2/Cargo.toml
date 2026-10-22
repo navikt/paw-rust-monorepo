@@ -13,11 +13,9 @@ path = "src/lib.rs"
 [dependencies]
 types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
-oauth2 = { path = "../../domain/oauth2" }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_observability = { path = "../../lib/paw_observability" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
-nais_schema_registry = { path = "../../lib/nais_schema_registry" }
 paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }
 texas_client = { path = "../../lib/texas_client" }
 poao_tilgang_client = { path = "../../lib/poao_tilgang_client" }
@@ -42,6 +40,3 @@ utoipa-swagger-ui = { workspace = true }
 token_client_stub = { path = "../../test/token_client_stub" }
 mockito = { workspace = true }
 jsonschema = { workspace = true }
-tracing-test = { workspace = true }
-tower = { workspace = true, features = ["util"] }
-jsonwebtoken = { workspace = true }

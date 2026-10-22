@@ -17,7 +17,7 @@ pub fn build_router(
     let person_tilgang_v1_routes =
         v1::person_tilgang::routes(auth_state.clone(), poao_tilgang_client.clone());
     let kontor_tilgang_v1_routes =
-        v1::nav_enhet_tilgang::routes(auth_state.clone(), poao_tilgang_client.clone());
+        v1::enhet_tilgang::routes(auth_state.clone(), poao_tilgang_client.clone());
 
     health_routes
         .merge(docs_routes)

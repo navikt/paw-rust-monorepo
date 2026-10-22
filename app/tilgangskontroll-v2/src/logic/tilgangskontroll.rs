@@ -19,14 +19,14 @@ impl Tilgangskontroll {
 
     pub async fn nav_ansatt_tilgang_til_person(
         &self,
-        tilgang_type: TilgangType,
+        tilgang: TilgangType,
         nav_ident: NavIdent,
         identitetsnummer: Identitetsnummer,
     ) -> anyhow::Result<bool> {
         let nav_ident_str = nav_ident.as_ref();
         let identitetsnummer_str = identitetsnummer.as_ref();
 
-        let policies = match tilgang_type {
+        let policies = match tilgang {
             TilgangType::Lese => {
                 vec![Policy::nav_ansatt_lesetilgang_til_ekstern_bruker_v1(
                     nav_ident_str.to_string(),

@@ -34,13 +34,13 @@ async fn handle_post(
     Json(payload): Json<NavAnsattPersonTilgangRequest>,
 ) -> Result<Json<TilgangResponse>, ProblemDetails> {
     payload.validate(API_PERSON_TILGANG_PATH)?;
-    let tilgang_type = payload.tilgang_type;
+    let tilgang = payload.tilgang;
     let nav_ident = NavIdent::new(payload.nav_ident);
     match Identitetsnummer::new(payload.identitetsnummer) {
         Some(identitetsnummer) => {
             let har_tilgang = state
                 .tilgangskontroll
-                .nav_ansatt_tilgang_til_person(tilgang_type, nav_ident, identitetsnummer)
+                .nav_ansatt_tilgang_til_person(tilgang, nav_ident, identitetsnummer)
                 .await?;
             Ok(Json(TilgangResponse::new(har_tilgang)))
         }

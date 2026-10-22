@@ -44,7 +44,7 @@ fn spec_json() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{SPEC_YAML, spec_json};
-    use crate::api::v1::nav_enhet_tilgang::API_KONTOR_TILGANG_PATH;
+    use crate::api::v1::enhet_tilgang::API_KONTOR_TILGANG_PATH;
     use crate::api::v1::person_tilgang::API_PERSON_TILGANG_PATH;
     use crate::model::dto::request::{
         NavAnsattNavEnhetTilgangRequest, NavAnsattPersonTilgangRequest,
@@ -112,7 +112,7 @@ mod tests {
     fn query_request_identitetsnummer_konformerer() {
         let spec = spec();
         let dto = NavAnsattPersonTilgangRequest {
-            tilgang_type: TilgangType::Lese,
+            tilgang: TilgangType::Lese,
             nav_ident: "Z123456".to_string(),
             identitetsnummer: "01017012345".to_string(),
         };

@@ -9,18 +9,34 @@ use token_client_stub::TokenClientStub;
 use tokio::sync::OnceCell;
 
 #[tokio::test]
-async fn test_finn_identiteter() {
+async fn test_tilganger() {
     let context = init().await;
 
-    let response_1 = context.lese_tilgang("01017012345", "2012345").await;
-    let response_2 = context.lese_tilgang("02017012345", "2012345").await;
-    let response_3 = context.lese_tilgang("01017012345", "2112345").await;
-    let response_4 = context.lese_tilgang("02017012345", "2112345").await;
+    let response_1 = context.lese_tilgang("01017012345", "Z123456").await;
+    let response_2 = context.skrive_tilgang("01017012345", "Z123456").await;
+    let response_3 = context.lese_skrive_tilgang("01017012345", "Z123456").await;
+    let response_4 = context.lese_tilgang("02017012345", "Z123456").await;
+    let response_5 = context.skrive_tilgang("02017012345", "Z123456").await;
+    let response_6 = context.lese_skrive_tilgang("02017012345", "Z123456").await;
+    let response_7 = context.lese_tilgang("01017012345", "Z234567").await;
+    let response_8 = context.skrive_tilgang("01017012345", "Z234567").await;
+    let response_9 = context.lese_skrive_tilgang("01017012345", "Z234567").await;
+    let response_10 = context.lese_tilgang("02017012345", "Z234567").await;
+    let response_11 = context.skrive_tilgang("02017012345", "Z234567").await;
+    let response_12 = context.lese_skrive_tilgang("02017012345", "Z234567").await;
 
-    assert!(response_1.har_tilgang);
-    assert!(!response_2.har_tilgang);
-    assert!(!response_3.har_tilgang);
-    assert!(response_4.har_tilgang);
+    assert_eq!(response_1.har_tilgang, true);
+    assert_eq!(response_2.har_tilgang, true);
+    assert_eq!(response_3.har_tilgang, true);
+    assert_eq!(response_4.har_tilgang, false);
+    assert_eq!(response_5.har_tilgang, false);
+    assert_eq!(response_6.har_tilgang, false);
+    assert_eq!(response_7.har_tilgang, false);
+    assert_eq!(response_8.har_tilgang, false);
+    assert_eq!(response_9.har_tilgang, false);
+    assert_eq!(response_10.har_tilgang, true);
+    assert_eq!(response_11.har_tilgang, false);
+    assert_eq!(response_12.har_tilgang, false);
 }
 
 struct TestContext {
@@ -33,11 +49,32 @@ struct TestContext {
 
 impl TestContext {
     async fn lese_tilgang(&self, identitetsnummer: &str, nav_ansatt_id: &str) -> TilgangResponse {
+        self.tilgang(identitetsnummer, nav_ansatt_id, TilgangType::Lese)
+            .await
+    }
+    async fn skrive_tilgang(&self, identitetsnummer: &str, nav_ansatt_id: &str) -> TilgangResponse {
+        self.tilgang(identitetsnummer, nav_ansatt_id, TilgangType::Skrive)
+            .await
+    }
+    async fn lese_skrive_tilgang(
+        &self,
+        identitetsnummer: &str,
+        nav_ansatt_id: &str,
+    ) -> TilgangResponse {
+        self.tilgang(identitetsnummer, nav_ansatt_id, TilgangType::LeseSkrive)
+            .await
+    }
+    async fn tilgang(
+        &self,
+        identitetsnummer: &str,
+        nav_ansatt_id: &str,
+        tilgang_type: TilgangType,
+    ) -> TilgangResponse {
         self.client
             .tilgang(
                 identitetsnummer.to_string(),
                 nav_ansatt_id.to_string(),
-                TilgangType::Lese,
+                tilgang_type,
             )
             .await
             .expect("Kunne ikke hente response")

@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NavAnsattPersonTilgangRequest {
-    #[serde(rename = "type")]
-    pub tilgang_type: TilgangType,
+    pub tilgang: TilgangType,
     pub nav_ident: String,
     pub identitetsnummer: String,
 }
@@ -43,7 +42,10 @@ impl NavAnsattNavEnhetTilgangRequest {
             let detail = format!("Felt 'nav_ident' har feil lengde: {}", self.nav_ident.len());
             Err(ProblemDetails::validation_error(path, detail.as_str()))
         } else if self.nav_enhet_id.is_empty() {
-            let detail = format!("Felt 'nav_enhet_id' har feil lengde: {}", self.nav_enhet_id.len());
+            let detail = format!(
+                "Felt 'nav_enhet_id' har feil lengde: {}",
+                self.nav_enhet_id.len()
+            );
             Err(ProblemDetails::validation_error(path, detail.as_str()))
         } else {
             Ok(())

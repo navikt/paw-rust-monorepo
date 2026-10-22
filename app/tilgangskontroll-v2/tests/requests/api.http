@@ -5,18 +5,18 @@ Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}
 
 {
-    "type": "LESE",
+    "tilgang": "LESE",
     "navIdent": "Z994498",
     "identitetsnummer": "17868199474"
 }
 
-### POST /api/v1/tilgang/kontor
-POST {{baseUrl}}/api/v1/tilgang/kontor
+### POST /api/v1/tilgang/enhet
+POST {{baseUrl}}/api/v1/tilgang/enhet
 Accept: application/json
 Content-Type: application/json
 Authorization: Bearer {{$auth.token("azure")}}
 
 {
     "navIdent": "Z994498",
-    "kontorId": "4154"
+    "navEnhetId": "4154"
 }
