@@ -35,7 +35,7 @@ pub enum Opplysning {
     Dnummer,
     UkjentForenkletFregStatus,
     HarGyldigOppholdstillatelse,
-    OppholdstilatellseUtgaatt,
+    OppholdstilatelseUtgaatt,
     BarnFoedtINorgeUtenOppholdstillatelse,
     IngenInformasjonOmOppholdstillatelse,
     UkjentStatusForOppholdstillatelse,
@@ -145,5 +145,12 @@ mod tests {
             Opplysning::from_str("UKJENT_OPPLYSNING").unwrap(),
             Opplysning::UkjentOpplysning
         );
+    }
+
+    #[test]
+    fn oppholdstillatelse_utgaatt_bruker_navnet_fra_kotlin() {
+        let opplysning: Opplysning =
+            serde_json::from_str(r#""OPPHOLDSTILATELSE_UTGAATT""#).unwrap();
+        assert_eq!(opplysning, Opplysning::OppholdstilatelseUtgaatt);
     }
 }

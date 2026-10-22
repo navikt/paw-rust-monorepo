@@ -26,7 +26,7 @@ pub enum BekreftelseHendelse {
     BekreftelseMeldingMottatt(BekreftelseMeldingMottatt),
     #[serde(rename = "bekreftelse.periode_avsluttet")]
     PeriodeAvsluttet(PeriodeAvsluttet),
-    #[serde(rename = "bekreftelse.register_grace_periode_gjenstaande_tid")]
+    #[serde(rename = "bekreftelse.register_grace_periode_gjenstaaende_tid")]
     RegisterGracePeriodeGjenstaaendeTid(RegisterGracePeriodeGjenstaaendeTid),
     #[serde(rename = "bekreftelse.ba_om_aa_avslutte_periode")]
     BaOmAaAvsluttePeriode(BaOmAaAvsluttePeriode),
@@ -41,6 +41,21 @@ pub enum BekreftelseHendelse {
 impl BekreftelseHendelse {
     pub fn from_slice(bytes: &[u8]) -> Result<Self, serde_json::Error> {
         serde_json::from_slice(bytes)
+    }
+
+    pub fn arbeidssoeker_id(&self) -> i64 {
+        match self {
+            Self::LeveringsfristUtloept(h) => h.arbeidssoeker_id,
+            Self::EksternGracePeriodeUtloept(h) => h.arbeidssoeker_id,
+            Self::RegisterGracePeriodeUtloept(h) => h.arbeidssoeker_id,
+            Self::BekreftelseTilgjengelig(h) => h.arbeidssoeker_id,
+            Self::BekreftelseMeldingMottatt(h) => h.arbeidssoeker_id,
+            Self::PeriodeAvsluttet(h) => h.arbeidssoeker_id,
+            Self::RegisterGracePeriodeGjenstaaendeTid(h) => h.arbeidssoeker_id,
+            Self::BaOmAaAvsluttePeriode(h) => h.arbeidssoeker_id,
+            Self::BekreftelsePaaVegneAvStartet(h) => h.arbeidssoeker_id,
+            Self::RegisterGracePeriodeUtloeptEtterEksternInnsamling(h) => h.arbeidssoeker_id,
+        }
     }
 
     pub fn periode_id(&self) -> uuid::Uuid {
@@ -105,7 +120,7 @@ mod tests {
     #[test]
     fn gjenstaande_tid_leses_som_sekunder() {
         let hendelse = parse(&format!(
-            r#"{{"hendelseType": "bekreftelse.register_grace_periode_gjenstaande_tid", {IDS},
+            r#"{{"hendelseType": "bekreftelse.register_grace_periode_gjenstaaende_tid", {IDS},
             "bekreftelseId": "323e4567-e89b-12d3-a456-426614174000",
             "gjenstaandeTid": 86400.000000000}}"#
         ));
