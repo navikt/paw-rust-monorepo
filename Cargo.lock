@@ -2350,7 +2350,7 @@ dependencies = [
  "paw_rust_base",
  "paw_sqlx",
  "paw_tilgangskontroll",
- "paw_tilgangskontroll_client",
+ "paw_tilgangskontroll_v2_client",
  "pdl_api_mock",
  "pdl_client",
  "postgres_testcontainer",

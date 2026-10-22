@@ -27,7 +27,7 @@ texas_client = { path = "../../lib/texas_client" }
 paw_key_gen_client = { path = "../../lib/paw_key_gen_client" }
 pdl_client = { path = "../../lib/pdl_client" }
 paw_tilgangskontroll = { path = "../../lib/paw_tilgangskontroll" }
-paw_tilgangskontroll_client = { path = "../../lib/paw_tilgangskontroll_client" }
+paw_tilgangskontroll_v2_client = { path = "../../lib/paw_tilgangskontroll_v2_client" }
 
 sqlx = { workspace = true }
 chrono = { workspace = true }

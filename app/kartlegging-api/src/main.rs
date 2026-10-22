@@ -4,7 +4,7 @@ use kartlegging_api::api::build_router;
 use kartlegging_api::config::{
     HTTP_TIMEOUT, read_app_config, read_auth_config, read_database_config, read_kafka_config,
     read_otel_tracing_config, read_paw_key_gen_client_config,
-    read_paw_tilgangskontroll_client_config, read_pdl_client_config, read_token_client_config,
+    read_paw_tilgangskontroll_v2_client_config, read_pdl_client_config, read_token_client_config,
 };
 use kartlegging_api::kafka::consumer::{create_kafka_consumer, kafka_consumer_task};
 use kartlegging_api::kafka::hwm::hwm_pause_task::hwm_pause_timeout_task;
@@ -22,7 +22,7 @@ use paw_observability::health::simple_app_state;
 use paw_observability::otel::setup_otel;
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
-use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
+use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;
 use pdl_client::client::PDLClient;
 use reqwest::Client;
 use std::sync::Arc;
@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let token_client_config = read_token_client_config()?;
     let key_gen_client_config = read_paw_key_gen_client_config()?;
     let pdl_client_config = read_pdl_client_config()?;
-    let paw_tilgangskontroll_client_config = read_paw_tilgangskontroll_client_config()?;
+    let paw_tilgangskontroll_client_config = read_paw_tilgangskontroll_v2_client_config()?;
 
     setup_otel(otel_tracing_config)?;
     setup_metrics();
@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
         http_client.clone(),
         token_client.clone(),
     ));
-    let paw_tilgangskontroll_client = Arc::new(PawTilgangskontrollClient::from_config(
+    let paw_tilgangskontroll_v2_client = Arc::new(PawTilgangskontrollV2Client::from_config(
         paw_tilgangskontroll_client_config,
         http_client.clone(),
         token_client.clone(),
@@ -120,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
         app_state.clone(),
         pg_pool.clone(),
         auth_state,
-        paw_tilgangskontroll_client,
+        paw_tilgangskontroll_v2_client,
     );
     let server_task = web_server_task(router).await;
 

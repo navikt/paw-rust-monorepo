@@ -5,16 +5,17 @@ use errors::access::AccessError;
 use oauth2::principal::Principal;
 use paw_error_handling::problem_details::ProblemDetails;
 use paw_tilgangskontroll::model::Policy;
-use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
-use paw_tilgangskontroll_client::model::TilgangType;
+use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;
+use paw_tilgangskontroll_v2_client::model::TilgangType;
 use std::sync::Arc;
+use types::identitetsnummer::Identitetsnummer;
 
 pub struct KartleggingPolicy {
-    client: Arc<PawTilgangskontrollClient>,
+    client: Arc<PawTilgangskontrollV2Client>,
 }
 
 impl KartleggingPolicy {
-    pub fn new(client: Arc<PawTilgangskontrollClient>) -> Self {
+    pub fn new(client: Arc<PawTilgangskontrollV2Client>) -> Self {
         Self { client }
     }
 }
@@ -33,18 +34,21 @@ impl Policy for KartleggingPolicy {
             }
             Some(principal) => match principal {
                 Principal::NavAnsatt(nav_ansatt) => {
-                    let nav_ansatt_id = nav_ansatt.ident.as_ref().to_string();
+                    let nav_ident = nav_ansatt.ident.clone();
                     let (parts, body) = request.into_parts();
                     let query = shared_query_request(&parts)?;
+
                     match query.as_ref() {
                         QueryRequest::Identitetsnummer(query) => {
                             query.validate(&path)?;
+                            let identitetsnummer =
+                                Identitetsnummer::new(query.identitetsnummer.clone()).unwrap();
                             let tilgang = self
                                 .client
-                                .tilgang(
-                                    query.identitetsnummer.clone(),
-                                    nav_ansatt_id,
+                                .nav_ansatt_tilgang_til_person(
                                     TilgangType::Lese,
+                                    nav_ident,
+                                    identitetsnummer,
                                 )
                                 .await
                                 .map_err(|e| {
@@ -97,7 +101,6 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use oauth2::principal::NavAnsatt;
-    use paw_tilgangskontroll_client::model::TilgangType;
     use serde_json::json;
     use types::nav_ident::NavIdent;
 
@@ -120,8 +123,8 @@ mod tests {
         request
     }
 
-    fn client(url: String) -> Arc<PawTilgangskontrollClient> {
-        Arc::new(PawTilgangskontrollClient::new(
+    fn client(url: String) -> Arc<PawTilgangskontrollV2Client> {
+        Arc::new(PawTilgangskontrollV2Client::new(
             url,
             "unused".to_owned(),
             reqwest::Client::new(),
@@ -138,14 +141,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn allows_employee_when_access_check_grants_read_access() {
+    async fn tillater_ansatt_lesetilgang_for_person() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
-            .mock("POST", "/api/v1/tilgang")
+            .mock("POST", "/api/v1/tilgang/person")
             .match_body(mockito::Matcher::Json(json!({
-                "identitetsnummer": IDENTITETSNUMMER,
-                "navAnsattId": NAV_IDENT,
-                "tilgang": TilgangType::Lese
+                "tilgang": TilgangType::Lese,
+                "navIdent": NAV_IDENT,
+                "identitetsnummer": IDENTITETSNUMMER
             })))
             .with_status(200)
             .with_body(r#"{"harTilgang":true}"#)
@@ -164,10 +167,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_employee_when_access_check_denies_read_access() {
+    async fn avviser_ansatt_lesetilgang_for_person() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
-            .mock("POST", "/api/v1/tilgang")
+            .mock("POST", "/api/v1/tilgang/person")
             .with_status(200)
             .with_body(r#"{"harTilgang":false}"#)
             .expect(1)
@@ -186,10 +189,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_invalid_identity_without_calling_access_service() {
+    async fn evaluering_feiler_pga_ugyldig_format_for_identitetsnummer() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
-            .mock("POST", "/api/v1/tilgang")
+            .mock("POST", "/api/v1/tilgang/person")
             .expect(0)
             .create_async()
             .await;
@@ -206,10 +209,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reports_access_service_failure_with_request_path() {
+    async fn evaluering_feiler_pga_500_status_fra_tilgangskontroll() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
-            .mock("POST", "/api/v1/tilgang")
+            .mock("POST", "/api/v1/tilgang/person")
             .with_status(503)
             .create_async()
             .await;

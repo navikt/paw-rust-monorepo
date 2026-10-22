@@ -102,7 +102,7 @@ mod tests {
     use paw_oauth2_resource_server::state::AuthState;
     use paw_tilgangskontroll::middleware::tilgangskontroll_layer;
     use paw_tilgangskontroll::model::Policy;
-    use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
+    use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
     use tower::ServiceExt;
@@ -331,7 +331,7 @@ mod tests {
 
     fn kartlegging_policy() -> Arc<crate::logic::security::policy::KartleggingPolicy> {
         Arc::new(crate::logic::security::policy::KartleggingPolicy::new(
-            Arc::new(PawTilgangskontrollClient::new(
+            Arc::new(PawTilgangskontrollV2Client::new(
                 "http://unused.invalid".to_owned(),
                 "unused".to_owned(),
                 reqwest::Client::new(),

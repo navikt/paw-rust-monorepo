@@ -6,7 +6,7 @@ use crate::logic::security::policy::KartleggingPolicy;
 use axum::Router;
 use paw_oauth2_resource_server::state::AuthState;
 use paw_observability::health::simple_app_state::AppState;
-use paw_tilgangskontroll_client::client::PawTilgangskontrollClient;
+use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -14,9 +14,9 @@ pub fn build_router(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
     auth_state: Arc<AuthState>,
-    paw_tilgangskontroll_client: Arc<PawTilgangskontrollClient>,
+    paw_tilgangskontroll_v2_client: Arc<PawTilgangskontrollV2Client>,
 ) -> Router {
-    let policy = Arc::new(KartleggingPolicy::new(paw_tilgangskontroll_client));
+    let policy = Arc::new(KartleggingPolicy::new(paw_tilgangskontroll_v2_client));
 
     let health_routes = paw_observability::server::routes(app_state);
     let docs_routes = docs::routes();

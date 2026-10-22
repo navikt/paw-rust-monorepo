@@ -6,7 +6,7 @@ use paw_observability::otel::format::OtelFormat;
 use paw_rust_base::config::duration;
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
-use paw_tilgangskontroll_client::config::PawTilgangskontrollClientConfig;
+use paw_tilgangskontroll_v2_client::config::PawTilgangskontrollV2ClientConfig;
 use pdl_client::config::PDLClientConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
@@ -135,10 +135,10 @@ pub fn read_pdl_client_config() -> anyhow::Result<PDLClientConfig> {
     Ok(read_toml_config::<PDLClientConfig>(content)?)
 }
 
-pub fn read_paw_tilgangskontroll_client_config() -> anyhow::Result<PawTilgangskontrollClientConfig>
-{
-    let content = read_config_file!("paw_tilgangskontroll_client_config.toml");
-    Ok(read_toml_config::<PawTilgangskontrollClientConfig>(
+pub fn read_paw_tilgangskontroll_v2_client_config()
+-> anyhow::Result<PawTilgangskontrollV2ClientConfig> {
+    let content = read_config_file!("paw_tilgangskontroll_v2_client_config.toml");
+    Ok(read_toml_config::<PawTilgangskontrollV2ClientConfig>(
         content,
     )?)
 }
