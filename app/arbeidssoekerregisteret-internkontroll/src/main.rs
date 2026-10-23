@@ -1,6 +1,7 @@
 mod database;
 mod meldinger;
 mod message_processor;
+mod regler;
 mod reset_db;
 mod schema_registry;
 mod signing_required_tools;
