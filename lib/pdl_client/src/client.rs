@@ -1,6 +1,7 @@
 use crate::config::{BEHANDLINGSNUMMER, PDLClientConfig};
 use anyhow::Result;
 use graphql_client::{GraphQLQuery, QueryBody};
+use paw_observability::client::trace_context_aware_headers;
 use pdl_graphql::pdl::hent_person_bolk::HentPersonBolkHentPersonBolk;
 use pdl_graphql::pdl::hent_person_navn::HentPersonNavnHentPerson;
 use pdl_graphql::pdl::{HentPersonBolk, HentPersonNavn, hent_person_bolk, hent_person_navn};
@@ -104,6 +105,7 @@ impl PDLClient {
         &self,
         body: QueryBody<Variables>,
     ) -> Result<graphql_client::Response<ResponseData>> {
+        let headers = trace_context_aware_headers();
         let token = match self
             .inner
             .token_client
@@ -118,6 +120,7 @@ impl PDLClient {
             .inner
             .http_client
             .post(self.inner.url.clone())
+            .headers(headers)
             .json(&body)
             .bearer_auth(token.access_token)
             .header("Behandlingsnummer", self.inner.behandlingsnummer.clone())

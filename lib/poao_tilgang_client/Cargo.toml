@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 texas_client = { path = "../../lib/texas_client" }
+paw_observability = { path = "../paw_observability", features = ["client"] }
 
 anyhow = { workspace = true }
 thiserror = { workspace = true }
@@ -19,5 +20,4 @@ uuid = { workspace = true }
 tokio = { workspace = true }
 mockito = { workspace = true }
 serde_json = { workspace = true }
-paw_tilgangskontroll_api_mock = { path = "../../test/paw_tilgangskontroll_api_mock" }
 token_client_stub = { path = "../../test/token_client_stub" }

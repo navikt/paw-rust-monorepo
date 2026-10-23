@@ -1,6 +1,7 @@
 use crate::config::PoaoTilgangClientConfig;
 use crate::error::PoaoTilgangClientError;
 use crate::model::{EvaluatePoliciesRequest, EvaluatePoliciesResponse};
+use paw_observability::client::trace_context_aware_headers;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -56,6 +57,7 @@ impl PoaoTilgangClient {
         url: String,
         request: S,
     ) -> anyhow::Result<T> {
+        let headers = trace_context_aware_headers();
         let token = match self.token_client.get_token(self.scope.clone()).await {
             Ok(token) => token,
             Err(e) => return Err(e),
@@ -63,6 +65,7 @@ impl PoaoTilgangClient {
         let response = self
             .http_client
             .post(url)
+            .headers(headers)
             .json(&request)
             .bearer_auth(token.access_token)
             .send()

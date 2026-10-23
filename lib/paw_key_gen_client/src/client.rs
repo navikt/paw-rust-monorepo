@@ -1,6 +1,7 @@
 use crate::config::PawKeyGenClientConfig;
 use crate::error::PawKeyGenClientError;
 use crate::model::{IdentitetRequest, IdentitetResponse, KeyRequest, KeyResponse};
+use paw_observability::client::trace_context_aware_headers;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -61,6 +62,7 @@ impl PawKeyGenClient {
         url: String,
         request: S,
     ) -> anyhow::Result<T> {
+        let headers = trace_context_aware_headers();
         let token = match self.token_client.get_token(self.scope.clone()).await {
             Ok(token) => token,
             Err(e) => return Err(e),
@@ -68,6 +70,7 @@ impl PawKeyGenClient {
         let response = self
             .http_client
             .post(url)
+            .headers(headers)
             .json(&request)
             .bearer_auth(token.access_token)
             .send()

@@ -3095,17 +3095,16 @@ dependencies = [
  "anyhow",
  "mockito",
  "paw_kafka_key_gen_api_mock",
+ "paw_observability",
  "reqwest 0.13.5",
  "serde",
  "serde-env-field",
- "serde_json",
  "strum",
  "texas_client",
  "thiserror 2.0.20",
  "token_client_stub",
  "tokio",
  "tracing",
- "types",
 ]
 
 [[package]]
@@ -3256,6 +3255,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "mockito",
+ "paw_observability",
  "paw_tilgangskontroll_api_mock",
  "reqwest 0.13.5",
  "serde",
@@ -3317,6 +3317,7 @@ dependencies = [
  "anyhow",
  "graphql_client",
  "mockito",
+ "paw_observability",
  "pdl_api_mock",
  "pdl_graphql",
  "reqwest 0.13.5",
@@ -3421,7 +3422,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "mockito",
- "paw_tilgangskontroll_api_mock",
+ "paw_observability",
  "reqwest 0.13.5",
  "serde",
  "serde-env-field",
