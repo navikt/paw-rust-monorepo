@@ -125,6 +125,32 @@ pub async fn get_record_derived_for_trace(
     .await
 }
 
+/// The record written by transaction `xid`, together with all earlier records
+/// in the same trace, in xid order. Empty if the record has no trace_id or
+/// `xid` is unknown. `xid` is the xid8 value as bigint, since sqlx has no xid8 type.
+pub async fn get_record_derived_trace_up_to_xid(
+    executor: impl PgExecutor<'_>,
+    xid: i64,
+) -> Result<Vec<RecordDerived>, sqlx::Error> {
+    sqlx::query_as(
+        r#"
+        SELECT rd.topic_id, rd.record_partition, rd.record_offset,
+               rd.signature_status, rd.signing_key_id,
+               rd.timestamp_delta_ms, rd.trace_id, rd.payload_status, rd.meldingstype,
+               rd.periode_id, rd.arbeidssoeker_id, rd.derived_at
+        FROM record_derived m
+        JOIN record_derived rd
+          ON rd.trace_id = m.trace_id
+         AND rd.xid <= m.xid
+        WHERE m.xid = $1::bigint::text::xid8
+        ORDER BY rd.xid
+        "#,
+    )
+    .bind(xid)
+    .fetch_all(executor)
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,6 +362,38 @@ mod tests {
         );
         assert!(
             get_record_derived_for_trace(&pool, Uuid::from_u128(3), siste_xid)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let trace_til = |offset: i64| {
+            let pool = pool.clone();
+            async move {
+                let xid = sqlx::query_scalar::<_, i64>(
+                    "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
+                )
+                .bind(offset)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+                offsets(
+                    get_record_derived_trace_up_to_xid(&pool, xid)
+                        .await
+                        .unwrap(),
+                )
+            }
+        };
+        assert_eq!(trace_til(1).await, vec![2, 1]);
+        assert_eq!(trace_til(2).await, vec![2]);
+        assert_eq!(trace_til(0).await, vec![0]);
+        assert_eq!(
+            trace_til(3).await,
+            Vec::<i64>::new(),
+            "ingen trace_id gir ingen rader"
+        );
+        assert!(
+            get_record_derived_trace_up_to_xid(&pool, siste_xid + 1_000)
                 .await
                 .unwrap()
                 .is_empty()
