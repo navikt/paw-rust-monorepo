@@ -1,9 +1,6 @@
 use sqlx::PgExecutor;
 use uuid::Uuid;
 
-pub const UTFALL_OK: i16 = 0;
-pub const UTFALL_TEKNISK_FEIL: i16 = -1;
-
 pub async fn upsert_funn(
     executor: impl PgExecutor<'_>,
     trace_id: Uuid,
@@ -81,9 +78,9 @@ mod tests {
         upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
         assert_eq!(stored(pool, trace_id).await, (3, opprettet, opprettet));
 
-        upsert_funn(pool, trace_id, 1, 1, UTFALL_OK).await.unwrap();
+        upsert_funn(pool, trace_id, 1, 1, 0).await.unwrap();
         let (utfall, opprettet_etter, sist_oppdatert) = stored(pool, trace_id).await;
-        assert_eq!(utfall, UTFALL_OK);
+        assert_eq!(utfall, 0);
         assert_eq!(opprettet_etter, opprettet);
         assert!(sist_oppdatert > opprettet);
     }
