@@ -30,6 +30,26 @@ pub async fn upsert_funn(
     Ok(())
 }
 
+pub async fn delete_funn(
+    executor: impl PgExecutor<'_>,
+    trace_id: Uuid,
+    regel: i16,
+    regelversjon: i32,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        DELETE FROM funn
+        WHERE trace_id = $1 AND regel = $2 AND regelversjon = $3
+        "#,
+    )
+    .bind(trace_id)
+    .bind(regel)
+    .bind(regelversjon)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,5 +86,34 @@ mod tests {
         assert_eq!(utfall, UTFALL_OK);
         assert_eq!(opprettet_etter, opprettet);
         assert!(sist_oppdatert > opprettet);
+    }
+
+    #[tokio::test]
+    async fn sletting_av_funn() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let trace_id = Uuid::from_u128(1);
+        let trace_id2 = Uuid::from_u128(2);
+        upsert_trace(pool, trace_id, 1_000).await.unwrap();
+        upsert_trace(pool, trace_id2, 1_000).await.unwrap();
+
+        upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
+        upsert_funn(pool, trace_id2, 1, 1, 3).await.unwrap();
+        assert_eq!(stored(pool, trace_id).await.0, 3);
+
+        delete_funn(pool, trace_id, 1, 1).await.unwrap();
+        let result = sqlx::query("SELECT utfall FROM funn WHERE trace_id = $1")
+            .bind(trace_id)
+            .fetch_optional(pool)
+            .await
+            .unwrap();
+        assert!(result.is_none());
+        let result2 = sqlx::query("SELECT utfall FROM funn WHERE trace_id = $1")
+            .bind(trace_id2)
+            .fetch_optional(pool)
+            .await
+            .unwrap();
+        assert!(result2.is_some());
     }
 }
