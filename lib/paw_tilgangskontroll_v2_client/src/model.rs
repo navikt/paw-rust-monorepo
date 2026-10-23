@@ -35,10 +35,16 @@ impl NavAnsattNavEnhetTilgangRequest {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TilgangResponse {
     pub har_tilgang: bool,
+}
+
+impl TilgangResponse {
+    pub fn new(har_tilgang: bool) -> Self {
+        Self { har_tilgang }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumString, AsRefStr)]
