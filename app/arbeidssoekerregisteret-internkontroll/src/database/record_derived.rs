@@ -101,10 +101,13 @@ pub async fn get_record_derived(
     .await
 }
 
-/// All records in a trace, in the order they were written (xid order).
+/// All records in a trace written by transaction `max_xid` or earlier,
+/// in the order they were written (xid order). `max_xid` is the xid8 value as
+/// bigint, since sqlx has no xid8 type.
 pub async fn get_record_derived_for_trace(
     executor: impl PgExecutor<'_>,
     trace_id: Uuid,
+    max_xid: i64,
 ) -> Result<Vec<RecordDerived>, sqlx::Error> {
     sqlx::query_as(
         r#"
@@ -112,11 +115,12 @@ pub async fn get_record_derived_for_trace(
                signature_status, signing_key_id,
                timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
         FROM record_derived
-        WHERE trace_id = $1
+        WHERE trace_id = $1 AND xid <= $2::bigint::text::xid8
         ORDER BY xid
         "#,
     )
     .bind(trace_id)
+    .bind(max_xid)
     .fetch_all(executor)
     .await
 }
@@ -243,7 +247,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn henter_alle_records_i_en_trace_i_skriverekkefoelge() {
+    async fn henter_records_i_en_trace_til_og_med_xid_i_skriverekkefoelge() {
         let guard = setup_postgres_container().await.unwrap();
         let pool = guard.pg_pool.clone();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
@@ -288,19 +292,50 @@ mod tests {
             skrevet.push(derived);
         }
 
+        let xid = |offset: i64| {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
+            )
+            .bind(offset)
+            .fetch_one(&pool)
+        };
+        let siste_xid = xid(3).await.unwrap();
+        let foerste_xid = xid(2).await.unwrap();
+
         let offsets = |records: Vec<RecordDerived>| {
             records.iter().map(|r| r.record_offset).collect::<Vec<_>>()
         };
         assert_eq!(
-            offsets(get_record_derived_for_trace(&pool, trace_a).await.unwrap()),
+            offsets(
+                get_record_derived_for_trace(&pool, trace_a, siste_xid)
+                    .await
+                    .unwrap()
+            ),
             vec![2, 1]
         );
         assert_eq!(
-            get_record_derived_for_trace(&pool, trace_b).await.unwrap(),
+            get_record_derived_for_trace(&pool, trace_b, siste_xid)
+                .await
+                .unwrap(),
             vec![skrevet[1].clone()]
         );
+        assert_eq!(
+            offsets(
+                get_record_derived_for_trace(&pool, trace_a, foerste_xid)
+                    .await
+                    .unwrap()
+            ),
+            vec![2],
+            "records over max_xid skal ikke hentes"
+        );
         assert!(
-            get_record_derived_for_trace(&pool, Uuid::from_u128(3))
+            get_record_derived_for_trace(&pool, trace_a, foerste_xid - 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            get_record_derived_for_trace(&pool, Uuid::from_u128(3), siste_xid)
                 .await
                 .unwrap()
                 .is_empty()
