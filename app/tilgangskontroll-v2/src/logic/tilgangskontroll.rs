@@ -17,12 +17,18 @@ impl Tilgangskontroll {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn nav_ansatt_tilgang_til_person(
         &self,
         tilgang: TilgangType,
         nav_ident: NavIdent,
         identitetsnummer: Identitetsnummer,
     ) -> anyhow::Result<bool> {
+        tracing::info!(
+            "Forespørsel om {}-tilgang til person-informasjon for Nav-ansatt",
+            tilgang.as_ref()
+        );
+
         let nav_ident_str = nav_ident.as_ref();
         let identitetsnummer_str = identitetsnummer.as_ref();
 
@@ -55,11 +61,14 @@ impl Tilgangskontroll {
         self.tilgang(policies).await
     }
 
+    #[tracing::instrument(skip_all)]
     pub async fn nav_ansatt_tilgang_til_enhet(
         &self,
         nav_ident: NavIdent,
         nav_enhet_id: NavEnhetId,
     ) -> anyhow::Result<bool> {
+        tracing::info!("Forespørsel om tilgang til enhet-informasjon for Nav-ansatt",);
+
         let nav_ident_str = nav_ident.as_ref();
         let nav_enhet_id_str = nav_enhet_id.as_ref();
 

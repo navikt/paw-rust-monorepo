@@ -6,6 +6,7 @@ edition.workspace = true
 [features]
 default = ["server"]
 server = ["dep:axum", "dep:tower-http", "dep:prometheus", "dep:tokio", "dep:tower", "dep:pin-project-lite"]
+client = ["dep:reqwest", "dep:opentelemetry-http"]
 
 [dependencies]
 paw_rust_base = { path = "../paw_rust_base" }
@@ -27,6 +28,8 @@ prometheus = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tower = { workspace = true, optional = true }
 pin-project-lite = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+opentelemetry-http = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

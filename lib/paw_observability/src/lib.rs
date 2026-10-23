@@ -1,3 +1,5 @@
+#[cfg(feature = "client")]
+pub mod client;
 pub mod health;
 #[cfg(feature = "server")]
 pub mod http_metrics;
