@@ -82,7 +82,7 @@ impl InternkontrollMessageProcessor {
         };
         let trace_id = trace_id_from_message(msg);
         let dekodet = self.dekodere.dekod(msg).await?;
-        let sequence_number = insert_record_derived(
+        insert_record_derived(
             &mut **tx,
             &RecordDerived {
                 topic_id,
@@ -103,7 +103,7 @@ impl InternkontrollMessageProcessor {
         )
         .await?;
         if let (Some(trace_id), Some(reference_time_ms)) = (trace_id, reference_time_ms) {
-            upsert_trace(&mut **tx, trace_id, reference_time_ms, sequence_number).await?;
+            upsert_trace(&mut **tx, trace_id, reference_time_ms).await?;
         }
         Ok(())
     }

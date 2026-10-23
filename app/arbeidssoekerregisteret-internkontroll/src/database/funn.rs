@@ -51,7 +51,7 @@ mod tests {
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
         let trace_id = Uuid::from_u128(1);
-        upsert_trace(pool, trace_id, 1_000, 1).await.unwrap();
+        upsert_trace(pool, trace_id, 1_000).await.unwrap();
 
         upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
         let (utfall, opprettet, sist_oppdatert) = stored(pool, trace_id).await;

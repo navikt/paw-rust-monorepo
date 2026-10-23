@@ -19,17 +19,14 @@ CREATE TABLE stream_time (
 -- One row per trace ID. Reference times are stream times in ms.
 -- operation_type is mapped in code and written once.
 CREATE TABLE trace (
-    sequence_number     BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
     trace_id            UUID PRIMARY KEY,
     first_reference_ms  BIGINT NOT NULL,
     last_reference_ms   BIGINT NOT NULL,
-    last_sequence_number BIGINT NOT NULL,
     operation_type      SMALLINT,
     CHECK (first_reference_ms <= last_reference_ms)
 );
 
 CREATE INDEX trace_first_reference_idx ON trace (first_reference_ms);
-CREATE INDEX trace_last_sequence_idx ON trace (last_sequence_number);
 
 -- Simple type reflecting kafka timestamp types.
 CREATE TYPE kafka_timestamp_type AS ENUM ('not_available', 'create_time', 'log_append_time');
@@ -77,7 +74,6 @@ CREATE TABLE record_derived (
     topic_id           SMALLINT NOT NULL,
     record_partition   INTEGER NOT NULL,
     record_offset      BIGINT NOT NULL,
-    sequence_number    BIGINT GENERATED ALWAYS AS IDENTITY,
     signature_status   signature_status NOT NULL,
     signing_key_id     VARCHAR(128) CHECK (signing_key_id <> ''),
     -- record_timestamp_ms minus the highest timestamp of earlier offsets
@@ -91,6 +87,14 @@ CREATE TABLE record_derived (
     periode_id         UUID,
     arbeidssoeker_id   BIGINT,
     derived_at         TIMESTAMPTZ NOT NULL,
+    -- The transaction that wrote the row. Rules read only rows below
+    -- pg_snapshot_xmin(pg_current_snapshot()): every xid below it is finished.
+    -- UNIQUE because rule progress (regel_fremdrift.siste_xid) uses xid alone as
+    -- the marker. That only works with one record per transaction. If several
+    -- records are ever committed in one transaction, the insert fails here instead
+    -- of rules silently skipping records. The marker must then be extended with
+    -- (topic_id, record_partition, record_offset) before this constraint is removed.
+    xid                xid8 NOT NULL UNIQUE DEFAULT pg_current_xact_id(),
     PRIMARY KEY (topic_id, record_partition, record_offset),
     FOREIGN KEY (topic_id, record_partition, record_offset)
         REFERENCES kafka_record (topic_id, record_partition, record_offset)

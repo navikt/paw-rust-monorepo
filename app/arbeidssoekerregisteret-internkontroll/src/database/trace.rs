@@ -7,21 +7,18 @@ pub async fn upsert_trace(
     executor: impl PgExecutor<'_>,
     trace_id: Uuid,
     reference_ms: i64,
-    record_sequence_number: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-        INSERT INTO trace (trace_id, first_reference_ms, last_reference_ms, last_sequence_number)
-        VALUES ($1, $2, $2, $3)
+        INSERT INTO trace (trace_id, first_reference_ms, last_reference_ms)
+        VALUES ($1, $2, $2)
         ON CONFLICT (trace_id) DO UPDATE
             SET first_reference_ms = LEAST(trace.first_reference_ms, EXCLUDED.first_reference_ms),
-                last_reference_ms = GREATEST(trace.last_reference_ms, EXCLUDED.last_reference_ms),
-                last_sequence_number = GREATEST(trace.last_sequence_number, EXCLUDED.last_sequence_number)
+                last_reference_ms = GREATEST(trace.last_reference_ms, EXCLUDED.last_reference_ms)
         "#,
     )
     .bind(trace_id)
     .bind(reference_ms)
-    .bind(record_sequence_number)
     .execute(executor)
     .await?;
     Ok(())
@@ -92,33 +89,14 @@ mod tests {
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
         let trace_id = Uuid::from_u128(1);
 
-        upsert_trace(pool, trace_id, 1_000, 10).await.unwrap();
+        upsert_trace(pool, trace_id, 1_000).await.unwrap();
         assert_eq!(reference_times(pool, trace_id).await, (1_000, 1_000));
-        upsert_trace(pool, trace_id, 3_000, 11).await.unwrap();
+        upsert_trace(pool, trace_id, 3_000).await.unwrap();
         assert_eq!(reference_times(pool, trace_id).await, (1_000, 3_000));
-        upsert_trace(pool, trace_id, 500, 12).await.unwrap();
+        upsert_trace(pool, trace_id, 500).await.unwrap();
         assert_eq!(reference_times(pool, trace_id).await, (500, 3_000));
-        upsert_trace(pool, trace_id, 2_000, 5).await.unwrap();
+        upsert_trace(pool, trace_id, 2_000).await.unwrap();
         assert_eq!(reference_times(pool, trace_id).await, (500, 3_000));
-        let last_sequence: i64 =
-            sqlx::query_scalar("SELECT last_sequence_number FROM trace WHERE trace_id = $1")
-                .bind(trace_id)
-                .fetch_one(pool)
-                .await
-                .unwrap();
-        assert_eq!(last_sequence, 12);
-
-        let sequence = |id: Uuid| {
-            sqlx::query_scalar::<_, i64>("SELECT sequence_number FROM trace WHERE trace_id = $1")
-                .bind(id)
-                .fetch_one(pool)
-        };
-        let first_sequence = sequence(trace_id).await.unwrap();
-        upsert_trace(pool, Uuid::from_u128(2), 4_000, 13)
-            .await
-            .unwrap();
-        assert!(sequence(Uuid::from_u128(2)).await.unwrap() > first_sequence);
-        assert_eq!(sequence(trace_id).await.unwrap(), first_sequence);
     }
 
     #[tokio::test]
@@ -132,7 +110,7 @@ mod tests {
             set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStartet).await,
             Err(TraceOperationTypeError::TraceNotFound)
         ));
-        upsert_trace(pool, trace_id, 1_000, 1).await.unwrap();
+        upsert_trace(pool, trace_id, 1_000).await.unwrap();
         set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStartet)
             .await
             .unwrap();
