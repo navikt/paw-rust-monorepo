@@ -3286,6 +3286,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "mockito",
+ "paw_observability",
  "paw_tilgangskontroll_v2_api_mock",
  "reqwest 0.13.5",
  "serde",

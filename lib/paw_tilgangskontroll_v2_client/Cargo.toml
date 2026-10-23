@@ -5,7 +5,8 @@ edition.workspace = true
 
 [dependencies]
 types = { path = "../../domain/types" }
-texas_client = { path = "../../lib/texas_client" }
+texas_client = { path = "../texas_client" }
+paw_observability = { path = "../paw_observability", features = ["client"] }
 
 anyhow = { workspace = true }
 thiserror = { workspace = true }
