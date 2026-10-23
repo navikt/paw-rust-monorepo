@@ -101,6 +101,26 @@ pub async fn get_record_derived(
     .await
 }
 
+/// All records in a trace, in the order they were written (xid order).
+pub async fn get_record_derived_for_trace(
+    executor: impl PgExecutor<'_>,
+    trace_id: Uuid,
+) -> Result<Vec<RecordDerived>, sqlx::Error> {
+    sqlx::query_as(
+        r#"
+        SELECT topic_id, record_partition, record_offset,
+               signature_status, signing_key_id,
+               timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
+        FROM record_derived
+        WHERE trace_id = $1
+        ORDER BY xid
+        "#,
+    )
+    .bind(trace_id)
+    .fetch_all(executor)
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,5 +240,70 @@ mod tests {
                 signature.status()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn henter_alle_records_i_en_trace_i_skriverekkefoelge() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = guard.pg_pool.clone();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        register_topics(&pool, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&pool).await.unwrap().get("topic-a").unwrap();
+        let trace_a = Uuid::from_u128(1);
+        let trace_b = Uuid::from_u128(2);
+
+        let mut skrevet = Vec::new();
+        for (offset, trace_id) in [
+            (2, Some(trace_a)),
+            (0, Some(trace_b)),
+            (1, Some(trace_a)),
+            (3, None),
+        ] {
+            let row = KafkaRecordRow {
+                topic_id,
+                record_partition: 0,
+                record_offset: offset,
+                record_timestamp_type: KafkaTimestampType::CreateTime,
+                record_timestamp_ms: Some(1_000),
+                record_key: None,
+                record_value: None,
+                header_keys: vec![],
+                header_values: vec![],
+            };
+            insert_kafka_record(&pool, &row).await.unwrap();
+            let derived = RecordDerived {
+                topic_id,
+                record_partition: 0,
+                record_offset: offset,
+                signature: Signature::Missing,
+                timestamp_delta_ms: None,
+                trace_id,
+                payload_status: PayloadStatus::Ok,
+                meldingstype: None,
+                periode_id: None,
+                arbeidssoeker_id: None,
+                derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
+            };
+            insert_record_derived(&pool, &derived).await.unwrap();
+            skrevet.push(derived);
+        }
+
+        let offsets = |records: Vec<RecordDerived>| {
+            records.iter().map(|r| r.record_offset).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            offsets(get_record_derived_for_trace(&pool, trace_a).await.unwrap()),
+            vec![2, 1]
+        );
+        assert_eq!(
+            get_record_derived_for_trace(&pool, trace_b).await.unwrap(),
+            vec![skrevet[1].clone()]
+        );
+        assert!(
+            get_record_derived_for_trace(&pool, Uuid::from_u128(3))
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }
