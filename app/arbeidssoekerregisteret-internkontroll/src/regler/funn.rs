@@ -2,6 +2,7 @@ use uuid::Uuid;
 
 use crate::regler::regel_katalog::RegelId;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Funn {
     IngenTraceId,
     AltOk {
@@ -12,6 +13,7 @@ pub enum Funn {
     Feil(Detaljer),
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Detaljer {
     pub regel_id: RegelId,
     pub regel_versjon: i32,
