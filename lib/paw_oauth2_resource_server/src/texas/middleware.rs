@@ -1,5 +1,5 @@
-use crate::model::{IntrospectRequest, IntrospectResponse};
-use crate::state::AuthState;
+use crate::texas::model::{IntrospectRequest, IntrospectResponse};
+use crate::texas::state::AuthState;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
@@ -96,7 +96,10 @@ pub async fn texas_middleware(
 
     let response_status = response.status();
     let response_body = response.text().await.map_err(|e| {
-        ProblemDetails::unauthorized(path.as_str(), OAuthError::IntrospectionFailed(e.to_string()))
+        ProblemDetails::unauthorized(
+            path.as_str(),
+            OAuthError::IntrospectionFailed(e.to_string()),
+        )
     })?;
     let introspect_response = serde_json::from_str::<IntrospectResponse>(response_body.as_str())
         .map_err(|e| {

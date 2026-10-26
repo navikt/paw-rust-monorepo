@@ -1,4 +1,4 @@
-use crate::config::AuthConfig;
+use crate::texas::config::AuthConfig;
 use errors::app::AppError;
 use reqwest::Client;
 use std::sync::Arc;

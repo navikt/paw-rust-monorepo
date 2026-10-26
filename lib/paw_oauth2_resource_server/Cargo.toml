@@ -6,7 +6,7 @@ edition.workspace = true
 [features]
 default = ["oauth2"]
 oauth2 = []
-texas = []
+texas = ["dep:serde_json"]
 
 [dependencies]
 errors = { path = "../../domain/errors" }
@@ -16,6 +16,7 @@ paw_error_handling = { path = "../../lib/paw_error_handling" }
 axum = { workspace = true }
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
 serde-env-field = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

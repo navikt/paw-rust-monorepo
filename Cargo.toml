@@ -23,7 +23,6 @@ members = [
     "lib/texas_client",
     "lib/poao_tilgang_client",
     "lib/paw_oauth2_resource_server",
-    "lib/paw_texas_resource_server",
     "lib/paw_tilgangskontroll",
     "lib/paw_tilgangskontroll_client",
     "lib/paw_tilgangskontroll_v2_client",

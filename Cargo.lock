@@ -3119,6 +3119,7 @@ dependencies = [
  "reqwest 0.13.5",
  "serde",
  "serde-env-field",
+ "serde_json",
  "tokio",
  "tracing",
 ]
@@ -3204,22 +3205,6 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "uuid",
-]
-
-[[package]]
-name = "paw_texas_resource_server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "errors",
- "jsonwebtoken",
- "oauth2",
- "paw_error_handling",
- "reqwest 0.13.5",
- "serde",
- "serde-env-field",
- "serde_json",
- "tracing",
 ]
 
 [[package]]
