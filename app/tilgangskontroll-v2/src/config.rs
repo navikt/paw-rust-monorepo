@@ -1,4 +1,4 @@
-use paw_oauth2_resource_server::config::AuthConfig;
+use paw_oauth2_resource_server::oauth2::config::AuthConfig;
 use paw_observability::otel::config::OtelTracingConfig;
 use paw_observability::otel::format::OtelFormat;
 use paw_rust_base::{config::read_toml_config, read_config_file};

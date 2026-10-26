@@ -5,14 +5,14 @@ use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
 use paw_error_handling::problem_details::ProblemDetails;
-use paw_oauth2_resource_server::middleware::oauth2_server_layer;
-use paw_oauth2_resource_server::state::AuthState;
+use paw_oauth2_resource_server::oauth2::middleware::oauth2_server_layer;
+use paw_oauth2_resource_server::oauth2::state::AuthState;
 use paw_observability::http_metrics::http_metrics_layer;
 use paw_observability::http_tracing::otel_trace_layer;
 use poao_tilgang_client::client::PoaoTilgangClient;
 use std::sync::Arc;
-use types::nav_ident::NavIdent;
 use types::nav_enhet_id::NavEnhetId;
+use types::nav_ident::NavIdent;
 
 pub(crate) const API_KONTOR_TILGANG_PATH: &str = "/api/v1/tilgang/enhet";
 

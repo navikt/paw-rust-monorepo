@@ -1,4 +1,4 @@
-use crate::state::AuthState;
+use crate::oauth2::state::AuthState;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;

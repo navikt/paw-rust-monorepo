@@ -2,7 +2,7 @@ pub(crate) mod docs;
 mod v1;
 
 use axum::Router;
-use paw_oauth2_resource_server::state::AuthState;
+use paw_oauth2_resource_server::oauth2::state::AuthState;
 use paw_observability::health::simple_app_state::AppState;
 use poao_tilgang_client::client::PoaoTilgangClient;
 use std::sync::Arc;

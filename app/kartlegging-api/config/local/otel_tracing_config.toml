@@ -5,4 +5,5 @@ directives = [
     "kartlegging_api::logic::process=DEBUG",
     "kartlegging_api::logic::process::message_process=INFO",
     "paw_kafka::hwm::rebalance::hwm_rebalance_handler=DEBUG",
+    "paw_oauth2_resource_server::oauth2::middleware=DEBUG",
 ]

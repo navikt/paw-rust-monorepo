@@ -3,8 +3,12 @@ name = "paw_oauth2_resource_server"
 version = "0.1.0"
 edition.workspace = true
 
+[features]
+default = ["oauth2"]
+oauth2 = []
+texas = []
+
 [dependencies]
-types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
 oauth2 = { path = "../../domain/oauth2" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }

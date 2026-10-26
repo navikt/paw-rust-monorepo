@@ -1,4 +1,2 @@
-pub mod config;
-pub mod middleware;
-pub mod oidc;
-pub mod state;
+#[cfg(feature = "oauth2")]
+pub mod oauth2;

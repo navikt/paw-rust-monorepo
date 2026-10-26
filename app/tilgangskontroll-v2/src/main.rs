@@ -1,5 +1,5 @@
 use errors::app::AppError;
-use paw_oauth2_resource_server::state::AuthState;
+use paw_oauth2_resource_server::oauth2::state::AuthState;
 use paw_observability::health::simple_app_state;
 use paw_observability::otel::setup_otel;
 use paw_rust_base::panic_logger::register_panic_logger;

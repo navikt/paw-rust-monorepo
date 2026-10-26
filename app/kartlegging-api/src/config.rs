@@ -1,6 +1,6 @@
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_key_gen_client::config::PawKeyGenClientConfig;
-use paw_oauth2_resource_server::config::AuthConfig;
+use paw_oauth2_resource_server::oauth2::config::AuthConfig;
 use paw_observability::otel::config::OtelTracingConfig;
 use paw_observability::otel::format::OtelFormat;
 use paw_rust_base::config::duration;

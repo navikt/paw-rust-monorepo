@@ -98,8 +98,9 @@ mod tests {
     use axum::http::{HeaderValue, Method, header};
     use axum::routing::post;
     use oauth2::principal::{Anonym, NavSystem, Principal};
-    use paw_oauth2_resource_server::middleware::oauth2_server_layer;
-    use paw_oauth2_resource_server::state::AuthState;
+    use paw_oauth2_resource_server::oauth2::middleware::oauth2_server_layer;
+    use paw_oauth2_resource_server::oauth2::oidc::JwksCache;
+    use paw_oauth2_resource_server::oauth2::state::{AuthState, IssuerState};
     use paw_tilgangskontroll::middleware::tilgangskontroll_layer;
     use paw_tilgangskontroll::model::Policy;
     use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;
@@ -343,8 +344,6 @@ mod tests {
     #[tokio::test]
     async fn protected_routes_parse_after_auth_and_before_database_work() {
         use jsonwebtoken::{DecodingKey, EncodingKey, Header, encode};
-        use paw_oauth2_resource_server::oidc::JwksCache;
-        use paw_oauth2_resource_server::state::IssuerState;
         use std::collections::HashMap;
         use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
