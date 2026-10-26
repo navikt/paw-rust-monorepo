@@ -5,11 +5,15 @@ use crate::{
         record_derived::{RecordDerived, get_record_derived_trace_up_to_xid},
         signature::Signature,
     },
-    regler::{funn::Funn, regel_katalog::RegelId},
+    regler::{funn::Funn, regel_katalog::RegelId, regler_task::Regel},
 };
 
 const REGEL_VERSJON: i32 = 1;
 const IKKE_GYLDIG_SIGNATUR: i16 = 1;
+
+pub fn regel_hele_trace_er_signert() -> Regel {
+    Regel::new(RegelId::HeleTraceSignert, REGEL_VERSJON)
+}
 
 fn alt_ok(trace_id: uuid::Uuid) -> Funn {
     Funn::AltOk {

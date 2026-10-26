@@ -9,11 +9,11 @@ mod topic_catalog;
 mod topic_ids;
 mod trace_operation_type;
 use std::sync::Arc;
+use std::time::Duration;
 
 use message_processor::InternkontrollMessageProcessor;
 use paw_kafka::hwm::kafka_connection::create_kafka_consumer_with_sender;
 use paw_kafka::hwm::stream::stream_config::PawKafkaStreamConfig;
-use paw_kafka::hwm::stream::topic_priority::TopicPriorityList;
 use paw_kafka::hwm::{
     hwm_message_processor::{ProcessorError, hwm_process_message},
     rebalance::topic_partition_update::TopicPartitionUpdate,
@@ -34,13 +34,18 @@ use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
 use std::error::Error;
 use tokio::sync::mpsc;
+use tokio::time::interval;
 use tracing::info;
 
 use crate::meldinger::Dekodere;
+use crate::regler::hele_trace_er_signert::regel_hele_trace_er_signert;
+use crate::regler::regler_task::spawn_regel_task;
 use crate::reset_db::reset_db_if_needed;
 use crate::schema_registry::create_schema_registry_settings;
 use crate::signing_required_tools::SigningRequiredFrom;
 use crate::topic_catalog::{subscribed_topics, topic_priorities};
+
+const REGEL_BATCH_SIZE: std::num::NonZeroU32 = std::num::NonZeroU32::new(100).unwrap();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -90,6 +95,14 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
         pg_pool.clone(),
         stream_config,
     );
+    let regler = vec![regel_hele_trace_er_signert()];
+    let regel_task = spawn_regel_task(
+        pg_pool.clone(),
+        app_state.clone(),
+        interval(Duration::from_mins(5)),
+        regler,
+        REGEL_BATCH_SIZE,
+    );
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
         let pg_pool = pg_pool.clone();
@@ -134,6 +147,13 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
             match result {
                 Ok(signal) => info!("Signal '{}' mottatt, avslutter....", signal),
                 Err(e) => return Err(e),
+            }
+        }
+        result = regel_task => {
+            match result {
+                Ok(Ok(())) => info!("Regel task stoppet."),
+                Ok(Err(e)) => return Err(e.into()),
+                Err(join_error) => return Err(Box::new(join_error)),
             }
         }
     }

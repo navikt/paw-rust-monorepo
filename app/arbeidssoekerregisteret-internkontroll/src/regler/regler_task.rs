@@ -1,4 +1,7 @@
-use std::num::NonZeroU32;
+use std::{
+    num::{NonZeroU16, NonZeroU32},
+    sync::Arc,
+};
 
 use paw_observability::health::simple_app_state::AppState;
 use tokio::time::Interval;
@@ -19,9 +22,15 @@ pub struct Regel {
     versjon: i32,
 }
 
+impl Regel {
+    pub fn new(id: RegelId, versjon: i32) -> Self {
+        Self { id, versjon }
+    }
+}
+
 pub fn spawn_regel_task(
     pg_pool: sqlx::PgPool,
-    app_state: AppState,
+    app_state: Arc<AppState>,
     interval: Interval,
     regler: Vec<Regel>,
     batch_size: NonZeroU32,
@@ -70,7 +79,7 @@ pub async fn exec_regler(
         if klar {
             let funn = exec(&mut tx, regel_id, neste_xid).await?;
             match funn {
-                IngenTraceId => todo!(),
+                IngenTraceId => tracing::warn!("Ingen trace_id funner for xid {}", neste_xid),
                 AltOk {
                     regel_id,
                     regel_versjon,
@@ -80,7 +89,7 @@ pub async fn exec_regler(
                     upsert_funn(
                         &mut tx,
                         detaljer.trace_id,
-                        regel_id,
+                        detaljer.regel_id,
                         detaljer.regel_versjon,
                         detaljer.utfall,
                     )
