@@ -236,6 +236,13 @@ mod tests {
 
     const KEY: &str = "key-a";
 
+    type LagretRecord = (
+        Option<Vec<u8>>,
+        Option<Vec<u8>>,
+        Vec<String>,
+        Vec<Option<Vec<u8>>>,
+    );
+
     fn topics() -> Dekodere {
         use paw_kafka::topics::Topic;
         Dekodere::new(
@@ -475,12 +482,7 @@ mod tests {
         hwm_process_message(1, pool.clone(), &first, &processor)
             .await
             .unwrap();
-        let (key, value, header_keys, header_values): (
-            Option<Vec<u8>>,
-            Option<Vec<u8>>,
-            Vec<String>,
-            Vec<Option<Vec<u8>>>,
-        ) = sqlx::query_as(
+        let (key, value, header_keys, header_values): LagretRecord = sqlx::query_as(
             "SELECT record_key, record_value, header_keys, header_values FROM kafka_record WHERE topic_id = $1 AND record_offset = 1",
         )
         .bind(topic_id)

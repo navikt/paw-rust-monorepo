@@ -1,7 +1,4 @@
-use std::{
-    num::{NonZeroU16, NonZeroU32},
-    sync::Arc,
-};
+use std::{num::NonZeroU32, sync::Arc};
 
 use paw_observability::health::simple_app_state::AppState;
 use tokio::time::Interval;
@@ -57,7 +54,7 @@ pub async fn exec_regler(
     batch_size: NonZeroU32,
 ) -> Result<(), sqlx::Error> {
     let mut tx = pg_pool.begin().await?;
-    let Some(regel_fremdrift) = get_regel_fremdrift(&mut *tx)
+    let Some(regel_fremdrift) = get_regel_fremdrift(&mut tx)
         .await?
         .iter()
         .filter(|rf| {

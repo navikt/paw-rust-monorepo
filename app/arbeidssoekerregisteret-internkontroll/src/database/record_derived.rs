@@ -80,6 +80,7 @@ pub async fn insert_record_derived(
     Ok(())
 }
 
+#[cfg(test)]
 pub async fn get_record_derived(
     conn: &mut PgConnection,
     topic_id: i16,
@@ -99,30 +100,6 @@ pub async fn get_record_derived(
     .bind(record_partition)
     .bind(record_offset)
     .fetch_optional(&mut *conn)
-    .await
-}
-
-/// All records in a trace written by transaction `max_xid` or earlier,
-/// in the order they were written (xid order). `max_xid` is the xid8 value as
-/// bigint, since sqlx has no xid8 type.
-pub async fn get_record_derived_for_trace(
-    conn: &mut PgConnection,
-    trace_id: Uuid,
-    max_xid: i64,
-) -> Result<Vec<RecordDerived>, sqlx::Error> {
-    sqlx::query_as(
-        r#"
-        SELECT topic_id, record_partition, record_offset,
-               signature_status, signing_key_id,
-               timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
-        FROM record_derived
-        WHERE trace_id = $1 AND xid <= $2::bigint::text::xid8
-        ORDER BY xid
-        "#,
-    )
-    .bind(trace_id)
-    .bind(max_xid)
-    .fetch_all(&mut *conn)
     .await
 }
 
@@ -368,46 +345,18 @@ mod tests {
             .fetch_one(&pool)
         };
         let siste_xid = xid(3).await.unwrap();
-        let foerste_xid = xid(2).await.unwrap();
+        let trace_b_xid = xid(0).await.unwrap();
 
-        let offsets = |records: Vec<RecordDerived>| {
-            records.iter().map(|r| r.record_offset).collect::<Vec<_>>()
-        };
         assert_eq!(
-            offsets(
-                get_record_derived_for_trace(&mut conn, trace_a, siste_xid)
-                    .await
-                    .unwrap()
-            ),
-            vec![2, 1]
-        );
-        assert_eq!(
-            get_record_derived_for_trace(&mut conn, trace_b, siste_xid)
+            get_record_derived_trace_up_to_xid(&mut conn, trace_b_xid)
                 .await
                 .unwrap(),
             vec![skrevet[1].clone()]
         );
-        assert_eq!(
-            offsets(
-                get_record_derived_for_trace(&mut conn, trace_a, foerste_xid)
-                    .await
-                    .unwrap()
-            ),
-            vec![2],
-            "records over max_xid skal ikke hentes"
-        );
-        assert!(
-            get_record_derived_for_trace(&mut conn, trace_a, foerste_xid - 1)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            get_record_derived_for_trace(&mut conn, Uuid::from_u128(3), siste_xid)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+
+        let offsets = |records: Vec<RecordDerived>| {
+            records.iter().map(|r| r.record_offset).collect::<Vec<_>>()
+        };
 
         let trace_til = |offset: i64| {
             let pool = pool.clone();

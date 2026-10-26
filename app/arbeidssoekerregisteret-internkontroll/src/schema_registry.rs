@@ -1,4 +1,4 @@
-use paw_rust_base::env::{RuntimeEnv, nais_cluster_name};
+use paw_rust_base::env::RuntimeEnv;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use std::env;
 

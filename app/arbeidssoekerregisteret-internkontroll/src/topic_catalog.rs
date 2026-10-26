@@ -16,7 +16,7 @@ pub fn subscribed_topics() -> Vec<Topic> {
 
 pub fn topic_priorities(runtime_env: &RuntimeEnv) -> TopicPriorityList {
     TopicPriorityList::new(
-        &runtime_env,
+        runtime_env,
         vec![
             (&Topic::Bekreftelse, 0),
             (&Topic::BekreftelseHendelseLogg, 5),

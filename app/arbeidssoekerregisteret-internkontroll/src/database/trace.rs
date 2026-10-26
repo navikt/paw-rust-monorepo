@@ -25,6 +25,10 @@ pub async fn upsert_trace(
 }
 
 #[derive(Debug, thiserror::Error)]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Klassifisering av trace er ikke tatt i bruk ennå")
+)]
 pub enum TraceOperationTypeError {
     #[error("trace not found")]
     TraceNotFound,
@@ -40,6 +44,10 @@ pub enum TraceOperationTypeError {
 ///
 /// Storing the same type again succeeds, so a classification that is retried
 /// after a crash does not fail. A different stored type gives `AlreadyExists`.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Klassifisering av trace er ikke tatt i bruk ennå")
+)]
 pub async fn set_trace_operation_type(
     conn: &mut PgConnection,
     trace_id: Uuid,
