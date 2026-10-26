@@ -3234,25 +3234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paw_tilgangskontroll_client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "mockito",
- "paw_observability",
- "paw_tilgangskontroll_api_mock",
- "reqwest 0.13.5",
- "serde",
- "serde-env-field",
- "strum",
- "texas_client",
- "thiserror 2.0.20",
- "token_client_stub",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "paw_tilgangskontroll_v2_api_mock"
 version = "0.1.0"
 dependencies = [

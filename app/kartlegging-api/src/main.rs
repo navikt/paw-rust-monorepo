@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let token_client_config = read_token_client_config()?;
     let key_gen_client_config = read_paw_key_gen_client_config()?;
     let pdl_client_config = read_pdl_client_config()?;
-    let paw_tilgangskontroll_client_config = read_paw_tilgangskontroll_v2_client_config()?;
+    let paw_tilgangskontroll_v2_client_config = read_paw_tilgangskontroll_v2_client_config()?;
 
     setup_otel(otel_tracing_config)?;
     setup_metrics();
@@ -79,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
         token_client.clone(),
     ));
     let paw_tilgangskontroll_v2_client = Arc::new(PawTilgangskontrollV2Client::from_config(
-        paw_tilgangskontroll_client_config,
+        paw_tilgangskontroll_v2_client_config,
         http_client.clone(),
         token_client.clone(),
     ));

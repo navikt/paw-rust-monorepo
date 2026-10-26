@@ -24,7 +24,6 @@ members = [
     "lib/poao_tilgang_client",
     "lib/paw_oauth2_resource_server",
     "lib/paw_tilgangskontroll",
-    "lib/paw_tilgangskontroll_client",
     "lib/paw_tilgangskontroll_v2_client",
     "app/test-app",
     "app/kafka-topic-backup",
