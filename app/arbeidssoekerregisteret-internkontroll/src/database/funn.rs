@@ -1,10 +1,12 @@
-use sqlx::PgExecutor;
+use sqlx::PgConnection;
 use uuid::Uuid;
 
+use crate::regler::regel_katalog::RegelId;
+
 pub async fn upsert_funn(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     trace_id: Uuid,
-    regel: i16,
+    regel: RegelId,
     regelversjon: i32,
     utfall: i16,
 ) -> Result<(), sqlx::Error> {
@@ -22,15 +24,15 @@ pub async fn upsert_funn(
     .bind(regel)
     .bind(regelversjon)
     .bind(utfall)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
 pub async fn delete_funn(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     trace_id: Uuid,
-    regel: i16,
+    regel: RegelId,
     regelversjon: i32,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
@@ -42,7 +44,7 @@ pub async fn delete_funn(
     .bind(trace_id)
     .bind(regel)
     .bind(regelversjon)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
@@ -54,10 +56,13 @@ mod tests {
     use chrono::{DateTime, Utc};
     use postgres_testcontainer::postgres::setup_postgres_container;
 
-    async fn stored(pool: &sqlx::PgPool, trace_id: Uuid) -> (i16, DateTime<Utc>, DateTime<Utc>) {
+    async fn stored(
+        conn: &mut sqlx::PgConnection,
+        trace_id: Uuid,
+    ) -> (i16, DateTime<Utc>, DateTime<Utc>) {
         sqlx::query_as("SELECT utfall, opprettet, sist_oppdatert FROM funn WHERE trace_id = $1")
             .bind(trace_id)
-            .fetch_one(pool)
+            .fetch_one(&mut *conn)
             .await
             .unwrap()
     }
@@ -67,19 +72,26 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
         let trace_id = Uuid::from_u128(1);
-        upsert_trace(pool, trace_id, 1_000).await.unwrap();
+        upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
 
-        upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
-        let (utfall, opprettet, sist_oppdatert) = stored(pool, trace_id).await;
+        upsert_funn(&mut conn, trace_id, RegelId::IngenPeriodeUtenStartet, 1, 3)
+            .await
+            .unwrap();
+        let (utfall, opprettet, sist_oppdatert) = stored(&mut conn, trace_id).await;
         assert_eq!(utfall, 3);
         assert_eq!(sist_oppdatert, opprettet);
 
-        upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
-        assert_eq!(stored(pool, trace_id).await, (3, opprettet, opprettet));
+        upsert_funn(&mut conn, trace_id, RegelId::IngenPeriodeUtenStartet, 1, 3)
+            .await
+            .unwrap();
+        assert_eq!(stored(&mut conn, trace_id).await, (3, opprettet, opprettet));
 
-        upsert_funn(pool, trace_id, 1, 1, 0).await.unwrap();
-        let (utfall, opprettet_etter, sist_oppdatert) = stored(pool, trace_id).await;
+        upsert_funn(&mut conn, trace_id, RegelId::IngenPeriodeUtenStartet, 1, 0)
+            .await
+            .unwrap();
+        let (utfall, opprettet_etter, sist_oppdatert) = stored(&mut conn, trace_id).await;
         assert_eq!(utfall, 0);
         assert_eq!(opprettet_etter, opprettet);
         assert!(sist_oppdatert > opprettet);
@@ -90,25 +102,32 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
         let trace_id = Uuid::from_u128(1);
         let trace_id2 = Uuid::from_u128(2);
-        upsert_trace(pool, trace_id, 1_000).await.unwrap();
-        upsert_trace(pool, trace_id2, 1_000).await.unwrap();
+        upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
+        upsert_trace(&mut conn, trace_id2, 1_000).await.unwrap();
 
-        upsert_funn(pool, trace_id, 1, 1, 3).await.unwrap();
-        upsert_funn(pool, trace_id2, 1, 1, 3).await.unwrap();
-        assert_eq!(stored(pool, trace_id).await.0, 3);
+        upsert_funn(&mut conn, trace_id, RegelId::IngenPeriodeUtenStartet, 1, 3)
+            .await
+            .unwrap();
+        upsert_funn(&mut conn, trace_id2, RegelId::IngenPeriodeUtenStartet, 1, 3)
+            .await
+            .unwrap();
+        assert_eq!(stored(&mut conn, trace_id).await.0, 3);
 
-        delete_funn(pool, trace_id, 1, 1).await.unwrap();
+        delete_funn(&mut conn, trace_id, RegelId::IngenPeriodeUtenStartet, 1)
+            .await
+            .unwrap();
         let result = sqlx::query("SELECT utfall FROM funn WHERE trace_id = $1")
             .bind(trace_id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *conn)
             .await
             .unwrap();
         assert!(result.is_none());
         let result2 = sqlx::query("SELECT utfall FROM funn WHERE trace_id = $1")
             .bind(trace_id2)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *conn)
             .await
             .unwrap();
         assert!(result2.is_some());

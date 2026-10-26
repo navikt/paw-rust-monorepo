@@ -64,8 +64,10 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     reset_db_if_needed(&pg_pool, hwm_version).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    database::topic::register_topics(&pg_pool, &topics).await?;
-    let topic_ids = database::topic::load_topic_ids(&pg_pool).await?;
+    let mut conn = pg_pool.acquire().await?;
+    database::topic::register_topics(&mut conn, &topics).await?;
+    let topic_ids = database::topic::load_topic_ids(&mut conn).await?;
+    drop(conn);
     let (topic_update_sender, topic_update_receiver) =
         mpsc::unbounded_channel::<TopicPartitionUpdate>();
     let signing_required_from = SigningRequiredFrom::for_runtime(&runtime_env);

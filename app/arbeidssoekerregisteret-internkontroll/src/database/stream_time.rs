@@ -1,8 +1,8 @@
-use sqlx::PgExecutor;
+use sqlx::PgConnection;
 
 /// Returns the stored stream time for a topic-partition, or `None` if none is stored.
 pub async fn get_stream_time(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     topic_id: i16,
     topic_partition: i32,
 ) -> Result<Option<i64>, sqlx::Error> {
@@ -15,7 +15,7 @@ pub async fn get_stream_time(
     )
     .bind(topic_id)
     .bind(topic_partition)
-    .fetch_optional(executor)
+    .fetch_optional(&mut *conn)
     .await
 }
 
@@ -26,7 +26,7 @@ pub async fn get_stream_time(
 /// the row was updated: positive means later, negative means earlier.
 /// Returns `None` when the topic-partition had no stored timestamp.
 pub async fn upsert_stream_time(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     topic_id: i16,
     topic_partition: i32,
     timestamp_ms: i64,
@@ -52,6 +52,6 @@ pub async fn upsert_stream_time(
     .bind(topic_id)
     .bind(topic_partition)
     .bind(timestamp_ms)
-    .fetch_one(executor)
+    .fetch_one(&mut *conn)
     .await
 }

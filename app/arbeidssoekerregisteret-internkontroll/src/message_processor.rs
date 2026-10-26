@@ -60,16 +60,16 @@ impl InternkontrollMessageProcessor {
             std::io::Error::new(std::io::ErrorKind::InvalidData, "unknown Kafka topic")
         })?;
         let row = kafka_record_row(topic_id, msg);
-        insert_kafka_record(&mut **tx, &row).await?;
+        insert_kafka_record(tx, &row).await?;
 
         let timestamp_delta_ms = match row.record_timestamp_ms {
             Some(timestamp_ms) => {
-                upsert_stream_time(&mut **tx, topic_id, msg.partition(), timestamp_ms).await?
+                upsert_stream_time(tx, topic_id, msg.partition(), timestamp_ms).await?
             }
             None => None,
         };
 
-        let reference_time_ms = get_stream_time(&mut **tx, topic_id, msg.partition()).await?;
+        let reference_time_ms = get_stream_time(tx, topic_id, msg.partition()).await?;
         let signature = match reference_time_ms
             .and_then(|ms| DateTime::<Utc>::from_timestamp_millis(ms).map(|time| (ms, time)))
         {
@@ -83,7 +83,7 @@ impl InternkontrollMessageProcessor {
         let trace_id = trace_id_from_message(msg);
         let dekodet = self.dekodere.dekod(msg).await?;
         insert_record_derived(
-            &mut **tx,
+            tx,
             &RecordDerived {
                 topic_id,
                 record_partition: msg.partition(),
@@ -103,7 +103,7 @@ impl InternkontrollMessageProcessor {
         )
         .await?;
         if let (Some(trace_id), Some(reference_time_ms)) = (trace_id, reference_time_ms) {
-            upsert_trace(&mut **tx, trace_id, reference_time_ms).await?;
+            upsert_trace(tx, trace_id, reference_time_ms).await?;
         }
         Ok(())
     }
@@ -433,10 +433,14 @@ mod tests {
             .unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
-        crate::database::topic::register_topics(pool, &["topic"])
+        let mut conn = pool.acquire().await.unwrap();
+        crate::database::topic::register_topics(&mut conn, &["topic"])
             .await
             .unwrap();
-        let topic_ids = crate::database::topic::load_topic_ids(pool).await.unwrap();
+        let topic_ids = crate::database::topic::load_topic_ids(&mut conn)
+            .await
+            .unwrap();
+        drop(conn);
         let topic_id = topic_ids.get("topic").unwrap();
         sqlx::query("INSERT INTO hwm (version, topic, partition, hwm) VALUES (1, 'topic', 0, 0)")
             .execute(pool)
@@ -583,13 +587,17 @@ mod tests {
             .unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
         crate::database::topic::register_topics(
-            pool,
+            &mut conn,
             &["hendelselogg", "periode", "bekreftelse_hendelselogg"],
         )
         .await
         .unwrap();
-        let topic_ids = crate::database::topic::load_topic_ids(pool).await.unwrap();
+        let topic_ids = crate::database::topic::load_topic_ids(&mut conn)
+            .await
+            .unwrap();
+        drop(conn);
         let processor = InternkontrollMessageProcessor::new(
             no_requirement(),
             RecordVerifier::new(),

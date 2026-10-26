@@ -1,16 +1,18 @@
 use std::error::Error;
 
-use sqlx::{Postgres, Transaction};
+use sqlx::PgConnection;
 
-use crate::regler::regel_katalog::RegelId;
+use crate::regler::{
+    funn::Funn, hele_trace_er_signert::hele_trace_er_signert, regel_katalog::RegelId,
+};
 
 pub async fn exec(
-    tx: Transaction<'_, Postgres>,
+    conn: &mut PgConnection,
     regel_id: RegelId,
     xid: i64,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<Funn, sqlx::Error> {
     match regel_id {
-        RegelId::HeleTraceSignert => todo!("Implementer regel for HeleTraceSignert"),
+        RegelId::HeleTraceSignert => hele_trace_er_signert(conn, xid).await,
         RegelId::IngenPeriodeUtenStartet => todo!("Implementer regel for IngenPeriodeUtenStartet"),
     }
 }

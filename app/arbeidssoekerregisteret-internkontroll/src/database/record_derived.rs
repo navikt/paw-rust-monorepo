@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;
-use sqlx::{FromRow, PgExecutor, Row};
+use sqlx::{FromRow, PgConnection, Row};
+use std::num::NonZeroU32;
 use uuid::Uuid;
 
 use crate::database::payload::{Meldingstype, PayloadStatus};
@@ -49,7 +50,7 @@ impl FromRow<'_, PgRow> for RecordDerived {
 /// Writes the derived values for a record.
 /// A record is derived once, so writing it again is an error.
 pub async fn insert_record_derived(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     record: &RecordDerived,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
@@ -74,13 +75,13 @@ pub async fn insert_record_derived(
     .bind(record.periode_id)
     .bind(record.arbeidssoeker_id)
     .bind(record.derived_at)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
 pub async fn get_record_derived(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     topic_id: i16,
     record_partition: i32,
     record_offset: i64,
@@ -97,7 +98,7 @@ pub async fn get_record_derived(
     .bind(topic_id)
     .bind(record_partition)
     .bind(record_offset)
-    .fetch_optional(executor)
+    .fetch_optional(&mut *conn)
     .await
 }
 
@@ -105,7 +106,7 @@ pub async fn get_record_derived(
 /// in the order they were written (xid order). `max_xid` is the xid8 value as
 /// bigint, since sqlx has no xid8 type.
 pub async fn get_record_derived_for_trace(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     trace_id: Uuid,
     max_xid: i64,
 ) -> Result<Vec<RecordDerived>, sqlx::Error> {
@@ -121,7 +122,7 @@ pub async fn get_record_derived_for_trace(
     )
     .bind(trace_id)
     .bind(max_xid)
-    .fetch_all(executor)
+    .fetch_all(&mut *conn)
     .await
 }
 
@@ -129,7 +130,7 @@ pub async fn get_record_derived_for_trace(
 /// in the same trace, in xid order. Empty if the record has no trace_id or
 /// `xid` is unknown. `xid` is the xid8 value as bigint, since sqlx has no xid8 type.
 pub async fn get_record_derived_trace_up_to_xid(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     xid: i64,
 ) -> Result<Vec<RecordDerived>, sqlx::Error> {
     sqlx::query_as(
@@ -147,7 +148,32 @@ pub async fn get_record_derived_trace_up_to_xid(
         "#,
     )
     .bind(xid)
-    .fetch_all(executor)
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// The xids of up to `limit` records after `etter_xid`, in xid order. Empty
+/// when there are none yet. Only finished transactions are visible: rows from
+/// an earlier xid can still commit after a later one, and the marker must never
+/// skip them. xid8 values are bigint, since sqlx has no xid8 type.
+pub async fn get_neste_record_derived_xids(
+    conn: &mut PgConnection,
+    etter_xid: i64,
+    limit: NonZeroU32,
+) -> Result<Vec<i64>, sqlx::Error> {
+    sqlx::query_scalar(
+        r#"
+        SELECT xid::text::bigint
+        FROM record_derived
+        WHERE xid > $1::bigint::text::xid8
+          AND xid < pg_snapshot_xmin(pg_current_snapshot())
+        ORDER BY xid
+        LIMIT $2
+        "#,
+    )
+    .bind(etter_xid)
+    .bind(i64::from(limit.get()))
+    .fetch_all(&mut *conn)
     .await
 }
 
@@ -158,15 +184,21 @@ mod tests {
     use crate::database::signature::tests::alle_signaturer;
     use crate::database::topic::{load_topic_ids, register_topics};
     use postgres_testcontainer::postgres::setup_postgres_container;
+    use sqlx::PgConnection;
 
     #[tokio::test]
     async fn record_derived_skrives_en_gang_og_leses_tilbake() {
         let guard = setup_postgres_container().await.unwrap();
         let pool = guard.pg_pool.clone();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
 
-        register_topics(&pool, &["topic-a"]).await.unwrap();
-        let topic_id = load_topic_ids(&pool).await.unwrap().get("topic-a").unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
         for offset in [0, 1] {
             let row = KafkaRecordRow {
                 topic_id,
@@ -179,7 +211,7 @@ mod tests {
                 header_keys: vec![],
                 header_values: vec![],
             };
-            insert_kafka_record(&pool, &row).await.unwrap();
+            insert_kafka_record(&mut conn, &row).await.unwrap();
         }
 
         let derived_at = DateTime::from_timestamp_millis(10_000).unwrap();
@@ -198,26 +230,26 @@ mod tests {
             arbeidssoeker_id: Some(42),
             derived_at,
         };
-        insert_record_derived(&pool, &first).await.unwrap();
+        insert_record_derived(&mut conn, &first).await.unwrap();
         let second = RecordDerived {
             record_offset: 1,
             ..first.clone()
         };
-        insert_record_derived(&pool, &second).await.unwrap();
+        insert_record_derived(&mut conn, &second).await.unwrap();
 
-        let stored = get_record_derived(&pool, topic_id, 0, 0)
+        let stored = get_record_derived(&mut conn, topic_id, 0, 0)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(stored, first);
-        let stored_second = get_record_derived(&pool, topic_id, 0, 1)
+        let stored_second = get_record_derived(&mut conn, topic_id, 0, 1)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(stored_second, second);
 
         assert!(
-            insert_record_derived(&pool, &first).await.is_err(),
+            insert_record_derived(&mut conn, &first).await.is_err(),
             "a record must not be derived twice"
         );
 
@@ -234,8 +266,13 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = guard.pg_pool.clone();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-        register_topics(&pool, &["topic-a"]).await.unwrap();
-        let topic_id = load_topic_ids(&pool).await.unwrap().get("topic-a").unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
         let row = KafkaRecordRow {
             topic_id,
             record_partition: 0,
@@ -247,7 +284,7 @@ mod tests {
             header_keys: vec![],
             header_values: vec![],
         };
-        insert_kafka_record(&pool, &row).await.unwrap();
+        insert_kafka_record(&mut conn, &row).await.unwrap();
 
         for signature in alle_signaturer() {
             let wrong_key = match signature.signing_key_id() {
@@ -277,8 +314,13 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = guard.pg_pool.clone();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-        register_topics(&pool, &["topic-a"]).await.unwrap();
-        let topic_id = load_topic_ids(&pool).await.unwrap().get("topic-a").unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
         let trace_a = Uuid::from_u128(1);
         let trace_b = Uuid::from_u128(2);
 
@@ -300,7 +342,7 @@ mod tests {
                 header_keys: vec![],
                 header_values: vec![],
             };
-            insert_kafka_record(&pool, &row).await.unwrap();
+            insert_kafka_record(&mut conn, &row).await.unwrap();
             let derived = RecordDerived {
                 topic_id,
                 record_partition: 0,
@@ -314,7 +356,7 @@ mod tests {
                 arbeidssoeker_id: None,
                 derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
             };
-            insert_record_derived(&pool, &derived).await.unwrap();
+            insert_record_derived(&mut conn, &derived).await.unwrap();
             skrevet.push(derived);
         }
 
@@ -333,21 +375,21 @@ mod tests {
         };
         assert_eq!(
             offsets(
-                get_record_derived_for_trace(&pool, trace_a, siste_xid)
+                get_record_derived_for_trace(&mut conn, trace_a, siste_xid)
                     .await
                     .unwrap()
             ),
             vec![2, 1]
         );
         assert_eq!(
-            get_record_derived_for_trace(&pool, trace_b, siste_xid)
+            get_record_derived_for_trace(&mut conn, trace_b, siste_xid)
                 .await
                 .unwrap(),
             vec![skrevet[1].clone()]
         );
         assert_eq!(
             offsets(
-                get_record_derived_for_trace(&pool, trace_a, foerste_xid)
+                get_record_derived_for_trace(&mut conn, trace_a, foerste_xid)
                     .await
                     .unwrap()
             ),
@@ -355,13 +397,13 @@ mod tests {
             "records over max_xid skal ikke hentes"
         );
         assert!(
-            get_record_derived_for_trace(&pool, trace_a, foerste_xid - 1)
+            get_record_derived_for_trace(&mut conn, trace_a, foerste_xid - 1)
                 .await
                 .unwrap()
                 .is_empty()
         );
         assert!(
-            get_record_derived_for_trace(&pool, Uuid::from_u128(3), siste_xid)
+            get_record_derived_for_trace(&mut conn, Uuid::from_u128(3), siste_xid)
                 .await
                 .unwrap()
                 .is_empty()
@@ -377,8 +419,9 @@ mod tests {
                 .fetch_one(&pool)
                 .await
                 .unwrap();
+                let mut conn = pool.acquire().await.unwrap();
                 offsets(
-                    get_record_derived_trace_up_to_xid(&pool, xid)
+                    get_record_derived_trace_up_to_xid(&mut conn, xid)
                         .await
                         .unwrap(),
                 )
@@ -393,10 +436,152 @@ mod tests {
             "ingen trace_id gir ingen rader"
         );
         assert!(
-            get_record_derived_trace_up_to_xid(&pool, siste_xid + 1_000)
+            get_record_derived_trace_up_to_xid(&mut conn, siste_xid + 1_000)
                 .await
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> i64 {
+        let row = KafkaRecordRow {
+            topic_id,
+            record_partition: 0,
+            record_offset: offset,
+            record_timestamp_type: KafkaTimestampType::CreateTime,
+            record_timestamp_ms: Some(1_000),
+            record_key: None,
+            record_value: None,
+            header_keys: vec![],
+            header_values: vec![],
+        };
+        insert_kafka_record(conn, &row).await.unwrap();
+        let derived = RecordDerived {
+            topic_id,
+            record_partition: 0,
+            record_offset: offset,
+            signature: Signature::Missing,
+            timestamp_delta_ms: None,
+            trace_id: None,
+            payload_status: PayloadStatus::Ok,
+            meldingstype: None,
+            periode_id: None,
+            arbeidssoeker_id: None,
+            derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
+        };
+        insert_record_derived(conn, &derived).await.unwrap();
+        sqlx::query_scalar("SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1")
+            .bind(offset)
+            .fetch_one(&mut *conn)
+            .await
+            .unwrap()
+    }
+
+    fn limit(n: u32) -> NonZeroU32 {
+        NonZeroU32::new(n).unwrap()
+    }
+
+    async fn neste_xids_naar_ferdig(
+        pool: &sqlx::PgPool,
+        etter_xid: i64,
+        limit: NonZeroU32,
+        antall: usize,
+    ) -> Vec<i64> {
+        let mut xids = Vec::new();
+        for _ in 0..50 {
+            let mut conn = pool.acquire().await.unwrap();
+            xids = get_neste_record_derived_xids(&mut conn, etter_xid, limit)
+                .await
+                .unwrap();
+            if xids.len() >= antall {
+                break;
+            }
+            drop(conn);
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        xids
+    }
+
+    #[tokio::test]
+    async fn neste_xids_hentes_i_rekkefoelge_opp_til_limit() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = guard.pg_pool.clone();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
+
+        assert!(
+            get_neste_record_derived_xids(&mut conn, 0, limit(10))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let foerste = skriv_record(&mut conn, topic_id, 0).await;
+        let andre = skriv_record(&mut conn, topic_id, 1).await;
+        let tredje = skriv_record(&mut conn, topic_id, 2).await;
+
+        assert_eq!(
+            neste_xids_naar_ferdig(&pool, 0, limit(10), 3).await,
+            vec![foerste, andre, tredje]
+        );
+        assert_eq!(
+            neste_xids_naar_ferdig(&pool, 0, limit(2), 2).await,
+            vec![foerste, andre]
+        );
+        assert_eq!(
+            neste_xids_naar_ferdig(&pool, foerste, limit(1), 1).await,
+            vec![andre]
+        );
+        assert!(
+            get_neste_record_derived_xids(&mut conn, tredje, limit(10))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn neste_xids_venter_paa_eldre_aapen_transaksjon() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = guard.pg_pool.clone();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let mut conn_setup = pool.acquire().await.unwrap();
+        register_topics(&mut conn_setup, &["topic-a"])
+            .await
+            .unwrap();
+        let topic_id = load_topic_ids(&mut conn_setup)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
+        drop(conn_setup);
+
+        let mut aapen = pool.begin().await.unwrap();
+        sqlx::query("SELECT pg_current_xact_id()")
+            .execute(&mut *aapen)
+            .await
+            .unwrap();
+
+        let mut conn = pool.acquire().await.unwrap();
+        let senere = skriv_record(&mut conn, topic_id, 0).await;
+        assert!(
+            get_neste_record_derived_xids(&mut conn, 0, limit(10))
+                .await
+                .unwrap()
+                .is_empty(),
+            "rader over en åpen transaksjon skal ikke hentes"
+        );
+
+        aapen.rollback().await.unwrap();
+        assert_eq!(
+            neste_xids_naar_ferdig(&pool, 0, limit(10), 1).await,
+            vec![senere]
         );
     }
 }

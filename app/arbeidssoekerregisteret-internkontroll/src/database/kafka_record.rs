@@ -1,7 +1,7 @@
 use rdkafka::Message;
 use rdkafka::Timestamp;
 use rdkafka::message::{Headers, OwnedMessage};
-use sqlx::PgExecutor;
+use sqlx::PgConnection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "kafka_timestamp_type", rename_all = "snake_case")]
@@ -51,7 +51,7 @@ pub fn kafka_record_row(topic_id: i16, msg: &OwnedMessage) -> KafkaRecordRow<'_>
 }
 
 pub async fn insert_kafka_record(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     row: &KafkaRecordRow<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
@@ -74,7 +74,7 @@ pub async fn insert_kafka_record(
     .bind(row.record_value)
     .bind(&row.header_keys)
     .bind(&row.header_values)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }

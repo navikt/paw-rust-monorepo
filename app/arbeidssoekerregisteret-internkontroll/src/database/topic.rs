@@ -1,13 +1,10 @@
-use sqlx::PgExecutor;
+use sqlx::PgConnection;
 
 use crate::topic_ids::TopicIds;
 
 /// Registers the physical topic names in the `topic` table.
 /// Topics that are already registered keep their existing ID.
-pub async fn register_topics(
-    executor: impl PgExecutor<'_>,
-    topics: &[&str],
-) -> Result<(), sqlx::Error> {
+pub async fn register_topics(conn: &mut PgConnection, topics: &[&str]) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO topic (name)
@@ -16,15 +13,15 @@ pub async fn register_topics(
         "#,
     )
     .bind(topics)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
 /// Reads all registered topics into a [`TopicIds`] lookup.
-pub async fn load_topic_ids(executor: impl PgExecutor<'_>) -> Result<TopicIds, sqlx::Error> {
+pub async fn load_topic_ids(conn: &mut PgConnection) -> Result<TopicIds, sqlx::Error> {
     let rows: Vec<(String, i16)> = sqlx::query_as("SELECT name, id FROM topic")
-        .fetch_all(executor)
+        .fetch_all(&mut *conn)
         .await?;
     Ok(TopicIds::new(rows))
 }

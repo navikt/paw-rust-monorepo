@@ -2,6 +2,7 @@ pub mod funn;
 pub mod kafka_record;
 pub mod payload;
 pub mod record_derived;
+pub mod regel_fremdrift;
 pub mod signature;
 pub mod stream_time;
 pub mod topic;

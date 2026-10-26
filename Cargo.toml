@@ -95,6 +95,7 @@ apache-avro = "0.22"
 strum = { version = "0.28", features = ["derive"] }
 serde_with = { version = "3", features = ["chrono"] }
 utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
+itertools = "0.15"
 
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }

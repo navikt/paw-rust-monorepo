@@ -1,10 +1,10 @@
-use sqlx::PgExecutor;
+use sqlx::PgConnection;
 use uuid::Uuid;
 
 use crate::trace_operation_type::{TraceOperationType, UnknownTraceOperationType};
 
 pub async fn upsert_trace(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     trace_id: Uuid,
     reference_ms: i64,
 ) -> Result<(), sqlx::Error> {
@@ -19,7 +19,7 @@ pub async fn upsert_trace(
     )
     .bind(trace_id)
     .bind(reference_ms)
-    .execute(executor)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
@@ -41,7 +41,7 @@ pub enum TraceOperationTypeError {
 /// Storing the same type again succeeds, so a classification that is retried
 /// after a crash does not fail. A different stored type gives `AlreadyExists`.
 pub async fn set_trace_operation_type(
-    executor: impl PgExecutor<'_>,
+    conn: &mut PgConnection,
     trace_id: Uuid,
     operation_type: TraceOperationType,
 ) -> Result<(), TraceOperationTypeError> {
@@ -55,7 +55,7 @@ pub async fn set_trace_operation_type(
     )
     .bind(trace_id)
     .bind(i16::from(operation_type))
-    .fetch_optional(executor)
+    .fetch_optional(&mut *conn)
     .await?;
 
     let stored =
@@ -72,12 +72,12 @@ mod tests {
     use super::*;
     use postgres_testcontainer::postgres::setup_postgres_container;
 
-    async fn reference_times(pool: &sqlx::PgPool, trace_id: Uuid) -> (i64, i64) {
+    async fn reference_times(conn: &mut sqlx::PgConnection, trace_id: Uuid) -> (i64, i64) {
         sqlx::query_as(
             "SELECT first_reference_ms, last_reference_ms FROM trace WHERE trace_id = $1",
         )
         .bind(trace_id)
-        .fetch_one(pool)
+        .fetch_one(&mut *conn)
         .await
         .unwrap()
     }
@@ -87,16 +87,17 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
         let trace_id = Uuid::from_u128(1);
 
-        upsert_trace(pool, trace_id, 1_000).await.unwrap();
-        assert_eq!(reference_times(pool, trace_id).await, (1_000, 1_000));
-        upsert_trace(pool, trace_id, 3_000).await.unwrap();
-        assert_eq!(reference_times(pool, trace_id).await, (1_000, 3_000));
-        upsert_trace(pool, trace_id, 500).await.unwrap();
-        assert_eq!(reference_times(pool, trace_id).await, (500, 3_000));
-        upsert_trace(pool, trace_id, 2_000).await.unwrap();
-        assert_eq!(reference_times(pool, trace_id).await, (500, 3_000));
+        upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
+        assert_eq!(reference_times(&mut conn, trace_id).await, (1_000, 1_000));
+        upsert_trace(&mut conn, trace_id, 3_000).await.unwrap();
+        assert_eq!(reference_times(&mut conn, trace_id).await, (1_000, 3_000));
+        upsert_trace(&mut conn, trace_id, 500).await.unwrap();
+        assert_eq!(reference_times(&mut conn, trace_id).await, (500, 3_000));
+        upsert_trace(&mut conn, trace_id, 2_000).await.unwrap();
+        assert_eq!(reference_times(&mut conn, trace_id).await, (500, 3_000));
     }
 
     #[tokio::test]
@@ -104,21 +105,22 @@ mod tests {
         let guard = setup_postgres_container().await.unwrap();
         let pool = &guard.pg_pool;
         sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
         let trace_id = Uuid::from_u128(1);
 
         assert!(matches!(
-            set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStartet).await,
+            set_trace_operation_type(&mut conn, trace_id, TraceOperationType::PeriodeStartet).await,
             Err(TraceOperationTypeError::TraceNotFound)
         ));
-        upsert_trace(pool, trace_id, 1_000).await.unwrap();
-        set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStartet)
+        upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
+        set_trace_operation_type(&mut conn, trace_id, TraceOperationType::PeriodeStartet)
             .await
             .unwrap();
-        set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStartet)
+        set_trace_operation_type(&mut conn, trace_id, TraceOperationType::PeriodeStartet)
             .await
             .unwrap();
         assert!(matches!(
-            set_trace_operation_type(pool, trace_id, TraceOperationType::PeriodeStoppet).await,
+            set_trace_operation_type(&mut conn, trace_id, TraceOperationType::PeriodeStoppet).await,
             Err(TraceOperationTypeError::AlreadyExists(
                 TraceOperationType::PeriodeStartet
             ))
