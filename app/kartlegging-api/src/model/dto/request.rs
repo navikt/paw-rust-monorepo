@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use paw_error_handling::problem_details::ProblemDetails;
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};
+use types::identitetsnummer::Identitetsnummer;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, EnumString, AsRefStr)]
 #[strum(
@@ -46,18 +47,13 @@ impl IdentitetsnummerQueryRequest {
                 return Err(error);
             }
         }
-        if self.identitetsnummer.len() != 11 {
-            let error = ProblemDetails::validation_error(
+
+        match Identitetsnummer::new(self.identitetsnummer.clone()) {
+            Some(_) => Ok(()),
+            None => Err(ProblemDetails::validation_error(
                 path,
-                format!(
-                    "Felt 'identitetsnummer' har feil lengde: {}",
-                    self.identitetsnummer.len()
-                )
-                .as_str(),
-            );
-            Err(error)
-        } else {
-            Ok(())
+                "Felt 'identitetsnummer' har ugyldig format",
+            )),
         }
     }
 }
@@ -77,7 +73,15 @@ impl TilknyttetKontorQueryRequest {
         if let Some(paging) = &self.paging {
             paging.validate(path)?
         }
-        Ok(())
+
+        if self.kontor_id.is_empty() {
+            Err(ProblemDetails::validation_error(
+                path,
+                "Felt 'kontorId' har ugyldig format",
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 
