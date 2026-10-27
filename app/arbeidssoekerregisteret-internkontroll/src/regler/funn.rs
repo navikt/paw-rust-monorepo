@@ -4,6 +4,7 @@ use crate::regler::regel_katalog::RegelId;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Funn {
+    IkkeAktuell,
     IngenTraceId,
     AltOk {
         regel_id: RegelId,

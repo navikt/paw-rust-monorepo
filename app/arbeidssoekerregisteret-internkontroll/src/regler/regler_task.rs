@@ -9,7 +9,11 @@ use crate::{
         record_derived::get_neste_record_derived_xids,
         regel_fremdrift::{RegelFremdrift, get_regel_fremdrift, upsert_regel_fremdrift},
     },
-    regler::{funn::Funn::IngenTraceId, regel_katalog::RegelId, regel_router::exec},
+    regler::{
+        funn::Funn::{IkkeAktuell, IngenTraceId},
+        regel_katalog::RegelId,
+        regel_router::exec,
+    },
 };
 
 use super::funn::Funn::{AltOk, Feil};
@@ -92,6 +96,7 @@ pub async fn exec_regler(
         if klar {
             let funn = exec(&mut tx, regel_id, neste_xid).await?;
             match funn {
+                IkkeAktuell => {}
                 IngenTraceId => tracing::warn!("Ingen trace_id funner for xid {}", neste_xid),
                 AltOk {
                     regel_id,
