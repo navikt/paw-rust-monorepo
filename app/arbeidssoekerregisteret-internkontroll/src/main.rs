@@ -39,6 +39,7 @@ use tracing::info;
 
 use crate::meldinger::Dekodere;
 use crate::regler::hele_trace_er_signert::regel_hele_trace_er_signert;
+use crate::regler::ingen_periode_uten_startet::regel_ingen_periode_uten_startet;
 use crate::regler::regler_task::spawn_regel_task;
 use crate::reset_db::reset_db_if_needed;
 use crate::schema_registry::create_schema_registry_settings;
@@ -95,7 +96,10 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
         pg_pool.clone(),
         stream_config,
     );
-    let regler = vec![regel_hele_trace_er_signert()];
+    let regler = vec![
+        regel_hele_trace_er_signert(),
+        regel_ingen_periode_uten_startet(),
+    ];
     let regel_task = spawn_regel_task(
         pg_pool.clone(),
         app_state.clone(),
