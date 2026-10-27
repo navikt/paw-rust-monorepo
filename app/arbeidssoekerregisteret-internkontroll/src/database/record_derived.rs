@@ -141,10 +141,10 @@ pub async fn get_neste_record_derived_xids(
     sqlx::query_scalar(
         r#"
         SELECT xid::text::bigint
-        FROM record_derived
-        WHERE xid > $1::bigint::text::xid8
-          AND xid < pg_snapshot_xmin(pg_current_snapshot())
-        ORDER BY xid
+        FROM record_derived as rd
+        WHERE rd.xid > $1::bigint::text::xid8
+          AND rd.xid < pg_snapshot_xmin(pg_current_snapshot())
+        ORDER BY rd.xid
         LIMIT $2
         "#,
     )
