@@ -7,7 +7,7 @@ use crate::{
     database::{
         funn::{delete_funn, upsert_funn},
         record_derived::get_neste_record_derived_xids,
-        regel_fremdrift::{get_regel_fremdrift, upsert_regel_fremdrift},
+        regel_fremdrift::{RegelFremdrift, get_regel_fremdrift, upsert_regel_fremdrift},
     },
     regler::{funn::Funn::IngenTraceId, regel_katalog::RegelId, regel_router::exec},
 };
@@ -54,8 +54,24 @@ pub async fn exec_regler(
     batch_size: NonZeroU32,
 ) -> Result<(), sqlx::Error> {
     let mut tx = pg_pool.begin().await?;
-    let Some(regel_fremdrift) = get_regel_fremdrift(&mut tx)
-        .await?
+    let mut fremdrift = get_regel_fremdrift(&mut tx).await?;
+    for regel in regler {
+        if !fremdrift
+            .iter()
+            .any(|rf| rf.regel == regel.id && rf.regelversjon == regel.versjon)
+        {
+            let lagt_til = upsert_regel_fremdrift(&mut tx, regel.id, regel.versjon, 0).await?;
+            if lagt_til {
+                fremdrift.push(RegelFremdrift {
+                    regel: regel.id,
+                    regelversjon: regel.versjon,
+                    siste_xid: 0,
+                });
+            }
+        }
+    }
+    let fremdrift = fremdrift;
+    let Some(regel_fremdrift) = fremdrift
         .iter()
         .filter(|rf| {
             regler
