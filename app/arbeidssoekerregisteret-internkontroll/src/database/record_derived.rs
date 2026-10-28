@@ -120,11 +120,10 @@ pub async fn get_record_derived(
     .await
 }
 
-/// The record written by transaction `xid`, together with all earlier records
-/// in the same trace, in xid order. Empty if the record has no trace_id or
-/// `xid` is unknown. `xid` is the xid8 value as bigint, since sqlx has no xid8 type.
+/// Get record with xid + all records where trace_id matches tracie_id of this record and xid <= the given xid, in xid order.
+/// Empty if the record with the given xid does not exist or has no trace_id.
 #[tracing::instrument(skip(conn))]
-pub async fn get_record_derived_trace_up_to_xid(
+pub async fn get_at_xid_including_preceding_trace_records(
     conn: &mut PgConnection,
     xid: i64,
 ) -> Result<Vec<RecordDerived>, sqlx::Error> {
@@ -367,7 +366,7 @@ pub(crate) mod tests {
         let trace_b_xid = xid(0).await.unwrap();
 
         assert_eq!(
-            get_record_derived_trace_up_to_xid(&mut conn, trace_b_xid)
+            get_at_xid_including_preceding_trace_records(&mut conn, trace_b_xid)
                 .await
                 .unwrap(),
             vec![skrevet[1].clone()]
@@ -389,7 +388,7 @@ pub(crate) mod tests {
                 .unwrap();
                 let mut conn = pool.acquire().await.unwrap();
                 offsets(
-                    get_record_derived_trace_up_to_xid(&mut conn, xid)
+                    get_at_xid_including_preceding_trace_records(&mut conn, xid)
                         .await
                         .unwrap(),
                 )
@@ -404,7 +403,7 @@ pub(crate) mod tests {
             "ingen trace_id gir ingen rader"
         );
         assert!(
-            get_record_derived_trace_up_to_xid(&mut conn, siste_xid + 1_000)
+            get_at_xid_including_preceding_trace_records(&mut conn, siste_xid + 1_000)
                 .await
                 .unwrap()
                 .is_empty()

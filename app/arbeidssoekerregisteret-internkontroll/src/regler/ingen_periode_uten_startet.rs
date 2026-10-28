@@ -3,7 +3,7 @@ use sqlx::PgConnection;
 use crate::{
     database::{
         payload::Meldingstype,
-        record_derived::{RecordDerived, get_record_derived_trace_up_to_xid},
+        record_derived::{RecordDerived, get_at_xid_including_preceding_trace_records},
     },
     regler::{funn::Funn, regel_katalog::RegelId, regler_task::Regel},
 };
@@ -36,7 +36,7 @@ pub async fn ingen_periode_uten_startet(
     conn: &mut PgConnection,
     xid: i64,
 ) -> Result<Funn, sqlx::Error> {
-    let data = get_record_derived_trace_up_to_xid(conn, xid).await?;
+    let data = get_at_xid_including_preceding_trace_records(conn, xid).await?;
     Ok(evaluate_ingen_periode_uten_startet(data))
 }
 

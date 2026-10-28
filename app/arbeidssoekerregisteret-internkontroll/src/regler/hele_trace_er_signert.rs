@@ -2,7 +2,7 @@ use sqlx::PgConnection;
 
 use crate::{
     database::{
-        record_derived::{RecordDerived, get_record_derived_trace_up_to_xid},
+        record_derived::{RecordDerived, get_at_xid_including_preceding_trace_records},
         signature::Signature,
     },
     regler::{funn::Funn, regel_katalog::RegelId, regler_task::Regel},
@@ -33,7 +33,7 @@ fn feil(trace_id: uuid::Uuid) -> Funn {
 }
 
 pub async fn hele_trace_er_signert(conn: &mut PgConnection, xid: i64) -> Result<Funn, sqlx::Error> {
-    let data = get_record_derived_trace_up_to_xid(conn, xid).await?;
+    let data = get_at_xid_including_preceding_trace_records(conn, xid).await?;
     Ok(evaluate_hele_trace_er_signert(data))
 }
 
