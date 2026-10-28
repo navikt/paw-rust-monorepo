@@ -38,15 +38,20 @@ pub fn spawn_regel_task(
 ) -> tokio::task::JoinHandle<Result<(), sqlx::Error>> {
     tokio::spawn(async move {
         let mut interval = interval;
+        let mut antall_prosessert = 0_usize;
         loop {
             if !app_state.is_alive() {
                 return Ok(());
             }
-            interval.tick().await;
-            let res = exec_regler(&pg_pool, &regler, batch_size).await;
-            if res.is_err() {
-                app_state.set_is_alive(false);
-                res?
+            if antall_prosessert == 0 {
+                interval.tick().await;
+            }
+            match exec_regler(&pg_pool, &regler, batch_size).await {
+                Ok(antall) => antall_prosessert = antall,
+                Err(err) => {
+                    app_state.set_is_alive(false);
+                    return Err(err);
+                }
             }
         }
     })
@@ -56,7 +61,7 @@ pub async fn exec_regler(
     pg_pool: &sqlx::PgPool,
     regler: &[Regel],
     batch_size: NonZeroU32,
-) -> Result<(), sqlx::Error> {
+) -> Result<usize, sqlx::Error> {
     let mut tx = pg_pool.begin().await?;
     let mut fremdrift = get_regel_fremdrift(&mut tx).await?;
     for regel in regler {
@@ -85,12 +90,13 @@ pub async fn exec_regler(
         .min_by_key(|rf| rf.siste_xid)
         .cloned()
     else {
-        return Ok(());
+        return Ok(0);
     };
     let regel_id = regel_fremdrift.regel;
     let regel_versjon = regel_fremdrift.regelversjon;
     let neste_xids =
         get_neste_record_derived_xids(&mut tx, regel_fremdrift.siste_xid, batch_size).await?;
+    let antall_nye_xids = neste_xids.len();
     for neste_xid in neste_xids {
         let klar = upsert_regel_fremdrift(&mut tx, regel_id, regel_versjon, neste_xid).await?;
         if klar {
@@ -119,5 +125,5 @@ pub async fn exec_regler(
         }
     }
     tx.commit().await?;
-    Ok(())
+    Ok(antall_nye_xids)
 }
