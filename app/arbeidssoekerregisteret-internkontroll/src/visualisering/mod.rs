@@ -19,7 +19,8 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tracing::error;
 
 use crate::database::visualisering::{
-    MAKS_ETTERSLEP, RegelStatus, hent_max_xid, hent_regel_status,
+    MAKS_ETTERSLEP, ManglerTraceId, RegelStatus, hent_mangler_trace_id_per_topic, hent_max_xid,
+    hent_regel_status,
 };
 use crate::regler::regel_katalog::RegelId;
 
@@ -52,6 +53,7 @@ pub fn routes(pg_pool: PgPool, auth_state: Option<Arc<AuthState>>) -> Router {
         .route("/stats", get(velkommen))
         .route("/stats/", get(velkommen))
         .route("/stats/regler", get(regler))
+        .route("/stats/mangler-trace-id", get(mangler_trace_id))
         .route("/stats/static/htmx.min.js", get(htmx));
     if let Some(auth_state) = auth_state {
         router = router.route_layer(oauth2_server_layer(auth_state));
@@ -112,8 +114,51 @@ async fn regler(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCod
     Ok(Html(regel_tabell(&status, max_xid)))
 }
 
+/// HTML-fragment med antall records uten trace_id per topic.
+async fn mangler_trace_id(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCode> {
+    let mut conn = pg_pool.acquire().await.map_err(intern_feil)?;
+    let rader = hent_mangler_trace_id_per_topic(&mut conn)
+        .await
+        .map_err(intern_feil)?;
+    Ok(Html(mangler_trace_id_tabell(&rader)))
+}
+
+/// Topic-navn kommer fra databasen og escapes.
+fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
+    if rader.is_empty() {
+        return "<p>Ingen records mangler trace_id.</p>".to_string();
+    }
+    let mut html =
+        String::from("<table><thead><tr><th>Topic</th><th>Antall</th></tr></thead><tbody>");
+    for r in rader {
+        let _ = write!(
+            html,
+            "<tr><td>{}</td><td>{}</td></tr>",
+            escape_html(&r.topic),
+            r.antall
+        );
+    }
+    html.push_str("</tbody></table>");
+    html
+}
+
+fn escape_html(s: &str) -> String {
+    let mut ut = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => ut.push_str("&amp;"),
+            '<' => ut.push_str("&lt;"),
+            '>' => ut.push_str("&gt;"),
+            '"' => ut.push_str("&quot;"),
+            '\'' => ut.push_str("&#39;"),
+            _ => ut.push(c),
+        }
+    }
+    ut
+}
+
 fn intern_feil(e: sqlx::Error) -> StatusCode {
-    error!("Henting av regelstatus feilet: {e}");
+    error!("Henting av data til visualisering feilet: {e}");
     StatusCode::INTERNAL_SERVER_ERROR
 }
 
@@ -193,6 +238,20 @@ mod tests {
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK, "{sti}");
         }
+    }
+
+    #[test]
+    fn mangler_trace_id_tabell_tom_og_escapet() {
+        assert_eq!(
+            mangler_trace_id_tabell(&[]),
+            "<p>Ingen records mangler trace_id.</p>"
+        );
+        let html = mangler_trace_id_tabell(&[ManglerTraceId {
+            topic: "<script>&'\"".to_string(),
+            antall: 3,
+        }]);
+        assert!(html.contains("<td>&lt;script&gt;&amp;&#39;&quot;</td><td>3</td>"));
+        assert!(!html.contains("<script>"));
     }
 
     #[tokio::test]

@@ -66,6 +66,40 @@ pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::
     .await
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManglerTraceId {
+    pub topic: String,
+    pub antall: i64,
+}
+
+/// Antall records i `record_derived` uten trace_id, per topic-navn.
+/// Topics uten slike records er ikke med.
+#[tracing::instrument(skip(conn))]
+pub async fn hent_mangler_trace_id_per_topic(
+    conn: &mut PgConnection,
+) -> Result<Vec<ManglerTraceId>, sqlx::Error> {
+    let rows = sqlx::query(
+        r#"
+        SELECT t.name AS topic, count(*) AS antall
+        FROM record_derived rd
+        JOIN topic t ON t.id = rd.topic_id
+        WHERE rd.trace_id IS NULL
+        GROUP BY t.name
+        ORDER BY t.name
+        "#,
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            Ok(ManglerTraceId {
+                topic: row.try_get("topic")?,
+                antall: row.try_get("antall")?,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,6 +162,52 @@ mod tests {
                     siste_xid: xid3,
                     etter: 0,
                     antall_funn: 0,
+                },
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn teller_records_uten_trace_id_per_topic() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+
+        assert!(
+            hent_mangler_trace_id_per_topic(&mut conn)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        register_topics(&mut conn, &["topic-a", "topic-b", "topic-c"])
+            .await
+            .unwrap();
+        let ids = load_topic_ids(&mut conn).await.unwrap();
+        let a = ids.get("topic-a").unwrap();
+        let b = ids.get("topic-b").unwrap();
+        skriv_record(&mut conn, a, 0).await;
+        skriv_record(&mut conn, a, 1).await;
+        skriv_record(&mut conn, b, 0).await;
+        sqlx::query("UPDATE record_derived SET trace_id = $1 WHERE topic_id = $2")
+            .bind(Uuid::from_u128(1))
+            .bind(b)
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        skriv_record(&mut conn, b, 1).await;
+
+        assert_eq!(
+            hent_mangler_trace_id_per_topic(&mut conn).await.unwrap(),
+            vec![
+                ManglerTraceId {
+                    topic: "topic-a".to_string(),
+                    antall: 2
+                },
+                ManglerTraceId {
+                    topic: "topic-b".to_string(),
+                    antall: 1
                 },
             ]
         );
