@@ -8,6 +8,7 @@ mod signing_required_tools;
 mod topic_catalog;
 mod topic_ids;
 mod trace_operation_type;
+mod visualisering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,10 +26,11 @@ use paw_kafka::hwm::{
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::signing::RecordVerifier;
 use paw_kafka::topics::get_topic_names;
-use paw_observability::server::spawn_health_server;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::{
-    await_signal::await_signal, env::runtime_env, panic_logger::register_panic_logger,
+    await_signal::await_signal,
+    env::{RuntimeEnv, runtime_env},
+    panic_logger::register_panic_logger,
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
@@ -62,12 +64,22 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
     let app_state = Arc::new(simple_app_state::AppState::new());
-    let http_server_task = spawn_health_server(app_state.clone());
-    let hwm_version = *kafka_config.hwm_version;
     let runtime_env = runtime_env();
+    let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
+    let mut http_routes = paw_observability::server::routes(app_state.clone());
+    if matches!(runtime_env, RuntimeEnv::DevGcp | RuntimeEnv::Local) {
+        tracing::info!("Legger til visualisering http-routes");
+        http_routes = http_routes.merge(visualisering::routes(pg_pool.clone()));
+    } else {
+        tracing::info!("Miljø {runtime_env:?}, legger ikke til visualisering http-routes");
+    }
+    let http_server_task = tokio::spawn(async move {
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+        axum::serve(listener, http_routes).await
+    });
+    let hwm_version = *kafka_config.hwm_version;
     let subscribed_topics = subscribed_topics();
     let topics = get_topic_names(&runtime_env, &subscribed_topics);
-    let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
     reset_db_if_needed(&pg_pool, hwm_version).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let mut conn = pg_pool.acquire().await?;

@@ -155,7 +155,7 @@ pub async fn get_neste_record_derived_xids(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::database::kafka_record::{KafkaRecordRow, KafkaTimestampType, insert_kafka_record};
     use crate::database::signature::tests::alle_signaturer;
@@ -392,7 +392,7 @@ mod tests {
         );
     }
 
-    async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> i64 {
+    pub(crate) async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> i64 {
         let row = KafkaRecordRow {
             topic_id,
             record_partition: 0,

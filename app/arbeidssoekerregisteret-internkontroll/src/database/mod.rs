@@ -7,3 +7,4 @@ pub mod signature;
 pub mod stream_time;
 pub mod topic;
 pub mod trace;
+pub mod visualisering;

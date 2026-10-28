@@ -137,6 +137,7 @@ name = "arbeidssoekerregisteret-internkontroll"
 version = "0.1.0"
 dependencies = [
  "apache-avro",
+ "axum",
  "base64 0.23.1",
  "bekreftelse_interne_hendelser",
  "chrono",

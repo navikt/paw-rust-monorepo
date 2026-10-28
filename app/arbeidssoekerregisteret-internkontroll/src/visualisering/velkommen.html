@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Internkontroll</title>
+    <script src="/static/htmx.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 4rem auto; padding: 0 1rem; color: #23262a; }
+        h1 { margin-bottom: 0.5rem; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #cfd3d8; }
+        td:nth-child(n+3), th:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Internkontroll</h1>
+        <p>Velkommen til internkontroll for arbeidssøkerregisteret.</p>
+        <h2>Regler</h2>
+        <div hx-get="/regler" hx-trigger="load, every 30s">
+            <p>Laster …</p>
+        </div>
+    </main>
+</body>
+</html>
