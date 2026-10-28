@@ -1,0 +1,27 @@
+{
+  "type" : "record",
+  "name" : "Sivilstand",
+  "namespace" : "no.nav.person.pdl.leesah.sivilstand",
+  "fields" : [ {
+    "name" : "type",
+    "type" : "string"
+  }, {
+    "name" : "gyldigFraOgMed",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "relatertVedSivilstand",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "bekreftelsesdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}

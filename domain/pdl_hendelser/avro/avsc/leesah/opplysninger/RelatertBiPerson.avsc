@@ -1,0 +1,44 @@
+{
+  "type" : "record",
+  "name" : "RelatertBiPerson",
+  "namespace" : "no.nav.person.pdl.leesah.forelderbarnrelasjon",
+  "fields" : [ {
+    "name" : "navn",
+    "type" : {
+      "type" : "record",
+      "name" : "Personnavn",
+      "namespace" : "no.nav.person.pdl.leesah.common",
+      "fields" : [ {
+        "name" : "fornavn",
+        "type" : "string"
+      }, {
+        "name" : "mellomnavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "etternavn",
+        "type" : "string"
+      } ]
+    }
+  }, {
+    "name" : "foedselsdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "statsborgerskap",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "kjoenn",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "KjoennType",
+      "namespace" : "no.nav.person.pdl.leesah.common",
+      "symbols" : [ "MANN", "KVINNE", "UKJENT" ]
+    } ],
+    "default" : null
+  } ]
+}

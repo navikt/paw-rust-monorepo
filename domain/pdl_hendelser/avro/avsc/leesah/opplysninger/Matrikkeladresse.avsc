@@ -1,0 +1,46 @@
+{
+  "type" : "record",
+  "name" : "Matrikkeladresse",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "matrikkelId",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "bruksenhetsnummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "tilleggsnavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postnummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "kommunenummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "koordinater",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "Koordinater",
+      "fields" : [ {
+        "name" : "x",
+        "type" : [ "null", "float" ],
+        "default" : null
+      }, {
+        "name" : "y",
+        "type" : [ "null", "float" ],
+        "default" : null
+      }, {
+        "name" : "z",
+        "type" : [ "null", "float" ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  } ]
+}

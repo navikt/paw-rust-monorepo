@@ -1,0 +1,6 @@
+{
+  "type" : "enum",
+  "name" : "KjoennType",
+  "namespace" : "no.nav.person.pdl.leesah.common",
+  "symbols" : [ "MANN", "KVINNE", "UKJENT" ]
+}

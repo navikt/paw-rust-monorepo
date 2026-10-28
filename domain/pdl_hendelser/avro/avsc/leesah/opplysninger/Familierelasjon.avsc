@@ -1,0 +1,16 @@
+{
+  "type" : "record",
+  "name" : "Familierelasjon",
+  "namespace" : "no.nav.person.pdl.leesah.familierelasjon",
+  "fields" : [ {
+    "name" : "relatertPersonsIdent",
+    "type" : "string"
+  }, {
+    "name" : "relatertPersonsRolle",
+    "type" : "string"
+  }, {
+    "name" : "minRolleForPerson",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

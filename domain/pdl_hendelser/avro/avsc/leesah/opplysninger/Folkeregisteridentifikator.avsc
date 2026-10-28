@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "Folkeregisteridentifikator",
+  "namespace" : "no.nav.person.pdl.leesah.folkeregisteridentifikator",
+  "fields" : [ {
+    "name" : "identifikasjonsnummer",
+    "type" : "string"
+  }, {
+    "name" : "type",
+    "type" : "string"
+  }, {
+    "name" : "status",
+    "type" : "string"
+  } ]
+}

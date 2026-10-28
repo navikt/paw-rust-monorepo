@@ -1,0 +1,30 @@
+{
+  "type" : "record",
+  "name" : "Statsborgerskap",
+  "namespace" : "no.nav.person.pdl.leesah.statsborgerskap",
+  "fields" : [ {
+    "name" : "land",
+    "type" : "string"
+  }, {
+    "name" : "gyldigFom",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "gyldigTom",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "bekreftelsesdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}

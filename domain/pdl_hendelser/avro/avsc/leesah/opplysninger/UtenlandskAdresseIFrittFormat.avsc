@@ -1,0 +1,29 @@
+{
+  "type" : "record",
+  "name" : "UtenlandskAdresseIFrittFormat",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "adresselinje1",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "adresselinje2",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "adresselinje3",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postkode",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "byEllerStedsnavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "landkode",
+    "type" : "string"
+  } ]
+}

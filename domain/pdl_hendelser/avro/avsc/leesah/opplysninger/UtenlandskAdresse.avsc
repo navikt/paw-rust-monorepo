@@ -1,0 +1,33 @@
+{
+  "type" : "record",
+  "name" : "UtenlandskAdresse",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "adressenavnNummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "bygningEtasjeLeilighet",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postboksNummerNavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postkode",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "bySted",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "regionDistriktOmraade",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "landkode",
+    "type" : "string"
+  } ]
+}

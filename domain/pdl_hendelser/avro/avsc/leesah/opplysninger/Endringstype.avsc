@@ -1,0 +1,6 @@
+{
+  "type" : "enum",
+  "name" : "Endringstype",
+  "namespace" : "no.nav.person.pdl.leesah",
+  "symbols" : [ "OPPRETTET", "KORRIGERT", "ANNULLERT", "OPPHOERT" ]
+}

@@ -1,0 +1,22 @@
+{
+  "type" : "record",
+  "name" : "PostadresseIFrittFormat",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "adresselinje1",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "adresselinje2",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "adresselinje3",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postnummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

@@ -1,0 +1,40 @@
+{
+  "type" : "record",
+  "name" : "Sikkerhetstiltak",
+  "namespace" : "no.nav.person.pdl.leesah.sikkerhetstiltak",
+  "fields" : [ {
+    "name" : "kontaktperson",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "Kontaktperson",
+      "fields" : [ {
+        "name" : "personident",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "norgEnhet",
+        "type" : [ "null", "string" ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  }, {
+    "name" : "type",
+    "type" : "string"
+  }, {
+    "name" : "beskrivelse",
+    "type" : "string"
+  }, {
+    "name" : "gyldigFom",
+    "type" : {
+      "type" : "int",
+      "logicalType" : "date"
+    }
+  }, {
+    "name" : "gyldigTom",
+    "type" : {
+      "type" : "int",
+      "logicalType" : "date"
+    }
+  } ]
+}

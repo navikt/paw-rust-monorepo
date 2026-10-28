@@ -1,0 +1,14 @@
+{
+  "type" : "record",
+  "name" : "InnflyttingTilNorge",
+  "namespace" : "no.nav.person.pdl.leesah.innflytting",
+  "fields" : [ {
+    "name" : "fraflyttingsland",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "fraflyttingsstedIUtlandet",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

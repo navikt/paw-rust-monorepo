@@ -1,0 +1,10 @@
+{
+  "type" : "record",
+  "name" : "UkjentBosted",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "bostedskommune",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

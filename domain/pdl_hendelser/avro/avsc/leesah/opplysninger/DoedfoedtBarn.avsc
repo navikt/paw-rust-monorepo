@@ -1,0 +1,13 @@
+{
+  "type" : "record",
+  "name" : "DoedfoedtBarn",
+  "namespace" : "no.nav.person.pdl.leesah.doedfoedtbarn",
+  "fields" : [ {
+    "name" : "dato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}

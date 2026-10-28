@@ -1,0 +1,29 @@
+{
+  "type" : "record",
+  "name" : "Foedsel",
+  "namespace" : "no.nav.person.pdl.leesah.foedsel",
+  "fields" : [ {
+    "name" : "foedselsaar",
+    "type" : [ "null", "int" ],
+    "default" : null
+  }, {
+    "name" : "foedselsdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "foedeland",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "foedested",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "foedekommune",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

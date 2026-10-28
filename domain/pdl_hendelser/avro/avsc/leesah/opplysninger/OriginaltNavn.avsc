@@ -1,0 +1,18 @@
+{
+  "type" : "record",
+  "name" : "OriginaltNavn",
+  "namespace" : "no.nav.person.pdl.leesah.navn",
+  "fields" : [ {
+    "name" : "fornavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "mellomnavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "etternavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

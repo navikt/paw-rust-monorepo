@@ -1,0 +1,6 @@
+{
+  "type" : "enum",
+  "name" : "Gradering",
+  "namespace" : "no.nav.person.pdl.leesah.adressebeskyttelse",
+  "symbols" : [ "STRENGT_FORTROLIG_UTLAND", "STRENGT_FORTROLIG", "FORTROLIG", "UGRADERT" ]
+}

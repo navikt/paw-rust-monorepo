@@ -126,3 +126,19 @@ docker-build-fast app features="": (builder-image app features)
         -f docker/app/Dockerfile \
         -t {{ app }}:local \
         .
+
+# Generate Leesah .avsc from .avdl (requires java; downloads avro-tools to target/).
+# PersonhendelseHode.avsc is hand-written and not touched.
+leesah-avsc version="1.12.0":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    jar="target/avro-tools-{{ version }}.jar"
+    mkdir -p target
+    [ -f "$jar" ] || curl -sSfL -o "$jar" "https://repo1.maven.org/maven2/org/apache/avro/avro-tools/{{ version }}/avro-tools-{{ version }}.jar"
+    out=domain/pdl_hendelser/avro/avsc/leesah
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    java -jar "$jar" idl2schemata domain/pdl_hendelser/avro/avdl/leesah/Personhendelse.avdl "$tmp"
+    rm -rf "$out/opplysninger" && mkdir -p "$out/opplysninger"
+    mv "$tmp/Personhendelse.avsc" "$out/"
+    mv "$tmp"/*.avsc "$out/opplysninger/"

@@ -1,0 +1,13 @@
+{
+  "type" : "record",
+  "name" : "Adressebeskyttelse",
+  "namespace" : "no.nav.person.pdl.leesah.adressebeskyttelse",
+  "fields" : [ {
+    "name" : "gradering",
+    "type" : {
+      "type" : "enum",
+      "name" : "Gradering",
+      "symbols" : [ "STRENGT_FORTROLIG_UTLAND", "STRENGT_FORTROLIG", "FORTROLIG", "UGRADERT" ]
+    }
+  } ]
+}

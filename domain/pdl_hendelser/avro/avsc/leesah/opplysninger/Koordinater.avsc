@@ -1,0 +1,18 @@
+{
+  "type" : "record",
+  "name" : "Koordinater",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "x",
+    "type" : [ "null", "float" ],
+    "default" : null
+  }, {
+    "name" : "y",
+    "type" : [ "null", "float" ],
+    "default" : null
+  }, {
+    "name" : "z",
+    "type" : [ "null", "float" ],
+    "default" : null
+  } ]
+}

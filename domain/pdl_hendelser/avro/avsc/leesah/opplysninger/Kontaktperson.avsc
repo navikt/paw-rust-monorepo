@@ -1,0 +1,14 @@
+{
+  "type" : "record",
+  "name" : "Kontaktperson",
+  "namespace" : "no.nav.person.pdl.leesah.sikkerhetstiltak",
+  "fields" : [ {
+    "name" : "personident",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "norgEnhet",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

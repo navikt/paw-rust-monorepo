@@ -1,0 +1,47 @@
+{
+  "type" : "record",
+  "name" : "Navn",
+  "namespace" : "no.nav.person.pdl.leesah.navn",
+  "fields" : [ {
+    "name" : "fornavn",
+    "type" : "string"
+  }, {
+    "name" : "mellomnavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "etternavn",
+    "type" : "string"
+  }, {
+    "name" : "forkortetNavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "originaltNavn",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "OriginaltNavn",
+      "fields" : [ {
+        "name" : "fornavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "mellomnavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "etternavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  }, {
+    "name" : "gyldigFraOgMed",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}

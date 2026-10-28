@@ -1,0 +1,18 @@
+{
+  "type" : "record",
+  "name" : "Telefonnummer",
+  "namespace" : "no.nav.person.pdl.leesah.telefonnummer",
+  "fields" : [ {
+    "name" : "landskode",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "nummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "prioritet",
+    "type" : [ "null", "int" ],
+    "default" : null
+  } ]
+}

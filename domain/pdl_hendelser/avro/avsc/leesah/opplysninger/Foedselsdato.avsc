@@ -1,0 +1,17 @@
+{
+  "type" : "record",
+  "name" : "Foedselsdato",
+  "namespace" : "no.nav.person.pdl.leesah.foedselsdato",
+  "fields" : [ {
+    "name" : "foedselsaar",
+    "type" : [ "null", "int" ],
+    "default" : null
+  }, {
+    "name" : "foedselsdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}

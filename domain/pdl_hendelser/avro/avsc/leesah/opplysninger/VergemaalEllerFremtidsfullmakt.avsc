@@ -1,0 +1,52 @@
+{
+  "type" : "record",
+  "name" : "VergemaalEllerFremtidsfullmakt",
+  "namespace" : "no.nav.person.pdl.leesah.verge",
+  "fields" : [ {
+    "name" : "type",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "embete",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "vergeEllerFullmektig",
+    "type" : {
+      "type" : "record",
+      "name" : "VergeEllerFullmektig",
+      "fields" : [ {
+        "name" : "navn",
+        "type" : [ "null", {
+          "type" : "record",
+          "name" : "Personnavn",
+          "namespace" : "no.nav.person.pdl.leesah.common",
+          "fields" : [ {
+            "name" : "fornavn",
+            "type" : "string"
+          }, {
+            "name" : "mellomnavn",
+            "type" : [ "null", "string" ],
+            "default" : null
+          }, {
+            "name" : "etternavn",
+            "type" : "string"
+          } ]
+        } ],
+        "default" : null
+      }, {
+        "name" : "motpartsPersonident",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "omfang",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "omfangetErInnenPersonligOmraade",
+        "type" : [ "null", "boolean" ],
+        "default" : null
+      } ]
+    }
+  } ]
+}

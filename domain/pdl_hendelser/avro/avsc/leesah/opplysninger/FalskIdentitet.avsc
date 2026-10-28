@@ -1,0 +1,9 @@
+{
+  "type" : "record",
+  "name" : "FalskIdentitet",
+  "namespace" : "no.nav.person.pdl.leesah.falskidentitet",
+  "fields" : [ {
+    "name" : "erFalsk",
+    "type" : "boolean"
+  } ]
+}

@@ -1,0 +1,17 @@
+{
+  "type" : "record",
+  "name" : "Postboksadresse",
+  "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+  "fields" : [ {
+    "name" : "postbokseier",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "postboks",
+    "type" : "string"
+  }, {
+    "name" : "postnummer",
+    "type" : [ "null", "string" ],
+    "default" : null
+  } ]
+}

@@ -1,0 +1,12 @@
+@namespace("no.nav.person.pdl.leesah.forelderbarnrelasjon")
+protocol RelatertBiPersonV1 {
+  import idl "../common/Personnavn.avdl";
+  import idl "../common/KjoennType.avdl";
+
+  record RelatertBiPerson {
+    no.nav.person.pdl.leesah.common.Personnavn navn;
+    union { null, date } foedselsdato = null;
+    union { null, string } statsborgerskap = null;
+    union { null, no.nav.person.pdl.leesah.common.KjoennType } kjoenn = null;
+  }
+}

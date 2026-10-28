@@ -1,0 +1,134 @@
+{
+  "type" : "record",
+  "name" : "DeltBosted",
+  "namespace" : "no.nav.person.pdl.leesah.deltbosted",
+  "fields" : [ {
+    "name" : "startdatoForKontrakt",
+    "type" : {
+      "type" : "int",
+      "logicalType" : "date"
+    }
+  }, {
+    "name" : "sluttdatoForKontrakt",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  }, {
+    "name" : "coAdressenavn",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "vegadresse",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "Vegadresse",
+      "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+      "fields" : [ {
+        "name" : "matrikkelId",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "husnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "husbokstav",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "bruksenhetsnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "adressenavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "kommunenummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "bydelsnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "tilleggsnavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "postnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "koordinater",
+        "type" : [ "null", {
+          "type" : "record",
+          "name" : "Koordinater",
+          "fields" : [ {
+            "name" : "x",
+            "type" : [ "null", "float" ],
+            "default" : null
+          }, {
+            "name" : "y",
+            "type" : [ "null", "float" ],
+            "default" : null
+          }, {
+            "name" : "z",
+            "type" : [ "null", "float" ],
+            "default" : null
+          } ]
+        } ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  }, {
+    "name" : "matrikkeladresse",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "Matrikkeladresse",
+      "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+      "fields" : [ {
+        "name" : "matrikkelId",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "bruksenhetsnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "tilleggsnavn",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "postnummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "kommunenummer",
+        "type" : [ "null", "string" ],
+        "default" : null
+      }, {
+        "name" : "koordinater",
+        "type" : [ "null", "Koordinater" ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  }, {
+    "name" : "ukjentBosted",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "UkjentBosted",
+      "namespace" : "no.nav.person.pdl.leesah.common.adresse",
+      "fields" : [ {
+        "name" : "bostedskommune",
+        "type" : [ "null", "string" ],
+        "default" : null
+      } ]
+    } ],
+    "default" : null
+  } ]
+}

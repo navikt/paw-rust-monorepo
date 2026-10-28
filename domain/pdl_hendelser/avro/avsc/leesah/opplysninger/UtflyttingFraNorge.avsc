@@ -1,0 +1,21 @@
+{
+  "type" : "record",
+  "name" : "UtflyttingFraNorge",
+  "namespace" : "no.nav.person.pdl.leesah.utflytting",
+  "fields" : [ {
+    "name" : "tilflyttingsland",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "tilflyttingsstedIUtlandet",
+    "type" : [ "null", "string" ],
+    "default" : null
+  }, {
+    "name" : "utflyttingsdato",
+    "type" : [ "null", {
+      "type" : "int",
+      "logicalType" : "date"
+    } ],
+    "default" : null
+  } ]
+}
