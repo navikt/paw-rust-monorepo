@@ -11,18 +11,20 @@
         table { border-collapse: collapse; width: 100%; }
         th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #cfd3d8; }
         td:nth-child(n+3), th:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+        .faner { display: flex; gap: 0.5rem; margin: 1.5rem 0 0.5rem; }
+        .faner button { font: inherit; padding: 0.4rem 0.9rem; border: 1px solid #cfd3d8; border-radius: 4px; background: #fff; cursor: pointer; }
+        .faner button:hover { background: #f1f3f5; }
     </style>
 </head>
 <body>
     <main>
         <h1>Internkontroll</h1>
         <p>Velkommen til internkontroll for arbeidssøkerregisteret.</p>
-        <h2>Regler</h2>
-        <div hx-get="/stats/regler" hx-trigger="load, every 30s">
-            <p>Laster …</p>
-        </div>
-        <h2>Records uten trace_id</h2>
-        <div hx-get="/stats/mangler-trace-id" hx-trigger="load, every 60s">
+        <nav class="faner" hx-target="#fane" hx-swap="innerHTML">
+            <button hx-get="/stats/fane/oversikt">Oversikt</button>
+            <button hx-get="/stats/fane/signaturfeil">Signaturfeil</button>
+        </nav>
+        <div id="fane" hx-get="/stats/fane/oversikt" hx-trigger="load">
             <p>Laster …</p>
         </div>
     </main>

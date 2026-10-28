@@ -1,4 +1,7 @@
 use sqlx::{PgConnection, Row};
+use uuid::Uuid;
+
+use crate::database::signature::SignatureStatus;
 
 use crate::regler::regel_katalog::RegelId;
 
@@ -95,6 +98,76 @@ pub async fn hent_mangler_trace_id_per_topic(
             Ok(ManglerTraceId {
                 topic: row.try_get("topic")?,
                 antall: row.try_get("antall")?,
+            })
+        })
+        .collect()
+}
+
+/// Antall signaturfeil som vises.
+pub const ANTALL_SIGNATURFEIL: i64 = 20;
+
+/// Statuser der signaturen ikke ble godkjent. `no_record_timestamp` og
+/// `technical_error` er med selv om valideringen ikke ble fullført.
+/// `unsigned_before_required` er ikke med: signatur var ikke påkrevd ennå.
+pub const FEILET_SIGNATUR: [SignatureStatus; 8] = [
+    SignatureStatus::MissingSignature,
+    SignatureStatus::SignatureMismatch,
+    SignatureStatus::MalformedSignature,
+    SignatureStatus::KeyRevoked,
+    SignatureStatus::UnknownKey,
+    SignatureStatus::PayloadTooLarge,
+    SignatureStatus::NoRecordTimestamp,
+    SignatureStatus::TechnicalError,
+];
+
+/// Én record som feilet signaturvalidering. Inneholder ikke key eller value,
+/// som kan ha personopplysninger.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Signaturfeil {
+    pub topic: String,
+    pub record_partition: i32,
+    pub record_offset: i64,
+    pub record_timestamp_ms: Option<i64>,
+    pub signature_status: SignatureStatus,
+    pub signing_key_id: Option<String>,
+    pub trace_id: Option<Uuid>,
+}
+
+/// De siste `ANTALL_SIGNATURFEIL` records som feilet signaturvalidering,
+/// nyeste først (høyeste xid).
+#[tracing::instrument(skip(conn))]
+pub async fn hent_siste_signaturfeil(
+    conn: &mut PgConnection,
+) -> Result<Vec<Signaturfeil>, sqlx::Error> {
+    let rows = sqlx::query(
+        r#"
+        SELECT t.name AS topic, rd.record_partition, rd.record_offset,
+               kr.record_timestamp_ms, rd.signature_status, rd.signing_key_id, rd.trace_id
+        FROM record_derived rd
+        JOIN topic t ON t.id = rd.topic_id
+        JOIN kafka_record kr
+          ON kr.topic_id = rd.topic_id
+         AND kr.record_partition = rd.record_partition
+         AND kr.record_offset = rd.record_offset
+        WHERE rd.signature_status = ANY($1)
+        ORDER BY rd.xid DESC
+        LIMIT $2
+        "#,
+    )
+    .bind(&FEILET_SIGNATUR[..])
+    .bind(ANTALL_SIGNATURFEIL)
+    .fetch_all(&mut *conn)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            Ok(Signaturfeil {
+                topic: row.try_get("topic")?,
+                record_partition: row.try_get("record_partition")?,
+                record_offset: row.try_get("record_offset")?,
+                record_timestamp_ms: row.try_get("record_timestamp_ms")?,
+                signature_status: row.try_get("signature_status")?,
+                signing_key_id: row.try_get("signing_key_id")?,
+                trace_id: row.try_get("trace_id")?,
             })
         })
         .collect()
@@ -210,6 +283,99 @@ mod tests {
                     antall: 1
                 },
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn signaturfeil_viser_bare_feilet_signatur_nyeste_foerst() {
+        use crate::database::kafka_record::{
+            KafkaRecordRow, KafkaTimestampType, insert_kafka_record,
+        };
+        use crate::database::payload::PayloadStatus;
+        use crate::database::record_derived::{RecordDerived, insert_record_derived};
+        use crate::database::signature::Signature;
+
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
+
+        assert!(hent_siste_signaturfeil(&mut conn).await.unwrap().is_empty());
+
+        let key = || "key-a".to_string();
+        let signaturer = [
+            Signature::Valid {
+                signing_key_id: key(),
+            },
+            Signature::Missing,
+            Signature::UnsignedBeforeRequired,
+            Signature::CryptographicMismatch {
+                signing_key_id: key(),
+            },
+            Signature::TechnicalError,
+            Signature::NoRecordTimestamp,
+            Signature::UnknownKey,
+        ];
+        for (offset, signature) in signaturer.into_iter().enumerate() {
+            let offset = offset as i64;
+            insert_kafka_record(
+                &mut conn,
+                &KafkaRecordRow {
+                    topic_id,
+                    record_partition: 0,
+                    record_offset: offset,
+                    record_timestamp_type: KafkaTimestampType::CreateTime,
+                    record_timestamp_ms: Some(1_000 + offset),
+                    record_key: None,
+                    record_value: None,
+                    header_keys: vec![],
+                    header_values: vec![],
+                },
+            )
+            .await
+            .unwrap();
+            insert_record_derived(
+                &mut conn,
+                &RecordDerived {
+                    topic_id,
+                    record_partition: 0,
+                    record_offset: offset,
+                    signature,
+                    timestamp_delta_ms: None,
+                    trace_id: Some(Uuid::from_u128(offset as u128)),
+                    payload_status: PayloadStatus::Ok,
+                    meldingstype: None,
+                    periode_id: None,
+                    arbeidssoeker_id: None,
+                    derived_at: chrono::DateTime::from_timestamp_millis(10_000).unwrap(),
+                },
+            )
+            .await
+            .unwrap();
+        }
+
+        let feil = hent_siste_signaturfeil(&mut conn).await.unwrap();
+        assert_eq!(
+            feil.iter().map(|f| f.record_offset).collect::<Vec<_>>(),
+            vec![6, 5, 4, 3, 1]
+        );
+        assert_eq!(
+            feil[3],
+            Signaturfeil {
+                topic: "topic-a".to_string(),
+                record_partition: 0,
+                record_offset: 3,
+                record_timestamp_ms: Some(1_003),
+                signature_status: SignatureStatus::SignatureMismatch,
+                signing_key_id: Some("key-a".to_string()),
+                trace_id: Some(Uuid::from_u128(3)),
+            }
         );
     }
 }

@@ -18,13 +18,16 @@ use std::time::Duration;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tracing::error;
 
+use crate::database::signature::SignatureStatus;
 use crate::database::visualisering::{
-    MAKS_ETTERSLEP, ManglerTraceId, RegelStatus, hent_mangler_trace_id_per_topic, hent_max_xid,
-    hent_regel_status,
+    ANTALL_SIGNATURFEIL, MAKS_ETTERSLEP, ManglerTraceId, RegelStatus, Signaturfeil,
+    hent_mangler_trace_id_per_topic, hent_max_xid, hent_regel_status, hent_siste_signaturfeil,
 };
 use crate::regler::regel_katalog::RegelId;
 
 const VELKOMMEN_HTML: &str = include_str!("velkommen.html");
+const FANE_OVERSIKT_HTML: &str = include_str!("fane_oversikt.html");
+const FANE_SIGNATURFEIL_HTML: &str = include_str!("fane_signaturfeil.html");
 const HTMX_JS: &str = include_str!("static/htmx.min.js");
 
 /// Auth for visualiseringen. `None` bare når appen er bygget med featuren
@@ -54,6 +57,15 @@ pub fn routes(pg_pool: PgPool, auth_state: Option<Arc<AuthState>>) -> Router {
         .route("/stats/", get(velkommen))
         .route("/stats/regler", get(regler))
         .route("/stats/mangler-trace-id", get(mangler_trace_id))
+        .route("/stats/signaturfeil", get(signaturfeil))
+        .route(
+            "/stats/fane/oversikt",
+            get(|| async { Html(FANE_OVERSIKT_HTML) }),
+        )
+        .route(
+            "/stats/fane/signaturfeil",
+            get(|| async { Html(FANE_SIGNATURFEIL_HTML) }),
+        )
         .route("/stats/static/htmx.min.js", get(htmx));
     if let Some(auth_state) = auth_state {
         router = router.route_layer(oauth2_server_layer(auth_state));
@@ -136,6 +148,95 @@ fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
             "<tr><td>{}</td><td>{}</td></tr>",
             escape_html(&r.topic),
             r.antall
+        );
+    }
+    html.push_str("</tbody></table>");
+    html
+}
+
+/// HTML-fragment med de siste records som feilet signaturvalidering.
+async fn signaturfeil(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCode> {
+    let mut conn = pg_pool.acquire().await.map_err(intern_feil)?;
+    let feil = hent_siste_signaturfeil(&mut conn)
+        .await
+        .map_err(intern_feil)?;
+    Ok(Html(signaturfeil_tabell(&feil)))
+}
+
+fn signatur_status_tekst(status: SignatureStatus) -> &'static str {
+    match status {
+        SignatureStatus::Valid => "Gyldig",
+        SignatureStatus::SignatureMismatch => "Feil signatur",
+        SignatureStatus::MalformedSignature => "Ugyldig signaturformat",
+        SignatureStatus::KeyRevoked => "Nøkkel trukket tilbake",
+        SignatureStatus::PayloadTooLarge => "For stor payload",
+        SignatureStatus::MissingSignature => "Mangler signatur",
+        SignatureStatus::UnsignedBeforeRequired => "Usignert før påkrevd",
+        SignatureStatus::UnknownKey => "Ukjent nøkkel",
+        SignatureStatus::NoRecordTimestamp => "Mangler tidsstempel",
+        SignatureStatus::TechnicalError => "Teknisk feil",
+    }
+}
+
+/// Hva som gikk galt, utledet fra statusen. Detaljer utover dette lagres ikke.
+fn signatur_problem(status: SignatureStatus) -> &'static str {
+    match status {
+        SignatureStatus::Valid => "",
+        SignatureStatus::SignatureMismatch => "Signaturen stemmer ikke med innholdet og nøkkelen",
+        SignatureStatus::MalformedSignature => "Signaturen kunne ikke leses",
+        SignatureStatus::KeyRevoked => "Nøkkelen var trukket tilbake da meldingen ble sendt",
+        SignatureStatus::PayloadTooLarge => "Meldingen er for stor til å valideres",
+        SignatureStatus::MissingSignature => {
+            "Signatur eller nøkkel-ID mangler etter at signatur ble påkrevd"
+        }
+        SignatureStatus::UnsignedBeforeRequired => "Usignert før signatur ble påkrevd",
+        SignatureStatus::UnknownKey => "Nøkkel-ID er ukjent eller ugyldig",
+        SignatureStatus::NoRecordTimestamp => {
+            "Mangler tidsstempel, så vi kan ikke avgjøre om signatur var påkrevd \
+             eller om nøkkelen var gyldig"
+        }
+        SignatureStatus::TechnicalError => {
+            "Feil i nøkkeloppsettet (ugyldig nøkkel, ugyldig tilbaketrekkingsdato, \
+             duplikat nøkkel-ID eller lesefeil). Signaturen ble ikke sjekket"
+        }
+    }
+}
+
+fn tidspunkt_tekst(ms: Option<i64>) -> String {
+    ms.and_then(chrono::DateTime::from_timestamp_millis)
+        .map_or("–".to_string(), |t| {
+            t.format("%Y-%m-%d %H:%M:%S%.3f UTC").to_string()
+        })
+}
+
+/// Topic-navn og nøkkel-ID kommer fra databasen og escapes.
+fn signaturfeil_tabell(feil: &[Signaturfeil]) -> String {
+    if feil.is_empty() {
+        return "<p>Ingen records har feilet signaturvalidering.</p>".to_string();
+    }
+    let mut html = String::new();
+    let _ = write!(
+        html,
+        "<p>De {ANTALL_SIGNATURFEIL} siste, nyeste først.</p>\
+         <table><thead><tr><th>Topic</th><th>Partisjon</th><th>Offset</th>\
+         <th>Tidspunkt (Kafka)</th><th>Status</th><th>Problem</th><th>Nøkkel-ID</th>\
+         <th>Trace-ID</th>\
+         </tr></thead><tbody>"
+    );
+    for f in feil {
+        let _ = write!(
+            html,
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            escape_html(&f.topic),
+            f.record_partition,
+            f.record_offset,
+            tidspunkt_tekst(f.record_timestamp_ms),
+            signatur_status_tekst(f.signature_status),
+            signatur_problem(f.signature_status),
+            f.signing_key_id
+                .as_deref()
+                .map_or("–".to_string(), escape_html),
+            f.trace_id.map_or("–".to_string(), |t| t.to_string()),
         );
     }
     html.push_str("</tbody></table>");
@@ -230,7 +331,13 @@ mod tests {
     #[tokio::test]
     async fn siden_svarer_under_stats_med_og_uten_skraastrek() {
         let app = routes(lazy_pool(), None);
-        for sti in ["/stats", "/stats/", "/stats/static/htmx.min.js"] {
+        for sti in [
+            "/stats",
+            "/stats/",
+            "/stats/static/htmx.min.js",
+            "/stats/fane/oversikt",
+            "/stats/fane/signaturfeil",
+        ] {
             let response = app
                 .clone()
                 .oneshot(Request::get(sti).body(Body::empty()).unwrap())
@@ -252,6 +359,28 @@ mod tests {
         }]);
         assert!(html.contains("<td>&lt;script&gt;&amp;&#39;&quot;</td><td>3</td>"));
         assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn signaturfeil_tabell_tom_og_escapet() {
+        assert_eq!(
+            signaturfeil_tabell(&[]),
+            "<p>Ingen records har feilet signaturvalidering.</p>"
+        );
+        let html = signaturfeil_tabell(&[Signaturfeil {
+            topic: "<b>".to_string(),
+            record_partition: 1,
+            record_offset: 2,
+            record_timestamp_ms: Some(0),
+            signature_status: SignatureStatus::SignatureMismatch,
+            signing_key_id: Some("<i>".to_string()),
+            trace_id: None,
+        }]);
+        assert!(html.contains("<td>&lt;b&gt;</td>"));
+        assert!(html.contains("<td>&lt;i&gt;</td>"));
+        assert!(html.contains("1970-01-01 00:00:00.000 UTC"));
+        assert!(html.contains("Feil signatur"));
+        assert!(html.contains(signatur_problem(SignatureStatus::SignatureMismatch)));
     }
 
     #[tokio::test]
