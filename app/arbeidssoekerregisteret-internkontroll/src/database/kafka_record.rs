@@ -14,7 +14,7 @@ pub enum KafkaTimestampType {
 /// One row in `kafka_record`, borrowing key, value and headers from the message.
 /// Headers are kept in Kafka order: element i of `header_keys` and
 /// `header_values` is header number i.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct KafkaRecordRow<'a> {
     pub topic_id: i16,
     pub record_partition: i32,
@@ -25,6 +25,18 @@ pub struct KafkaRecordRow<'a> {
     pub record_value: Option<&'a [u8]>,
     pub header_keys: Vec<&'a str>,
     pub header_values: Vec<Option<&'a [u8]>>,
+}
+
+impl std::fmt::Debug for KafkaRecordRow<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KafkaRecordRow")
+            .field("topic_id", &self.topic_id)
+            .field("record_partition", &self.record_partition)
+            .field("record_offset", &self.record_offset)
+            .field("record_timestamp_type", &self.record_timestamp_type)
+            .field("record_timestamp_ms", &self.record_timestamp_ms)
+            .finish()
+    }
 }
 
 pub fn kafka_record_row(topic_id: i16, msg: &OwnedMessage) -> KafkaRecordRow<'_> {
@@ -50,6 +62,7 @@ pub fn kafka_record_row(topic_id: i16, msg: &OwnedMessage) -> KafkaRecordRow<'_>
     }
 }
 
+#[tracing::instrument(skip(conn, row))]
 pub async fn insert_kafka_record(
     conn: &mut PgConnection,
     row: &KafkaRecordRow<'_>,

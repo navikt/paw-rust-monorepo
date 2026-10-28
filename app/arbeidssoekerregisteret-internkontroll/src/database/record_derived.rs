@@ -9,7 +9,7 @@ use crate::database::signature::Signature;
 
 /// Values derived from one Kafka record, as written to `record_derived`.
 /// `xid` is set by the database to the writing transaction.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RecordDerived {
     pub topic_id: i16,
     pub record_partition: i32,
@@ -22,6 +22,22 @@ pub struct RecordDerived {
     pub periode_id: Option<Uuid>,
     pub arbeidssoeker_id: Option<i64>,
     pub derived_at: DateTime<Utc>,
+}
+
+impl std::fmt::Debug for RecordDerived {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RecordDerived")
+            .field("topic_id", &self.topic_id)
+            .field("record_partition", &self.record_partition)
+            .field("record_offset", &self.record_offset)
+            .field("signature", &self.signature)
+            .field("timestamp_delta_ms", &self.timestamp_delta_ms)
+            .field("trace_id", &self.trace_id)
+            .field("payload_status", &self.payload_status)
+            .field("meldingstype", &self.meldingstype)
+            .field("derived_at", &self.derived_at)
+            .finish()
+    }
 }
 
 impl FromRow<'_, PgRow> for RecordDerived {
@@ -49,6 +65,7 @@ impl FromRow<'_, PgRow> for RecordDerived {
 
 /// Writes the derived values for a record.
 /// A record is derived once, so writing it again is an error.
+#[tracing::instrument(skip(conn, record))]
 pub async fn insert_record_derived(
     conn: &mut PgConnection,
     record: &RecordDerived,
@@ -106,6 +123,7 @@ pub async fn get_record_derived(
 /// The record written by transaction `xid`, together with all earlier records
 /// in the same trace, in xid order. Empty if the record has no trace_id or
 /// `xid` is unknown. `xid` is the xid8 value as bigint, since sqlx has no xid8 type.
+#[tracing::instrument(skip(conn))]
 pub async fn get_record_derived_trace_up_to_xid(
     conn: &mut PgConnection,
     xid: i64,
@@ -133,6 +151,7 @@ pub async fn get_record_derived_trace_up_to_xid(
 /// when there are none yet. Only finished transactions are visible: rows from
 /// an earlier xid can still commit after a later one, and the marker must never
 /// skip them. xid8 values are bigint, since sqlx has no xid8 type.
+#[tracing::instrument(skip(conn))]
 pub async fn get_neste_record_derived_xids(
     conn: &mut PgConnection,
     etter_xid: i64,

@@ -18,6 +18,7 @@ pub struct RegelStatus {
 }
 
 /// Fremdrift, etterslep og antall funn per regel og regelversjon.
+#[tracing::instrument(skip(conn))]
 pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatus>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
@@ -52,6 +53,7 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
 }
 
 /// Høyeste xid i `record_derived`, eller `None` når tabellen er tom.
+#[tracing::instrument(skip(conn))]
 pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::Error> {
     sqlx::query_scalar(
         r#"

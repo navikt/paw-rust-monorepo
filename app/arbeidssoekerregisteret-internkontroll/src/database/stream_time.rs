@@ -1,6 +1,7 @@
 use sqlx::PgConnection;
 
 /// Returns the stored stream time for a topic-partition, or `None` if none is stored.
+#[tracing::instrument(skip(conn))]
 pub async fn get_stream_time(
     conn: &mut PgConnection,
     topic_id: i16,
@@ -25,6 +26,7 @@ pub async fn get_stream_time(
 /// Returns `timestamp_ms` minus the previously stored timestamp, whether or not
 /// the row was updated: positive means later, negative means earlier.
 /// Returns `None` when the topic-partition had no stored timestamp.
+#[tracing::instrument(skip(conn))]
 pub async fn upsert_stream_time(
     conn: &mut PgConnection,
     topic_id: i16,

@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::trace_operation_type::{TraceOperationType, UnknownTraceOperationType};
 
+#[tracing::instrument(skip(conn))]
 pub async fn upsert_trace(
     conn: &mut PgConnection,
     trace_id: Uuid,
@@ -48,6 +49,7 @@ pub enum TraceOperationTypeError {
     not(test),
     expect(dead_code, reason = "Klassifisering av trace er ikke tatt i bruk ennå")
 )]
+#[tracing::instrument(skip(conn))]
 pub async fn set_trace_operation_type(
     conn: &mut PgConnection,
     trace_id: Uuid,

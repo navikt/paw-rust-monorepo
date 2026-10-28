@@ -2,6 +2,7 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use paw_observability::health::simple_app_state::AppState;
 use tokio::time::Interval;
+use tracing::Span;
 
 use crate::{
     database::{
@@ -18,6 +19,7 @@ use crate::{
 
 use super::funn::Funn::{AltOk, Feil};
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Regel {
     id: RegelId,
     versjon: i32,
@@ -57,6 +59,7 @@ pub fn spawn_regel_task(
     })
 }
 
+#[tracing::instrument(skip(pg_pool))]
 pub async fn exec_regler(
     pg_pool: &sqlx::PgPool,
     regler: &[Regel],
@@ -90,6 +93,7 @@ pub async fn exec_regler(
         .min_by_key(|rf| rf.siste_xid)
         .cloned()
     else {
+        Span::current().record("antall_nye_xids", 0);
         return Ok(0);
     };
     let regel_id = regel_fremdrift.regel;
@@ -125,5 +129,6 @@ pub async fn exec_regler(
         }
     }
     tx.commit().await?;
+    Span::current().record("antall_nye_xids", antall_nye_xids);
     Ok(antall_nye_xids)
 }

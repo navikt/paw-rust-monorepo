@@ -9,6 +9,7 @@ pub struct RegelFremdrift {
     pub siste_xid: i64,
 }
 
+#[tracing::instrument(skip(conn))]
 pub async fn get_regel_fremdrift(
     conn: &mut PgConnection,
 ) -> Result<Vec<RegelFremdrift>, sqlx::Error> {
@@ -24,6 +25,7 @@ pub async fn get_regel_fremdrift(
 
 /// Returns `true` when the row was created or moved forward, `false` when
 /// `siste_xid` was not later than the stored value.
+#[tracing::instrument(skip(conn))]
 pub async fn upsert_regel_fremdrift(
     conn: &mut PgConnection,
     regel: RegelId,
