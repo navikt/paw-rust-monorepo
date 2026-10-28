@@ -140,8 +140,9 @@ fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
     if rader.is_empty() {
         return "<p>Ingen records mangler trace_id.</p>".to_string();
     }
-    let mut html =
-        String::from("<table><thead><tr><th>Topic</th><th>Antall</th></tr></thead><tbody>");
+    let mut html = String::from(
+        "<div class=\"tabell\"><table class=\"mangler-trace-id\"><thead><tr><th>Topic</th><th>Antall</th></tr></thead><tbody>",
+    );
     for r in rader {
         let _ = write!(
             html,
@@ -150,7 +151,7 @@ fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
             r.antall
         );
     }
-    html.push_str("</tbody></table>");
+    html.push_str("</tbody></table></div>");
     html
 }
 
@@ -218,7 +219,7 @@ fn signaturfeil_tabell(feil: &[Signaturfeil]) -> String {
     let _ = write!(
         html,
         "<p>De {ANTALL_SIGNATURFEIL} siste, nyeste først.</p>\
-         <table><thead><tr><th>Topic</th><th>Partisjon</th><th>Offset</th>\
+         <div class=\"tabell\"><table class=\"signaturfeil\"><thead><tr><th>Topic</th><th>Partisjon</th><th>Offset</th>\
          <th>Tidspunkt (Kafka)</th><th>Status</th><th>Problem</th><th>Nøkkel-ID</th>\
          <th>Trace-ID</th>\
          </tr></thead><tbody>"
@@ -239,7 +240,7 @@ fn signaturfeil_tabell(feil: &[Signaturfeil]) -> String {
             f.trace_id.map_or("–".to_string(), |t| t.to_string()),
         );
     }
-    html.push_str("</tbody></table>");
+    html.push_str("</tbody></table></div>");
     html
 }
 
@@ -280,7 +281,7 @@ fn regel_tabell(status: &[RegelStatus], max_xid: Option<i64>) -> String {
         return html;
     }
     html.push_str(
-        "<table><thead><tr><th>Regel</th><th>Versjon</th><th>Siste xid</th>\
+        "<div class=\"tabell\"><table class=\"regler\"><thead><tr><th>Regel</th><th>Versjon</th><th>Siste xid</th>\
          <th>Records bak</th><th>Funn</th></tr></thead><tbody>",
     );
     for s in status {
@@ -299,7 +300,7 @@ fn regel_tabell(status: &[RegelStatus], max_xid: Option<i64>) -> String {
             s.antall_funn
         );
     }
-    html.push_str("</tbody></table>");
+    html.push_str("</tbody></table></div>");
     html
 }
 
