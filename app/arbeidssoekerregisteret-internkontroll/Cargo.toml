@@ -32,6 +32,10 @@ serde = { workspace = true }
 toml = { workspace = true }
 itertools = { workspace = true }
 axum = { workspace = true }
+paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }
+oauth2 = { path = "../../domain/oauth2" }
+reqwest = { workspace = true }
+tower-http = { workspace = true, features = ["set-header"] }
 
 [dev-dependencies]
 testcontainers = { workspace = true }
@@ -39,3 +43,4 @@ postgres_testcontainer = { path = "../../test/postgres_testcontainer" }
 schema_registry_mock = { path = "../../test/schema_registry_mock" }
 test_data_generator = { path = "../../test/test_data_generator" }
 mockito = { workspace = true }
+tower = { workspace = true }

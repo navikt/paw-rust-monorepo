@@ -9,7 +9,7 @@ spec:
   image: {{ image }}
   port: 8080
   ingresses:
-    - https://internkontroll-arbeidssoekerregisteret.intern.dev.nav.no
+    - https://internkontroll-arbeidssoekerregisteret.intern.dev.nav.no/stats
   strategy:
     type: Recreate
   replicas:
@@ -46,6 +46,16 @@ spec:
       enabled: true
   kafka:
     pool: {{ kafka }}
+  azure:
+    application:
+      enabled: true
+      tenant: nav.no
+      claims:
+        groups:
+          - id: 88b552ab-2cd9-41e1-bd44-3868605d6f6a
+    sidecar:
+      enabled: true
+      autoLogin: true
   accessPolicy:
     outbound:
       rules:

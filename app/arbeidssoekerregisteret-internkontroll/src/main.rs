@@ -69,7 +69,8 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let mut http_routes = paw_observability::server::routes(app_state.clone());
     if matches!(runtime_env, RuntimeEnv::DevGcp | RuntimeEnv::Local) {
         tracing::info!("Legger til visualisering http-routes");
-        http_routes = http_routes.merge(visualisering::routes(pg_pool.clone()));
+        let auth_state = visualisering::auth_state(read_config_file!("auth_config.toml")).await?;
+        http_routes = http_routes.merge(visualisering::routes(pg_pool.clone(), auth_state));
     } else {
         tracing::info!("Miljø {runtime_env:?}, legger ikke til visualisering http-routes");
     }

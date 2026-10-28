@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Internkontroll</title>
-    <script src="/static/htmx.min.js"></script>
+    <script src="/stats/static/htmx.min.js"></script>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 48rem; margin: 4rem auto; padding: 0 1rem; color: #23262a; }
         h1 { margin-bottom: 0.5rem; }
@@ -18,7 +18,7 @@
         <h1>Internkontroll</h1>
         <p>Velkommen til internkontroll for arbeidssøkerregisteret.</p>
         <h2>Regler</h2>
-        <div hx-get="/regler" hx-trigger="load, every 30s">
+        <div hx-get="/stats/regler" hx-trigger="load, every 30s">
             <p>Laster …</p>
         </div>
     </main>

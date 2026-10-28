@@ -1,0 +1,4 @@
+# Brukes ikke: visualiseringen kjører uten auth når appen bygges med featuren local.
+[issuers.azure]
+well_known_url = "http://localhost:8081/azure/.well-known/openid-configuration"
+client_id = "paw-arbeidssoekerregisteret-internkontroll"
