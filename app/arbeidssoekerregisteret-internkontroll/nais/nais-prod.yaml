@@ -33,7 +33,8 @@ spec:
     path: /internal/isReady
     initialDelay: 10
   startup:
-    failureThreshold: 10
+    # Høy fordi migreringer kan bygge indekser på record_derived, som tar minutter.
+    failureThreshold: 90
     initialDelay: 2
     path: /internal/hasStarted
     periodSeconds: 10

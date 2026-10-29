@@ -11,7 +11,7 @@ use paw_oauth2_resource_server::oauth2::{
     config::AuthConfig, middleware::oauth2_server_layer, state::AuthState,
 };
 use paw_rust_base::config::read_toml_config;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -118,9 +118,21 @@ async fn htmx() -> impl IntoResponse {
     ([(header::CONTENT_TYPE, "text/javascript")], HTMX_JS)
 }
 
+/// Maks kjøretid per spørring fra visualiseringen. HTMX spør på nytt med
+/// faste intervaller, så en treg spørring skal feile i stedet for å holde på
+/// en tilkobling mens nye spørringer hoper seg opp.
+const STATEMENT_TIMEOUT: &str = "SET LOCAL statement_timeout = '10s'";
+
+/// Lesetransaksjon med `STATEMENT_TIMEOUT`. Rulles tilbake når den droppes.
+async fn med_timeout(pg_pool: &PgPool) -> Result<Transaction<'static, Postgres>, sqlx::Error> {
+    let mut tx = pg_pool.begin().await?;
+    sqlx::query(STATEMENT_TIMEOUT).execute(&mut *tx).await?;
+    Ok(tx)
+}
+
 /// HTML-fragment med regelstatus. Hentes av HTMX ved lasting og hvert 30. sekund.
 async fn regler(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCode> {
-    let mut conn = pg_pool.acquire().await.map_err(intern_feil)?;
+    let mut conn = med_timeout(&pg_pool).await.map_err(intern_feil)?;
     let status = hent_regel_status(&mut conn).await.map_err(intern_feil)?;
     let max_xid = hent_max_xid(&mut conn).await.map_err(intern_feil)?;
     Ok(Html(regel_tabell(&status, max_xid)))
@@ -128,7 +140,7 @@ async fn regler(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCod
 
 /// HTML-fragment med antall records uten trace_id per topic.
 async fn mangler_trace_id(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCode> {
-    let mut conn = pg_pool.acquire().await.map_err(intern_feil)?;
+    let mut conn = med_timeout(&pg_pool).await.map_err(intern_feil)?;
     let rader = hent_mangler_trace_id_per_topic(&mut conn)
         .await
         .map_err(intern_feil)?;
@@ -161,7 +173,7 @@ fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
 
 /// HTML-fragment med de siste records som feilet signaturvalidering.
 async fn signaturfeil(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCode> {
-    let mut conn = pg_pool.acquire().await.map_err(intern_feil)?;
+    let mut conn = med_timeout(&pg_pool).await.map_err(intern_feil)?;
     let feil = hent_siste_signaturfeil(&mut conn)
         .await
         .map_err(intern_feil)?;

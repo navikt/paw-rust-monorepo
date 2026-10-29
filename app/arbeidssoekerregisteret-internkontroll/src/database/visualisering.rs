@@ -82,25 +82,37 @@ pub struct ManglerTraceId {
 /// Antall records i `record_derived` uten trace_id, per topic-navn, med
 /// tidsstempel og tidsdelta for siste slike record (høyeste xid).
 /// Topics uten slike records er ikke med.
+///
+/// Telling og oppslag går per topic over den delvise indeksen
+/// `record_derived_uten_trace_id_idx (topic_id, xid) WHERE trace_id IS NULL`,
+/// og bare siste record per topic slås opp i `kafka_record`.
 #[tracing::instrument(skip(conn))]
 pub async fn hent_mangler_trace_id_per_topic(
     conn: &mut PgConnection,
 ) -> Result<Vec<ManglerTraceId>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
-        SELECT DISTINCT ON (t.name)
-               t.name AS topic,
-               count(*) OVER (PARTITION BY t.name) AS antall,
+        SELECT t.name AS topic,
+               antall.antall,
                kr.record_timestamp_ms AS siste_timestamp_ms,
-               rd.timestamp_delta_ms AS siste_timestamp_delta_ms
-        FROM record_derived rd
-        JOIN topic t ON t.id = rd.topic_id
+               siste.timestamp_delta_ms AS siste_timestamp_delta_ms
+        FROM topic t
+        CROSS JOIN LATERAL (
+            SELECT count(*) AS antall FROM record_derived
+            WHERE topic_id = t.id AND trace_id IS NULL
+        ) antall
+        CROSS JOIN LATERAL (
+            SELECT record_partition, record_offset, timestamp_delta_ms
+            FROM record_derived
+            WHERE topic_id = t.id AND trace_id IS NULL
+            ORDER BY xid DESC
+            LIMIT 1
+        ) siste
         JOIN kafka_record kr
-          ON kr.topic_id = rd.topic_id
-         AND kr.record_partition = rd.record_partition
-         AND kr.record_offset = rd.record_offset
-        WHERE rd.trace_id IS NULL
-        ORDER BY t.name, rd.xid DESC
+          ON kr.topic_id = t.id
+         AND kr.record_partition = siste.record_partition
+         AND kr.record_offset = siste.record_offset
+        ORDER BY t.name
         "#,
     )
     .fetch_all(&mut *conn)
@@ -120,20 +132,6 @@ pub async fn hent_mangler_trace_id_per_topic(
 /// Antall signaturfeil som vises.
 pub const ANTALL_SIGNATURFEIL: i64 = 20;
 
-/// Statuser der signaturen ikke ble godkjent. `no_record_timestamp` og
-/// `technical_error` er med selv om valideringen ikke ble fullført.
-/// `unsigned_before_required` er ikke med: signatur var ikke påkrevd ennå.
-pub const FEILET_SIGNATUR: [SignatureStatus; 8] = [
-    SignatureStatus::MissingSignature,
-    SignatureStatus::SignatureMismatch,
-    SignatureStatus::MalformedSignature,
-    SignatureStatus::KeyRevoked,
-    SignatureStatus::UnknownKey,
-    SignatureStatus::PayloadTooLarge,
-    SignatureStatus::NoRecordTimestamp,
-    SignatureStatus::TechnicalError,
-];
-
 /// Én record som feilet signaturvalidering. Inneholder ikke key eller value,
 /// som kan ha personopplysninger.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,6 +147,12 @@ pub struct Signaturfeil {
 
 /// De siste `ANTALL_SIGNATURFEIL` records som feilet signaturvalidering,
 /// nyeste først (høyeste xid).
+///
+/// Feilet betyr alle statuser unntatt `valid` og `unsigned_before_required`
+/// (signatur var ikke påkrevd ennå). `no_record_timestamp` og `technical_error`
+/// er med selv om valideringen ikke ble fullført. Filteret står som fast tekst
+/// og må være identisk med predikatet til `record_derived_signaturfeil_idx`,
+/// ellers bruker ikke Postgres den delvise indeksen.
 #[tracing::instrument(skip(conn))]
 pub async fn hent_siste_signaturfeil(
     conn: &mut PgConnection,
@@ -163,12 +167,11 @@ pub async fn hent_siste_signaturfeil(
           ON kr.topic_id = rd.topic_id
          AND kr.record_partition = rd.record_partition
          AND kr.record_offset = rd.record_offset
-        WHERE rd.signature_status = ANY($1)
+        WHERE rd.signature_status NOT IN ('valid', 'unsigned_before_required')
         ORDER BY rd.xid DESC
-        LIMIT $2
+        LIMIT $1
         "#,
     )
-    .bind(&FEILET_SIGNATUR[..])
     .bind(ANTALL_SIGNATURFEIL)
     .fetch_all(&mut *conn)
     .await?;
@@ -251,6 +254,50 @@ mod tests {
                     antall_funn: 0,
                 },
             ]
+        );
+    }
+
+    /// Begge spørringene må kunne bruke sin delvise indeks. Uten den leser
+    /// Postgres hele `record_derived`, som tar minutter i prod.
+    #[tokio::test]
+    async fn spoerringene_bruker_de_delvise_indeksene() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        sqlx::query("SET enable_seqscan = off")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+
+        async fn plan(conn: &mut PgConnection, explain: &'static str) -> String {
+            let linjer: Vec<String> = sqlx::query_scalar(explain)
+                .fetch_all(&mut *conn)
+                .await
+                .unwrap();
+            linjer.join("\n")
+        }
+        let signaturfeil = plan(
+            &mut conn,
+            "EXPLAIN SELECT xid FROM record_derived \
+             WHERE signature_status NOT IN ('valid', 'unsigned_before_required') \
+             ORDER BY xid DESC LIMIT 20",
+        )
+        .await;
+        assert!(
+            signaturfeil.contains("record_derived_signaturfeil_idx"),
+            "{signaturfeil}"
+        );
+        let uten_trace = plan(
+            &mut conn,
+            "EXPLAIN SELECT xid FROM record_derived \
+             WHERE topic_id = 1 AND trace_id IS NULL ORDER BY xid DESC LIMIT 1",
+        )
+        .await;
+        assert!(
+            uten_trace.contains("record_derived_uten_trace_id_idx"),
+            "{uten_trace}"
         );
     }
 
