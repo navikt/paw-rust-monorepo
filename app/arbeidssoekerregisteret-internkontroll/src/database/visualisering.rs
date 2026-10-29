@@ -8,6 +8,10 @@ use crate::regler::regel_katalog::RegelId;
 /// Øvre grense for tellingen av records en regel ligger bak. Tellingen går
 /// over indeksen på `record_derived.xid`, men et stort etterslep skal ikke
 /// gjøre siden treg. `etter` lik grensen betyr «minst så mange».
+///
+/// `ORDER BY xid` i tellingen er nødvendig: uten den kan Postgres velge å lese
+/// tabellen sekvensielt og håpe på tidlige treff, men radene ligger i
+/// xid-rekkefølge, så den leser alle eldre rader først.
 pub const MAKS_ETTERSLEP: i64 = 100_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +35,7 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
                (SELECT count(*) FROM (
                     SELECT 1 FROM record_derived rd
                     WHERE rd.xid > f.siste_xid
+                    ORDER BY rd.xid
                     LIMIT $1
                ) etterslep) AS etter,
                (SELECT count(*) FROM funn
