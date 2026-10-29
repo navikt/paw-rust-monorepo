@@ -73,9 +73,14 @@ pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::
 pub struct ManglerTraceId {
     pub topic: String,
     pub antall: i64,
+    /// Kafka-tidsstempel for siste record uten trace_id (høyeste xid).
+    pub siste_timestamp_ms: Option<i64>,
+    /// `timestamp_delta_ms` for siste record uten trace_id.
+    pub siste_timestamp_delta_ms: Option<i64>,
 }
 
-/// Antall records i `record_derived` uten trace_id, per topic-navn.
+/// Antall records i `record_derived` uten trace_id, per topic-navn, med
+/// tidsstempel og tidsdelta for siste slike record (høyeste xid).
 /// Topics uten slike records er ikke med.
 #[tracing::instrument(skip(conn))]
 pub async fn hent_mangler_trace_id_per_topic(
@@ -83,12 +88,19 @@ pub async fn hent_mangler_trace_id_per_topic(
 ) -> Result<Vec<ManglerTraceId>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
-        SELECT t.name AS topic, count(*) AS antall
+        SELECT DISTINCT ON (t.name)
+               t.name AS topic,
+               count(*) OVER (PARTITION BY t.name) AS antall,
+               kr.record_timestamp_ms AS siste_timestamp_ms,
+               rd.timestamp_delta_ms AS siste_timestamp_delta_ms
         FROM record_derived rd
         JOIN topic t ON t.id = rd.topic_id
+        JOIN kafka_record kr
+          ON kr.topic_id = rd.topic_id
+         AND kr.record_partition = rd.record_partition
+         AND kr.record_offset = rd.record_offset
         WHERE rd.trace_id IS NULL
-        GROUP BY t.name
-        ORDER BY t.name
+        ORDER BY t.name, rd.xid DESC
         "#,
     )
     .fetch_all(&mut *conn)
@@ -98,6 +110,8 @@ pub async fn hent_mangler_trace_id_per_topic(
             Ok(ManglerTraceId {
                 topic: row.try_get("topic")?,
                 antall: row.try_get("antall")?,
+                siste_timestamp_ms: row.try_get("siste_timestamp_ms")?,
+                siste_timestamp_delta_ms: row.try_get("siste_timestamp_delta_ms")?,
             })
         })
         .collect()
@@ -270,17 +284,35 @@ mod tests {
             .await
             .unwrap();
         skriv_record(&mut conn, b, 1).await;
+        sqlx::query(
+            "UPDATE kafka_record SET record_timestamp_ms = 2000 WHERE topic_id = $1 AND record_offset = 1",
+        )
+        .bind(a)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE record_derived SET timestamp_delta_ms = 500 WHERE topic_id = $1 AND record_offset = 1",
+        )
+        .bind(a)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
 
         assert_eq!(
             hent_mangler_trace_id_per_topic(&mut conn).await.unwrap(),
             vec![
                 ManglerTraceId {
                     topic: "topic-a".to_string(),
-                    antall: 2
+                    antall: 2,
+                    siste_timestamp_ms: Some(2000),
+                    siste_timestamp_delta_ms: Some(500),
                 },
                 ManglerTraceId {
                     topic: "topic-b".to_string(),
-                    antall: 1
+                    antall: 1,
+                    siste_timestamp_ms: Some(1000),
+                    siste_timestamp_delta_ms: None,
                 },
             ]
         );

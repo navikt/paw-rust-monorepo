@@ -141,14 +141,18 @@ fn mangler_trace_id_tabell(rader: &[ManglerTraceId]) -> String {
         return "<p>Ingen records mangler trace_id.</p>".to_string();
     }
     let mut html = String::from(
-        "<div class=\"tabell\"><table class=\"mangler-trace-id\"><thead><tr><th>Topic</th><th>Antall</th></tr></thead><tbody>",
+        "<div class=\"tabell\"><table class=\"mangler-trace-id\"><thead><tr><th>Topic</th><th>Antall</th>\
+         <th>Siste tidspunkt (Kafka)</th><th>Siste tidsdelta (ms)</th></tr></thead><tbody>",
     );
     for r in rader {
         let _ = write!(
             html,
-            "<tr><td>{}</td><td>{}</td></tr>",
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
             escape_html(&r.topic),
-            r.antall
+            r.antall,
+            tidspunkt_tekst(r.siste_timestamp_ms),
+            r.siste_timestamp_delta_ms
+                .map_or("–".to_string(), |d| d.to_string()),
         );
     }
     html.push_str("</tbody></table></div>");
@@ -357,8 +361,13 @@ mod tests {
         let html = mangler_trace_id_tabell(&[ManglerTraceId {
             topic: "<script>&'\"".to_string(),
             antall: 3,
+            siste_timestamp_ms: Some(0),
+            siste_timestamp_delta_ms: Some(-42),
         }]);
-        assert!(html.contains("<td>&lt;script&gt;&amp;&#39;&quot;</td><td>3</td>"));
+        assert!(html.contains(
+            "<td>&lt;script&gt;&amp;&#39;&quot;</td><td>3</td>\
+             <td>1970-01-01 00:00:00.000 UTC</td><td>-42</td>"
+        ));
         assert!(!html.contains("<script>"));
     }
 
