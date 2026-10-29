@@ -29,7 +29,7 @@ use paw_kafka::topics::get_topic_names;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::{
     await_signal::await_signal,
-    env::{RuntimeEnv, runtime_env},
+    env::runtime_env,
     panic_logger::register_panic_logger,
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
@@ -66,14 +66,9 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let app_state = Arc::new(simple_app_state::AppState::new());
     let runtime_env = runtime_env();
     let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
-    let mut http_routes = paw_observability::server::routes(app_state.clone());
-    if matches!(runtime_env, RuntimeEnv::DevGcp | RuntimeEnv::Local) {
-        tracing::info!("Legger til visualisering http-routes");
-        let auth_state = visualisering::auth_state(read_config_file!("auth_config.toml")).await?;
-        http_routes = http_routes.merge(visualisering::routes(pg_pool.clone(), auth_state));
-    } else {
-        tracing::info!("Miljø {runtime_env:?}, legger ikke til visualisering http-routes");
-    }
+    let auth_state = visualisering::auth_state(read_config_file!("auth_config.toml")).await?;
+    let http_routes = paw_observability::server::routes(app_state.clone())
+        .merge(visualisering::routes(pg_pool.clone(), auth_state));
     let http_server_task = tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
         axum::serve(listener, http_routes).await
