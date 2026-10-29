@@ -61,12 +61,16 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
 }
 
 /// Høyeste xid i `record_derived`, eller `None` når tabellen er tom.
+///
+/// `ORDER BY rd.xid` må ha tabellprefiks. Uten prefiks peker `xid` på
+/// output-kolonnen `xid::text::bigint`, og Postgres sorterer hele tabellen i
+/// stedet for å lese siste element i indeksen.
 #[tracing::instrument(skip(conn))]
 pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::Error> {
     sqlx::query_scalar(
         r#"
-        SELECT xid::text::bigint FROM record_derived
-        ORDER BY xid DESC
+        SELECT rd.xid::text::bigint FROM record_derived rd
+        ORDER BY rd.xid DESC
         LIMIT 1
         "#,
     )
@@ -304,6 +308,14 @@ mod tests {
             uten_trace.contains("record_derived_uten_trace_id_idx"),
             "{uten_trace}"
         );
+        let max_xid = plan(
+            &mut conn,
+            "EXPLAIN SELECT rd.xid::text::bigint FROM record_derived rd \
+             ORDER BY rd.xid DESC LIMIT 1",
+        )
+        .await;
+        assert!(max_xid.contains("record_derived_xid_key"), "{max_xid}");
+        assert!(!max_xid.contains("Sort"), "{max_xid}");
     }
 
     #[tokio::test]
