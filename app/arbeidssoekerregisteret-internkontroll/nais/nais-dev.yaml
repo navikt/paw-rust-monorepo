@@ -9,7 +9,7 @@ spec:
   image: {{ image }}
   port: 8080
   ingresses:
-    - https://internkontroll-arbeidssoekerregisteret.intern.dev.nav.no/stats
+    - https://internkontroll-arbeidssoekerregisteret.ansatt.dev.nav.no/stats
   strategy:
     type: Recreate
   replicas:
