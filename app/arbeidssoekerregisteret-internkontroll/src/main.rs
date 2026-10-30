@@ -1,3 +1,4 @@
+mod arbeidssoeker_id;
 mod database;
 mod meldinger;
 mod message_processor;

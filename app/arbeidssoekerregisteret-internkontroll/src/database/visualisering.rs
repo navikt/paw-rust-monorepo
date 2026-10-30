@@ -271,7 +271,7 @@ pub struct FunnRad {
 }
 
 /// Velger fra én funn-tabell. Nøkkelkolonnen hentes som `nokkel_xid`,
-/// `nokkel_uuid` eller `nokkel_bigint` så radene kan leses likt.
+/// `nokkel_uuid` eller `nokkel_arbeidssoeker` så radene kan leses likt.
 macro_rules! funn_sql {
     ($tabell:literal, $nokkel:literal) => {
         concat!(
@@ -312,7 +312,10 @@ pub async fn hent_funn(
         Nivaa::Trace => funn_sql!("funn_trace", "trace_id AS nokkel_uuid"),
         Nivaa::Periode => funn_sql!("funn_periode", "periode_id AS nokkel_uuid"),
         Nivaa::Arbeidssoeker => {
-            funn_sql!("funn_arbeidssoeker", "arbeidssoeker_id AS nokkel_bigint")
+            funn_sql!(
+                "funn_arbeidssoeker",
+                "arbeidssoeker_id AS nokkel_arbeidssoeker"
+            )
         }
     };
     let rows = sqlx::query(sql)
@@ -328,7 +331,7 @@ pub async fn hent_funn(
                 Nivaa::Melding => Nokkel::Melding(row.try_get("nokkel_xid")?),
                 Nivaa::Trace => Nokkel::Trace(row.try_get("nokkel_uuid")?),
                 Nivaa::Periode => Nokkel::Periode(row.try_get("nokkel_uuid")?),
-                Nivaa::Arbeidssoeker => Nokkel::Arbeidssoeker(row.try_get("nokkel_bigint")?),
+                Nivaa::Arbeidssoeker => Nokkel::Arbeidssoeker(row.try_get("nokkel_arbeidssoeker")?),
             };
             Ok(FunnRad {
                 nokkel,

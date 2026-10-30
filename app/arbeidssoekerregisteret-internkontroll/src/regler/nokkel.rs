@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+use crate::arbeidssoeker_id::ArbeidssoekerId;
 use crate::database::{record_derived::RecordDerived, xid8::Xid8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,7 +38,7 @@ pub enum Nokkel {
     Melding(Xid8),
     Trace(Uuid),
     Periode(Uuid),
-    Arbeidssoeker(i64),
+    Arbeidssoeker(ArbeidssoekerId),
 }
 
 impl Nokkel {
@@ -78,7 +79,7 @@ mod tests {
             payload_status: PayloadStatus::Ok,
             meldingstype: None,
             periode_id: Some(Uuid::from_u128(20)),
-            arbeidssoeker_id: Some(30),
+            arbeidssoeker_id: Some(ArbeidssoekerId::new(30)),
             derived_at: DateTime::<Utc>::UNIX_EPOCH,
         }
     }
@@ -100,7 +101,7 @@ mod tests {
         );
         assert_eq!(
             Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Arbeidssoeker),
-            Some(Nokkel::Arbeidssoeker(30))
+            Some(Nokkel::Arbeidssoeker(ArbeidssoekerId::new(30)))
         );
     }
 

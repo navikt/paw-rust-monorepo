@@ -4,6 +4,7 @@ use sqlx::{FromRow, PgConnection, Row};
 use std::num::NonZeroU32;
 use uuid::Uuid;
 
+use crate::arbeidssoeker_id::ArbeidssoekerId;
 use crate::database::payload::{Meldingstype, PayloadStatus};
 use crate::database::signature::Signature;
 use crate::database::xid8::Xid8;
@@ -22,7 +23,7 @@ pub struct RecordDerived {
     pub payload_status: PayloadStatus,
     pub meldingstype: Option<Meldingstype>,
     pub periode_id: Option<Uuid>,
-    pub arbeidssoeker_id: Option<i64>,
+    pub arbeidssoeker_id: Option<ArbeidssoekerId>,
     pub derived_at: DateTime<Utc>,
 }
 
@@ -268,7 +269,7 @@ pub(crate) mod tests {
             payload_status: PayloadStatus::Ok,
             meldingstype: Some(Meldingstype::HendelseStartet),
             periode_id: Some(Uuid::from_u128(7)),
-            arbeidssoeker_id: Some(42),
+            arbeidssoeker_id: Some(ArbeidssoekerId::new(42)),
             derived_at,
         };
         insert_record_derived(&mut conn, &first).await.unwrap();

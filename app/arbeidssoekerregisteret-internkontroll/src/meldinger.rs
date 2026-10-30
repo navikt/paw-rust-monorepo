@@ -18,13 +18,14 @@ use schema_registry_converter::schema_registry_common::{BytesResult, get_bytes_r
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
+use crate::arbeidssoeker_id::ArbeidssoekerId;
 use crate::database::payload::Meldingstype;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DekodetMelding {
     pub meldingstype: Meldingstype,
     pub periode_id: Option<Uuid>,
-    pub arbeidssoeker_id: Option<i64>,
+    pub arbeidssoeker_id: Option<ArbeidssoekerId>,
 }
 
 fn melding(
@@ -35,7 +36,7 @@ fn melding(
     DekodetMelding {
         meldingstype,
         periode_id,
-        arbeidssoeker_id: Some(arbeidssoeker_id),
+        arbeidssoeker_id: Some(ArbeidssoekerId::new(arbeidssoeker_id)),
     }
 }
 
