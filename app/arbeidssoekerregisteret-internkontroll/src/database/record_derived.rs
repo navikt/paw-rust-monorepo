@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::database::payload::{Meldingstype, PayloadStatus};
 use crate::database::signature::Signature;
+use crate::database::xid8::Xid8;
 use crate::regler::nokkel::Nokkel;
 
 /// Values derived from one Kafka record, as written to `record_derived`.
@@ -117,7 +118,7 @@ macro_rules! grunnlag_sql {
             kolonner!(),
             " FROM record_derived rd WHERE ",
             $filter,
-            " AND rd.xid <= $2::bigint::text::xid8 ORDER BY rd.xid"
+            " AND rd.xid <= $2 ORDER BY rd.xid"
         )
     };
 }
@@ -130,7 +131,7 @@ macro_rules! grunnlag_sql {
 #[tracing::instrument(skip(conn))]
 pub async fn get_record_derived_at_xid(
     conn: &mut PgConnection,
-    xid: i64,
+    xid: Xid8,
 ) -> Result<Option<(RecordDerived, i64)>, sqlx::Error> {
     let row = sqlx::query(concat!(
         "SELECT ",
@@ -139,7 +140,7 @@ pub async fn get_record_derived_at_xid(
                     (extract(epoch FROM rd.derived_at) * 1000)::bigint) AS stream_ms
          FROM record_derived rd
          JOIN kafka_record kr USING (topic_id, record_partition, record_offset)
-         WHERE rd.xid = $1::bigint::text::xid8"
+         WHERE rd.xid = $1"
     ))
     .bind(xid)
     .fetch_optional(&mut *conn)
@@ -155,12 +156,10 @@ pub async fn get_record_derived_at_xid(
 pub async fn hent_grunnlag(
     conn: &mut PgConnection,
     nokkel: &Nokkel,
-    xid: i64,
+    xid: Xid8,
 ) -> Result<Vec<RecordDerived>, sqlx::Error> {
     let query = match nokkel {
-        Nokkel::Melding(v) => {
-            sqlx::query_as(grunnlag_sql!("rd.xid = $1::bigint::text::xid8")).bind(*v)
-        }
+        Nokkel::Melding(v) => sqlx::query_as(grunnlag_sql!("rd.xid = $1")).bind(*v),
         Nokkel::Trace(v) => sqlx::query_as(grunnlag_sql!("rd.trace_id = $1")).bind(*v),
         Nokkel::Periode(v) => sqlx::query_as(grunnlag_sql!("rd.periode_id = $1")).bind(*v),
         Nokkel::Arbeidssoeker(v) => {
@@ -173,18 +172,18 @@ pub async fn hent_grunnlag(
 /// The xids of up to `limit` records after `etter_xid`, in xid order. Empty
 /// when there are none yet. Only finished transactions are visible: rows from
 /// an earlier xid can still commit after a later one, and the marker must never
-/// skip them. xid8 values are bigint, since sqlx has no xid8 type.
+/// skip them.
 #[tracing::instrument(skip(conn))]
 pub async fn get_neste_record_derived_xids(
     conn: &mut PgConnection,
-    etter_xid: i64,
+    etter_xid: Xid8,
     limit: NonZeroU32,
-) -> Result<Vec<i64>, sqlx::Error> {
+) -> Result<Vec<Xid8>, sqlx::Error> {
     sqlx::query_scalar(
         r#"
-        SELECT xid::text::bigint
+        SELECT rd.xid
         FROM record_derived as rd
-        WHERE rd.xid > $1::bigint::text::xid8
+        WHERE rd.xid > $1
           AND rd.xid < pg_snapshot_xmin(pg_current_snapshot())
         ORDER BY rd.xid
         LIMIT $2
@@ -403,11 +402,9 @@ pub(crate) mod tests {
         }
 
         let xid = |offset: i64| {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
-            )
-            .bind(offset)
-            .fetch_one(&pool)
+            sqlx::query_scalar::<_, Xid8>("SELECT xid FROM record_derived WHERE record_offset = $1")
+                .bind(offset)
+                .fetch_one(&pool)
         };
         let siste_xid = xid(3).await.unwrap();
         let trace_b_xid = xid(0).await.unwrap();
@@ -426,8 +423,8 @@ pub(crate) mod tests {
         let trace_til = |offset: i64| {
             let pool = pool.clone();
             async move {
-                let xid = sqlx::query_scalar::<_, i64>(
-                    "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
+                let xid = sqlx::query_scalar::<_, Xid8>(
+                    "SELECT xid FROM record_derived WHERE record_offset = $1",
                 )
                 .bind(offset)
                 .fetch_one(&pool)
@@ -453,7 +450,7 @@ pub(crate) mod tests {
             "ingen trace_id gir ingen rader"
         );
         assert!(
-            get_record_derived_at_xid(&mut conn, siste_xid + 1_000)
+            get_record_derived_at_xid(&mut conn, Xid8::new(u64::MAX))
                 .await
                 .unwrap()
                 .is_none()
@@ -509,13 +506,12 @@ pub(crate) mod tests {
                 derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
             };
             insert_record_derived(&mut conn, &derived).await.unwrap();
-            let xid: i64 = sqlx::query_scalar(
-                "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
-            )
-            .bind(offset)
-            .fetch_one(&mut *conn)
-            .await
-            .unwrap();
+            let xid: Xid8 =
+                sqlx::query_scalar("SELECT xid FROM record_derived WHERE record_offset = $1")
+                    .bind(offset)
+                    .fetch_one(&mut *conn)
+                    .await
+                    .unwrap();
             let (_, stream_ms) = get_record_derived_at_xid(&mut conn, xid)
                 .await
                 .unwrap()
@@ -524,7 +520,7 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> i64 {
+    pub(crate) async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> Xid8 {
         let row = KafkaRecordRow {
             topic_id,
             record_partition: 0,
@@ -551,7 +547,7 @@ pub(crate) mod tests {
             derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
         };
         insert_record_derived(conn, &derived).await.unwrap();
-        sqlx::query_scalar("SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1")
+        sqlx::query_scalar("SELECT xid FROM record_derived WHERE record_offset = $1")
             .bind(offset)
             .fetch_one(&mut *conn)
             .await
@@ -564,10 +560,10 @@ pub(crate) mod tests {
 
     async fn neste_xids_naar_ferdig(
         pool: &sqlx::PgPool,
-        etter_xid: i64,
+        etter_xid: Xid8,
         limit: NonZeroU32,
         antall: usize,
-    ) -> Vec<i64> {
+    ) -> Vec<Xid8> {
         let mut xids = Vec::new();
         for _ in 0..50 {
             let mut conn = pool.acquire().await.unwrap();
@@ -597,7 +593,7 @@ pub(crate) mod tests {
             .unwrap();
 
         assert!(
-            get_neste_record_derived_xids(&mut conn, 0, limit(10))
+            get_neste_record_derived_xids(&mut conn, Xid8::START, limit(10))
                 .await
                 .unwrap()
                 .is_empty()
@@ -608,11 +604,11 @@ pub(crate) mod tests {
         let tredje = skriv_record(&mut conn, topic_id, 2).await;
 
         assert_eq!(
-            neste_xids_naar_ferdig(&pool, 0, limit(10), 3).await,
+            neste_xids_naar_ferdig(&pool, Xid8::START, limit(10), 3).await,
             vec![foerste, andre, tredje]
         );
         assert_eq!(
-            neste_xids_naar_ferdig(&pool, 0, limit(2), 2).await,
+            neste_xids_naar_ferdig(&pool, Xid8::START, limit(2), 2).await,
             vec![foerste, andre]
         );
         assert_eq!(
@@ -652,7 +648,7 @@ pub(crate) mod tests {
         let mut conn = pool.acquire().await.unwrap();
         let senere = skriv_record(&mut conn, topic_id, 0).await;
         assert!(
-            get_neste_record_derived_xids(&mut conn, 0, limit(10))
+            get_neste_record_derived_xids(&mut conn, Xid8::START, limit(10))
                 .await
                 .unwrap()
                 .is_empty(),
@@ -661,7 +657,7 @@ pub(crate) mod tests {
 
         aapen.rollback().await.unwrap();
         assert_eq!(
-            neste_xids_naar_ferdig(&pool, 0, limit(10), 1).await,
+            neste_xids_naar_ferdig(&pool, Xid8::START, limit(10), 1).await,
             vec![senere]
         );
     }

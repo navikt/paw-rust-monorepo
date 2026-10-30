@@ -1,5 +1,6 @@
 use crate::{
     database::record_derived::RecordDerived,
+    database::xid8::Xid8,
     regler::{
         alvorlighet::{Alvorlighet, Utfall},
         funn::Funn,
@@ -23,7 +24,7 @@ pub fn regel_melding_har_trace_id() -> Regel {
 /// Each record is checked alone, so no data is read beyond the record itself.
 /// A record is never written twice, so OK needs no stored state to delete;
 /// AltOk is still returned to keep the contract uniform.
-pub fn melding_har_trace_id(xid: i64, record: &RecordDerived) -> Funn {
+pub fn melding_har_trace_id(xid: Xid8, record: &RecordDerived) -> Funn {
     let nokkel = Nokkel::Melding(xid);
     if record.trace_id.is_some() {
         Funn::AltOk(nokkel)
@@ -58,16 +59,16 @@ mod tests {
     #[test]
     fn med_trace_id_er_ok() {
         assert_eq!(
-            melding_har_trace_id(7, &record(Some(Uuid::from_u128(1)))),
-            Funn::AltOk(Nokkel::Melding(7))
+            melding_har_trace_id(Xid8::new(7), &record(Some(Uuid::from_u128(1)))),
+            Funn::AltOk(Nokkel::Melding(Xid8::new(7)))
         );
     }
 
     #[test]
     fn uten_trace_id_gir_info_funn() {
         assert_eq!(
-            melding_har_trace_id(7, &record(None)),
-            Funn::Feil(Nokkel::Melding(7), MANGLER_TRACE_ID)
+            melding_har_trace_id(Xid8::new(7), &record(None)),
+            Funn::Feil(Nokkel::Melding(Xid8::new(7)), MANGLER_TRACE_ID)
         );
     }
 }

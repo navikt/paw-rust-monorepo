@@ -2,6 +2,7 @@ use sqlx::PgConnection;
 
 use crate::{
     database::record_derived::RecordDerived,
+    database::xid8::Xid8,
     regler::{
         funn::Funn, hele_trace_er_signert::hele_trace_er_signert,
         ingen_periode_uten_startet::ingen_periode_uten_startet,
@@ -18,7 +19,7 @@ use crate::{
 pub async fn exec(
     conn: &mut PgConnection,
     regel_id: RegelId,
-    xid: i64,
+    xid: Xid8,
     record: &RecordDerived,
 ) -> Result<Funn, sqlx::Error> {
     match regel_id {

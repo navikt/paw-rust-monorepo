@@ -9,6 +9,7 @@ use crate::{
         funn::{delete_funn, upsert_funn},
         record_derived::{get_neste_record_derived_xids, get_record_derived_at_xid},
         regel_fremdrift::{RegelFremdrift, get_regel_fremdrift, upsert_regel_fremdrift},
+        xid8::Xid8,
     },
     regler::{
         funn::Funn::{AltOk, Feil, IkkeAktuell},
@@ -72,12 +73,13 @@ pub async fn exec_regler(
             .iter()
             .any(|rf| rf.regel == regel.id && rf.regelversjon == regel.versjon)
         {
-            let lagt_til = upsert_regel_fremdrift(&mut tx, regel.id, regel.versjon, 0).await?;
+            let lagt_til =
+                upsert_regel_fremdrift(&mut tx, regel.id, regel.versjon, Xid8::START).await?;
             if lagt_til {
                 fremdrift.push(RegelFremdrift {
                     regel: regel.id,
                     regelversjon: regel.versjon,
-                    siste_xid: 0,
+                    siste_xid: Xid8::START,
                 });
             }
         }

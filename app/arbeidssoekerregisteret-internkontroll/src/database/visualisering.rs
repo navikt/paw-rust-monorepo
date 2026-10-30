@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::database::signature::SignatureStatus;
 
+use crate::database::xid8::Xid8;
 use crate::regler::alvorlighet::Alvorlighet;
 use crate::regler::nokkel::{Nivaa, Nokkel};
 use crate::regler::regel_katalog::RegelId;
@@ -20,7 +21,7 @@ pub const MAKS_ETTERSLEP: i64 = 100_000;
 pub struct RegelStatus {
     pub regel: RegelId,
     pub regelversjon: i32,
-    pub siste_xid: i64,
+    pub siste_xid: Xid8,
     /// Antall records i `record_derived` med xid over `siste_xid`, maks `MAKS_ETTERSLEP`.
     pub etter: i64,
     pub antall_funn: i64,
@@ -33,7 +34,7 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
         r#"
         SELECT f.regel,
                f.regelversjon,
-               f.siste_xid::text::bigint AS siste_xid,
+               f.siste_xid,
                (SELECT count(*) FROM (
                     SELECT 1 FROM record_derived rd
                     WHERE rd.xid > f.siste_xid
@@ -70,14 +71,14 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
 
 /// Høyeste xid i `record_derived`, eller `None` når tabellen er tom.
 ///
-/// `ORDER BY rd.xid` må ha tabellprefiks. Uten prefiks peker `xid` på
-/// output-kolonnen `xid::text::bigint`, og Postgres sorterer hele tabellen i
-/// stedet for å lese siste element i indeksen.
+/// Leser siste element i indeksen på `record_derived.xid`. Sorter på
+/// kolonnen direkte: et uttrykk i `ORDER BY` får Postgres til å sortere hele
+/// tabellen.
 #[tracing::instrument(skip(conn))]
-pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::Error> {
+pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<Xid8>, sqlx::Error> {
     sqlx::query_scalar(
         r#"
-        SELECT rd.xid::text::bigint FROM record_derived rd
+        SELECT rd.xid FROM record_derived rd
         ORDER BY rd.xid DESC
         LIMIT 1
         "#,
@@ -307,7 +308,7 @@ pub async fn hent_funn(
     skjul_yngre_enn_ms: i64,
 ) -> Result<Vec<FunnRad>, sqlx::Error> {
     let sql = match nivaa {
-        Nivaa::Melding => funn_sql!("funn_melding", "xid::text::bigint AS nokkel_bigint"),
+        Nivaa::Melding => funn_sql!("funn_melding", "xid AS nokkel_xid"),
         Nivaa::Trace => funn_sql!("funn_trace", "trace_id AS nokkel_uuid"),
         Nivaa::Periode => funn_sql!("funn_periode", "periode_id AS nokkel_uuid"),
         Nivaa::Arbeidssoeker => {
@@ -324,7 +325,7 @@ pub async fn hent_funn(
     rows.iter()
         .map(|row| {
             let nokkel = match nivaa {
-                Nivaa::Melding => Nokkel::Melding(row.try_get("nokkel_bigint")?),
+                Nivaa::Melding => Nokkel::Melding(row.try_get("nokkel_xid")?),
                 Nivaa::Trace => Nokkel::Trace(row.try_get("nokkel_uuid")?),
                 Nivaa::Periode => Nokkel::Periode(row.try_get("nokkel_uuid")?),
                 Nivaa::Arbeidssoeker => Nokkel::Arbeidssoeker(row.try_get("nokkel_bigint")?),
@@ -530,7 +531,7 @@ mod tests {
         );
         let max_xid = plan(
             &mut conn,
-            "EXPLAIN SELECT rd.xid::text::bigint FROM record_derived rd \
+            "EXPLAIN SELECT rd.xid FROM record_derived rd \
              ORDER BY rd.xid DESC LIMIT 1",
         )
         .await;

@@ -24,6 +24,7 @@ use crate::database::visualisering::{
     RegelStatus, Signaturfeil, hent_funn, hent_funn_antall, hent_mangler_trace_id_per_topic,
     hent_max_xid, hent_regel_status, hent_siste_signaturfeil,
 };
+use crate::database::xid8::Xid8;
 use crate::regler::alvorlighet::Alvorlighet;
 use crate::regler::nokkel::{Nivaa, Nokkel};
 use crate::regler::regel_katalog::RegelId;
@@ -296,7 +297,7 @@ fn regel_navn(regel: RegelId) -> &'static str {
 }
 
 /// Alle verdier er tall eller faste tekster, så de trenger ikke HTML-escaping.
-fn regel_tabell(status: &[RegelStatus], max_xid: Option<i64>) -> String {
+fn regel_tabell(status: &[RegelStatus], max_xid: Option<Xid8>) -> String {
     let mut html = String::new();
     let max_xid = max_xid.map_or("–".to_string(), |x| x.to_string());
     let _ = write!(html, "<p>Høyeste xid i record_derived: {max_xid}</p>");

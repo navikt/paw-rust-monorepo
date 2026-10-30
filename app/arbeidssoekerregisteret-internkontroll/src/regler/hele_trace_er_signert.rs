@@ -1,6 +1,7 @@
 use sqlx::PgConnection;
 
 use crate::{
+    database::xid8::Xid8,
     database::{
         record_derived::{RecordDerived, hent_grunnlag},
         signature::Signature,
@@ -28,7 +29,7 @@ pub fn regel_hele_trace_er_signert() -> Regel {
 /// Records without trace_id are not relevant: they belong to no trace.
 pub async fn hele_trace_er_signert(
     conn: &mut PgConnection,
-    xid: i64,
+    xid: Xid8,
     record: &RecordDerived,
 ) -> Result<Funn, sqlx::Error> {
     let Some(nokkel) = Nokkel::fra_record(xid, record, NIVAA) else {
@@ -111,7 +112,7 @@ mod tests {
     fn record_uten_trace_id_gir_ingen_nokkel() {
         let mut uten_trace = record(gyldig());
         uten_trace.trace_id = None;
-        assert_eq!(Nokkel::fra_record(1, &uten_trace, NIVAA), None);
+        assert_eq!(Nokkel::fra_record(Xid8::new(1), &uten_trace, NIVAA), None);
     }
 
     #[test]

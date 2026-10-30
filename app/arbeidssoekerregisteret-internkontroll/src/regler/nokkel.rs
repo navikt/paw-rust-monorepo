@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::database::record_derived::RecordDerived;
+use crate::database::{record_derived::RecordDerived, xid8::Xid8};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Nivaa {
@@ -34,7 +34,7 @@ impl Nivaa {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Nokkel {
-    Melding(i64),
+    Melding(Xid8),
     Trace(Uuid),
     Periode(Uuid),
     Arbeidssoeker(i64),
@@ -50,7 +50,7 @@ impl Nokkel {
         }
     }
 
-    pub fn fra_record(xid: i64, record: &RecordDerived, nivaa: Nivaa) -> Option<Self> {
+    pub fn fra_record(xid: Xid8, record: &RecordDerived, nivaa: Nivaa) -> Option<Self> {
         match nivaa {
             Nivaa::Melding => Some(Self::Melding(xid)),
             Nivaa::Trace => record.trace_id.map(Self::Trace),
@@ -87,19 +87,19 @@ mod tests {
     fn bygger_nokkel_fra_record_paa_alle_nivaaer() {
         let record = record();
         assert_eq!(
-            Nokkel::fra_record(5, &record, Nivaa::Melding),
-            Some(Nokkel::Melding(5))
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Melding),
+            Some(Nokkel::Melding(Xid8::new(5)))
         );
         assert_eq!(
-            Nokkel::fra_record(5, &record, Nivaa::Trace),
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Trace),
             Some(Nokkel::Trace(Uuid::from_u128(10)))
         );
         assert_eq!(
-            Nokkel::fra_record(5, &record, Nivaa::Periode),
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Periode),
             Some(Nokkel::Periode(Uuid::from_u128(20)))
         );
         assert_eq!(
-            Nokkel::fra_record(5, &record, Nivaa::Arbeidssoeker),
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Arbeidssoeker),
             Some(Nokkel::Arbeidssoeker(30))
         );
     }
@@ -112,12 +112,21 @@ mod tests {
             arbeidssoeker_id: None,
             ..record()
         };
-        assert_eq!(Nokkel::fra_record(5, &record, Nivaa::Trace), None);
-        assert_eq!(Nokkel::fra_record(5, &record, Nivaa::Periode), None);
-        assert_eq!(Nokkel::fra_record(5, &record, Nivaa::Arbeidssoeker), None);
         assert_eq!(
-            Nokkel::fra_record(5, &record, Nivaa::Melding),
-            Some(Nokkel::Melding(5))
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Trace),
+            None
+        );
+        assert_eq!(
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Periode),
+            None
+        );
+        assert_eq!(
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Arbeidssoeker),
+            None
+        );
+        assert_eq!(
+            Nokkel::fra_record(Xid8::new(5), &record, Nivaa::Melding),
+            Some(Nokkel::Melding(Xid8::new(5)))
         );
     }
 

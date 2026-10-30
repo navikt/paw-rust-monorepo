@@ -18,7 +18,7 @@ pub async fn upsert_funn(
                     xid, regel, regelversjon, utfall, alvorlighet,
                     opprettet, sist_oppdatert, opprettet_stream_ms, sist_oppdatert_stream_ms
                 )
-                VALUES ($1::bigint::text::xid8, $2, $3, $4, $5, now(), now(), $6, $6)
+                VALUES ($1, $2, $3, $4, $5, now(), now(), $6, $6)
                 ON CONFLICT (xid, regel, regelversjon) DO UPDATE
                     SET utfall = EXCLUDED.utfall,
                         alvorlighet = EXCLUDED.alvorlighet,
@@ -124,7 +124,7 @@ pub async fn delete_funn(
     match nokkel {
         Nokkel::Melding(xid) => {
             sqlx::query(
-                "DELETE FROM funn_melding WHERE xid = $1::bigint::text::xid8 AND regel = $2 AND regelversjon = $3",
+                "DELETE FROM funn_melding WHERE xid = $1 AND regel = $2 AND regelversjon = $3",
             )
             .bind(xid)
             .bind(regel)
@@ -169,6 +169,7 @@ pub async fn delete_funn(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::xid8::Xid8;
     use crate::{database::trace::upsert_trace, regler::alvorlighet::Alvorlighet};
     use chrono::{DateTime, Utc};
     use postgres_testcontainer::postgres::setup_postgres_container;
@@ -180,7 +181,7 @@ mod tests {
         match nokkel {
             Nokkel::Melding(xid) => {
                 sqlx::query_as(
-                    "SELECT utfall, alvorlighet, opprettet, sist_oppdatert, opprettet_stream_ms, sist_oppdatert_stream_ms FROM funn_melding WHERE xid = $1::bigint::text::xid8 AND regel = 2 AND regelversjon = $2",
+                    "SELECT utfall, alvorlighet, opprettet, sist_oppdatert, opprettet_stream_ms, sist_oppdatert_stream_ms FROM funn_melding WHERE xid = $1 AND regel = 2 AND regelversjon = $2",
                 )
                 .bind(xid)
                 .bind(regelversjon)
@@ -215,7 +216,7 @@ mod tests {
     async fn exists(conn: &mut PgConnection, nokkel: &Nokkel, regelversjon: i32) -> bool {
         match nokkel {
             Nokkel::Melding(xid) => sqlx::query_scalar(
-                "SELECT EXISTS (SELECT 1 FROM funn_melding WHERE xid = $1::bigint::text::xid8 AND regel = 2 AND regelversjon = $2)",
+                "SELECT EXISTS (SELECT 1 FROM funn_melding WHERE xid = $1 AND regel = 2 AND regelversjon = $2)",
             )
             .bind(xid)
             .bind(regelversjon)
@@ -265,7 +266,7 @@ mod tests {
         let trace_id = Uuid::from_u128(101);
         upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
         let nokler = [
-            Nokkel::Melding(101),
+            Nokkel::Melding(Xid8::new(101)),
             Nokkel::Trace(trace_id),
             Nokkel::Periode(Uuid::from_u128(201)),
         ];
@@ -332,7 +333,7 @@ mod tests {
         let trace_id = Uuid::from_u128(301);
         upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
         let nokler = [
-            Nokkel::Melding(301),
+            Nokkel::Melding(Xid8::new(301)),
             Nokkel::Trace(trace_id),
             Nokkel::Periode(Uuid::from_u128(401)),
         ];
@@ -379,9 +380,9 @@ mod tests {
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
                 1,
-                &Nokkel::Melding(xid),
+                &Nokkel::Melding(Xid8::new(xid)),
                 &utfall,
-                xid,
+                xid as i64,
             )
             .await
             .unwrap();

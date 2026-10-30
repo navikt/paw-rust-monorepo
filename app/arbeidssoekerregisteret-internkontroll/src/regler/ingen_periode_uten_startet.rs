@@ -1,6 +1,7 @@
 use sqlx::PgConnection;
 
 use crate::{
+    database::xid8::Xid8,
     database::{
         payload::Meldingstype,
         record_derived::{RecordDerived, hent_grunnlag},
@@ -28,7 +29,7 @@ pub fn regel_ingen_periode_uten_startet() -> Regel {
 /// Records without trace_id are not relevant: they belong to no trace.
 pub async fn ingen_periode_uten_startet(
     conn: &mut PgConnection,
-    xid: i64,
+    xid: Xid8,
     record: &RecordDerived,
 ) -> Result<Funn, sqlx::Error> {
     let Some(nokkel) = Nokkel::fra_record(xid, record, NIVAA) else {
@@ -126,7 +127,7 @@ mod tests {
     fn periode_startet_uten_trace_id_gir_ingen_nokkel() {
         let mut r = record(Meldingstype::PeriodeStartet);
         r.trace_id = None;
-        assert_eq!(Nokkel::fra_record(1, &r, NIVAA), None);
+        assert_eq!(Nokkel::fra_record(Xid8::new(1), &r, NIVAA), None);
     }
 
     #[test]
