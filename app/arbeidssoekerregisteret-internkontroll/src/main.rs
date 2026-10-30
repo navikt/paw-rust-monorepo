@@ -28,9 +28,7 @@ use paw_kafka::signing::RecordVerifier;
 use paw_kafka::topics::get_topic_names;
 use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
 use paw_rust_base::{
-    await_signal::await_signal,
-    env::runtime_env,
-    panic_logger::register_panic_logger,
+    await_signal::await_signal, env::runtime_env, panic_logger::register_panic_logger,
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
@@ -42,6 +40,7 @@ use tracing::info;
 use crate::meldinger::Dekodere;
 use crate::regler::hele_trace_er_signert::regel_hele_trace_er_signert;
 use crate::regler::ingen_periode_uten_startet::regel_ingen_periode_uten_startet;
+use crate::regler::melding_har_trace_id::regel_melding_har_trace_id;
 use crate::regler::regler_task::spawn_regel_task;
 use crate::reset_db::reset_db_if_needed;
 use crate::schema_registry::create_schema_registry_settings;
@@ -107,6 +106,7 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
     let regler = vec![
         regel_hele_trace_er_signert(),
         regel_ingen_periode_uten_startet(),
+        regel_melding_har_trace_id(),
     ];
     let regel_task = spawn_regel_task(
         pg_pool.clone(),

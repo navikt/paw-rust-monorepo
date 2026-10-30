@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::database::payload::{Meldingstype, PayloadStatus};
 use crate::database::signature::Signature;
+use crate::regler::nokkel::Nokkel;
 
 /// Values derived from one Kafka record, as written to `record_derived`.
 /// `xid` is set by the database to the writing transaction.
@@ -120,30 +121,76 @@ pub async fn get_record_derived(
     .await
 }
 
-/// Get record with xid + all records where trace_id matches tracie_id of this record and xid <= the given xid, in xid order.
-/// Empty if the record with the given xid does not exist or has no trace_id.
+/// Column list for reading `RecordDerived` from `record_derived rd`.
+/// A macro, not a const: sqlx only accepts SQL known at compile time.
+macro_rules! kolonner {
+    () => {
+        "rd.topic_id, rd.record_partition, rd.record_offset,
+         rd.signature_status, rd.signing_key_id,
+         rd.timestamp_delta_ms, rd.trace_id, rd.payload_status, rd.meldingstype,
+         rd.periode_id, rd.arbeidssoeker_id, rd.derived_at"
+    };
+}
+
+/// SELECT on records matching `$filter` with xid <= $2, in xid order.
+macro_rules! grunnlag_sql {
+    ($filter:literal) => {
+        concat!(
+            "SELECT ",
+            kolonner!(),
+            " FROM record_derived rd WHERE ",
+            $filter,
+            " AND rd.xid <= $2::bigint::text::xid8 ORDER BY rd.xid"
+        )
+    };
+}
+
+/// The record written by `xid`, and its stream time in ms: the highest Kafka
+/// timestamp seen in the topic-partition up to this record. With delta >= 0
+/// (or no delta) that is the record timestamp; with delta < 0 it is
+/// record timestamp - delta. `derived_at` when the record has no timestamp.
+/// None when no record has this xid.
 #[tracing::instrument(skip(conn))]
-pub async fn get_at_xid_including_preceding_trace_records(
+pub async fn get_record_derived_at_xid(
     conn: &mut PgConnection,
     xid: i64,
-) -> Result<Vec<RecordDerived>, sqlx::Error> {
-    sqlx::query_as(
-        r#"
-        SELECT rd.topic_id, rd.record_partition, rd.record_offset,
-               rd.signature_status, rd.signing_key_id,
-               rd.timestamp_delta_ms, rd.trace_id, rd.payload_status, rd.meldingstype,
-               rd.periode_id, rd.arbeidssoeker_id, rd.derived_at
-        FROM record_derived m
-        JOIN record_derived rd
-          ON rd.trace_id = m.trace_id
-         AND rd.xid <= m.xid
-        WHERE m.xid = $1::bigint::text::xid8
-        ORDER BY rd.xid
-        "#,
-    )
+) -> Result<Option<(RecordDerived, i64)>, sqlx::Error> {
+    let row = sqlx::query(concat!(
+        "SELECT ",
+        kolonner!(),
+        ", COALESCE(kr.record_timestamp_ms - LEAST(COALESCE(rd.timestamp_delta_ms, 0), 0),
+                    (extract(epoch FROM rd.derived_at) * 1000)::bigint) AS stream_ms
+         FROM record_derived rd
+         JOIN kafka_record kr USING (topic_id, record_partition, record_offset)
+         WHERE rd.xid = $1::bigint::text::xid8"
+    ))
     .bind(xid)
-    .fetch_all(&mut *conn)
-    .await
+    .fetch_optional(&mut *conn)
+    .await?;
+    row.map(|row| Ok((RecordDerived::from_row(&row)?, row.try_get("stream_ms")?)))
+        .transpose()
+}
+
+/// All records with the same key as `nokkel` and xid <= `xid`, in xid order.
+/// A rule must never see records after the one it evaluates; this is the
+/// bound that guarantees it.
+#[tracing::instrument(skip(conn))]
+pub async fn hent_grunnlag(
+    conn: &mut PgConnection,
+    nokkel: &Nokkel,
+    xid: i64,
+) -> Result<Vec<RecordDerived>, sqlx::Error> {
+    let query = match nokkel {
+        Nokkel::Melding(v) => {
+            sqlx::query_as(grunnlag_sql!("rd.xid = $1::bigint::text::xid8")).bind(*v)
+        }
+        Nokkel::Trace(v) => sqlx::query_as(grunnlag_sql!("rd.trace_id = $1")).bind(*v),
+        Nokkel::Periode(v) => sqlx::query_as(grunnlag_sql!("rd.periode_id = $1")).bind(*v),
+        Nokkel::Arbeidssoeker(v) => {
+            sqlx::query_as(grunnlag_sql!("rd.arbeidssoeker_id = $1")).bind(*v)
+        }
+    };
+    query.bind(xid).fetch_all(&mut *conn).await
 }
 
 /// The xids of up to `limit` records after `etter_xid`, in xid order. Empty
@@ -178,6 +225,7 @@ pub(crate) mod tests {
     use crate::database::kafka_record::{KafkaRecordRow, KafkaTimestampType, insert_kafka_record};
     use crate::database::signature::tests::alle_signaturer;
     use crate::database::topic::{load_topic_ids, register_topics};
+    use crate::regler::nokkel::Nivaa;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgConnection;
 
@@ -366,7 +414,7 @@ pub(crate) mod tests {
         let trace_b_xid = xid(0).await.unwrap();
 
         assert_eq!(
-            get_at_xid_including_preceding_trace_records(&mut conn, trace_b_xid)
+            hent_grunnlag(&mut conn, &Nokkel::Trace(trace_b), trace_b_xid)
                 .await
                 .unwrap(),
             vec![skrevet[1].clone()]
@@ -387,11 +435,14 @@ pub(crate) mod tests {
                 .await
                 .unwrap();
                 let mut conn = pool.acquire().await.unwrap();
-                offsets(
-                    get_at_xid_including_preceding_trace_records(&mut conn, xid)
-                        .await
-                        .unwrap(),
-                )
+                let (record, _) = get_record_derived_at_xid(&mut conn, xid)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                match Nokkel::fra_record(xid, &record, Nivaa::Trace) {
+                    Some(nokkel) => offsets(hent_grunnlag(&mut conn, &nokkel, xid).await.unwrap()),
+                    None => vec![],
+                }
             }
         };
         assert_eq!(trace_til(1).await, vec![2, 1]);
@@ -403,11 +454,75 @@ pub(crate) mod tests {
             "ingen trace_id gir ingen rader"
         );
         assert!(
-            get_at_xid_including_preceding_trace_records(&mut conn, siste_xid + 1_000)
+            get_record_derived_at_xid(&mut conn, siste_xid + 1_000)
                 .await
                 .unwrap()
-                .is_empty()
+                .is_none()
         );
+        let (_, stream_ms) = get_record_derived_at_xid(&mut conn, siste_xid)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stream_ms, 1_000);
+    }
+
+    #[tokio::test]
+    async fn stream_tid_er_record_timestamp_minus_negativ_delta() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = guard.pg_pool.clone();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
+        for (offset, timestamp_ms, delta, forventet) in [
+            (0, Some(1_000), None, 1_000),
+            (1, Some(1_500), Some(500), 1_500),
+            (2, Some(1_200), Some(-300), 1_500),
+            (3, None, None, 10_000),
+        ] {
+            let row = KafkaRecordRow {
+                topic_id,
+                record_partition: 0,
+                record_offset: offset,
+                record_timestamp_type: KafkaTimestampType::CreateTime,
+                record_timestamp_ms: timestamp_ms,
+                record_key: None,
+                record_value: None,
+                header_keys: vec![],
+                header_values: vec![],
+            };
+            insert_kafka_record(&mut conn, &row).await.unwrap();
+            let derived = RecordDerived {
+                topic_id,
+                record_partition: 0,
+                record_offset: offset,
+                signature: Signature::Missing,
+                timestamp_delta_ms: delta,
+                trace_id: None,
+                payload_status: PayloadStatus::Ok,
+                meldingstype: None,
+                periode_id: None,
+                arbeidssoeker_id: None,
+                derived_at: DateTime::from_timestamp_millis(10_000).unwrap(),
+            };
+            insert_record_derived(&mut conn, &derived).await.unwrap();
+            let xid: i64 = sqlx::query_scalar(
+                "SELECT xid::text::bigint FROM record_derived WHERE record_offset = $1",
+            )
+            .bind(offset)
+            .fetch_one(&mut *conn)
+            .await
+            .unwrap();
+            let (_, stream_ms) = get_record_derived_at_xid(&mut conn, xid)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(stream_ms, forventet, "offset {offset}");
+        }
     }
 
     pub(crate) async fn skriv_record(conn: &mut PgConnection, topic_id: i16, offset: i64) -> i64 {

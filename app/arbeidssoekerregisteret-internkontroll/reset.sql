@@ -1,4 +1,8 @@
 DROP TABLE IF EXISTS funn;
+DROP TABLE IF EXISTS funn_melding;
+DROP TABLE IF EXISTS funn_trace;
+DROP TABLE IF EXISTS funn_periode;
+DROP TABLE IF EXISTS funn_arbeidssoeker;
 DROP TABLE IF EXISTS signature_boundary;
 DROP TABLE IF EXISTS record_derived;
 DROP TABLE IF EXISTS kafka_header;
@@ -18,6 +22,7 @@ DROP TABLE IF EXISTS hwm;
 DROP TABLE IF EXISTS _sqlx_migrations;
 
 DROP TYPE IF EXISTS funn_status;
+DROP TYPE IF EXISTS alvorlighet;
 DROP TYPE IF EXISTS trace_kontroll_status;
 DROP TYPE IF EXISTS signature_status;
 DROP TYPE IF EXISTS payload_status;

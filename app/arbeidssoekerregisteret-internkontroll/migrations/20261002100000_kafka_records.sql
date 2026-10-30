@@ -114,3 +114,14 @@ CREATE INDEX record_derived_arbeidssoeker_id_idx
 CREATE INDEX record_derived_trace_id_idx
     ON record_derived (trace_id)
     WHERE trace_id IS NOT NULL;
+
+-- Visualiseringen teller og henter siste record uten trace_id per topic.
+CREATE INDEX record_derived_uten_trace_id_idx
+    ON record_derived (topic_id, xid)
+    WHERE trace_id IS NULL;
+
+-- Visualiseringen henter de siste records som feilet signaturvalidering.
+-- Predikatet må være identisk med filteret i hent_siste_signaturfeil.
+CREATE INDEX record_derived_signaturfeil_idx
+    ON record_derived (xid)
+    WHERE signature_status NOT IN ('valid', 'unsigned_before_required');

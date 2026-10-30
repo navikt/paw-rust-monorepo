@@ -2,45 +2,43 @@ use sqlx::PgConnection;
 
 use crate::{
     database::{
-        record_derived::{RecordDerived, get_at_xid_including_preceding_trace_records},
+        record_derived::{RecordDerived, hent_grunnlag},
         signature::Signature,
     },
-    regler::{funn::Funn, regel_katalog::RegelId, regler_task::Regel},
+    regler::{
+        alvorlighet::{Alvorlighet, Utfall},
+        funn::Funn,
+        nokkel::{Nivaa, Nokkel},
+        regel_katalog::RegelId,
+        regler_task::Regel,
+    },
 };
 
 const REGEL_VERSJON: i32 = 1;
-const IKKE_GYLDIG_SIGNATUR: i16 = 1;
+const NIVAA: Nivaa = Nivaa::Trace;
+const IKKE_GYLDIG_SIGNATUR: Utfall = Utfall {
+    kode: 1,
+    alvorlighet: Alvorlighet::Kritisk,
+};
 
 pub fn regel_hele_trace_er_signert() -> Regel {
-    Regel::new(RegelId::HeleTraceSignert, REGEL_VERSJON)
+    Regel::new(RegelId::HeleTraceSignert, REGEL_VERSJON, NIVAA)
 }
 
-fn alt_ok(trace_id: uuid::Uuid) -> Funn {
-    Funn::AltOk {
-        regel_id: RegelId::HeleTraceSignert,
-        regel_versjon: REGEL_VERSJON,
-        trace_id,
-    }
-}
-
-fn feil(trace_id: uuid::Uuid) -> Funn {
-    Funn::Feil(crate::regler::funn::Detaljer {
-        regel_id: RegelId::HeleTraceSignert,
-        regel_versjon: REGEL_VERSJON,
-        trace_id,
-        utfall: IKKE_GYLDIG_SIGNATUR,
-    })
-}
-
-pub async fn hele_trace_er_signert(conn: &mut PgConnection, xid: i64) -> Result<Funn, sqlx::Error> {
-    let data = get_at_xid_including_preceding_trace_records(conn, xid).await?;
-    Ok(evaluate_hele_trace_er_signert(data))
-}
-
-pub fn evaluate_hele_trace_er_signert(data: Vec<RecordDerived>) -> Funn {
-    let Some(trace_id) = data.first().and_then(|r| r.trace_id) else {
-        return Funn::IngenTraceId;
+/// Records without trace_id are not relevant: they belong to no trace.
+pub async fn hele_trace_er_signert(
+    conn: &mut PgConnection,
+    xid: i64,
+    record: &RecordDerived,
+) -> Result<Funn, sqlx::Error> {
+    let Some(nokkel) = Nokkel::fra_record(xid, record, NIVAA) else {
+        return Ok(Funn::IkkeAktuell);
     };
+    let data = hent_grunnlag(conn, &nokkel, xid).await?;
+    Ok(evaluate_hele_trace_er_signert(nokkel, &data))
+}
+
+pub fn evaluate_hele_trace_er_signert(nokkel: Nokkel, data: &[RecordDerived]) -> Funn {
     let problemer = data.iter().any(|rd| {
         !matches!(
             rd.signature,
@@ -48,9 +46,9 @@ pub fn evaluate_hele_trace_er_signert(data: Vec<RecordDerived>) -> Funn {
         )
     });
     if problemer {
-        feil(trace_id)
+        Funn::Feil(nokkel, IKKE_GYLDIG_SIGNATUR)
     } else {
-        alt_ok(trace_id)
+        Funn::AltOk(nokkel)
     }
 }
 
@@ -95,41 +93,30 @@ mod tests {
         .contains(&signature.status())
     }
 
+    const NOKKEL: Nokkel = Nokkel::Trace(TRACE_ID);
+
     fn alt_ok_funn() -> Funn {
-        Funn::AltOk {
-            regel_id: RegelId::HeleTraceSignert,
-            regel_versjon: REGEL_VERSJON,
-            trace_id: TRACE_ID,
-        }
+        Funn::AltOk(NOKKEL)
     }
 
     fn feil_funn() -> Funn {
-        Funn::Feil(crate::regler::funn::Detaljer {
-            regel_id: RegelId::HeleTraceSignert,
-            regel_versjon: REGEL_VERSJON,
-            trace_id: TRACE_ID,
-            utfall: IKKE_GYLDIG_SIGNATUR,
-        })
+        Funn::Feil(NOKKEL, IKKE_GYLDIG_SIGNATUR)
+    }
+
+    fn eval(data: Vec<RecordDerived>) -> Funn {
+        evaluate_hele_trace_er_signert(NOKKEL, &data)
     }
 
     #[test]
-    fn tom_trace_gir_ingen_trace_id() {
-        assert_eq!(evaluate_hele_trace_er_signert(vec![]), Funn::IngenTraceId);
-    }
-
-    #[test]
-    fn record_uten_trace_id_gir_ingen_trace_id() {
+    fn record_uten_trace_id_gir_ingen_nokkel() {
         let mut uten_trace = record(gyldig());
         uten_trace.trace_id = None;
-        assert_eq!(
-            evaluate_hele_trace_er_signert(vec![uten_trace]),
-            Funn::IngenTraceId
-        );
+        assert_eq!(Nokkel::fra_record(1, &uten_trace, NIVAA), None);
     }
 
     #[test]
     fn gyldige_og_usignerte_foer_krav_gir_alt_ok() {
-        let funn = evaluate_hele_trace_er_signert(vec![
+        let funn = eval(vec![
             record(gyldig()),
             record(Signature::UnsignedBeforeRequired),
             record(gyldig()),
@@ -146,7 +133,7 @@ mod tests {
                 feil_funn()
             };
             assert_eq!(
-                evaluate_hele_trace_er_signert(vec![record(signature.clone())]),
+                eval(vec![record(signature.clone())]),
                 forventet,
                 "{signature:?}"
             );
@@ -159,7 +146,7 @@ mod tests {
             let mut trace = vec![record(gyldig()), record(gyldig()), record(gyldig())];
             trace[posisjon] = record(Signature::Missing);
             assert_eq!(
-                evaluate_hele_trace_er_signert(trace),
+                eval(trace),
                 feil_funn(),
                 "ugyldig signatur på posisjon {posisjon}"
             );

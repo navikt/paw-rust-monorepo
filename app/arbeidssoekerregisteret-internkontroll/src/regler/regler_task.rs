@@ -7,27 +7,27 @@ use tracing::Span;
 use crate::{
     database::{
         funn::{delete_funn, upsert_funn},
-        record_derived::get_neste_record_derived_xids,
+        record_derived::{get_neste_record_derived_xids, get_record_derived_at_xid},
         regel_fremdrift::{RegelFremdrift, get_regel_fremdrift, upsert_regel_fremdrift},
     },
     regler::{
-        funn::Funn::{IkkeAktuell, IngenTraceId},
+        funn::Funn::{AltOk, Feil, IkkeAktuell},
+        nokkel::{Nivaa, Nokkel},
         regel_katalog::RegelId,
         regel_router::exec,
     },
 };
 
-use super::funn::Funn::{AltOk, Feil};
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Regel {
     id: RegelId,
     versjon: i32,
+    nivaa: Nivaa,
 }
 
 impl Regel {
-    pub fn new(id: RegelId, versjon: i32) -> Self {
-        Self { id, versjon }
+    pub fn new(id: RegelId, versjon: i32, nivaa: Nivaa) -> Self {
+        Self { id, versjon, nivaa }
     }
 }
 
@@ -98,37 +98,57 @@ pub async fn exec_regler(
     };
     let regel_id = regel_fremdrift.regel;
     let regel_versjon = regel_fremdrift.regelversjon;
+    let nivaa = regler
+        .iter()
+        .find(|r| r.id == regel_id && r.versjon == regel_versjon)
+        .map(|r| r.nivaa)
+        .expect("fremdrift er filtrert på registrerte regler");
     let neste_xids =
         get_neste_record_derived_xids(&mut tx, regel_fremdrift.siste_xid, batch_size).await?;
     let antall_nye_xids = neste_xids.len();
     for neste_xid in neste_xids {
         let klar = upsert_regel_fremdrift(&mut tx, regel_id, regel_versjon, neste_xid).await?;
-        if klar {
-            let funn = exec(&mut tx, regel_id, neste_xid).await?;
-            match funn {
-                IkkeAktuell => {}
-                IngenTraceId => tracing::warn!("Ingen trace_id funner for xid {}", neste_xid),
-                AltOk {
+        if !klar {
+            break;
+        }
+        let Some((record, stream_ms)) = get_record_derived_at_xid(&mut tx, neste_xid).await? else {
+            continue;
+        };
+        match exec(&mut tx, regel_id, neste_xid, &record).await? {
+            IkkeAktuell => {}
+            AltOk(nokkel) => {
+                sjekk_nivaa(regel_id, nivaa, &nokkel)?;
+                delete_funn(&mut tx, regel_id, regel_versjon, &nokkel).await?
+            }
+            Feil(nokkel, utfall) => {
+                sjekk_nivaa(regel_id, nivaa, &nokkel)?;
+                upsert_funn(
+                    &mut tx,
                     regel_id,
                     regel_versjon,
-                    trace_id,
-                } => delete_funn(&mut tx, trace_id, regel_id, regel_versjon).await?,
-                Feil(detaljer) => {
-                    upsert_funn(
-                        &mut tx,
-                        detaljer.trace_id,
-                        detaljer.regel_id,
-                        detaljer.regel_versjon,
-                        detaljer.utfall,
-                    )
-                    .await?
-                }
+                    &nokkel,
+                    &utfall,
+                    stream_ms,
+                )
+                .await?
             }
-        } else {
-            break;
         }
     }
     tx.commit().await?;
     Span::current().record("antall_nye_xids", antall_nye_xids);
     Ok(antall_nye_xids)
+}
+
+/// A rule returning a key on another level than it declares is a
+/// programming error: the finding would land in the wrong table.
+fn sjekk_nivaa(regel_id: RegelId, nivaa: Nivaa, nokkel: &Nokkel) -> Result<(), sqlx::Error> {
+    if nokkel.nivaa() == nivaa {
+        Ok(())
+    } else {
+        Err(sqlx::Error::Protocol(format!(
+            "regel {regel_id:?} er deklarert på nivå {} men returnerte nøkkel på nivå {}",
+            nivaa.as_str(),
+            nokkel.nivaa().as_str()
+        )))
+    }
 }

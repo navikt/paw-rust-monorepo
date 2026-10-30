@@ -1,23 +1,10 @@
-use uuid::Uuid;
+use crate::regler::{alvorlighet::Utfall, nokkel::Nokkel};
 
-use crate::regler::regel_katalog::RegelId;
-
+/// Result of one rule evaluation. Rule id and version are known by the
+/// caller, so only the key and outcome are carried here.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Funn {
     IkkeAktuell,
-    IngenTraceId,
-    AltOk {
-        regel_id: RegelId,
-        regel_versjon: i32,
-        trace_id: Uuid,
-    },
-    Feil(Detaljer),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Detaljer {
-    pub regel_id: RegelId,
-    pub regel_versjon: i32,
-    pub trace_id: Uuid,
-    pub utfall: i16,
+    AltOk(Nokkel),
+    Feil(Nokkel, Utfall),
 }

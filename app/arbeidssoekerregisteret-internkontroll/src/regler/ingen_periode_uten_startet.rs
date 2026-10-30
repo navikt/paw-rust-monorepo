@@ -3,41 +3,39 @@ use sqlx::PgConnection;
 use crate::{
     database::{
         payload::Meldingstype,
-        record_derived::{RecordDerived, get_at_xid_including_preceding_trace_records},
+        record_derived::{RecordDerived, hent_grunnlag},
     },
-    regler::{funn::Funn, regel_katalog::RegelId, regler_task::Regel},
+    regler::{
+        alvorlighet::{Alvorlighet, Utfall},
+        funn::Funn,
+        nokkel::{Nivaa, Nokkel},
+        regel_katalog::RegelId,
+        regler_task::Regel,
+    },
 };
 
 const REGEL_VERSJON: i32 = 1;
-const PERIODE_STARTET_UTEN_HENDELSE_STARTET: i16 = 1;
+const NIVAA: Nivaa = Nivaa::Trace;
+const PERIODE_STARTET_UTEN_HENDELSE_STARTET: Utfall = Utfall {
+    kode: 1,
+    alvorlighet: Alvorlighet::Kritisk,
+};
 
 pub fn regel_ingen_periode_uten_startet() -> Regel {
-    Regel::new(RegelId::IngenPeriodeUtenStartet, REGEL_VERSJON)
+    Regel::new(RegelId::IngenPeriodeUtenStartet, REGEL_VERSJON, NIVAA)
 }
 
-fn alt_ok(trace_id: uuid::Uuid) -> Funn {
-    Funn::AltOk {
-        regel_id: RegelId::IngenPeriodeUtenStartet,
-        regel_versjon: REGEL_VERSJON,
-        trace_id,
-    }
-}
-
-fn feil(trace_id: uuid::Uuid) -> Funn {
-    Funn::Feil(crate::regler::funn::Detaljer {
-        regel_id: RegelId::IngenPeriodeUtenStartet,
-        regel_versjon: REGEL_VERSJON,
-        trace_id,
-        utfall: PERIODE_STARTET_UTEN_HENDELSE_STARTET,
-    })
-}
-
+/// Records without trace_id are not relevant: they belong to no trace.
 pub async fn ingen_periode_uten_startet(
     conn: &mut PgConnection,
     xid: i64,
+    record: &RecordDerived,
 ) -> Result<Funn, sqlx::Error> {
-    let data = get_at_xid_including_preceding_trace_records(conn, xid).await?;
-    Ok(evaluate_ingen_periode_uten_startet(data))
+    let Some(nokkel) = Nokkel::fra_record(xid, record, NIVAA) else {
+        return Ok(Funn::IkkeAktuell);
+    };
+    let data = hent_grunnlag(conn, &nokkel, xid).await?;
+    Ok(evaluate_ingen_periode_uten_startet(nokkel, &data))
 }
 
 /// `data` is the trace up to and including the record being evaluated, in xid
@@ -48,26 +46,23 @@ pub async fn ingen_periode_uten_startet(
 ///   replaces the Feil written when the `PeriodeStartet` was read first.
 ///   Without a `PeriodeStartet` (for example a duplicate) it is not relevant.
 /// - Every other message type is not relevant.
-pub fn evaluate_ingen_periode_uten_startet(data: Vec<RecordDerived>) -> Funn {
+pub fn evaluate_ingen_periode_uten_startet(nokkel: Nokkel, data: &[RecordDerived]) -> Funn {
     let Some(gjeldende) = data.last() else {
-        return Funn::IngenTraceId;
-    };
-    let Some(trace_id) = gjeldende.trace_id else {
-        return Funn::IngenTraceId;
+        return Funn::IkkeAktuell;
     };
     match gjeldende.meldingstype {
         Some(Meldingstype::HendelseStartet) => {
-            if finnes(&data, Meldingstype::PeriodeStartet) {
-                alt_ok(trace_id)
+            if finnes(data, Meldingstype::PeriodeStartet) {
+                Funn::AltOk(nokkel)
             } else {
                 Funn::IkkeAktuell
             }
         }
         Some(Meldingstype::PeriodeStartet) => {
-            if finnes(&data, Meldingstype::HendelseStartet) {
-                alt_ok(trace_id)
+            if finnes(data, Meldingstype::HendelseStartet) {
+                Funn::AltOk(nokkel)
             } else {
-                feil(trace_id)
+                Funn::Feil(nokkel, PERIODE_STARTET_UTEN_HENDELSE_STARTET)
             }
         }
         _ => Funn::IkkeAktuell,
@@ -104,26 +99,34 @@ mod tests {
         }
     }
 
+    const NOKKEL: Nokkel = Nokkel::Trace(TRACE_ID);
+
     fn eval(typer: &[Meldingstype]) -> Funn {
-        evaluate_ingen_periode_uten_startet(typer.iter().copied().map(record).collect())
+        let data: Vec<_> = typer.iter().copied().map(record).collect();
+        evaluate_ingen_periode_uten_startet(NOKKEL, &data)
+    }
+
+    fn alt_ok(_: Uuid) -> Funn {
+        Funn::AltOk(NOKKEL)
+    }
+
+    fn feil(_: Uuid) -> Funn {
+        Funn::Feil(NOKKEL, PERIODE_STARTET_UTEN_HENDELSE_STARTET)
     }
 
     #[test]
-    fn tom_trace_gir_ingen_trace_id() {
+    fn tomt_grunnlag_er_ikke_aktuelt() {
         assert_eq!(
-            evaluate_ingen_periode_uten_startet(vec![]),
-            Funn::IngenTraceId
+            evaluate_ingen_periode_uten_startet(NOKKEL, &[]),
+            Funn::IkkeAktuell
         );
     }
 
     #[test]
-    fn periode_startet_uten_trace_id_gir_ingen_trace_id() {
+    fn periode_startet_uten_trace_id_gir_ingen_nokkel() {
         let mut r = record(Meldingstype::PeriodeStartet);
         r.trace_id = None;
-        assert_eq!(
-            evaluate_ingen_periode_uten_startet(vec![r]),
-            Funn::IngenTraceId
-        );
+        assert_eq!(Nokkel::fra_record(1, &r, NIVAA), None);
     }
 
     #[test]

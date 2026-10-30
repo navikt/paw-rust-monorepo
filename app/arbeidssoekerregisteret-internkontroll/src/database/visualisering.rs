@@ -3,6 +3,8 @@ use uuid::Uuid;
 
 use crate::database::signature::SignatureStatus;
 
+use crate::regler::alvorlighet::Alvorlighet;
+use crate::regler::nokkel::{Nivaa, Nokkel};
 use crate::regler::regel_katalog::RegelId;
 
 /// Øvre grense for tellingen av records en regel ligger bak. Tellingen går
@@ -38,8 +40,14 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
                     ORDER BY rd.xid
                     LIMIT $1
                ) etterslep) AS etter,
-               (SELECT count(*) FROM funn
-                WHERE funn.regel = f.regel AND funn.regelversjon = f.regelversjon) AS antall_funn
+               (SELECT count(*) FROM funn_melding x
+                 WHERE x.regel = f.regel AND x.regelversjon = f.regelversjon)
+             + (SELECT count(*) FROM funn_trace x
+                 WHERE x.regel = f.regel AND x.regelversjon = f.regelversjon)
+             + (SELECT count(*) FROM funn_periode x
+                 WHERE x.regel = f.regel AND x.regelversjon = f.regelversjon)
+             + (SELECT count(*) FROM funn_arbeidssoeker x
+                 WHERE x.regel = f.regel AND x.regelversjon = f.regelversjon) AS antall_funn
         FROM regel_fremdrift f
         ORDER BY f.regel, f.regelversjon
         "#,
@@ -199,6 +207,141 @@ pub async fn hent_siste_signaturfeil(
         .collect()
 }
 
+/// Maks antall funn i en nivåfane.
+pub const MAKS_FUNN_I_FANE: i64 = 200;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunnAntall {
+    pub nivaa: Nivaa,
+    pub alvorlighet: Alvorlighet,
+    pub antall: i64,
+}
+
+/// Antall funn per nivå og alvorlighet. Kombinasjoner uten funn er ikke med.
+/// Funn opprettet mindre enn `skjul_yngre_enn_ms` før stream-tiden telles ikke.
+#[tracing::instrument(skip(conn))]
+pub async fn hent_funn_antall(
+    conn: &mut PgConnection,
+    skjul_yngre_enn_ms: i64,
+) -> Result<Vec<FunnAntall>, sqlx::Error> {
+    let rows = sqlx::query(
+        r#"
+        WITH grense AS (
+            SELECT COALESCE(max(timestamp_ms), 0) - $1 AS ms FROM stream_time
+        )
+        SELECT 'melding' AS nivaa, alvorlighet, count(*) AS antall FROM funn_melding
+            WHERE opprettet_stream_ms <= (SELECT ms FROM grense) GROUP BY alvorlighet
+        UNION ALL
+        SELECT 'trace', alvorlighet, count(*) FROM funn_trace
+            WHERE opprettet_stream_ms <= (SELECT ms FROM grense) GROUP BY alvorlighet
+        UNION ALL
+        SELECT 'periode', alvorlighet, count(*) FROM funn_periode
+            WHERE opprettet_stream_ms <= (SELECT ms FROM grense) GROUP BY alvorlighet
+        UNION ALL
+        SELECT 'arbeidssoeker', alvorlighet, count(*) FROM funn_arbeidssoeker
+            WHERE opprettet_stream_ms <= (SELECT ms FROM grense) GROUP BY alvorlighet
+        "#,
+    )
+    .bind(skjul_yngre_enn_ms)
+    .fetch_all(&mut *conn)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            let nivaa: String = row.try_get("nivaa")?;
+            Ok(FunnAntall {
+                nivaa: Nivaa::fra_str(&nivaa)
+                    .ok_or_else(|| sqlx::Error::Protocol(format!("ukjent nivå {nivaa}")))?,
+                alvorlighet: row.try_get("alvorlighet")?,
+                antall: row.try_get("antall")?,
+            })
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunnRad {
+    pub nokkel: Nokkel,
+    pub regel: RegelId,
+    pub regelversjon: i32,
+    pub utfall: i16,
+    pub alvorlighet: Alvorlighet,
+    pub opprettet_stream_ms: i64,
+    pub sist_oppdatert_stream_ms: i64,
+}
+
+/// Velger fra én funn-tabell. Nøkkelkolonnen hentes som `nokkel_xid`,
+/// `nokkel_uuid` eller `nokkel_bigint` så radene kan leses likt.
+macro_rules! funn_sql {
+    ($tabell:literal, $nokkel:literal) => {
+        concat!(
+            "SELECT ",
+            $nokkel,
+            ", regel, regelversjon, utfall, alvorlighet,
+                    opprettet_stream_ms, sist_oppdatert_stream_ms
+             FROM ",
+            $tabell,
+            "
+             WHERE ($1::alvorlighet IS NULL OR alvorlighet = $1)
+               AND ($2::smallint IS NULL OR regel = $2)
+               AND opprettet_stream_ms <=
+                   (SELECT COALESCE(max(timestamp_ms), 0) FROM stream_time) - $4
+             ORDER BY alvorlighet DESC, opprettet_stream_ms DESC
+             LIMIT $3"
+        )
+    };
+}
+
+/// De nyeste funnene på ett nivå, mest alvorlige først, maks `MAKS_FUNN_I_FANE`.
+/// Tabellen velges av `nivaa`, aldri av tekst fra requesten.
+///
+/// Funn opprettet mindre enn `skjul_yngre_enn_ms` før stream-tiden skjules, så
+/// det som mangler får tid til å komme. Stream-tiden er den høyeste over alle
+/// topic-partisjoner. Ligger regelkjøringen bak konsumenten, kan et funn vises
+/// før rettingen er prosessert.
+#[tracing::instrument(skip(conn))]
+pub async fn hent_funn(
+    conn: &mut PgConnection,
+    nivaa: Nivaa,
+    alvorlighet: Option<Alvorlighet>,
+    regel: Option<RegelId>,
+    skjul_yngre_enn_ms: i64,
+) -> Result<Vec<FunnRad>, sqlx::Error> {
+    let sql = match nivaa {
+        Nivaa::Melding => funn_sql!("funn_melding", "xid::text::bigint AS nokkel_bigint"),
+        Nivaa::Trace => funn_sql!("funn_trace", "trace_id AS nokkel_uuid"),
+        Nivaa::Periode => funn_sql!("funn_periode", "periode_id AS nokkel_uuid"),
+        Nivaa::Arbeidssoeker => {
+            funn_sql!("funn_arbeidssoeker", "arbeidssoeker_id AS nokkel_bigint")
+        }
+    };
+    let rows = sqlx::query(sql)
+        .bind(alvorlighet)
+        .bind(regel)
+        .bind(MAKS_FUNN_I_FANE)
+        .bind(skjul_yngre_enn_ms)
+        .fetch_all(&mut *conn)
+        .await?;
+    rows.iter()
+        .map(|row| {
+            let nokkel = match nivaa {
+                Nivaa::Melding => Nokkel::Melding(row.try_get("nokkel_bigint")?),
+                Nivaa::Trace => Nokkel::Trace(row.try_get("nokkel_uuid")?),
+                Nivaa::Periode => Nokkel::Periode(row.try_get("nokkel_uuid")?),
+                Nivaa::Arbeidssoeker => Nokkel::Arbeidssoeker(row.try_get("nokkel_bigint")?),
+            };
+            Ok(FunnRad {
+                nokkel,
+                regel: row.try_get("regel")?,
+                regelversjon: row.try_get("regelversjon")?,
+                utfall: row.try_get("utfall")?,
+                alvorlighet: row.try_get("alvorlighet")?,
+                opprettet_stream_ms: row.try_get("opprettet_stream_ms")?,
+                sist_oppdatert_stream_ms: row.try_get("sist_oppdatert_stream_ms")?,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,6 +350,7 @@ mod tests {
     use crate::database::regel_fremdrift::upsert_regel_fremdrift;
     use crate::database::topic::{load_topic_ids, register_topics};
     use crate::database::trace::upsert_trace;
+    use crate::regler::alvorlighet::Utfall;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use uuid::Uuid;
 
@@ -239,9 +383,19 @@ mod tests {
         for i in 1..=2 {
             let trace_id = Uuid::from_u128(i);
             upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
-            upsert_funn(&mut conn, trace_id, RegelId::HeleTraceSignert, 1, 1)
-                .await
-                .unwrap();
+            upsert_funn(
+                &mut conn,
+                RegelId::HeleTraceSignert,
+                1,
+                &Nokkel::Trace(trace_id),
+                &Utfall {
+                    kode: 1,
+                    alvorlighet: Alvorlighet::Kritisk,
+                },
+                1_000,
+            )
+            .await
+            .unwrap();
         }
 
         assert_eq!(hent_max_xid(&mut conn).await.unwrap(), Some(xid3));
@@ -263,6 +417,72 @@ mod tests {
                     antall_funn: 0,
                 },
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn funn_yngre_enn_grensen_skjules_i_liste_og_telling() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+        register_topics(&mut conn, &["topic-a"]).await.unwrap();
+        let topic_id = load_topic_ids(&mut conn)
+            .await
+            .unwrap()
+            .get("topic-a")
+            .unwrap();
+        crate::database::stream_time::upsert_stream_time(&mut conn, topic_id, 0, 1_000_000)
+            .await
+            .unwrap();
+        let utfall = Utfall {
+            kode: 1,
+            alvorlighet: Alvorlighet::Kritisk,
+        };
+        for (periode, opprettet_ms) in [(1, 1_000_000 - 120_000), (2, 1_000_000 - 30_000)] {
+            upsert_funn(
+                &mut conn,
+                RegelId::HeleTraceSignert,
+                1,
+                &Nokkel::Periode(Uuid::from_u128(periode)),
+                &utfall,
+                opprettet_ms,
+            )
+            .await
+            .unwrap();
+        }
+        let antall = |funn: Vec<FunnRad>| funn.len();
+        assert_eq!(
+            antall(
+                hent_funn(&mut conn, Nivaa::Periode, None, None, 0)
+                    .await
+                    .unwrap()
+            ),
+            2
+        );
+        assert_eq!(
+            antall(
+                hent_funn(&mut conn, Nivaa::Periode, None, None, 60_000)
+                    .await
+                    .unwrap()
+            ),
+            1
+        );
+        assert_eq!(
+            antall(
+                hent_funn(&mut conn, Nivaa::Periode, None, None, 180_000)
+                    .await
+                    .unwrap()
+            ),
+            0
+        );
+        assert_eq!(
+            hent_funn_antall(&mut conn, 60_000).await.unwrap(),
+            vec![FunnAntall {
+                nivaa: Nivaa::Periode,
+                alvorlighet: Alvorlighet::Kritisk,
+                antall: 1,
+            }]
         );
     }
 

@@ -1,0 +1,9 @@
+<h2>Funn</h2>
+<p>
+    <label for="skjul-min">Skjul funn yngre enn (0–15 min, stream-tid)</label><br>
+    0 <input type="range" id="skjul-min" name="skjul_min" min="0" max="15" step="1" value="0"> 15
+</p>
+<div id="funn-oversikt" hx-get="/stats/funn/oversikt" hx-trigger="load, every 30s, change from:#skjul-min" hx-include="#skjul-min">
+    <p>Laster …</p>
+</div>
+<div id="funn"></div>
