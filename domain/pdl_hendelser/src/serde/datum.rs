@@ -29,16 +29,6 @@ impl AvroDatumDeserializer {
         apache_avro::from_value(&value).map_err(AvroSerdeError::deserialize)
     }
 
-    /// Dekoder bare starten av payloaden. Skjemaet må være et prefiks av writer-skjemaet:
-    /// samme felt i samme rekkefølge, med resten av feltene utelatt. Bytes etter prefikset ignoreres.
-    pub fn deserialize_prefix<T: DeserializeOwned>(
-        &self,
-        payload: &[u8],
-    ) -> Result<T, AvroSerdeError> {
-        let (value, _) = self.read(payload)?;
-        apache_avro::from_value(&value).map_err(AvroSerdeError::deserialize)
-    }
-
     fn read(&self, payload: &[u8]) -> Result<(apache_avro::types::Value, usize), AvroSerdeError> {
         let mut cursor = Cursor::new(payload);
         let value = GenericDatumReader::builder(&self.schema)
@@ -210,40 +200,6 @@ mod tests {
         assert_eq!(
             de.deserialize::<Test>(&bytes).unwrap_err(),
             AvroSerdeError::TrailingBytes { remaining: 2 }
-        );
-    }
-
-    #[test]
-    fn prefix_ignorerer_resten() {
-        #[derive(Debug, PartialEq, Deserialize)]
-        struct Prefiks {
-            id: String,
-            valgfri: Option<String>,
-        }
-        let prefiks_schema = r#"{
-            "type": "record",
-            "name": "Test",
-            "fields": [
-                {"name": "id", "type": "string"},
-                {"name": "valgfri", "type": ["null", "string"], "default": null}
-            ]
-        }"#;
-        let ser = AvroDatumSerializer::new(SCHEMA).unwrap();
-        let de = AvroDatumDeserializer::new(prefiks_schema).unwrap();
-        let bytes = ser
-            .serialize(&test_verdi(Some("x".to_string()), None))
-            .unwrap();
-
-        assert!(matches!(
-            de.deserialize::<Prefiks>(&bytes),
-            Err(AvroSerdeError::TrailingBytes { .. })
-        ));
-        assert_eq!(
-            de.deserialize_prefix::<Prefiks>(&bytes).unwrap(),
-            Prefiks {
-                id: "abc".to_string(),
-                valgfri: Some("x".to_string()),
-            }
         );
     }
 

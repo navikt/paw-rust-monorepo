@@ -23,7 +23,6 @@ use crate::serde::{AvroDatumDeserializer, AvroDatumSerializer, AvroSerdeError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{TimestampMilliSeconds, serde_as};
-use std::fmt;
 
 pub const PERSONHENDELSE_SCHEMA: &str = include_str!("../../avro/avsc/leesah/Personhendelse.avsc");
 
@@ -63,8 +62,8 @@ pub struct Personhendelse {
     pub bostedsadresse: Option<Bostedsadresse>,
 }
 
-impl fmt::Debug for Personhendelse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Debug for Personhendelse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Personhendelse")
             .field("hendelse_id", &self.hendelse_id)
             .field("master", &self.master)
@@ -73,6 +72,12 @@ impl fmt::Debug for Personhendelse {
             .field("endringstype", &self.endringstype)
             .field("tidligere_hendelse_id", &self.tidligere_hendelse_id)
             .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Display for Personhendelse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Personhendelse")
     }
 }
 
