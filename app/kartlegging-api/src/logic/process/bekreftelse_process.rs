@@ -147,6 +147,7 @@ mod tests {
     use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
     use crate::logic::process::kartlegging_process::utled_arbeidsledighet_for_bekreftelse;
     use crate::logic::process::periode_process::PeriodeProcessor;
+    use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
     use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
     use crate::model::dao::kartlegging::KartleggingRow;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
@@ -730,6 +731,8 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
+            let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -746,8 +749,7 @@ mod tests {
                 periode_processor: PeriodeProcessor::new(
                     app_config.clone(),
                     schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
+                    arbeidssoeker_service,
                 ),
                 bekreftelse_processor: BekreftelseProcessor::new(
                     app_config.clone(),

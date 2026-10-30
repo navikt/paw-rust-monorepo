@@ -3,15 +3,15 @@ use crate::logic::process::PayloadProcessor;
 use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
 use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
 use crate::logic::process::egenvurdering_process::EgenvurderingProcessor;
+use crate::logic::process::navneendring_process::NavneendringProcessor;
 use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcessor;
 use crate::logic::process::opplysninger_process::OpplysningerProcessor;
 use crate::logic::process::periode_process::PeriodeProcessor;
 use crate::logic::process::profilering_process::ProfileringProcessor;
+use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
 use crate::model::error::PayloadProcessorError;
 use crate::model::result::ProcessorResult;
 use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
-use paw_key_gen_client::client::PawKeyGenClient;
-use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
@@ -29,22 +29,21 @@ pub struct KartleggingMessageProcessor {
     bekreftelse_processor: Arc<BekreftelseProcessor>,
     bekreftelse_paavegneav_processor: Arc<BekreftelsePaaVegneAvProcessor>,
     oppfolgingsperiode_processor: Arc<OppfolgingsperiodeProcessor>,
+    navneendring_processor: Arc<NavneendringProcessor>,
 }
 
 impl KartleggingMessageProcessor {
     pub fn new(
         app_config: Arc<AppConfig>,
         schema_registry_settings: SrSettings,
-        key_gen_client: Arc<PawKeyGenClient>,
-        pdl_client: Arc<PDLClient>,
+        arbeidssoeker_service: Arc<ArbeidssoekerService>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             app_config: app_config.clone(),
             periode_processor: Arc::new(PeriodeProcessor::new(
                 app_config.clone(),
                 schema_registry_settings.clone(),
-                key_gen_client,
-                pdl_client,
+                arbeidssoeker_service.clone(),
             )),
             opplysninger_processor: Arc::new(OpplysningerProcessor::new(
                 schema_registry_settings.clone(),
@@ -63,6 +62,9 @@ impl KartleggingMessageProcessor {
                 schema_registry_settings.clone(),
             )),
             oppfolgingsperiode_processor: Arc::new(OppfolgingsperiodeProcessor::new()),
+            navneendring_processor: Arc::new(NavneendringProcessor::new(
+                arbeidssoeker_service.clone(),
+            )),
         })
     }
 }
@@ -119,6 +121,11 @@ impl MessageProcessor for KartleggingMessageProcessor {
                             .process_payload(tx, message)
                             .await
                     }
+                    topic if topic == kafka_config.pdl_leesah_topic.as_str() => {
+                        self.navneendring_processor
+                                .process_payload(tx, message)
+                                .await
+                    }
                     topic => {
                         panic!("Mottok melding på ukjent topic: {}", topic);
                     }
@@ -163,6 +170,7 @@ impl MessageProcessor for KartleggingMessageProcessor {
 mod tests {
     use crate::config::read_app_config;
     use crate::logic::process::message_process::KartleggingMessageProcessor;
+    use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
     use crate::model::dao::{
         arbeidssoeker, bekreftelse, bekreftelse_paavegneav, egenvurdering, kartlegging,
         kontortilknytning, opplysninger, periode, profilering,
@@ -521,6 +529,8 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
+            let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -539,8 +549,7 @@ mod tests {
                 processor: KartleggingMessageProcessor::new(
                     app_config,
                     schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
+                    arbeidssoeker_service,
                 )
                 .expect("Kunne ikke opprette prosessor"),
                 arbeidssoeker_id: 12345,

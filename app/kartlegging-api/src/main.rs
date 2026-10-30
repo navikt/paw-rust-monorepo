@@ -11,6 +11,7 @@ use kartlegging_api::kafka::hwm::hwm_pause_task::hwm_pause_timeout_task;
 use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
 use kartlegging_api::logic::process::message_process::KartleggingMessageProcessor;
+use kartlegging_api::logic::service::arbeidssoeker_service::ArbeidssoekerService;
 use kartlegging_api::server::{
     async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
 };
@@ -84,6 +85,8 @@ async fn main() -> anyhow::Result<()> {
         token_client.clone(),
     ));
 
+    let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
     let schema_registry_settings = create_schema_registry_settings()?;
 
     let consumer = Arc::new(
@@ -98,8 +101,7 @@ async fn main() -> anyhow::Result<()> {
     let message_processor = KartleggingMessageProcessor::new(
         app_config.clone(),
         schema_registry_settings,
-        key_gen_client.clone(),
-        pdl_client.clone(),
+        arbeidssoeker_service,
     )?;
     let consumer_task = kafka_consumer_task(
         app_config.clone(),

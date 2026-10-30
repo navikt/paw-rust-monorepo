@@ -3,6 +3,7 @@ use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesn
 use eksterne_hendelser::serde::AvroSerializer;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
+use pdl_hendelser::leesah::{Endringstype, Opplysningstype, PersonhendelseSerializer};
 use rdkafka::message::ToBytes;
 use rdkafka::producer::future_producer::Delivery;
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -15,6 +16,9 @@ use test_data_generator::eksterne_hendelser::{
     create_dummy_avslutt_periode, create_dummy_bekreftelse, create_dummy_egenvurdering,
     create_dummy_opplysninger, create_dummy_profilering, create_dummy_start_paavegneav,
     create_dummy_start_periode, create_dummy_stopp_paavegneav, datetime_rfc3339,
+};
+use test_data_generator::pdl_hendelser::{
+    create_dummy_personhendelse, create_dummy_personhendelse_navn,
 };
 use uuid::Uuid;
 
@@ -54,6 +58,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     //
     // producer.send_avslutt_perioder(&data).await?;
     //
+    producer.send_pdl_leesah_personhendelse(&data).await?;
 
     Ok(())
 }
@@ -103,7 +108,8 @@ impl TestData {
 
 struct TestKafkaProducer {
     producer: FutureProducer,
-    paw_avro_serializer: AvroSerializer
+    paw_avro_serializer: AvroSerializer,
+    personhendelse_serializer: PersonhendelseSerializer,
 }
 
 impl TestKafkaProducer {
@@ -113,9 +119,12 @@ impl TestKafkaProducer {
         let producer: FutureProducer = config.create()?;
         let schema_registry_settings = create_schema_registry_settings()?;
         let paw_avro_serializer = AvroSerializer::new(schema_registry_settings);
+        let personhendelse_serializer =
+            PersonhendelseSerializer::new().expect("Failed to create PersonhendelseSerializer");
         Ok(Self {
             producer,
             paw_avro_serializer,
+            personhendelse_serializer,
         })
     }
 
@@ -321,6 +330,34 @@ impl TestKafkaProducer {
                 Some(message),
             )
             .await?;
+        }
+
+        Ok(())
+    }
+
+    #[allow(unused)]
+    async fn send_pdl_leesah_personhendelse(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
+        for d in data {
+            let navn = create_dummy_personhendelse_navn(d.fornavn, None, d.etternavn);
+            let message = create_dummy_personhendelse(
+                vec![d.identitetsnummer],
+                Opplysningstype::NavnV1,
+                Endringstype::Opprettet,
+                Some(navn),
+            );
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.aktor_id,
+                message
+            );
+            let key = &d.aktor_id.as_bytes().to_vec();
+            let payload = self
+                .personhendelse_serializer
+                .serialize(&message)
+                .expect("serialization failed");
+            let record = FutureRecord::to("pdl.leesah-v1").key(key).payload(&payload);
+            self.send_message(record).await;
         }
 
         Ok(())

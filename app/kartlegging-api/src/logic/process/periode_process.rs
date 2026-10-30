@@ -4,47 +4,40 @@ use crate::logic::process::kartlegging_process::{
     utled_arbeidsledighet_for_periode_med_aktiv_kartlegging,
     utled_arbeidsledighet_for_periode_uten_aktiv_kartlegging,
 };
+use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
 use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
 use crate::model::dao::kartlegging::KartleggingRow;
 use crate::model::dao::periode::PeriodeRow;
 use crate::model::dao::{arbeidssoeker, kartlegging, periode};
 use crate::model::dto::arbeidssoeker::Arbeidssoeker;
-use crate::model::dto::navn::Navn;
-use crate::model::error::{DaoError, IdentityError, PayloadProcessorError};
+use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
 use paw_kafka::hwm::hwm_message_processor::ProcessorError;
-use paw_key_gen_client::client::PawKeyGenClient;
-use paw_key_gen_client::model::IdentitetType;
-use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
 use std::sync::Arc;
-use types::identitetsnummer::Identitetsnummer;
 
 pub struct PeriodeProcessor {
     pub app_config: Arc<AppConfig>,
     pub deserializer: AvroDeserializer,
-    pub key_gen_client: Arc<PawKeyGenClient>,
-    pub pdl_client: Arc<PDLClient>,
+    arbeidssoeker_service: Arc<ArbeidssoekerService>,
 }
 
 impl PeriodeProcessor {
     pub fn new(
         app_config: Arc<AppConfig>,
         schema_registry_settings: SrSettings,
-        key_gen_client: Arc<PawKeyGenClient>,
-        pdl_client: Arc<PDLClient>,
+        arbeidssoeker_service: Arc<ArbeidssoekerService>,
     ) -> Self {
         Self {
             app_config,
             deserializer: AvroDeserializer::new(schema_registry_settings),
-            key_gen_client,
-            pdl_client,
+            arbeidssoeker_service,
         }
     }
 
@@ -82,6 +75,7 @@ impl PeriodeProcessor {
     ) -> anyhow::Result<Arbeidssoeker> {
         // Hent identiteter fra Kafka Key Gen
         let arbeidssoeker = self
+            .arbeidssoeker_service
             .hent_identiteter(message, &hendelse.identitetsnummer)
             .await?;
 
@@ -100,18 +94,20 @@ impl PeriodeProcessor {
             // Arbeidssøker finnes ikke fra før
 
             // Hent navn fra PDL
-            let navn = self
+            let optional_navn = self
+                .arbeidssoeker_service
                 .hent_navn(message, &arbeidssoeker.identitetsnummer)
                 .await?;
+            let navn = optional_navn.unwrap_or_default(); // Settes til null om ingen navn funnet
 
             // Lagre ny arbeidssøker
             let arbeidssoeker_row = ArbeidssoekerRow::new(
                 arbeidssoeker.id,
                 arbeidssoeker.aktor_id.clone(),
                 arbeidssoeker.identitetsnummer.clone(),
-                navn.fornavn.clone(),
-                navn.mellomnavn.clone(),
-                navn.etternavn.clone(),
+                navn.fornavn(),
+                navn.mellomnavn(),
+                navn.etternavn(),
             );
             arbeidssoeker::insert(tx, &arbeidssoeker_row).await?;
 
@@ -187,73 +183,6 @@ impl PeriodeProcessor {
             kartlegging::insert(tx, &kartlegging_row).await
         }
     }
-
-    #[tracing::instrument(skip_all)]
-    async fn hent_identiteter<'a>(
-        &'a self,
-        message: &'a OwnedMessage,
-        identitetsnummer: &'a String,
-    ) -> anyhow::Result<Arbeidssoeker> {
-        let identiteter_response = self
-            .key_gen_client
-            .finn_identiteter(identitetsnummer.clone())
-            .await?;
-        let arbeidssoeker_id = identiteter_response
-            .arbeidssoeker_id
-            .ok_or_else(|| IdentityError::not_found(message, IdentitetType::Arbeidssoekerid))?;
-        let aktor_ider = identiteter_response.filter_by_type(IdentitetType::Aktorid);
-        let aktor_id = aktor_ider
-            .iter()
-            .find(|&i| i.gjeldende)
-            .ok_or_else(|| IdentityError::not_found(message, IdentitetType::Aktorid))?;
-        let identiteter = identiteter_response.filter_by_type(IdentitetType::Folkeregisterident);
-        let folkeregisterident = identiteter
-            .iter()
-            .find(|&i| i.gjeldende)
-            .ok_or_else(|| IdentityError::not_found(message, IdentitetType::Folkeregisterident))?;
-        Ok(Arbeidssoeker::from_identer(
-            arbeidssoeker_id,
-            aktor_id.identitet.clone(),
-            folkeregisterident.identitet.clone(),
-        ))
-    }
-
-    #[tracing::instrument(skip_all)]
-    async fn hent_navn<'a>(
-        &'a self,
-        message: &'a OwnedMessage,
-        identitetsnummer: &String,
-    ) -> anyhow::Result<Navn> {
-        let identitetsnummer_struct =
-            Identitetsnummer::new(identitetsnummer.clone()).ok_or_else(|| {
-                PayloadProcessorError::processing_error(
-                    message,
-                    "Ugyldig identitetsnummer fra kafka-key-gen",
-                )
-            })?;
-
-        let pdl_navn_response = self
-            .pdl_client
-            .hent_person_navn(identitetsnummer_struct)
-            .await?;
-        let pdl_navn = pdl_navn_response.ok_or_else(|| {
-            PayloadProcessorError::processing_error(message, "Fant ingen person i PDL")
-        })?;
-
-        if pdl_navn.navn.is_empty() {
-            tracing::warn!("Fant ingen navn for person i PDL, setter alle navn til null");
-            Ok(Navn::default())
-        } else {
-            let pdl_navn_entry = pdl_navn.navn.first().ok_or_else(|| {
-                PayloadProcessorError::processing_error(message, "Fant ingen navn for person i PDL")
-            })?;
-            Ok(Navn::new(
-                pdl_navn_entry.fornavn.clone(),
-                pdl_navn_entry.mellomnavn.clone(),
-                pdl_navn_entry.etternavn.clone(),
-            ))
-        }
-    }
 }
 
 impl PayloadProcessor for PeriodeProcessor {
@@ -295,6 +224,7 @@ mod tests {
     use crate::config::read_app_config;
     use crate::logic::process::PayloadProcessor;
     use crate::logic::process::periode_process::PeriodeProcessor;
+    use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
     use crate::model::dao::{arbeidssoeker, kartlegging, periode};
     use mockito::{Mock, Server, ServerGuard};
     use paw_kafka_key_gen_api_mock::{
@@ -542,6 +472,8 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
+            let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -559,8 +491,7 @@ mod tests {
                 processor: PeriodeProcessor::new(
                     app_config,
                     schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
+                    arbeidssoeker_service,
                 ),
                 arbeidssoeker_id_1: 12345,
                 identitetsnummer_1_1: "41017012345",
