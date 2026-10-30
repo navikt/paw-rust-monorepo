@@ -98,29 +98,6 @@ pub async fn insert_record_derived(
     Ok(())
 }
 
-#[cfg(test)]
-pub async fn get_record_derived(
-    conn: &mut PgConnection,
-    topic_id: i16,
-    record_partition: i32,
-    record_offset: i64,
-) -> Result<Option<RecordDerived>, sqlx::Error> {
-    sqlx::query_as(
-        r#"
-        SELECT topic_id, record_partition, record_offset,
-               signature_status, signing_key_id,
-               timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
-        FROM record_derived
-        WHERE topic_id = $1 AND record_partition = $2 AND record_offset = $3
-        "#,
-    )
-    .bind(topic_id)
-    .bind(record_partition)
-    .bind(record_offset)
-    .fetch_optional(&mut *conn)
-    .await
-}
-
 /// Column list for reading `RecordDerived` from `record_derived rd`.
 /// A macro, not a const: sqlx only accepts SQL known at compile time.
 macro_rules! kolonner {
@@ -228,6 +205,28 @@ pub(crate) mod tests {
     use crate::regler::nokkel::Nivaa;
     use postgres_testcontainer::postgres::setup_postgres_container;
     use sqlx::PgConnection;
+
+    async fn get_record_derived(
+        conn: &mut PgConnection,
+        topic_id: i16,
+        record_partition: i32,
+        record_offset: i64,
+    ) -> Result<Option<RecordDerived>, sqlx::Error> {
+        sqlx::query_as(
+            r#"
+            SELECT topic_id, record_partition, record_offset,
+                   signature_status, signing_key_id,
+                   timestamp_delta_ms, trace_id, payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
+            FROM record_derived
+            WHERE topic_id = $1 AND record_partition = $2 AND record_offset = $3
+            "#,
+        )
+        .bind(topic_id)
+        .bind(record_partition)
+        .bind(record_offset)
+        .fetch_optional(&mut *conn)
+        .await
+    }
 
     #[tokio::test]
     async fn record_derived_skrives_en_gang_og_leses_tilbake() {
