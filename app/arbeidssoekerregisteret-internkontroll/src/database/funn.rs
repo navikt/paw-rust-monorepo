@@ -1,11 +1,13 @@
 use sqlx::PgConnection;
 
-use crate::regler::{alvorlighet::Utfall, nokkel::Nokkel, regel_katalog::RegelId};
+use crate::regler::{
+    alvorlighet::Utfall, nokkel::Nokkel, regel_katalog::RegelId, regelversjon::Regelversjon,
+};
 
 pub async fn upsert_funn(
     conn: &mut PgConnection,
     regel: RegelId,
-    regelversjon: i32,
+    regelversjon: Regelversjon,
     nokkel: &Nokkel,
     utfall: &Utfall,
     stream_ms: i64,
@@ -118,7 +120,7 @@ pub async fn upsert_funn(
 pub async fn delete_funn(
     conn: &mut PgConnection,
     regel: RegelId,
-    regelversjon: i32,
+    regelversjon: Regelversjon,
     nokkel: &Nokkel,
 ) -> Result<(), sqlx::Error> {
     match nokkel {
@@ -177,7 +179,11 @@ mod tests {
 
     type Stored = (i16, Alvorlighet, DateTime<Utc>, DateTime<Utc>, i64, i64);
 
-    async fn stored(conn: &mut PgConnection, nokkel: &Nokkel, regelversjon: i32) -> Stored {
+    async fn stored(
+        conn: &mut PgConnection,
+        nokkel: &Nokkel,
+        regelversjon: Regelversjon,
+    ) -> Stored {
         match nokkel {
             Nokkel::Melding(xid) => {
                 sqlx::query_as(
@@ -213,7 +219,7 @@ mod tests {
         }
     }
 
-    async fn exists(conn: &mut PgConnection, nokkel: &Nokkel, regelversjon: i32) -> bool {
+    async fn exists(conn: &mut PgConnection, nokkel: &Nokkel, regelversjon: Regelversjon) -> bool {
         match nokkel {
             Nokkel::Melding(xid) => sqlx::query_scalar(
                 "SELECT EXISTS (SELECT 1 FROM funn_melding WHERE xid = $1 AND regel = 2 AND regelversjon = $2)",
@@ -275,14 +281,14 @@ mod tests {
             upsert_funn(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 nokkel,
                 &normal_utfall(),
                 1_000,
             )
             .await
             .unwrap();
-            let first = stored(&mut conn, nokkel, 1).await;
+            let first = stored(&mut conn, nokkel, Regelversjon::new(1)).await;
             assert_eq!(first.0, 3);
             assert_eq!(first.1, Alvorlighet::Advarsel);
             assert_eq!(first.4, 1_000);
@@ -291,7 +297,7 @@ mod tests {
             upsert_funn(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 nokkel,
                 &Utfall {
                     kode: 3,
@@ -301,20 +307,20 @@ mod tests {
             )
             .await
             .unwrap();
-            let unchanged = stored(&mut conn, nokkel, 1).await;
+            let unchanged = stored(&mut conn, nokkel, Regelversjon::new(1)).await;
             assert_eq!(unchanged, first, "samme utfall skal ikke endre funnet");
 
             upsert_funn(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 nokkel,
                 &endret_utfall(),
                 3_000,
             )
             .await
             .unwrap();
-            let updated = stored(&mut conn, nokkel, 1).await;
+            let updated = stored(&mut conn, nokkel, Regelversjon::new(1)).await;
             assert_eq!(updated.0, 4);
             assert_eq!(updated.1, Alvorlighet::Kritisk);
             assert_eq!(updated.2, first.2, "opprettet skal beholdes");
@@ -343,7 +349,7 @@ mod tests {
                 upsert_funn(
                     &mut conn,
                     RegelId::IngenPeriodeUtenStartet,
-                    regelversjon,
+                    Regelversjon::new(regelversjon),
                     nokkel,
                     &normal_utfall(),
                     1_000,
@@ -351,11 +357,16 @@ mod tests {
                 .await
                 .unwrap();
             }
-            delete_funn(&mut conn, RegelId::IngenPeriodeUtenStartet, 1, nokkel)
-                .await
-                .unwrap();
-            assert!(!exists(&mut conn, nokkel, 1).await);
-            assert!(exists(&mut conn, nokkel, 2).await);
+            delete_funn(
+                &mut conn,
+                RegelId::IngenPeriodeUtenStartet,
+                Regelversjon::new(1),
+                nokkel,
+            )
+            .await
+            .unwrap();
+            assert!(!exists(&mut conn, nokkel, Regelversjon::new(1)).await);
+            assert!(exists(&mut conn, nokkel, Regelversjon::new(2)).await);
         }
     }
 
@@ -379,7 +390,7 @@ mod tests {
             upsert_funn(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 &Nokkel::Melding(Xid8::new(xid)),
                 &utfall,
                 xid as i64,

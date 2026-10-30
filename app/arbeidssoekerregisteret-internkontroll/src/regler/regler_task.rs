@@ -16,18 +16,19 @@ use crate::{
         nokkel::{Nivaa, Nokkel},
         regel_katalog::RegelId,
         regel_router::exec,
+        regelversjon::Regelversjon,
     },
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Regel {
     id: RegelId,
-    versjon: i32,
+    versjon: Regelversjon,
     nivaa: Nivaa,
 }
 
 impl Regel {
-    pub fn new(id: RegelId, versjon: i32, nivaa: Nivaa) -> Self {
+    pub fn new(id: RegelId, versjon: Regelversjon, nivaa: Nivaa) -> Self {
         Self { id, versjon, nivaa }
     }
 }
@@ -99,17 +100,17 @@ pub async fn exec_regler(
         return Ok(0);
     };
     let regel_id = regel_fremdrift.regel;
-    let regel_versjon = regel_fremdrift.regelversjon;
+    let regelversjon = regel_fremdrift.regelversjon;
     let nivaa = regler
         .iter()
-        .find(|r| r.id == regel_id && r.versjon == regel_versjon)
+        .find(|r| r.id == regel_id && r.versjon == regelversjon)
         .map(|r| r.nivaa)
         .expect("fremdrift er filtrert på registrerte regler");
     let neste_xids =
         get_neste_record_derived_xids(&mut tx, regel_fremdrift.siste_xid, batch_size).await?;
     let antall_nye_xids = neste_xids.len();
     for neste_xid in neste_xids {
-        let klar = upsert_regel_fremdrift(&mut tx, regel_id, regel_versjon, neste_xid).await?;
+        let klar = upsert_regel_fremdrift(&mut tx, regel_id, regelversjon, neste_xid).await?;
         if !klar {
             break;
         }
@@ -120,19 +121,11 @@ pub async fn exec_regler(
             IkkeAktuell => {}
             AltOk(nokkel) => {
                 sjekk_nivaa(regel_id, nivaa, &nokkel)?;
-                delete_funn(&mut tx, regel_id, regel_versjon, &nokkel).await?
+                delete_funn(&mut tx, regel_id, regelversjon, &nokkel).await?
             }
             Feil(nokkel, utfall) => {
                 sjekk_nivaa(regel_id, nivaa, &nokkel)?;
-                upsert_funn(
-                    &mut tx,
-                    regel_id,
-                    regel_versjon,
-                    &nokkel,
-                    &utfall,
-                    stream_ms,
-                )
-                .await?
+                upsert_funn(&mut tx, regel_id, regelversjon, &nokkel, &utfall, stream_ms).await?
             }
         }
     }

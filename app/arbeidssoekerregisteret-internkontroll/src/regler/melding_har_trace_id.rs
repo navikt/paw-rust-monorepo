@@ -6,11 +6,12 @@ use crate::{
         funn::Funn,
         nokkel::{Nivaa, Nokkel},
         regel_katalog::RegelId,
+        regelversjon::Regelversjon,
         regler_task::Regel,
     },
 };
 
-const REGEL_VERSJON: i32 = 1;
+const REGELVERSJON: Regelversjon = Regelversjon::new(1);
 const NIVAA: Nivaa = Nivaa::Melding;
 const MANGLER_TRACE_ID: Utfall = Utfall {
     kode: 1,
@@ -18,7 +19,7 @@ const MANGLER_TRACE_ID: Utfall = Utfall {
 };
 
 pub fn regel_melding_har_trace_id() -> Regel {
-    Regel::new(RegelId::MeldingHarTraceId, REGEL_VERSJON, NIVAA)
+    Regel::new(RegelId::MeldingHarTraceId, REGELVERSJON, NIVAA)
 }
 
 /// Each record is checked alone, so no data is read beyond the record itself.

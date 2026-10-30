@@ -11,11 +11,12 @@ use crate::{
         funn::Funn,
         nokkel::{Nivaa, Nokkel},
         regel_katalog::RegelId,
+        regelversjon::Regelversjon,
         regler_task::Regel,
     },
 };
 
-const REGEL_VERSJON: i32 = 1;
+const REGELVERSJON: Regelversjon = Regelversjon::new(1);
 const NIVAA: Nivaa = Nivaa::Trace;
 const PERIODE_STARTET_UTEN_HENDELSE_STARTET: Utfall = Utfall {
     kode: 1,
@@ -23,7 +24,7 @@ const PERIODE_STARTET_UTEN_HENDELSE_STARTET: Utfall = Utfall {
 };
 
 pub fn regel_ingen_periode_uten_startet() -> Regel {
-    Regel::new(RegelId::IngenPeriodeUtenStartet, REGEL_VERSJON, NIVAA)
+    Regel::new(RegelId::IngenPeriodeUtenStartet, REGELVERSJON, NIVAA)
 }
 
 /// Records without trace_id are not relevant: they belong to no trace.

@@ -1,12 +1,12 @@
 use sqlx::PgConnection;
 
 use crate::database::xid8::Xid8;
-use crate::regler::regel_katalog::RegelId;
+use crate::regler::{regel_katalog::RegelId, regelversjon::Regelversjon};
 
 #[derive(Debug, PartialEq, Eq, Clone, sqlx::FromRow)]
 pub struct RegelFremdrift {
     pub regel: RegelId,
-    pub regelversjon: i32,
+    pub regelversjon: Regelversjon,
     pub siste_xid: Xid8,
 }
 
@@ -30,7 +30,7 @@ pub async fn get_regel_fremdrift(
 pub async fn upsert_regel_fremdrift(
     conn: &mut PgConnection,
     regel: RegelId,
-    regelversjon: i32,
+    regelversjon: Regelversjon,
     siste_xid: Xid8,
 ) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
@@ -67,7 +67,7 @@ mod tests {
         upsert_regel_fremdrift(
             &mut conn,
             RegelId::IngenPeriodeUtenStartet,
-            1,
+            Regelversjon::new(1),
             Xid8::new(100),
         )
         .await
@@ -76,7 +76,7 @@ mod tests {
             get_regel_fremdrift(&mut conn).await.unwrap(),
             vec![RegelFremdrift {
                 regel: RegelId::IngenPeriodeUtenStartet,
-                regelversjon: 1,
+                regelversjon: Regelversjon::new(1),
                 siste_xid: Xid8::new(100),
             }]
         );
@@ -85,7 +85,7 @@ mod tests {
             upsert_regel_fremdrift(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 Xid8::new(200)
             )
             .await
@@ -95,7 +95,7 @@ mod tests {
             get_regel_fremdrift(&mut conn).await.unwrap(),
             vec![RegelFremdrift {
                 regel: RegelId::IngenPeriodeUtenStartet,
-                regelversjon: 1,
+                regelversjon: Regelversjon::new(1),
                 siste_xid: Xid8::new(200),
             }]
         );
@@ -112,7 +112,7 @@ mod tests {
             upsert_regel_fremdrift(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 Xid8::new(100)
             )
             .await
@@ -122,7 +122,7 @@ mod tests {
             !upsert_regel_fremdrift(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 Xid8::new(100)
             )
             .await
@@ -132,7 +132,7 @@ mod tests {
             !upsert_regel_fremdrift(
                 &mut conn,
                 RegelId::IngenPeriodeUtenStartet,
-                1,
+                Regelversjon::new(1),
                 Xid8::new(99)
             )
             .await
@@ -143,7 +143,7 @@ mod tests {
             get_regel_fremdrift(&mut conn).await.unwrap(),
             vec![RegelFremdrift {
                 regel: RegelId::IngenPeriodeUtenStartet,
-                regelversjon: 1,
+                regelversjon: Regelversjon::new(1),
                 siste_xid: Xid8::new(100),
             }]
         );
@@ -159,7 +159,7 @@ mod tests {
         upsert_regel_fremdrift(
             &mut conn,
             RegelId::IngenPeriodeUtenStartet,
-            1,
+            Regelversjon::new(1),
             Xid8::new(100),
         )
         .await
@@ -167,30 +167,35 @@ mod tests {
         upsert_regel_fremdrift(
             &mut conn,
             RegelId::IngenPeriodeUtenStartet,
-            2,
+            Regelversjon::new(2),
             Xid8::new(200),
         )
         .await
         .unwrap();
-        upsert_regel_fremdrift(&mut conn, RegelId::HeleTraceSignert, 1, Xid8::new(300))
-            .await
-            .unwrap();
+        upsert_regel_fremdrift(
+            &mut conn,
+            RegelId::HeleTraceSignert,
+            Regelversjon::new(1),
+            Xid8::new(300),
+        )
+        .await
+        .unwrap();
 
         let rows = get_regel_fremdrift(&mut conn).await.unwrap();
         assert_eq!(rows.len(), 3);
         assert!(rows.contains(&RegelFremdrift {
             regel: RegelId::IngenPeriodeUtenStartet,
-            regelversjon: 1,
+            regelversjon: Regelversjon::new(1),
             siste_xid: Xid8::new(100),
         }));
         assert!(rows.contains(&RegelFremdrift {
             regel: RegelId::IngenPeriodeUtenStartet,
-            regelversjon: 2,
+            regelversjon: Regelversjon::new(2),
             siste_xid: Xid8::new(200),
         }));
         assert!(rows.contains(&RegelFremdrift {
             regel: RegelId::HeleTraceSignert,
-            regelversjon: 1,
+            regelversjon: Regelversjon::new(1),
             siste_xid: Xid8::new(300),
         }));
     }

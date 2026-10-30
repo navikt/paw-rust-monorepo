@@ -11,11 +11,12 @@ use crate::{
         funn::Funn,
         nokkel::{Nivaa, Nokkel},
         regel_katalog::RegelId,
+        regelversjon::Regelversjon,
         regler_task::Regel,
     },
 };
 
-const REGEL_VERSJON: i32 = 1;
+const REGELVERSJON: Regelversjon = Regelversjon::new(1);
 const NIVAA: Nivaa = Nivaa::Trace;
 const IKKE_GYLDIG_SIGNATUR: Utfall = Utfall {
     kode: 1,
@@ -23,7 +24,7 @@ const IKKE_GYLDIG_SIGNATUR: Utfall = Utfall {
 };
 
 pub fn regel_hele_trace_er_signert() -> Regel {
-    Regel::new(RegelId::HeleTraceSignert, REGEL_VERSJON, NIVAA)
+    Regel::new(RegelId::HeleTraceSignert, REGELVERSJON, NIVAA)
 }
 
 /// Records without trace_id are not relevant: they belong to no trace.

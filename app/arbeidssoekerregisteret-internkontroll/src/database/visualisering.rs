@@ -7,6 +7,7 @@ use crate::database::xid8::Xid8;
 use crate::regler::alvorlighet::Alvorlighet;
 use crate::regler::nokkel::{Nivaa, Nokkel};
 use crate::regler::regel_katalog::RegelId;
+use crate::regler::regelversjon::Regelversjon;
 
 /// Øvre grense for tellingen av records en regel ligger bak. Tellingen går
 /// over indeksen på `record_derived.xid`, men et stort etterslep skal ikke
@@ -20,7 +21,7 @@ pub const MAKS_ETTERSLEP: i64 = 100_000;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegelStatus {
     pub regel: RegelId,
-    pub regelversjon: i32,
+    pub regelversjon: Regelversjon,
     pub siste_xid: Xid8,
     /// Antall records i `record_derived` med xid over `siste_xid`, maks `MAKS_ETTERSLEP`.
     pub etter: i64,
@@ -263,7 +264,7 @@ pub async fn hent_funn_antall(
 pub struct FunnRad {
     pub nokkel: Nokkel,
     pub regel: RegelId,
-    pub regelversjon: i32,
+    pub regelversjon: Regelversjon,
     pub utfall: i16,
     pub alvorlighet: Alvorlighet,
     pub opprettet_stream_ms: i64,
@@ -378,19 +379,29 @@ mod tests {
         let _xid2 = skriv_record(&mut conn, topic_id, 1).await;
         let xid3 = skriv_record(&mut conn, topic_id, 2).await;
 
-        upsert_regel_fremdrift(&mut conn, RegelId::HeleTraceSignert, 1, xid1)
-            .await
-            .unwrap();
-        upsert_regel_fremdrift(&mut conn, RegelId::IngenPeriodeUtenStartet, 1, xid3)
-            .await
-            .unwrap();
+        upsert_regel_fremdrift(
+            &mut conn,
+            RegelId::HeleTraceSignert,
+            Regelversjon::new(1),
+            xid1,
+        )
+        .await
+        .unwrap();
+        upsert_regel_fremdrift(
+            &mut conn,
+            RegelId::IngenPeriodeUtenStartet,
+            Regelversjon::new(1),
+            xid3,
+        )
+        .await
+        .unwrap();
         for i in 1..=2 {
             let trace_id = Uuid::from_u128(i);
             upsert_trace(&mut conn, trace_id, 1_000).await.unwrap();
             upsert_funn(
                 &mut conn,
                 RegelId::HeleTraceSignert,
-                1,
+                Regelversjon::new(1),
                 &Nokkel::Trace(trace_id),
                 &Utfall {
                     kode: 1,
@@ -408,14 +419,14 @@ mod tests {
             vec![
                 RegelStatus {
                     regel: RegelId::HeleTraceSignert,
-                    regelversjon: 1,
+                    regelversjon: Regelversjon::new(1),
                     siste_xid: xid1,
                     etter: 2,
                     antall_funn: 2,
                 },
                 RegelStatus {
                     regel: RegelId::IngenPeriodeUtenStartet,
-                    regelversjon: 1,
+                    regelversjon: Regelversjon::new(1),
                     siste_xid: xid3,
                     etter: 0,
                     antall_funn: 0,
@@ -447,7 +458,7 @@ mod tests {
             upsert_funn(
                 &mut conn,
                 RegelId::HeleTraceSignert,
-                1,
+                Regelversjon::new(1),
                 &Nokkel::Periode(Uuid::from_u128(periode)),
                 &utfall,
                 opprettet_ms,

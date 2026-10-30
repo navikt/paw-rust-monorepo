@@ -6,4 +6,5 @@ pub mod melding_har_trace_id;
 pub mod nokkel;
 pub mod regel_katalog;
 pub mod regel_router;
+pub mod regelversjon;
 pub mod regler_task;
