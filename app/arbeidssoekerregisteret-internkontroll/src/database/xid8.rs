@@ -17,6 +17,7 @@ impl Xid8 {
     /// Below every real transaction id: PostgreSQL never assigns 0.
     pub const START: Xid8 = Xid8(0);
 
+    #[allow(unused)]
     pub const fn new(verdi: u64) -> Self {
         Self(verdi)
     }
