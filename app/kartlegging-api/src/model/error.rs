@@ -72,7 +72,7 @@ impl IdentityError {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum PayloadProcessorError {
     #[error(
         "Failed to deserialize payload from topic '{topic}' at partition {partition}, offset {offset}: {message}"
@@ -83,10 +83,24 @@ pub enum PayloadProcessorError {
         partition: i32,
         offset: i64,
     },
+    #[error("Message has no key from topic '{topic}' at partition {partition}, offset {offset}")]
+    NoKey {
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
     #[error(
         "Message has no payload from topic '{topic}' at partition {partition}, offset {offset}"
     )]
     NoPayload {
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Message has corrupt payload from topic '{topic}' at partition {partition}, offset {offset}"
+    )]
+    CorruptPayload {
         topic: String,
         partition: i32,
         offset: i64,
@@ -121,8 +135,24 @@ impl PayloadProcessorError {
         }
     }
 
+    pub fn no_key_error(owned_message: &OwnedMessage) -> Self {
+        Self::NoKey {
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
     pub fn no_payload_error(owned_message: &OwnedMessage) -> Self {
         Self::NoPayload {
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn corrupt_payload_error(owned_message: &OwnedMessage) -> Self {
+        Self::CorruptPayload {
             topic: owned_message.topic().to_string(),
             partition: owned_message.partition(),
             offset: owned_message.offset(),

@@ -16,12 +16,13 @@ errors = { path = "../../domain/errors" }
 oauth2 = { path = "../../domain/oauth2" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
+pdl_hendelser = { path = "../../domain/pdl_hendelser", features = ["leesah"] }
 paw_rust_base = { path = "../../lib/paw_rust_base" }
 paw_observability = { path = "../../lib/paw_observability" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
-paw_avro_serde = { path = "../../lib/paw_avro_serde" }
 paw_kafka = { path = "../../lib/paw_kafka" }
+paw_avro_serde = { path = "../../lib/paw_avro_serde" }
 nais_schema_registry = { path = "../../lib/nais_schema_registry" }
 paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }
 texas_client = { path = "../../lib/texas_client" }

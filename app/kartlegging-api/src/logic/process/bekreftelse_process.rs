@@ -147,6 +147,7 @@ mod tests {
     use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
     use crate::logic::process::kartlegging_process::utled_arbeidsledighet_for_bekreftelse;
     use crate::logic::process::periode_process::PeriodeProcessor;
+    use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
     use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
     use crate::model::dao::kartlegging::KartleggingRow;
     use crate::model::dao::{arbeidssoeker, bekreftelse, kartlegging, periode};
@@ -163,7 +164,8 @@ mod tests {
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use sqlx::{PgPool, Postgres, Transaction};
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
@@ -174,18 +176,21 @@ mod tests {
     use tracing_test::traced_test;
     use uuid::Uuid;
 
+    const PERIODE_TOPIC: &str = "paw.arbeidssokerperioder-v1";
+    const BEKREFTELSE_TOPIC: &str = "paw.arbeidssoker-bekreftelse-v1";
+
     #[traced_test]
     #[tokio::test]
     async fn test_process_messages() {
-        let context = &init().await;
+        let context = TestContext::new().await;
 
-        test_process_periode(context).await;
-        test_process_bekreftelse_1_med_periode(context).await;
-        test_process_bekreftelse_for_perioden_beholder_ledighet(context).await;
-        test_process_bekreftelse_2_med_periode(context).await;
-        test_process_bekreftelse_3_uten_periode(context).await;
-        test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context).await;
-        test_utled_arbeidsledighet_fra_bekreftelse_tidligere_kartlegging(context).await;
+        test_process_periode(&context).await;
+        test_process_bekreftelse_1_med_periode(&context).await;
+        test_process_bekreftelse_for_perioden_beholder_ledighet(&context).await;
+        test_process_bekreftelse_2_med_periode(&context).await;
+        test_process_bekreftelse_3_uten_periode(&context).await;
+        test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(&context).await;
+        test_utled_arbeidsledighet_fra_bekreftelse_tidligere_kartlegging(&context).await;
     }
 
     async fn test_process_periode(context: &TestContext) {
@@ -197,7 +202,7 @@ mod tests {
         let payload = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
+            .create_avro_message(PERIODE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -262,7 +267,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -319,6 +324,7 @@ mod tests {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let periode_id = context.periode_id_1;
         let bekreftelse_id = Uuid::new_v4();
+
         let mut tx = context.start_tx().await;
         let kartlegging_row = kartlegging::select_by_periode_id(&mut tx, &periode_id)
             .await
@@ -344,7 +350,7 @@ mod tests {
         };
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key), Some(payload))
             .await;
 
         context
@@ -385,7 +391,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -452,7 +458,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -472,10 +478,7 @@ mod tests {
         let outcome = result.expect("Forventet Ok(ProcessingOutcome::Pause)");
         match outcome {
             ProcessorResult::Pause { synced_topics } => {
-                assert_eq!(
-                    synced_topics,
-                    vec!["paw.arbeidssokerperioder-v1".to_string()]
-                );
+                assert_eq!(synced_topics, vec![PERIODE_TOPIC.to_string()]);
             }
             ProcessorResult::Continue => panic!("Uventet variant"),
         }
@@ -495,14 +498,6 @@ mod tests {
         );
     }
 
-    /// Integrasjonstest for kaldstart-scenarioet beskrevet i kafka-synchronization-plan.md:
-    /// en bekreftelse-melding ankommer *før* perioden den refererer til er prosessert. Verifiserer
-    /// hele forløpet på tvers av `BekreftelseProcessor` og `PeriodeProcessor` (uten den ekte
-    /// konsumentløkken/pause-controlleren, som er dekket av rene enhetstester i
-    /// `kafka/consumer.rs`): første forsøk skal returnere `ProcessingOutcome::Pause` og ikke
-    /// persistere noe, deretter skal periode-prosessering fullføre normalt, og til slutt skal en
-    /// re-levering av bekreftelsen (slik konsumentløkken ville gjort etter pause+seek+resume)
-    /// fullføre og koble bekreftelsen til riktig `kartlegginger`-rad.
     async fn test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context: &TestContext) {
         let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer = context.identitetsnummer_1;
@@ -521,7 +516,7 @@ mod tests {
         );
         let bekreftelse_message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key_1), Some(payload_1))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key_1), Some(payload_1))
             .await;
 
         // Steg 1: bekreftelsen ankommer før perioden finnes. Skal avvente (ikke persistere).
@@ -556,7 +551,7 @@ mod tests {
         let payload_2 = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let periode_message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key_2), Some(payload_2))
+            .create_avro_message(PERIODE_TOPIC, Some(key_2), Some(payload_2))
             .await;
         let mut periode_tx = context.start_tx().await;
         context
@@ -600,10 +595,6 @@ mod tests {
         assert_eq!(kartlegging_row.periode_id, periode_id);
     }
 
-    /// Regresjonstest for at `BekreftelseProcessor` overtar tidligere-kartlegging-fallbacken som
-    /// tidligere kun `PeriodeProcessor` hadde. Dette er kritisk for rekalkuleringsplanen: siden
-    /// kun bekreftelse-topicet rewindes (ikke periode-topicet), må `BekreftelseProcessor` alene
-    /// kunne reprodusere ledigheten en tidligere periode ga videre.
     async fn test_utled_arbeidsledighet_fra_bekreftelse_tidligere_kartlegging(
         context: &TestContext,
     ) {
@@ -694,13 +685,35 @@ mod tests {
         );
     }
 
-    async fn init() -> TestContext {
-        {
+    struct TestContext {
+        #[allow(unused)]
+        mockito_server: ServerGuard,
+        #[allow(unused)]
+        mocks: Vec<Mock>,
+        pg_pool: PgPool,
+        avro_generator: AvroGenerator,
+        periode_processor: PeriodeProcessor,
+        bekreftelse_processor: BekreftelseProcessor,
+        arbeidssoeker_id_1: i64,
+        identitetsnummer_1: &'static str,
+        identitetsnummer_3: &'static str,
+        periode_id_1: Uuid,
+        periode_id_3: Uuid,
+        periode_id_4: Uuid,
+        bekreftelse_id_1: Uuid,
+        bekreftelse_id_2: Uuid,
+        bekreftelse_id_3: Uuid,
+        bekreftelse_id_4: Uuid,
+    }
+
+    impl TestContext {
+        async fn new() -> Self {
             let mut mockito_server = Server::new_async().await;
 
             let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
 
-            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
+            let schemas = avro_schemas();
+            let schema_registry_guard = create_schema_registry_mock_2(&mut mockito_server, schemas)
                 .await
                 .expect("Failed to create schema registry mock");
             let schema_registry_settings = schema_registry_guard.schema_registry_settings;
@@ -741,6 +754,8 @@ mod tests {
                 Arc::new(TokenClientStub::new()),
             ));
 
+            let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
             let postgres_guard = setup_postgres_container()
                 .await
                 .expect("Failed to start Postgres container");
@@ -749,7 +764,7 @@ mod tests {
                 .await
                 .expect("Failed to run migrations");
 
-            TestContext {
+            Self {
                 mockito_server,
                 mocks,
                 pg_pool: postgres_guard.pg_pool,
@@ -757,8 +772,7 @@ mod tests {
                 periode_processor: PeriodeProcessor::new(
                     app_config.clone(),
                     schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
+                    arbeidssoeker_service,
                 ),
                 bekreftelse_processor: BekreftelseProcessor::new(
                     app_config.clone(),
@@ -776,30 +790,7 @@ mod tests {
                 bekreftelse_id_4: Uuid::new_v4(),
             }
         }
-    }
 
-    struct TestContext {
-        #[allow(unused)]
-        mockito_server: ServerGuard,
-        #[allow(unused)]
-        mocks: Vec<Mock>,
-        pg_pool: PgPool,
-        avro_generator: AvroGenerator,
-        periode_processor: PeriodeProcessor,
-        bekreftelse_processor: BekreftelseProcessor,
-        arbeidssoeker_id_1: i64,
-        identitetsnummer_1: &'static str,
-        identitetsnummer_3: &'static str,
-        periode_id_1: Uuid,
-        periode_id_3: Uuid,
-        periode_id_4: Uuid,
-        bekreftelse_id_1: Uuid,
-        bekreftelse_id_2: Uuid,
-        bekreftelse_id_3: Uuid,
-        bekreftelse_id_4: Uuid,
-    }
-
-    impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
             self.pg_pool
                 .begin()

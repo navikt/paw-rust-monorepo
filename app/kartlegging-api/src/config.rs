@@ -71,6 +71,7 @@ pub struct AppKafkaConfig {
     pub paw_bekreftelse_topic: String,
     pub paw_bekreftelse_paavegneav_topic: String,
     pub poao_siste_oppfolgingsperiode_topic: String,
+    pub pdl_leesah_topic: String,
 }
 
 impl AppKafkaConfig {
@@ -83,6 +84,7 @@ impl AppKafkaConfig {
             self.paw_bekreftelse_topic.as_str(),
             self.paw_bekreftelse_paavegneav_topic.as_str(),
             self.poao_siste_oppfolgingsperiode_topic.as_str(),
+            self.pdl_leesah_topic.as_str(),
         ]
     }
 

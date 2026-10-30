@@ -73,27 +73,35 @@ mod tests {
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::create_dummy_profilering;
     use uuid::Uuid;
 
+    const PROFILERING_TOPIC: &str = "paw.arbeidssoker-profilering-v1";
+
     #[tokio::test]
     async fn test_process_messages() {
         let context = &init().await;
 
-        let arbeidssoeker_id = 12355i64;
+        let arbeidssoeker_id = 12345i64;
+        let identitetsnummer = "01017012345";
         let periode_id = Uuid::new_v4();
         let opplysninger_id = Uuid::new_v4();
         let profilering_id = Uuid::new_v4();
 
         let key = arbeidssoeker_id.to_be_bytes().to_vec();
-        let payload =
-            create_dummy_profilering("01017012345", periode_id, opplysninger_id, profilering_id);
+        let payload = create_dummy_profilering(
+            identitetsnummer,
+            periode_id,
+            opplysninger_id,
+            profilering_id,
+        );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-profilering-v1", Some(key), Some(payload))
+            .create_avro_message(PROFILERING_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -116,38 +124,37 @@ mod tests {
     }
 
     async fn init() -> TestContext {
-        {
-            let mut mockito_server = Server::new_async().await;
+        let mut mockito_server = Server::new_async().await;
 
-            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
-                .await
-                .expect("Failed to create schema registry mock");
-            let schema_registry_settings = schema_registry_guard.schema_registry_settings;
+        let schemas = avro_schemas();
+        let schema_registry_guard = create_schema_registry_mock_2(&mut mockito_server, schemas)
+            .await
+            .expect("Failed to create schema registry mock");
+        let schema_registry_settings = schema_registry_guard.schema_registry_settings;
 
-            let pdl_mock_responses = default_pdl_mock_responses();
-            let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
-                .await
-                .expect("Kunne ikke initialisere PDL mock server");
+        let pdl_mock_responses = default_pdl_mock_responses();
+        let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
+            .await
+            .expect("Kunne ikke initialisere PDL mock server");
 
-            let mut schema_registry_mocks = schema_registry_guard.mocks;
-            let mut mocks = pdl_mock_guard.mocks;
-            mocks.append(&mut schema_registry_mocks);
+        let mut schema_registry_mocks = schema_registry_guard.mocks;
+        let mut mocks = pdl_mock_guard.mocks;
+        mocks.append(&mut schema_registry_mocks);
 
-            let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
-            sqlx::migrate!("./migrations")
-                .run(&postgres_guard.pg_pool)
-                .await
-                .expect("Failed to run migrations");
+        let postgres_guard = setup_postgres_container()
+            .await
+            .expect("Failed to start Postgres container");
+        sqlx::migrate!("./migrations")
+            .run(&postgres_guard.pg_pool)
+            .await
+            .expect("Failed to run migrations");
 
-            TestContext {
-                mockito_server,
-                mocks,
-                pg_pool: postgres_guard.pg_pool,
-                avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
-                processor: ProfileringProcessor::new(schema_registry_settings.clone()),
-            }
+        TestContext {
+            mockito_server,
+            mocks,
+            pg_pool: postgres_guard.pg_pool,
+            avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
+            processor: ProfileringProcessor::new(schema_registry_settings.clone()),
         }
     }
 

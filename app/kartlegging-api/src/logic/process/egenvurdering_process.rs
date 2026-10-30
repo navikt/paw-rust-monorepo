@@ -74,17 +74,20 @@ mod tests {
     use mockito::{Mock, Server, ServerGuard};
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use sqlx::{PgPool, Postgres, Transaction};
     use test_data_generator::avro::AvroGenerator;
     use test_data_generator::eksterne_hendelser::create_dummy_egenvurdering;
     use uuid::Uuid;
 
+    const EGENVURDERING_TOPIC: &str = "paw.arbeidssoeker-egenvurdering-v1";
+
     #[tokio::test]
     async fn test_process_messages() {
-        let context = &init().await;
+        let context = TestContext::new().await;
 
-        let arbeidssoeker_id = 12355i64;
+        let arbeidssoeker_id = 12345i64;
         let identitetsnummer = "01017012345";
         let periode_id = Uuid::new_v4();
         let profilering_id = Uuid::new_v4();
@@ -97,13 +100,10 @@ mod tests {
             profilering_id,
             egenvurdering_id,
         );
+
         let message = context
             .avro_generator
-            .create_avro_message(
-                "paw.arbeidssoeker-egenvurdering-v1",
-                Some(key),
-                Some(payload),
-            )
+            .create_avro_message(EGENVURDERING_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -129,12 +129,23 @@ mod tests {
         );
     }
 
-    async fn init() -> TestContext {
-        {
+    struct TestContext {
+        #[allow(unused)]
+        mockito_server: ServerGuard,
+        #[allow(unused)]
+        mocks: Vec<Mock>,
+        pg_pool: PgPool,
+        avro_generator: AvroGenerator,
+        processor: EgenvurderingProcessor,
+    }
+
+    impl TestContext {
+        async fn new() -> Self {
             let pdl_mock_responses = default_pdl_mock_responses();
             let mut mockito_server = Server::new_async().await;
 
-            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
+            let schemas = avro_schemas();
+            let schema_registry_guard = create_schema_registry_mock_2(&mut mockito_server, schemas)
                 .await
                 .expect("Failed to create schema registry mock");
             let schema_registry_settings = schema_registry_guard.schema_registry_settings;
@@ -155,7 +166,7 @@ mod tests {
                 .await
                 .expect("Failed to run migrations");
 
-            TestContext {
+            Self {
                 mockito_server,
                 mocks,
                 pg_pool: postgres_guard.pg_pool,
@@ -163,19 +174,7 @@ mod tests {
                 processor: EgenvurderingProcessor::new(schema_registry_settings.clone()),
             }
         }
-    }
 
-    struct TestContext {
-        #[allow(unused)]
-        mockito_server: ServerGuard,
-        #[allow(unused)]
-        mocks: Vec<Mock>,
-        pg_pool: PgPool,
-        avro_generator: AvroGenerator,
-        processor: EgenvurderingProcessor,
-    }
-
-    impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
             self.pg_pool
                 .begin()

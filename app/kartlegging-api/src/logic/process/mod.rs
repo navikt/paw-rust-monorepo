@@ -8,6 +8,7 @@ pub(crate) mod bekreftelse_process;
 pub(crate) mod egenvurdering_process;
 pub(crate) mod kartlegging_process;
 pub mod message_process;
+pub(crate) mod navneendring_process;
 pub(crate) mod oppfolgingsperiode_process;
 pub(crate) mod opplysninger_process;
 pub(crate) mod periode_process;

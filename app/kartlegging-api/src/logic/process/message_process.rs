@@ -3,15 +3,15 @@ use crate::logic::process::PayloadProcessor;
 use crate::logic::process::bekreftelse_paavegneav_process::BekreftelsePaaVegneAvProcessor;
 use crate::logic::process::bekreftelse_process::BekreftelseProcessor;
 use crate::logic::process::egenvurdering_process::EgenvurderingProcessor;
+use crate::logic::process::navneendring_process::NavneendringProcessor;
 use crate::logic::process::oppfolgingsperiode_process::OppfolgingsperiodeProcessor;
 use crate::logic::process::opplysninger_process::OpplysningerProcessor;
 use crate::logic::process::periode_process::PeriodeProcessor;
 use crate::logic::process::profilering_process::ProfileringProcessor;
+use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
 use crate::model::error::PayloadProcessorError;
 use crate::model::result::ProcessorResult;
 use paw_kafka::hwm::hwm_message_processor::{MessageProcessor, ProcessorError};
-use paw_key_gen_client::client::PawKeyGenClient;
-use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
@@ -29,22 +29,21 @@ pub struct KartleggingMessageProcessor {
     bekreftelse_processor: Arc<BekreftelseProcessor>,
     bekreftelse_paavegneav_processor: Arc<BekreftelsePaaVegneAvProcessor>,
     oppfolgingsperiode_processor: Arc<OppfolgingsperiodeProcessor>,
+    navneendring_processor: Arc<NavneendringProcessor>,
 }
 
 impl KartleggingMessageProcessor {
     pub fn new(
         app_config: Arc<AppConfig>,
         schema_registry_settings: SrSettings,
-        key_gen_client: Arc<PawKeyGenClient>,
-        pdl_client: Arc<PDLClient>,
+        arbeidssoeker_service: Arc<ArbeidssoekerService>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             app_config: app_config.clone(),
             periode_processor: Arc::new(PeriodeProcessor::new(
                 app_config.clone(),
                 schema_registry_settings.clone(),
-                key_gen_client,
-                pdl_client,
+                arbeidssoeker_service.clone(),
             )),
             opplysninger_processor: Arc::new(OpplysningerProcessor::new(
                 schema_registry_settings.clone(),
@@ -63,6 +62,10 @@ impl KartleggingMessageProcessor {
                 schema_registry_settings.clone(),
             )),
             oppfolgingsperiode_processor: Arc::new(OppfolgingsperiodeProcessor::new()),
+            navneendring_processor: Arc::new(NavneendringProcessor::new(
+                schema_registry_settings.clone(),
+                arbeidssoeker_service.clone(),
+            )),
         })
     }
 }
@@ -119,6 +122,11 @@ impl MessageProcessor for KartleggingMessageProcessor {
                             .process_payload(tx, message)
                             .await
                     }
+                    topic if topic == kafka_config.pdl_leesah_topic.as_str() => {
+                        self.navneendring_processor
+                                .process_payload(tx, message)
+                                .await
+                    }
                     topic => {
                         panic!("Mottok melding på ukjent topic: {}", topic);
                     }
@@ -163,6 +171,7 @@ impl MessageProcessor for KartleggingMessageProcessor {
 mod tests {
     use crate::config::read_app_config;
     use crate::logic::process::message_process::KartleggingMessageProcessor;
+    use crate::logic::service::arbeidssoeker_service::ArbeidssoekerService;
     use crate::model::dao::{
         arbeidssoeker, bekreftelse, bekreftelse_paavegneav, egenvurdering, kartlegging,
         kontortilknytning, opplysninger, periode, profilering,
@@ -180,7 +189,8 @@ mod tests {
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
     use postgres_testcontainer::postgres::setup_postgres_container;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use sqlx::{PgPool, Postgres, Transaction};
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
@@ -193,17 +203,25 @@ mod tests {
     use token_client_stub::TokenClientStub;
     use uuid::Uuid;
 
+    const PERIODE_TOPIC: &str = "paw.arbeidssokerperioder-v1";
+    const OPPLYSNINGER_TOPIC: &str = "paw.opplysninger-om-arbeidssoeker-v1";
+    const PROFILERING_TOPIC: &str = "paw.arbeidssoker-profilering-v1";
+    const EGENVURDERING_TOPIC: &str = "paw.arbeidssoeker-egenvurdering-v1";
+    const BEKREFTELSE_TOPIC: &str = "paw.arbeidssoker-bekreftelse-v1";
+    const BEKREFTELSE_PAAVEGNEAV_TOPIC: &str = "paw.arbeidssoker-bekreftelse-paavegneav-v1";
+    const OPPFOLGINGSPERIODE_TOPIC: &str = "poao.siste-oppfolgingsperiode-v3";
+
     #[tokio::test]
     async fn test_process_messages() {
-        let context = &init().await;
+        let context = TestContext::new().await;
 
-        test_process_periode(context).await;
-        test_process_opplysninger(context).await;
-        test_process_profilering(context).await;
-        test_process_egenvurdering(context).await;
-        test_process_bekreftelse(context).await;
-        test_process_bekreftelse_paavegneav(context).await;
-        test_process_oppsolgingsperiode(context).await;
+        test_process_periode(&context).await;
+        test_process_opplysninger(&context).await;
+        test_process_profilering(&context).await;
+        test_process_egenvurdering(&context).await;
+        test_process_bekreftelse(&context).await;
+        test_process_bekreftelse_paavegneav(&context).await;
+        test_process_oppsolgingsperiode(&context).await;
     }
 
     async fn test_process_periode(context: &TestContext) {
@@ -215,7 +233,7 @@ mod tests {
         let payload = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
+            .create_avro_message(PERIODE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -272,11 +290,7 @@ mod tests {
         let payload = create_dummy_opplysninger(identitetsnummer, periode_id, opplysninger_id);
         let message = context
             .avro_generator
-            .create_avro_message(
-                "paw.opplysninger-om-arbeidssoeker-v1",
-                Some(key),
-                Some(payload),
-            )
+            .create_avro_message(OPPLYSNINGER_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -313,7 +327,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-profilering-v1", Some(key), Some(payload))
+            .create_avro_message(PROFILERING_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -351,11 +365,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message(
-                "paw.arbeidssoeker-egenvurdering-v1",
-                Some(key),
-                Some(payload),
-            )
+            .create_avro_message(EGENVURDERING_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -399,7 +409,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
+            .create_avro_message(BEKREFTELSE_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -432,11 +442,7 @@ mod tests {
         let payload = create_dummy_start_paavegneav(periode_id, Bekreftelsesloesning::Dagpenger);
         let message = context
             .avro_generator
-            .create_avro_message(
-                "paw.arbeidssoker-bekreftelse-paavegneav-v1",
-                Some(key),
-                Some(payload),
-            )
+            .create_avro_message(BEKREFTELSE_PAAVEGNEAV_TOPIC, Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -470,7 +476,7 @@ mod tests {
         );
         let message = context
             .json_generator
-            .create_json_message("poao.siste-oppfolgingsperiode-v3", &oppfolgingsperiode);
+            .create_json_message(OPPFOLGINGSPERIODE_TOPIC, &oppfolgingsperiode);
 
         let mut tx = context.start_tx().await;
         let result = context.processor.process_message(&mut tx, &message).await;
@@ -492,89 +498,6 @@ mod tests {
             kontortilknytning_row.kontor_type,
             KontorType::Arbeidsoppfolging.as_ref().to_string()
         );
-    }
-
-    async fn init() -> TestContext {
-        {
-            let mut mockito_server = Server::new_async().await;
-
-            let app_config = Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
-
-            let schema_registry_guard = create_schema_registry_mock(&mut mockito_server)
-                .await
-                .expect("Failed to create schema registry mock");
-            let schema_registry_settings = schema_registry_guard.schema_registry_settings;
-
-            let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
-            let kafka_key_gen_mock_guard =
-                init_kafka_key_gen_api_mocks(&mut mockito_server, kafka_key_gen_mock_responses)
-                    .await
-                    .expect("Kunne ikke initialisere Kafka Key Gen mock");
-
-            let pdl_mock_responses = default_pdl_mock_responses();
-            let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
-                .await
-                .expect("Kunne ikke initialisere PDL mock server");
-
-            let mut schema_registry_mocks = schema_registry_guard.mocks;
-            let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
-            let mut mocks = pdl_mock_guard.mocks;
-            mocks.append(&mut schema_registry_mocks);
-            mocks.append(&mut kafka_key_gen_mocks);
-
-            let http_client = reqwest::Client::builder()
-                .no_proxy()
-                .build()
-                .expect("Failed to build reqwest client");
-
-            let key_gen_client = Arc::new(PawKeyGenClient::new(
-                mockito_server.url(),
-                "test-scope".to_string(),
-                http_client.clone(),
-                Arc::new(TokenClientStub::new()),
-            ));
-
-            let pdl_client = Arc::new(PDLClient::new(
-                "test-scope".to_string(),
-                format!("{}/pdl", mockito_server.url()),
-                http_client.clone(),
-                Arc::new(TokenClientStub::new()),
-            ));
-
-            let postgres_guard = setup_postgres_container()
-                .await
-                .expect("Failed to start Postgres container");
-            println!("Migrerer databasemodell");
-            sqlx::migrate!("./migrations")
-                .run(&postgres_guard.pg_pool)
-                .await
-                .expect("Failed to run migrations");
-
-            TestContext {
-                mockito_server,
-                mocks,
-                pg_pool: postgres_guard.pg_pool,
-                json_generator: JsonGenerator,
-                avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
-                processor: KartleggingMessageProcessor::new(
-                    app_config,
-                    schema_registry_settings.clone(),
-                    key_gen_client,
-                    pdl_client,
-                )
-                .expect("Kunne ikke opprette prosessor"),
-                arbeidssoeker_id: 12345,
-                aktor_id: "101701234500",
-                identitetsnummer: "01017012345",
-                periode_id: Uuid::new_v4(),
-                opplysninger_id: Uuid::new_v4(),
-                profilering_id: Uuid::new_v4(),
-                egenvurdering_id: Uuid::new_v4(),
-                bekreftelse_id: Uuid::new_v4(),
-                oppfolgingsperiode_id: Uuid::new_v4(),
-                kontor_id: "1234",
-            }
-        }
     }
 
     struct TestContext {
@@ -599,6 +522,93 @@ mod tests {
     }
 
     impl TestContext {
+        async fn new() -> Self {
+            {
+                let mut mockito_server = Server::new_async().await;
+
+                let app_config =
+                    Arc::new(read_app_config().expect("Kunne ikke lese app_config.yaml"));
+
+                let schemas = avro_schemas();
+                let schema_registry_guard =
+                        create_schema_registry_mock_2(&mut mockito_server, schemas)
+                        .await
+                        .expect("Failed to create schema registry mock");
+                let schema_registry_settings = schema_registry_guard.schema_registry_settings;
+
+                let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
+                let kafka_key_gen_mock_guard =
+                    init_kafka_key_gen_api_mocks(&mut mockito_server, kafka_key_gen_mock_responses)
+                        .await
+                        .expect("Kunne ikke initialisere Kafka Key Gen mock");
+
+                let pdl_mock_responses = default_pdl_mock_responses();
+                let pdl_mock_guard = init_pdl_mock(&mut mockito_server, pdl_mock_responses)
+                    .await
+                    .expect("Kunne ikke initialisere PDL mock server");
+
+                let mut schema_registry_mocks = schema_registry_guard.mocks;
+                let mut kafka_key_gen_mocks = kafka_key_gen_mock_guard.mocks;
+                let mut mocks = pdl_mock_guard.mocks;
+                mocks.append(&mut schema_registry_mocks);
+                mocks.append(&mut kafka_key_gen_mocks);
+
+                let http_client = reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .expect("Failed to build reqwest client");
+
+                let key_gen_client = Arc::new(PawKeyGenClient::new(
+                    mockito_server.url(),
+                    "test-scope".to_string(),
+                    http_client.clone(),
+                    Arc::new(TokenClientStub::new()),
+                ));
+
+                let pdl_client = Arc::new(PDLClient::new(
+                    "test-scope".to_string(),
+                    format!("{}/pdl", mockito_server.url()),
+                    http_client.clone(),
+                    Arc::new(TokenClientStub::new()),
+                ));
+
+                let arbeidssoeker_service = ArbeidssoekerService::new(key_gen_client, pdl_client);
+
+                let postgres_guard = setup_postgres_container()
+                    .await
+                    .expect("Failed to start Postgres container");
+                println!("Migrerer databasemodell");
+                sqlx::migrate!("./migrations")
+                    .run(&postgres_guard.pg_pool)
+                    .await
+                    .expect("Failed to run migrations");
+
+                Self {
+                    mockito_server,
+                    mocks,
+                    pg_pool: postgres_guard.pg_pool,
+                    json_generator: JsonGenerator,
+                    avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
+                    processor: KartleggingMessageProcessor::new(
+                        app_config,
+                        schema_registry_settings.clone(),
+                        arbeidssoeker_service,
+                    )
+                    .expect("Kunne ikke opprette prosessor"),
+                    arbeidssoeker_id: 12345,
+                    aktor_id: "101701234500",
+                    identitetsnummer: "01017012345",
+                    periode_id: Uuid::new_v4(),
+                    opplysninger_id: Uuid::new_v4(),
+                    profilering_id: Uuid::new_v4(),
+                    egenvurdering_id: Uuid::new_v4(),
+                    bekreftelse_id: Uuid::new_v4(),
+                    oppfolgingsperiode_id: Uuid::new_v4(),
+                    kontor_id: "1234",
+                }
+            }
+        }
+
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
             self.pg_pool
                 .begin()

@@ -1,6 +1,7 @@
 use crate::model::sort::SortOrder;
 use chrono::{NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, Transaction};
+use crate::model::dto::navn::Navn;
 
 #[derive(Debug, FromRow)]
 pub(crate) struct ArbeidssoekerRow {
@@ -72,6 +73,31 @@ pub async fn count_by_kontortilknytning(
         }
     };
     Ok(count)
+}
+
+#[tracing::instrument(skip_all)]
+pub async fn select_by_aktor_id(
+    tx: &mut Transaction<'_, Postgres>,
+    aktor_id: &str,
+) -> anyhow::Result<Vec<ArbeidssoekerRow>> {
+    tracing::debug!("Select arbeidssøkere by aktor_id");
+    let rows = sqlx::query_as::<_, ArbeidssoekerRow>(
+        r#"
+        SELECT
+            id,
+            aktor_id,
+            identitetsnummer,
+            fornavn,
+            mellomnavn,
+            etternavn
+        FROM arbeidssoekere
+        WHERE aktor_id = $1
+        "#,
+    )
+    .bind(aktor_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    Ok(rows)
 }
 
 #[tracing::instrument(skip_all)]
@@ -276,6 +302,34 @@ pub async fn update<'a>(
     .bind(&row.fornavn)
     .bind(&row.mellomnavn)
     .bind(&row.etternavn)
+    .bind(Utc::now())
+    .execute(&mut **tx)
+    .await?;
+    Ok(result.rows_affected())
+}
+
+#[allow(unused)]
+#[tracing::instrument(skip_all)]
+pub async fn update_navn<'a>(
+    tx: &mut Transaction<'_, Postgres>,
+    aktor_id: &'a String,
+    navn: &'a Navn,
+) -> anyhow::Result<u64> {
+    tracing::debug!("Update arbeidssøker");
+    let result = sqlx::query(
+        r#"
+        UPDATE arbeidssoekere SET (
+            fornavn,
+            mellomnavn,
+            etternavn,
+            updated_timestamp
+        ) = ($2, $3, $4, $5) WHERE aktor_id = $1
+        "#,
+    )
+    .bind(aktor_id)
+    .bind(&navn.fornavn())
+    .bind(&navn.mellomnavn())
+    .bind(&navn.etternavn())
     .bind(Utc::now())
     .execute(&mut **tx)
     .await?;

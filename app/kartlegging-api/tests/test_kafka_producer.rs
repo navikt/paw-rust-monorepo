@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
+use paw_avro_serde::serde::AvroSerializer;
+use pdl_hendelser::leesah::Endringstype;
 use rdkafka::message::ToBytes;
 use rdkafka::producer::future_producer::Delivery;
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -15,8 +17,8 @@ use test_data_generator::eksterne_hendelser::{
     create_dummy_opplysninger, create_dummy_profilering, create_dummy_start_paavegneav,
     create_dummy_start_periode, create_dummy_stopp_paavegneav, datetime_rfc3339,
 };
+use test_data_generator::pdl_hendelser::{create_dummy_navn, create_dummy_personhendelse_navn};
 use uuid::Uuid;
-use paw_avro_serde::serde::AvroSerializer;
 
 #[ignore]
 #[tokio::test]
@@ -54,6 +56,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     //
     // producer.send_avslutt_perioder(&data).await?;
     //
+    producer.send_pdl_leesah_personhendelse(&data).await?;
 
     Ok(())
 }
@@ -103,7 +106,7 @@ impl TestData {
 
 struct TestKafkaProducer {
     producer: FutureProducer,
-    paw_avro_serializer: AvroSerializer
+    avro_serializer: AvroSerializer,
 }
 
 impl TestKafkaProducer {
@@ -112,10 +115,10 @@ impl TestKafkaProducer {
         let config = kafka_config.rdkafka_client_config()?;
         let producer: FutureProducer = config.create()?;
         let schema_registry_settings = create_schema_registry_settings()?;
-        let paw_avro_serializer = AvroSerializer::new(schema_registry_settings);
+        let avro_serializer = AvroSerializer::new(schema_registry_settings.clone());
         Ok(Self {
             producer,
-            paw_avro_serializer,
+            avro_serializer,
         })
     }
 
@@ -327,6 +330,39 @@ impl TestKafkaProducer {
     }
 
     #[allow(unused)]
+    async fn send_pdl_leesah_personhendelse(&self, data: &Vec<TestData>) -> anyhow::Result<()> {
+        for d in data {
+            let navn = create_dummy_navn(d.fornavn, None, d.etternavn);
+            let message = create_dummy_personhendelse_navn(
+                vec![d.identitetsnummer],
+                Endringstype::Opprettet,
+                Some(navn),
+            );
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.aktor_id,
+                message
+            );
+            let topic = "pdl.leesah-v1";
+            let key_strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), true);
+            let value_strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
+            let key = self
+                .avro_serializer
+                .serialize(d.aktor_id, &key_strategy)
+                .await?;
+            let payload = self
+                .avro_serializer
+                .serialize(&message, &value_strategy)
+                .await?;
+            let record = FutureRecord::to(topic).key(&key).payload(&payload);
+            self.send_message(record).await;
+        }
+
+        Ok(())
+    }
+
+    #[allow(unused)]
     async fn send_paw_avro_messages(
         &self,
         topic: &str,
@@ -338,7 +374,7 @@ impl TestKafkaProducer {
                 let naming_strategy =
                     SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
                 let payload = self
-                    .paw_avro_serializer
+                    .avro_serializer
                     .serialize(m, &naming_strategy)
                     .await
                     .expect("Failed to serialize message");

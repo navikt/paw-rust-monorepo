@@ -2429,6 +2429,7 @@ dependencies = [
  "paw_tilgangskontroll_v2_client",
  "pdl_api_mock",
  "pdl_client",
+ "pdl_hendelser",
  "postgres_testcontainer",
  "prometheus",
  "rdkafka",
