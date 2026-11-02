@@ -62,10 +62,10 @@ http-body-util = "0.1"
 log = "0.4.29"
 log4rs = "1.4.0"
 env_logger = "0.11"
-opentelemetry = { version = "0.32", features = ["trace"] }
-opentelemetry-otlp = { version = "0.32", features = ["grpc-tonic", "trace"] }
-opentelemetry_sdk = { version = "0.32", features = ["trace", "rt-tokio"] }
-opentelemetry-http = { version = "0.32", features = ["reqwest", "internal-logs"] }
+opentelemetry = { version = "0.33", features = ["trace"] }
+opentelemetry-otlp = { version = "0.33", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = { version = "0.33", features = ["trace", "rt-tokio"] }
+opentelemetry-http = { version = "0.33", features = ["reqwest", "internal-logs"] }
 prometheus = "0.14.0"
 rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -81,10 +81,10 @@ pin-project-lite = "0.2"
 tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1.44"
 tracing-test = "0.2.6"
-tracing-opentelemetry = "0.33"
+tracing-opentelemetry = "0.34"
 tracing-subscriber = { version = "0.3.2", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-utoipa = { version = "5", features = ["chrono", "uuid"] }
+utoipa = { version = "6", features = ["chrono", "uuid"] }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 reqwest = { version = "0.13", features = ["json", "form"] }
 thiserror = "2.0"
@@ -95,12 +95,12 @@ schema_registry_converter = { version = "5", default-features = false, features 
 apache-avro = "0.22"
 strum = { version = "0.28", features = ["derive"] }
 serde_with = { version = "3", features = ["chrono"] }
-utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
+utoipa-swagger-ui = { version = "10.0", features = ["axum"] }
 itertools = "0.15"
 
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serde_yaml = "0.9"
-jsonschema = "0.56.0"
+jsonschema = "0.60"
 dtor = "1.0"
-p256 = { version = "0.13.2", features = ["ecdsa", "pkcs8"] }
+p256 = { version = "0.14", features = ["ecdsa", "pkcs8"] }
