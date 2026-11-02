@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-const REGELVERSJON: Regelversjon = Regelversjon::new(1);
+const REGELVERSJON: Regelversjon = Regelversjon::new(2);
 const NIVAA: Nivaa = Nivaa::Periode;
 const PERIODE_STARTET_UTEN_HENDELSE_STARTET: Utfall = Utfall {
     kode: 1,
@@ -27,7 +27,6 @@ pub fn regel_ingen_periode_uten_startet() -> Regel {
     Regel::new(RegelId::IngenPeriodeUtenStartet, REGELVERSJON, NIVAA)
 }
 
-/// Records without trace_id are not relevant: they belong to no trace.
 pub async fn ingen_periode_uten_startet(
     conn: &mut PgConnection,
     xid: Xid8,
