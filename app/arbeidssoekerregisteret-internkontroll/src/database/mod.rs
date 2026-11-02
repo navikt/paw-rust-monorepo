@@ -1,5 +1,6 @@
 pub mod funn;
 pub mod kafka_record;
+pub mod kafka_record_oppslag;
 pub mod payload;
 pub mod record_derived;
 pub mod regel_fremdrift;

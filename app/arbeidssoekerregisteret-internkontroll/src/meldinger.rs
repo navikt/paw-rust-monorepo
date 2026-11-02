@@ -21,6 +21,8 @@ use uuid::Uuid;
 use crate::arbeidssoeker_id::ArbeidssoekerId;
 use crate::database::payload::Meldingstype;
 
+mod kilde;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DekodetMelding {
     pub meldingstype: Meldingstype,
@@ -190,6 +192,44 @@ impl Dekodere {
                 uten_arbeidssoeker(meldingstype, p.periode_id)
             }),
         })
+    }
+
+    /// Extracts the source from a decoded payload, falling back to the last `source` header.
+    #[allow(dead_code)]
+    pub async fn kilde(&self, msg: &OwnedMessage) -> Result<Option<String>, DekodingsFeil> {
+        let dekoder = self
+            .per_topic
+            .get(msg.topic())
+            .ok_or_else(|| DekodingsFeil::UkjentTopic(msg.topic().to_string()))?;
+        let payload = msg.payload();
+        let kilde = match dekoder {
+            Dekoder::Hendelselogg => kilde::kilde_fra_hendelselogg(payload),
+            Dekoder::BekreftelseHendelselogg => kilde::kilde_fra_bekreftelse_hendelselogg(payload),
+            Dekoder::Periode => self
+                .avro::<Periode>(payload)
+                .await?
+                .map(|p| p.avsluttet.as_ref().unwrap_or(&p.startet).kilde.clone()),
+            Dekoder::Opplysninger => self
+                .avro::<Opplysninger>(payload)
+                .await?
+                .map(|o| o.sendt_inn_av.kilde),
+            Dekoder::Profilering => self
+                .avro::<Profilering>(payload)
+                .await?
+                .map(|p| p.sendt_inn_av.kilde),
+            Dekoder::Egenvurdering => self
+                .avro::<Egenvurdering>(payload)
+                .await?
+                .map(|e| e.sendt_inn_av.kilde),
+            Dekoder::Bekreftelse => self
+                .avro::<Bekreftelse>(payload)
+                .await?
+                .map(|b| b.svar.sendt_inn_av.kilde),
+            // PaaVegneAv has no metadata, so only the header can give a source.
+            Dekoder::PaaVegneAv => None,
+        }
+        .filter(|kilde| !kilde.is_empty());
+        Ok(kilde.or_else(|| kilde::kilde_fra_header(msg)))
     }
 
     /// Only a payload that cannot be read is invalid. Any other schema registry error,
