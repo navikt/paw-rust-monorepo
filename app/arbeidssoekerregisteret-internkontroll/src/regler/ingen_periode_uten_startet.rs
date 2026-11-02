@@ -124,10 +124,11 @@ mod tests {
     }
 
     #[test]
-    fn periode_startet_uten_trace_id_gir_ingen_nokkel() {
+    fn periode_startet_uten_trace_id_gir_periode_id_noekkel() {
         let mut r = record(Meldingstype::PeriodeStartet);
         r.trace_id = None;
-        assert_eq!(Nokkel::fra_record(Xid8::new(1), &r, NIVAA), None);
+        let periode_id = Some(Nokkel::Periode(r.periode_id.unwrap()));
+        assert_eq!(Nokkel::fra_record(Xid8::new(1), &r, NIVAA), periode_id);
     }
 
     #[test]
