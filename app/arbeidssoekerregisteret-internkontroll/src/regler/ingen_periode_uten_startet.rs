@@ -17,7 +17,7 @@ use crate::{
 };
 
 const REGELVERSJON: Regelversjon = Regelversjon::new(1);
-const NIVAA: Nivaa = Nivaa::Trace;
+const NIVAA: Nivaa = Nivaa::Periode;
 const PERIODE_STARTET_UTEN_HENDELSE_STARTET: Utfall = Utfall {
     kode: 1,
     alvorlighet: Alvorlighet::Kritisk,
