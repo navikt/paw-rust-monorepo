@@ -31,10 +31,12 @@ impl AvroDatumDeserializer {
 
     fn read(&self, payload: &[u8]) -> Result<(apache_avro::types::Value, usize), AvroSerdeError> {
         let mut cursor = Cursor::new(payload);
-        let value = GenericDatumReader::builder(&self.schema)
+        let reader = GenericDatumReader::builder(&self.schema)
             .build()
-            .and_then(|reader| reader.read_value(&mut cursor))
-            .map_err(AvroSerdeError::deserialize)?;
+            .map_err(AvroSerdeError::reader)?;
+        let value = reader
+            .read_value(&mut cursor)
+            .map_err(|e| AvroSerdeError::decode(e, cursor.position(), payload.len()))?;
         let remaining = payload.len() - cursor.position() as usize;
         Ok((value, remaining))
     }
@@ -210,6 +212,43 @@ mod tests {
         let mut bytes = vec![0, 0, 0, 0, 42];
         bytes.extend(ser.serialize(&test_verdi(None, None)).unwrap());
         assert!(de.deserialize::<Test>(&bytes).is_err());
+    }
+
+    #[test]
+    fn dekodingsfeil_viser_typepar_og_lest_byteposisjon() {
+        let de = AvroDatumDeserializer::new(r#""string""#).unwrap();
+        let err = de.deserialize::<String>(&[1]).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Kunne ikke deserialisere Avro-melding: decode (consumed 1 of 1 bytes): Cannot convert i64 to usize"
+        );
+    }
+
+    #[test]
+    fn avkortet_payload_viser_trygg_io_aarsak() {
+        let de = AvroDatumDeserializer::new(r#""long""#).unwrap();
+        let err = de.deserialize::<i64>(&[0x80]).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Kunne ikke deserialisere Avro-melding: decode (consumed 1 of 1 bytes): Failed to read variable length integer: UnexpectedEof"
+        );
+    }
+
+    #[test]
+    fn konverteringsfeil_skilles_fra_dekoding_uten_payloadverdi() {
+        let schema = r#""string""#;
+        let ser = AvroDatumSerializer::new(schema).unwrap();
+        let de = AvroDatumDeserializer::new(schema).unwrap();
+        let bytes = ser.serialize(&"Ola Nordmann").unwrap();
+        let err = de.deserialize::<i32>(&bytes).unwrap_err();
+        let melding = err.to_string();
+        assert_eq!(
+            melding,
+            "Kunne ikke deserialisere Avro-melding: convert to Rust: Failed to deserialize Avro value into Rust value"
+        );
+        assert!(!melding.contains("decode"), "{melding}");
+        assert!(!melding.contains("Ola"), "{melding}");
+        assert!(!format!("{err:?}").contains("Ola"));
     }
 
     #[test]
