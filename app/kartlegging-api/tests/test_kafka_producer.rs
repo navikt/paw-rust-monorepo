@@ -3,6 +3,8 @@ use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesn
 use eksterne_hendelser::serde::AvroSerializer;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
+use rdkafka::message::ToBytes;
+use rdkafka::producer::future_producer::Delivery;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
 use serde::Serialize;
@@ -22,7 +24,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     let data = TestData::gen_test_data();
     let producer = TestKafkaProducer::new()?;
 
-    producer.send_start_perioder(&data).await?;
+    // producer.send_start_perioder(&data).await?;
     //
     // producer.send_opplysninger(&data).await?;
     //
@@ -51,14 +53,19 @@ async fn test_send_messages() -> anyhow::Result<()> {
     // producer.send_stopp_paavegneav(&data).await?;
     //
     // producer.send_avslutt_perioder(&data).await?;
+    //
 
     Ok(())
 }
 
 #[allow(unused)]
 struct TestData {
+    key: i64,
+    arbeidssoeker_id: i64,
     aktor_id: &'static str,
     identitetsnummer: &'static str,
+    fornavn: &'static str,
+    etternavn: &'static str,
     periode_id: Uuid,
     periode_startet: Option<DateTime<Utc>>,
     periode_avsluttet: Option<DateTime<Utc>>,
@@ -74,8 +81,12 @@ struct TestData {
 impl TestData {
     fn gen_test_data() -> Vec<TestData> {
         vec![TestData {
+            key: -1,
+            arbeidssoeker_id: 1,
             aktor_id: "101701234500",
             identitetsnummer: "01017012345",
+            fornavn: "Ola",
+            etternavn: "Nordmann",
             periode_id: Uuid::from_str("07206f7d-0323-483f-961b-bd571ff384df").unwrap(),
             periode_startet: Some(datetime_rfc3339("2026-02-01T12:00:00Z")),
             periode_avsluttet: Some(datetime_rfc3339("2026-01-31T12:00:00Z")),
@@ -92,7 +103,7 @@ impl TestData {
 
 struct TestKafkaProducer {
     producer: FutureProducer,
-    serializer: AvroSerializer,
+    paw_avro_serializer: AvroSerializer
 }
 
 impl TestKafkaProducer {
@@ -101,10 +112,10 @@ impl TestKafkaProducer {
         let config = kafka_config.rdkafka_client_config()?;
         let producer: FutureProducer = config.create()?;
         let schema_registry_settings = create_schema_registry_settings()?;
-        let serializer = AvroSerializer::new(schema_registry_settings);
+        let paw_avro_serializer = AvroSerializer::new(schema_registry_settings);
         Ok(Self {
             producer,
-            serializer,
+            paw_avro_serializer,
         })
     }
 
@@ -114,8 +125,12 @@ impl TestKafkaProducer {
             let message =
                 create_dummy_start_periode(d.identitetsnummer, d.periode_id, d.periode_startet);
             println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssokerperioder-v1", message)
-                .await?;
+            self.send_paw_avro_messages(
+                "paw.arbeidssokerperioder-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -132,8 +147,12 @@ impl TestKafkaProducer {
                     d.periode_avsluttet,
                 );
                 println!("Sender melding ({}): {:?}", Utc::now(), message);
-                self.send_avro_messages("paw.arbeidssokerperioder-v1", message)
-                    .await?;
+                self.send_paw_avro_messages(
+                    "paw.arbeidssokerperioder-v1",
+                    Some(&d.key.to_be_bytes().to_vec()),
+                    Some(message),
+                )
+                .await?;
             }
         }
 
@@ -146,8 +165,12 @@ impl TestKafkaProducer {
             let message =
                 create_dummy_opplysninger(d.identitetsnummer, d.periode_id, d.opplysninger_id);
             println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.opplysninger-om-arbeidssoeker-v1", message)
-                .await?;
+            self.send_paw_avro_messages(
+                "paw.opplysninger-om-arbeidssoeker-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -163,8 +186,12 @@ impl TestKafkaProducer {
                 d.profilering_id,
             );
             println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssoker-profilering-v1", message)
-                .await?;
+            self.send_paw_avro_messages(
+                "paw.arbeidssoker-profilering-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -179,9 +206,18 @@ impl TestKafkaProducer {
                 d.profilering_id,
                 d.egenvurdering_id,
             );
-            println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssoeker-egenvurdering-v1", message)
-                .await?;
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.key,
+                message
+            );
+            self.send_paw_avro_messages(
+                "paw.arbeidssoeker-egenvurdering-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -199,9 +235,18 @@ impl TestKafkaProducer {
                 false,
                 true,
             );
-            println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssoker-bekreftelse-v1", message)
-                .await?;
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.key,
+                message
+            );
+            self.send_paw_avro_messages(
+                "paw.arbeidssoker-bekreftelse-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -214,9 +259,18 @@ impl TestKafkaProducer {
                 d.periode_id,
                 Bekreftelsesloesning::Arbeidssoekerregisteret,
             );
-            println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssoker-bekreftelse-paavegneav-v1", message)
-                .await?;
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.key,
+                message
+            );
+            self.send_paw_avro_messages(
+                "paw.arbeidssoker-bekreftelse-paavegneav-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -229,9 +283,18 @@ impl TestKafkaProducer {
                 d.periode_id,
                 Bekreftelsesloesning::Arbeidssoekerregisteret,
             );
-            println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_avro_messages("paw.arbeidssoker-bekreftelse-paavegneav-v1", message)
-                .await?;
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.key,
+                message
+            );
+            self.send_paw_avro_messages(
+                "paw.arbeidssoker-bekreftelse-paavegneav-v1",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
@@ -246,44 +309,98 @@ impl TestKafkaProducer {
                 d.identitetsnummer,
                 "1234",
             );
-            println!("Sender melding ({}): {:?}", Utc::now(), message);
-            self.send_json_messages("poao.siste-oppfolgingsperiode-v3", message)
-                .await?;
+            println!(
+                "Sender melding timestamp: {} key: {}, value: {:?}",
+                Utc::now(),
+                d.key,
+                message
+            );
+            self.send_json_messages(
+                "poao.siste-oppfolgingsperiode-v3",
+                Some(&d.key.to_be_bytes().to_vec()),
+                Some(message),
+            )
+            .await?;
         }
 
         Ok(())
     }
 
     #[allow(unused)]
-    async fn send_avro_messages(&self, topic: &str, message: impl Serialize) -> anyhow::Result<()> {
-        let naming_strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
-        let payload = self.serializer.serialize(message, &naming_strategy).await?;
-        self.producer
-            .send(
-                FutureRecord::to(topic)
-                    .payload(&payload)
-                    .key(&1i64.to_be_bytes()),
-                Duration::ZERO,
-            )
-            .await
-            .map_err(|(e, _)| anyhow::anyhow!(e))?;
+    async fn send_paw_avro_messages(
+        &self,
+        topic: &str,
+        key: Option<&Vec<u8>>,
+        message: Option<impl Serialize>,
+    ) -> anyhow::Result<()> {
+        match message {
+            Some(m) => {
+                let naming_strategy =
+                    SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
+                let payload = self
+                    .paw_avro_serializer
+                    .serialize(m, &naming_strategy)
+                    .await
+                    .expect("Failed to serialize message");
+                let record = match key {
+                    Some(k) => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic)
+                        .key(k)
+                        .payload(&payload),
+                    None => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic).payload(&payload),
+                };
+                self.send_message(record).await
+            }
+            None => {
+                let record = match key {
+                    Some(k) => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic).key(k),
+                    None => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic),
+                };
+                self.send_message(record).await
+            }
+        };
 
         Ok(())
     }
 
     #[allow(unused)]
-    async fn send_json_messages(&self, topic: &str, message: impl Serialize) -> anyhow::Result<()> {
-        let payload = serde_json::to_vec(&message)?;
-        self.producer
-            .send(
-                FutureRecord::to(topic)
-                    .payload(&payload)
-                    .key(&1i64.to_be_bytes()),
-                Duration::ZERO,
-            )
-            .await
-            .map_err(|(e, _)| anyhow::anyhow!(e))?;
+    async fn send_json_messages(
+        &self,
+        topic: &str,
+        key: Option<&Vec<u8>>,
+        message: Option<impl Serialize>,
+    ) -> anyhow::Result<()> {
+        match message {
+            Some(m) => {
+                let payload = serde_json::to_vec(&m)?;
+                let record = match key {
+                    Some(k) => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic)
+                        .key(k)
+                        .payload(&payload),
+                    None => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic).payload(&payload),
+                };
+                self.send_message(record).await
+            }
+            None => {
+                let record = match key {
+                    Some(k) => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic).key(k),
+                    None => FutureRecord::<Vec<u8>, Vec<u8>>::to(topic),
+                };
+                self.send_message(record).await
+            }
+        };
 
         Ok(())
+    }
+
+    #[allow(unused)]
+    async fn send_message<K, P>(&self, record: FutureRecord<'_, K, P>) -> Delivery
+    where
+        K: ToBytes + ?Sized,
+        P: ToBytes + ?Sized,
+    {
+        self.producer
+            .send(record, Duration::ZERO)
+            .await
+            .expect("Failed to send message")
     }
 }

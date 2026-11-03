@@ -15,9 +15,9 @@ use crate::model::result::ProcessorResult;
 use eksterne_hendelser::periode::Periode;
 use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
+use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_key_gen_client::model::IdentitetType;
-use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use pdl_client::client::PDLClient;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -297,7 +297,9 @@ mod tests {
     use crate::logic::process::periode_process::PeriodeProcessor;
     use crate::model::dao::{arbeidssoeker, kartlegging, periode};
     use mockito::{Mock, Server, ServerGuard};
-    use paw_kafka_key_gen_api_mock::{default_kafka_key_gen_mock_responses, init_kafka_key_gen_api_mocks};
+    use paw_kafka_key_gen_api_mock::{
+        default_kafka_key_gen_mock_responses, init_kafka_key_gen_api_mocks,
+    };
     use paw_key_gen_client::client::PawKeyGenClient;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
@@ -363,6 +365,9 @@ mod tests {
             .expect("Ingen arbeidssøker funnet");
         assert_eq!(arbeidssoeker_row.id, arbeidssoeker_id);
         assert_eq!(arbeidssoeker_row.identitetsnummer, identitetsnummer_2);
+        assert_eq!(arbeidssoeker_row.fornavn, Some("Anakin".to_string()));
+        assert_eq!(arbeidssoeker_row.mellomnavn, None);
+        assert_eq!(arbeidssoeker_row.etternavn, Some("Skywalker".to_string()));
 
         assert_eq!(kartlegging_rows.len(), 1);
         let kartlegging_row = kartlegging_rows.first().expect("Ingen arbeidssøker funnet");
@@ -416,6 +421,9 @@ mod tests {
             .expect("Ingen arbeidssøker funnet");
         assert_eq!(arbeidssoeker_row.id, arbeidssoeker_id);
         assert_eq!(arbeidssoeker_row.identitetsnummer, identitetsnummer_2);
+        assert_eq!(arbeidssoeker_row.fornavn, Some("Anakin".to_string()));
+        assert_eq!(arbeidssoeker_row.mellomnavn, None);
+        assert_eq!(arbeidssoeker_row.etternavn, Some("Skywalker".to_string()));
 
         assert_eq!(kartlegging_rows.len(), 1);
         let kartlegging_row = kartlegging_rows.first().expect("Ingen arbeidssøker funnet");
@@ -469,7 +477,9 @@ mod tests {
             .expect("Ingen arbeidssøker funnet");
         assert_eq!(arbeidssoeker_row.id, arbeidssoeker_id);
         assert_eq!(arbeidssoeker_row.identitetsnummer, identitetsnummer_2);
-        assert_eq!(arbeidssoeker_row.identitetsnummer, identitetsnummer_2);
+        assert_eq!(arbeidssoeker_row.fornavn, Some("Anakin".to_string()));
+        assert_eq!(arbeidssoeker_row.mellomnavn, None);
+        assert_eq!(arbeidssoeker_row.etternavn, Some("Skywalker".to_string()));
 
         assert_eq!(kartlegging_rows.len(), 1);
         let kartlegging_row = kartlegging_rows.first().expect("Ingen arbeidssøker funnet");
@@ -498,7 +508,7 @@ mod tests {
 
             let kafka_key_gen_mock_responses = default_kafka_key_gen_mock_responses();
             let kafka_key_gen_mock_guard =
-                    init_kafka_key_gen_api_mocks(&mut mockito_server, kafka_key_gen_mock_responses)
+                init_kafka_key_gen_api_mocks(&mut mockito_server, kafka_key_gen_mock_responses)
                     .await
                     .expect("Kunne ikke initialisere Kafka Key Gen mock");
 
@@ -580,10 +590,6 @@ mod tests {
 
     impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
-            println!(
-                "Starter transaksjon (antall ledige tråder: {})",
-                self.pg_pool.num_idle()
-            );
             self.pg_pool
                 .begin()
                 .await

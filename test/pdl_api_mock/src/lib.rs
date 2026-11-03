@@ -1,19 +1,36 @@
 use chrono::NaiveDate;
-use mockito::{Matcher, Mock, ServerGuard};
-use serde_json::json;
+use mockito::{Matcher, Mock, Request, ServerGuard};
+use serde::Serialize;
+use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::error::Error;
+
+pub struct PdlMockResponses {
+    pub hent_identer: HashMap<&'static str, Vec<PdlMockIdent>>,
+    pub hent_person: HashMap<&'static str, PdlMockPerson>,
+    pub hent_person_navn: HashMap<&'static str, PdlMockPersonNavn>,
+}
 
 pub struct PdlMockResponse {
     pub match_ident: String,
     pub hent_identer: Vec<PdlMockIdent>,
-    pub hent_person: Vec<PdlMockPerson>,
-    pub hent_person_navn: Vec<PdlMockPersonNavn>,
 }
 
+#[derive(Debug, Serialize)]
 pub struct PdlMockIdent {
     pub ident: String,
     pub gruppe: String,
     pub historisk: bool,
+}
+
+impl PdlMockIdent {
+    fn new(ident: &str, historisk: bool) -> Self {
+        Self {
+            ident: ident.to_string(),
+            gruppe: "FOLKEREGISTERIDENT".to_string(),
+            historisk,
+        }
+    }
 }
 
 pub struct PdlMockPerson {
@@ -22,95 +39,188 @@ pub struct PdlMockPerson {
     pub kommunenummer: String,
 }
 
+impl PdlMockPerson {
+    fn new(kommunenummer: &str) -> Self {
+        Self {
+            foedselsdato: NaiveDate::from_ymd_opt(1970, 1, 1).expect("Kunne ikke lage NaiveDate"),
+            folkeregisterpersonstatus: "bosattEtterFolkeregisterloven".to_string(),
+            kommunenummer: kommunenummer.to_string(),
+        }
+    }
+}
+
 pub struct PdlMockPersonNavn {
     pub fornavn: String,
     pub mellomnavn: Option<String>,
     pub etternavn: String,
 }
 
+impl PdlMockPersonNavn {
+    fn new(fornavn: &str, etternavn: &str) -> Self {
+        Self {
+            fornavn: fornavn.to_string(),
+            mellomnavn: None,
+            etternavn: etternavn.to_string(),
+        }
+    }
+}
+
 pub struct PdlMockGuard {
     pub mocks: Vec<Mock>,
 }
 
-pub fn default_pdl_mock_responses() -> Vec<PdlMockResponse> {
-    let identer = vec!["01017012345", "41017012345"];
-    vec![
-        PdlMockResponse {
-            match_ident: "01017012345".to_string(),
-            hent_identer: hent_identer_mock(&identer),
-            hent_person: hent_person_mock(),
-            hent_person_navn: hent_person_navn_mock(),
-        },
-        PdlMockResponse {
-            match_ident: "41017012345".to_string(),
-            hent_identer: hent_identer_mock(&identer),
-            hent_person: hent_person_mock(),
-            hent_person_navn: hent_person_navn_mock(),
-        },
-    ]
-}
-
-fn hent_identer_mock(identer: &Vec<&str>) -> Vec<PdlMockIdent> {
-    let mut alle_identiteter = vec![];
-    for i in 0..identer.len() {
-        alle_identiteter.push(PdlMockIdent {
-            ident: identer[i].to_string(),
-            gruppe: "FOLKEREGISTERIDENT".to_string(),
-            historisk: i != 0, // Sett den første identiteten som gjeldende
-        });
+pub fn default_pdl_mock_responses() -> PdlMockResponses {
+    PdlMockResponses {
+        hent_identer: default_pdl_mock_ident_responses(),
+        hent_person: default_pdl_mock_person_responses(),
+        hent_person_navn: default_pdl_mock_person_navn_responses(),
     }
-    alle_identiteter
 }
 
-fn hent_person_mock() -> Vec<PdlMockPerson> {
-    vec![PdlMockPerson {
-        foedselsdato: NaiveDate::from_ymd_opt(1970, 1, 1).expect("Kunne ikke lage NaiveDate"),
-        folkeregisterpersonstatus: "bosattEtterFolkeregisterloven".to_string(),
-        kommunenummer: "5501".to_string(),
-    }]
+pub fn default_pdl_mock_ident_responses() -> HashMap<&'static str, Vec<PdlMockIdent>> {
+    HashMap::<&'static str, Vec<PdlMockIdent>>::from([
+        (
+            "01017012345",
+            vec![
+                PdlMockIdent::new("01017012345", false),
+                PdlMockIdent::new("41017012345", true),
+            ],
+        ),
+        (
+            "41017012345",
+            vec![
+                PdlMockIdent::new("01017012345", false),
+                PdlMockIdent::new("41017012345", true),
+            ],
+        ),
+        (
+            "02017012345",
+            vec![
+                PdlMockIdent::new("02017012345", false),
+                PdlMockIdent::new("42017012345", true),
+            ],
+        ),
+        (
+            "42017012345",
+            vec![
+                PdlMockIdent::new("02017012345", false),
+                PdlMockIdent::new("42017012345", true),
+            ],
+        ),
+        (
+            "03017012345",
+            vec![
+                PdlMockIdent::new("03017012345", false),
+                PdlMockIdent::new("43017012345", true),
+            ],
+        ),
+        (
+            "43017012345",
+            vec![
+                PdlMockIdent::new("03017012345", false),
+                PdlMockIdent::new("43017012345", true),
+            ],
+        ),
+        (
+            "04017012345",
+            vec![
+                PdlMockIdent::new("04017012345", false),
+                PdlMockIdent::new("44017012345", true),
+            ],
+        ),
+        (
+            "44017012345",
+            vec![
+                PdlMockIdent::new("04017012345", false),
+                PdlMockIdent::new("44017012345", true),
+            ],
+        ),
+        (
+            "05017012345",
+            vec![
+                PdlMockIdent::new("05017012345", false),
+                PdlMockIdent::new("45017012345", true),
+            ],
+        ),
+        (
+            "45017012345",
+            vec![
+                PdlMockIdent::new("05017012345", false),
+                PdlMockIdent::new("45017012345", true),
+            ],
+        ),
+    ])
 }
 
-fn hent_person_navn_mock() -> Vec<PdlMockPersonNavn> {
-    vec![PdlMockPersonNavn {
-        fornavn: "Ola".to_string(),
-        mellomnavn: None,
-        etternavn: "Nordmann".to_string(),
-    }]
+pub fn default_pdl_mock_person_responses() -> HashMap<&'static str, PdlMockPerson> {
+    HashMap::<&'static str, PdlMockPerson>::from([
+        ("01017012345", PdlMockPerson::new("5501")),
+        ("41017012345", PdlMockPerson::new("5501")),
+        ("02017012345", PdlMockPerson::new("5502")),
+        ("42017012345", PdlMockPerson::new("5502")),
+        ("03017012345", PdlMockPerson::new("5503")),
+        ("43017012345", PdlMockPerson::new("5503")),
+        ("04017012345", PdlMockPerson::new("5504")),
+        ("44017012345", PdlMockPerson::new("5504")),
+        ("05017012345", PdlMockPerson::new("5505")),
+        ("45017012345", PdlMockPerson::new("5505")),
+    ])
+}
+
+pub fn default_pdl_mock_person_navn_responses() -> HashMap<&'static str, PdlMockPersonNavn> {
+    HashMap::<&'static str, PdlMockPersonNavn>::from([
+        ("01017012345", PdlMockPersonNavn::new("Anakin", "Skywalker")),
+        ("41017012345", PdlMockPersonNavn::new("Darth", "Vader")),
+        ("02017012345", PdlMockPersonNavn::new("Luke", "Skywalker")),
+        ("42017012345", PdlMockPersonNavn::new("Luke", "Skywalker")),
+        ("03017012345", PdlMockPersonNavn::new("Leia", "Organa")),
+        ("43017012345", PdlMockPersonNavn::new("Leia", "Organa")),
+        ("04017012345", PdlMockPersonNavn::new("Han", "Solo")),
+        ("44017012345", PdlMockPersonNavn::new("Han", "Solo")),
+        ("05017012345", PdlMockPersonNavn::new("Obiwan", "Kenobi")),
+        ("45017012345", PdlMockPersonNavn::new("Obiwan", "Kenobi")),
+    ])
 }
 
 pub async fn init_pdl_mock(
     mockito_server: &mut ServerGuard,
-    mock_responses: Vec<PdlMockResponse>,
+    mock_responses: PdlMockResponses,
 ) -> Result<PdlMockGuard, Box<dyn Error>> {
-    let _ = env_logger::try_init();
     let mut mocks = vec![];
-    for response in mock_responses {
-        let match_ident = &response.match_ident;
-        for ident in &response.hent_identer {
-            mocks.push(ident_mock(mockito_server, match_ident, ident).await);
-        }
-        for person in &response.hent_person {
-            mocks.push(person_mock(mockito_server, match_ident, person).await);
-        }
-        for person in &response.hent_person_navn {
-            mocks.push(person_navn_mock(mockito_server, match_ident, person).await);
-        }
+
+    for (ident, identer) in mock_responses.hent_identer {
+        mocks.push(ident_mock(mockito_server, &ident, &identer).await);
     }
+    for (ident, person) in mock_responses.hent_person {
+        mocks.push(person_mock(mockito_server, &ident, &person).await);
+    }
+    mocks.push(person_navn_mock(mockito_server, mock_responses.hent_person_navn).await);
 
     Ok(PdlMockGuard { mocks })
 }
 
 async fn ident_mock(
     mockito_server: &mut ServerGuard,
-    match_ident: &String,
-    ident: &PdlMockIdent,
+    ident: &str,
+    mock_identer: &Vec<PdlMockIdent>,
 ) -> Mock {
+    /*let identer = mock_identer
+    .iter()
+    .map(|mock_ident| {
+        json!({
+            "ident": mock_ident.ident,
+            "gruppe": mock_ident.gruppe,
+            "historisk": mock_ident.historisk,
+        })
+    })
+    .collect::<Vec<Value>>();*/
+    let identer = serde_json::to_value(mock_identer).unwrap();
     mockito_server
         .mock("POST", "/pdl")
         .match_body(Matcher::PartialJson(json!({
             "operationName": "HentIdenter",
             "variables": {
-                "ident": match_ident,
+                "ident": ident,
                 "historisk": false
             }
         })))
@@ -120,13 +230,7 @@ async fn ident_mock(
             json!({
                 "data": {
                     "hentIdenter": {
-                        "identer": [
-                            {
-                                "ident": ident.ident,
-                                "gruppe": ident.gruppe,
-                                "historisk": ident.historisk,
-                            }
-                        ]
+                        "identer": identer
                     }
                 }
             })
@@ -138,7 +242,7 @@ async fn ident_mock(
 
 async fn person_mock(
     mockito_server: &mut ServerGuard,
-    match_ident: &String,
+    ident: &str,
     person: &PdlMockPerson,
 ) -> Mock {
     let foedselsdato = person.foedselsdato.clone();
@@ -151,7 +255,7 @@ async fn person_mock(
         .match_body(Matcher::PartialJson(json!({
             "operationName": "HentPerson",
             "variables": {
-                "ident": match_ident,
+                "ident": ident,
                 "historisk": false
             }
         })))
@@ -205,36 +309,55 @@ async fn person_mock(
 
 async fn person_navn_mock(
     mockito_server: &mut ServerGuard,
-    match_ident: &String,
-    person: &PdlMockPersonNavn,
+    navn_per_ident: HashMap<&'static str, PdlMockPersonNavn>,
 ) -> Mock {
     mockito_server
         .mock("POST", "/pdl")
         .match_body(Matcher::PartialJson(json!({
             "operationName": "HentPersonNavn",
             "variables": {
-                "ident": match_ident,
                 "historisk": false
             }
         })))
         .with_status(200)
         .with_header("content-type", "application/graphql-response+json")
-        .with_body(
+        .with_body_from_request(move |request| {
+            let optional_ident = ident_from_request(request);
+            let optional_person =
+                optional_ident.and_then(|ident| navn_per_ident.get(ident.as_str()));
+            let navn = optional_person
+                .map(|person| {
+                    json!([{
+                        "fornavn": person.fornavn,
+                        "mellomnavn": person.mellomnavn,
+                        "etternavn": person.etternavn,
+                    }])
+                })
+                .unwrap_or_else(|| json!([]));
             json!({
                 "data": {
                     "hentPerson": {
-                        "navn": [
-                            {
-                                "fornavn": person.fornavn,
-                                "mellomnavn": person.mellomnavn,
-                                "etternavn": person.etternavn,
-                            }
-                        ]
+                        "navn": navn
                     }
                 }
             })
-            .to_string(),
-        )
+            .to_string()
+            .into_bytes()
+        })
         .create_async()
         .await
+}
+
+fn ident_from_request<'a>(request: &Request) -> Option<String> {
+    request
+        .body()
+        .ok()
+        .and_then(|body| serde_json::from_slice::<Value>(body).ok())
+        .and_then(ident_from_request_body)
+}
+
+fn ident_from_request_body(body: Value) -> Option<String> {
+    body.pointer("/variables/ident")
+        .and_then(Value::as_str)
+        .map(|ident| ident.to_string())
 }

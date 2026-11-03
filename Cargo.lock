@@ -3394,8 +3394,8 @@ name = "pdl_api_mock"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "env_logger",
  "mockito",
+ "serde",
  "serde_json",
 ]
 
@@ -5245,6 +5245,7 @@ dependencies = [
  "chrono",
  "dab_oppfolgingperioder",
  "eksterne_hendelser",
+ "pdl_hendelser",
  "rdkafka",
  "schema_registry_converter",
  "serde",

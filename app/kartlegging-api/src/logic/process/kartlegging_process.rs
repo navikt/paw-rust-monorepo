@@ -768,10 +768,6 @@ mod tests {
 
     impl TestContext {
         async fn start_tx(&self) -> Transaction<'_, Postgres> {
-            println!(
-                "Starter transaksjon (antall ledige tråder: {})",
-                self.pg_pool.num_idle()
-            );
             self.pg_pool
                 .begin()
                 .await

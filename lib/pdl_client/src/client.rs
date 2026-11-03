@@ -219,9 +219,9 @@ mod tests {
         let response = response.expect("Ingen response funnet");
         assert_eq!(response.navn.len(), 1);
         let navn = response.navn.first().expect("Ingen navn funnet i response");
-        assert_eq!(navn.fornavn, "Ola");
+        assert_eq!(navn.fornavn, "Anakin");
         assert_eq!(navn.mellomnavn, None);
-        assert_eq!(navn.etternavn, "Nordmann");
+        assert_eq!(navn.etternavn, "Skywalker");
     }
 
     #[tokio::test]
@@ -240,8 +240,8 @@ mod tests {
         let response = response.expect("Ingen response funnet");
         assert_eq!(response.navn.len(), 1);
         let navn = response.navn.first().expect("Ingen navn funnet i response");
-        assert_eq!(navn.fornavn, "Ola");
+        assert_eq!(navn.fornavn, "Anakin");
         assert_eq!(navn.mellomnavn, None);
-        assert_eq!(navn.etternavn, "Nordmann");
+        assert_eq!(navn.etternavn, "Skywalker");
     }
 }

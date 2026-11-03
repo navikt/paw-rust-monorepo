@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
+pdl_hendelser = { path = "../../domain/pdl_hendelser", features = ["leesah"] }
 uuid = { workspace = true, features = ["serde"] }
 chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
