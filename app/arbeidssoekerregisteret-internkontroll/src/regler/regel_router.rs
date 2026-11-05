@@ -16,6 +16,7 @@ use crate::{
 /// `Nokkel::fra_record`) and returns `IkkeAktuell` when it cannot. It may only
 /// read records with xid <= `xid`; `hent_grunnlag` guarantees that.
 /// The key it returns must be on the level declared in its `Regel`.
+#[tracing::instrument(skip(conn, record))]
 pub async fn exec(
     conn: &mut PgConnection,
     regel_id: RegelId,
