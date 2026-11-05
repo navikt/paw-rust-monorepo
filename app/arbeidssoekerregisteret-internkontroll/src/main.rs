@@ -33,6 +33,9 @@ use paw_rust_base::{
 };
 use paw_rust_base::{config::read_toml_config, read_config_file};
 use paw_sqlx::config::DatabaseConfig;
+use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
+use sqlx::PgPool;
 use std::error::Error;
 use tokio::sync::mpsc;
 use tokio::time::interval;
@@ -116,23 +119,53 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
         regler,
         REGEL_BATCH_SIZE,
     );
+
+    fn spawn_partition_worker(
+        hwm_version: i16,
+        receiver: mpsc::Receiver<OwnedMessage>,
+        pg_pool: PgPool,
+        processor: Arc<InternkontrollMessageProcessor>,
+    ) -> tokio::task::JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> {
+        tokio::spawn(async move {
+            let mut receiver = receiver;
+            let msg_processor = processor.as_ref();
+            while let Some(msg) = receiver.recv().await {
+                hwm_process_message(hwm_version, pg_pool.clone(), &msg, msg_processor).await?
+            }
+            Ok(())
+        })
+    }
+    let message_processor = Arc::new(InternkontrollMessageProcessor::new(
+        signing_required_from,
+        record_verifier,
+        topic_ids,
+        dekodere,
+    ));
+    let number_of_workers = 6;
+    let mut senders: Vec<mpsc::Sender<OwnedMessage>> = Vec::with_capacity(number_of_workers);
+    let mut workers: Vec<tokio::task::JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>> =
+        Vec::with_capacity(number_of_workers);
+    for _ in 0..number_of_workers {
+        let (sender, receiver) = mpsc::channel::<OwnedMessage>(5);
+        senders.push(sender);
+        workers.push(spawn_partition_worker(
+            hwm_version,
+            receiver,
+            pg_pool.clone(),
+            message_processor.clone(),
+        ));
+    }
+
     let kafka_task = tokio::spawn({
         let state = app_state.clone();
-        let pg_pool = pg_pool.clone();
         async move {
-            let message_processor = InternkontrollMessageProcessor::new(
-                signing_required_from,
-                record_verifier,
-                topic_ids,
-                dekodere,
-            );
             let mut paw_stream = stream;
             while state.is_alive() {
                 let (next_stream, msg) = paw_stream.receive().await?;
                 paw_stream = next_stream;
                 if let Some(msg) = msg {
-                    hwm_process_message(hwm_version, pg_pool.clone(), &msg, &message_processor)
-                        .await?
+                    let partition = msg.partition();
+                    senders[partition as usize].send(msg).await?
                 }
             }
             Ok::<(), ProcessorError>(())
