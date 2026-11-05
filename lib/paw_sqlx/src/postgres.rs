@@ -15,8 +15,9 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
         .map_err(DatabaseError::InitializePool)?
         .log_statements(statement_log_level)
         .log_slow_statements(log::LevelFilter::Warn, slow_statement_threshold);
+    let max_connections = config.max_connections.map(|v| *v).unwrap_or(5);
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(max_connections)
         .connect_lazy_with(connect_options);
     let _ = sqlx::query("SELECT 1")
         .execute(&pool)

@@ -13,6 +13,7 @@ pub struct DatabaseConfig {
     pub database: String,
     pub statement_log_level: Option<String>,
     pub slow_statement_threshold_ms: Option<u64>,
+    pub max_connections: Option<u32>,
 }
 
 impl DatabaseConfig {
