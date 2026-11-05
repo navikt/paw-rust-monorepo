@@ -6,13 +6,30 @@
     <title>Internkontroll</title>
     <script src="/stats/static/htmx.min.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem auto; padding: 0 1.5rem; max-width: 120rem; color: #23262a; }
+        :root {
+            color-scheme: light dark;
+            --bakgrunn: #fff;
+            --tekst: #23262a;
+            --kantlinje: #cfd3d8;
+            --knapp-hover: #f1f3f5;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bakgrunn: #181a1d;
+                --tekst: #f1f3f5;
+                --kantlinje: #737b85;
+                --knapp-hover: #30353b;
+            }
+            a { color: #9ecbff; }
+            a:visited { color: #d2b5ff; }
+        }
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; padding: 0 1.5rem; max-width: 120rem; background: var(--bakgrunn); color: var(--tekst); }
         h1 { margin-bottom: 0.5rem; }
         p { max-width: 48rem; }
         .tabell { overflow: auto; max-height: 75vh; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #cfd3d8; white-space: nowrap; vertical-align: top; }
-        th { position: sticky; top: 0; background: #fff; }
+        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--kantlinje); white-space: nowrap; vertical-align: top; }
+        th { position: sticky; top: 0; background: var(--bakgrunn); }
         table.regler td:nth-child(n+3), table.regler th:nth-child(n+3),
         table.mangler-trace-id td:nth-child(2), table.mangler-trace-id th:nth-child(2),
         table.mangler-trace-id td:nth-child(4), table.mangler-trace-id th:nth-child(4),
@@ -21,8 +38,8 @@
         table.signaturfeil td:nth-child(6) { white-space: normal; min-width: 20rem; }
         table.signaturfeil td:nth-child(8) { font-family: ui-monospace, monospace; font-size: 0.9em; }
         .faner { display: flex; gap: 0.5rem; margin: 1.5rem 0 0.5rem; }
-        .faner button { font: inherit; padding: 0.4rem 0.9rem; border: 1px solid #cfd3d8; border-radius: 4px; background: #fff; cursor: pointer; }
-        .faner button:hover { background: #f1f3f5; }
+        .faner button { font: inherit; padding: 0.4rem 0.9rem; border: 1px solid var(--kantlinje); border-radius: 4px; background: var(--bakgrunn); color: var(--tekst); cursor: pointer; }
+        .faner button:hover { background: var(--knapp-hover); }
     </style>
 </head>
 <body>
