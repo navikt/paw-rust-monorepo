@@ -1,57 +1,19 @@
-mod arbeidssoeker_id;
-mod database;
-mod meldinger;
-mod message_processor;
-mod regler;
-mod reset_db;
-mod schema_registry;
-mod signing_required_tools;
-mod topic_catalog;
-mod topic_ids;
-mod trace_operation_type;
-mod visualisering;
 use std::sync::Arc;
-use std::time::Duration;
 
-use message_processor::InternkontrollMessageProcessor;
-use paw_kafka::hwm::kafka_connection::create_kafka_consumer_with_sender;
-use paw_kafka::hwm::stream::stream_config::PawKafkaStreamConfig;
-use paw_kafka::hwm::{
-    hwm_message_processor::{ProcessorError, hwm_process_message},
-    rebalance::topic_partition_update::TopicPartitionUpdate,
-    stream::{
-        paw_kafka_stream::PawKafkaStream,
-        stream_wrapper::{PawKafkaConsumerStream, init_stream_wrapper_metrics},
-    },
-};
+use paw_kafka::hwm::stream::stream_wrapper::init_stream_wrapper_metrics;
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::signing::RecordVerifier;
-use paw_kafka::topics::get_topic_names;
-use paw_observability::{health::simple_app_state, otel::setup_nais_otel};
-use paw_rust_base::{
-    await_signal::await_signal, env::runtime_env, panic_logger::register_panic_logger,
-};
+use paw_observability::health::simple_app_state::AppState;
+use paw_observability::otel::setup_nais_otel;
 use paw_rust_base::{config::read_toml_config, read_config_file};
+use paw_rust_base::{env::runtime_env, panic_logger::register_panic_logger};
 use paw_sqlx::config::DatabaseConfig;
-use rdkafka::Message;
-use rdkafka::message::OwnedMessage;
-use sqlx::PgPool;
 use std::error::Error;
-use tokio::sync::mpsc;
-use tokio::time::interval;
-use tracing::info;
 
-use crate::meldinger::Dekodere;
-use crate::regler::hele_trace_er_signert::regel_hele_trace_er_signert;
-use crate::regler::ingen_periode_uten_startet::regel_ingen_periode_uten_startet;
-use crate::regler::melding_har_trace_id::regel_melding_har_trace_id;
-use crate::regler::regler_task::spawn_regel_task;
-use crate::reset_db::reset_db_if_needed;
-use crate::schema_registry::create_schema_registry_settings;
-use crate::signing_required_tools::SigningRequiredFrom;
-use crate::topic_catalog::{subscribed_topics, topic_priorities};
-
-const REGEL_BATCH_SIZE: std::num::NonZeroU32 = std::num::NonZeroU32::new(100).unwrap();
+use arbeidssoekerregisteret_internkontroll::core::app_context::AppContext;
+use arbeidssoekerregisteret_internkontroll::core::app_runner::run_app;
+use arbeidssoekerregisteret_internkontroll::features::regler::config::RegelConfig;
+use arbeidssoekerregisteret_internkontroll::reset_db::reset_db_if_needed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -59,152 +21,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     setup_nais_otel().unwrap();
     init_stream_wrapper_metrics();
     let record_verifier = RecordVerifier::from_embedded_keys()?;
-    run_app(record_verifier).await
-}
-
-async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> {
     let kafka_config: KafkaConfig = read_toml_config(read_config_file!("kafka_config.toml"))?;
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
-    let app_state = Arc::new(simple_app_state::AppState::new());
-    let runtime_env = runtime_env();
+    let regel_config: RegelConfig = read_toml_config(read_config_file!("regel_config.toml"))?;
     let pg_pool = paw_sqlx::postgres::init_db(&database_config).await?;
-    let auth_state = visualisering::auth_state(read_config_file!("auth_config.toml")).await?;
-    let http_routes = paw_observability::server::routes(app_state.clone())
-        .merge(visualisering::routes(pg_pool.clone(), auth_state));
-    let http_server_task = tokio::spawn(async move {
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
-        axum::serve(listener, http_routes).await
-    });
-    let hwm_version = *kafka_config.hwm_version;
-    let subscribed_topics = subscribed_topics();
-    let topics = get_topic_names(&runtime_env, &subscribed_topics);
-    reset_db_if_needed(&pg_pool, hwm_version).await?;
-    sqlx::migrate!("./migrations").run(&pg_pool).await?;
-    let mut conn = pg_pool.acquire().await?;
-    database::topic::register_topics(&mut conn, &topics).await?;
-    let topic_ids = database::topic::load_topic_ids(&mut conn).await?;
-    drop(conn);
-    let (topic_update_sender, topic_update_receiver) =
-        mpsc::unbounded_channel::<TopicPartitionUpdate>();
-    let signing_required_from = SigningRequiredFrom::for_runtime(&runtime_env);
-    let dekodere = Dekodere::new(
-        topics.iter().copied().zip(subscribed_topics.iter()),
-        create_schema_registry_settings(&runtime_env)?,
-    );
-    let topic_priorities = topic_priorities(&runtime_env);
-    let stream_config = PawKafkaStreamConfig::from_kafka_config(&kafka_config, topic_priorities)?;
-    let consumer = create_kafka_consumer_with_sender(
-        app_state.clone(),
-        pg_pool.clone(),
+    reset_db_if_needed(&pg_pool, *kafka_config.hwm_version).await?;
+    let app_context = AppContext::new(
         kafka_config,
-        &topics,
-        topic_update_sender,
-    )?;
-    let stream = PawKafkaConsumerStream::new(
-        topic_update_receiver,
-        consumer,
-        pg_pool.clone(),
-        stream_config,
-    );
-    let regler = vec![
-        regel_hele_trace_er_signert(),
-        regel_ingen_periode_uten_startet(),
-        regel_melding_har_trace_id(),
-    ];
-    let regel_task = spawn_regel_task(
-        pg_pool.clone(),
-        app_state.clone(),
-        interval(Duration::from_mins(5)),
-        regler,
-        REGEL_BATCH_SIZE,
-    );
-
-    fn spawn_partition_worker(
-        hwm_version: i16,
-        receiver: mpsc::Receiver<OwnedMessage>,
-        pg_pool: PgPool,
-        processor: Arc<InternkontrollMessageProcessor>,
-    ) -> tokio::task::JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> {
-        tokio::spawn(async move {
-            let mut receiver = receiver;
-            let msg_processor = processor.as_ref();
-            while let Some(msg) = receiver.recv().await {
-                hwm_process_message(hwm_version, pg_pool.clone(), &msg, msg_processor).await?
-            }
-            Ok(())
-        })
-    }
-    let message_processor = Arc::new(InternkontrollMessageProcessor::new(
-        signing_required_from,
         record_verifier,
-        topic_ids,
-        dekodere,
-    ));
-    let number_of_workers = 6;
-    let mut senders: Vec<mpsc::Sender<OwnedMessage>> = Vec::with_capacity(number_of_workers);
-    let mut workers: Vec<tokio::task::JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>> =
-        Vec::with_capacity(number_of_workers);
-    for _ in 0..number_of_workers {
-        let (sender, receiver) = mpsc::channel::<OwnedMessage>(5);
-        senders.push(sender);
-        workers.push(spawn_partition_worker(
-            hwm_version,
-            receiver,
-            pg_pool.clone(),
-            message_processor.clone(),
-        ));
-    }
-
-    let kafka_task = tokio::spawn({
-        let state = app_state.clone();
-        async move {
-            let mut paw_stream = stream;
-            while state.is_alive() {
-                let (next_stream, msg) = paw_stream.receive().await?;
-                paw_stream = next_stream;
-                if let Some(msg) = msg {
-                    let partition = msg.partition();
-                    senders[partition as usize].send(msg).await?
-                }
-            }
-            Ok::<(), ProcessorError>(())
-        }
-    });
-    let signal = await_signal();
-    app_state.set_has_started(true);
-    info!("Alle tjenester startet, applikasjon kjører");
-    tokio::select! {
-        result = http_server_task => {
-            match result {
-                Ok(Ok(())) => info!("HTTP server stoppet."),
-                Ok(Err(e)) => return Err(e.into()),
-                Err(join_error) => return Err(Box::new(join_error)),
-            }
-        }
-        result = kafka_task => {
-            match result {
-                Ok(Ok(())) => info!("Kafka consumer stoppet."),
-                Ok(Err(e)) => return Err(e),
-                Err(join_error) => return Err(Box::new(join_error)),
-            }
-        }
-        result = signal => {
-            match result {
-                Ok(signal) => info!("Signal '{}' mottatt, avslutter....", signal),
-                Err(e) => return Err(e),
-            }
-        }
-        result = regel_task => {
-            match result {
-                Ok(Ok(())) => info!("Regel task stoppet."),
-                Ok(Err(e)) => return Err(e.into()),
-                Err(join_error) => return Err(Box::new(join_error)),
-            }
-        }
-    }
-    app_state.set_is_alive(false);
-    let _ = pg_pool.close().await;
-    info!("Pg pool lukket");
-    Ok(())
+        Arc::new(AppState::new()),
+        runtime_env(),
+        pg_pool,
+        regel_config,
+    );
+    run_app(app_context).await
 }

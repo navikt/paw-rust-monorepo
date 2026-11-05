@@ -1,0 +1,2 @@
+batch_size = 500
+idle_sleep_secs = 60

@@ -43,6 +43,11 @@ impl RecordVerifier {
         Ok(verifier)
     }
 
+    /// IDs of all registered keys, active and revoked.
+    pub fn key_ids(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.keys.keys().copied()
+    }
+
     /// Registers an X.509/SPKI DER public key encoded as standard Base64.
     pub fn add_key(&mut self, key: &'static PublicKey) -> Result<(), KeyError> {
         let key_id = key.id();

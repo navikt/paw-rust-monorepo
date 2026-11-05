@@ -12,7 +12,7 @@ use super::rebalance::{
 pub fn create_kafka_consumer(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
-    kafka_config: KafkaConfig,
+    kafka_config: &KafkaConfig,
     topics: &[&str],
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
     let context = HwmRebalanceHandler::new(pg_pool, app_state, *kafka_config.hwm_version);
@@ -21,7 +21,7 @@ pub fn create_kafka_consumer(
 pub fn create_kafka_consumer_with_sender(
     app_state: Arc<AppState>,
     pg_pool: PgPool,
-    kafka_config: KafkaConfig,
+    kafka_config: &KafkaConfig,
     topics: &[&str],
     sender: UnboundedSender<TopicPartitionUpdate>,
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {
@@ -31,7 +31,7 @@ pub fn create_kafka_consumer_with_sender(
 }
 
 fn create_kafka_consumer_inner(
-    kafka_config: KafkaConfig,
+    kafka_config: &KafkaConfig,
     topics: &[&str],
     context: HwmRebalanceHandler,
 ) -> Result<StreamConsumer<HwmRebalanceHandler>, KafkaError> {

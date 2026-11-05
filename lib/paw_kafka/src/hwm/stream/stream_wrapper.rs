@@ -26,10 +26,13 @@ use crate::hwm::rebalance::{
     hwm_rebalance_handler::HwmRebalanceHandler,
     topic_partition_update::{TopicPartition, TopicPartitionUpdate},
 };
+use crate::hwm::stream::assigned_partitions::AssignedPartitions;
 use crate::hwm::stream::message_wrapper::MessageWrapper;
 use crate::hwm::stream::paw_kafka_stream::{PawKafkaStream, StreamError};
 use crate::hwm::stream::queue_handler::{PartitionMessageSource, QueueHandler};
-use crate::hwm::stream::queue_handler_list::{MessageOrKey, ensure_queue_and_push, push_if_assigned};
+use crate::hwm::stream::queue_handler_list::{
+    MessageOrKey, ensure_queue_and_push, push_if_assigned,
+};
 use crate::hwm::stream::stream_config::PawKafkaStreamConfig;
 
 pub trait ConsumerMessageSource: Send + Sync {
@@ -74,6 +77,7 @@ pub struct PawKafkaConsumerStream<C: ConsumerMessageSource> {
     stream_times: HashMap<i32, StreamState>,
     pg_pool: PgPool,
     config: PawKafkaStreamConfig,
+    assigned_partitions: AssignedPartitions,
 }
 
 impl<C: ConsumerMessageSource> PawKafkaStream for PawKafkaConsumerStream<C> {
@@ -264,6 +268,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
         consumer: C,
         pg_pool: PgPool,
         config: PawKafkaStreamConfig,
+        assigned_partitions: AssignedPartitions,
     ) -> Self {
         Self {
             receiver,
@@ -272,6 +277,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
             stream_times: HashMap::new(),
             pg_pool,
             config,
+            assigned_partitions,
         }
     }
 
@@ -340,6 +346,8 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                         "Assigned topic partition queues: {:?}",
                         topic_partition_hwms
                     );
+                    self.assigned_partitions
+                        .add(topic_partition_hwms.iter().map(|(tp, _)| tp.clone()));
                     for (TopicPartition { topic, partition }, hwm) in topic_partition_hwms {
                         ensure_queue_and_push(
                             &mut self.queues,
@@ -367,6 +375,7 @@ impl<C: ConsumerMessageSource> PawKafkaConsumerStream<C> {
                 }
                 TopicPartitionUpdate::Revoked { topic_partitions } => {
                     self.queues.retain(|q| !topic_partitions.contains(&q.key));
+                    self.assigned_partitions.remove(&topic_partitions);
                     tracing::info!("Deactivated topic partition queues: {:?}", topic_partitions);
                 }
                 TopicPartitionUpdate::InternalReceiverDisconnected => {

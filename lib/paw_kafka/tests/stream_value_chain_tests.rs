@@ -1,3 +1,4 @@
+use paw_kafka::hwm::stream::assigned_partitions::AssignedPartitions;
 use std::collections::{HashMap, VecDeque};
 use std::future::{Future, pending};
 use std::sync::{Arc, Mutex};
@@ -62,6 +63,7 @@ async fn leverer_laveste_timestamp_fra_tildelte_partisjoner() {
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
 
     let (stream, first) = stream.receive().await.unwrap();

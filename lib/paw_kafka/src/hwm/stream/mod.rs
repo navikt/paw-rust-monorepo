@@ -1,3 +1,4 @@
+pub mod assigned_partitions;
 pub mod message_wrapper;
 pub mod paw_kafka_stream;
 pub mod queue_handler;

@@ -1,3 +1,4 @@
+use paw_kafka::hwm::stream::assigned_partitions::AssignedPartitions;
 use std::collections::{HashMap, VecDeque};
 use std::future::{Future, pending};
 use std::sync::{Arc, Mutex};
@@ -181,6 +182,7 @@ fn stream(
             topic_priorities: prioriteter,
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
     (stream, sender)
 }

@@ -1,5 +1,5 @@
 use paw_rust_base::env::RuntimeEnv;
-
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Topic {
     Periode,
     Opplysninger,

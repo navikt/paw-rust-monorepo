@@ -151,6 +151,7 @@ dependencies = [
  "paw_observability",
  "paw_rust_base",
  "paw_sqlx",
+ "paw_test",
  "postgres_testcontainer",
  "rdkafka",
  "reqwest 0.13.5",

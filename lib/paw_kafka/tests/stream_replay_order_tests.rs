@@ -1,3 +1,4 @@
+use paw_kafka::hwm::stream::assigned_partitions::AssignedPartitions;
 use std::collections::{HashMap, VecDeque};
 use std::future::{Future, pending};
 use std::sync::{Arc, Mutex as StdMutex};
@@ -71,6 +72,7 @@ async fn replay_hopper_ikke_bakover_i_tid() {
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
 
     let expected_count = TOPIC_COUNT * MESSAGES_PER_TOPIC;
@@ -163,6 +165,7 @@ async fn next_offset_forbi_control_record_blokkerer_ikke_andre_koer() {
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
 
     let (stream, first) = stream.receive().await.unwrap();
@@ -283,6 +286,7 @@ async fn run_reassign_case(first_snapshot: KafkaOffsets) -> i64 {
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
     let mut newest = i64::MIN;
     let mut largest_jump = 0;
@@ -367,6 +371,7 @@ async fn run_fuzz_case(seed: u64) {
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
     let mut received = Vec::with_capacity(expected_count);
     let mut receive_calls = 0;
@@ -504,6 +509,7 @@ async fn run_high_watermark_fuzz_case(
             topic_priorities: TopicPriorityList::empty(),
             grace: Duration::from_millis(1500),
         },
+        AssignedPartitions::default(),
     );
     let mut received = Vec::with_capacity(expected_count);
     while received.len() < expected_count {
