@@ -22,7 +22,7 @@ use crate::database::signature::SignatureStatus;
 use crate::database::visualisering::{
     ANTALL_SIGNATURFEIL, FunnAntall, FunnRad, MAKS_ETTERSLEP, MAKS_FUNN_I_FANE, ManglerTraceId,
     RegelStatus, Signaturfeil, hent_funn, hent_funn_antall, hent_mangler_trace_id_per_topic,
-    hent_max_xid, hent_regel_status, hent_siste_signaturfeil,
+    hent_max_xid, hent_regel_status, hent_siste_signaturfeil, hent_stream_tid,
 };
 use crate::database::xid8::Xid8;
 use crate::regler::alvorlighet::Alvorlighet;
@@ -143,7 +143,8 @@ async fn regler(State(pg_pool): State<PgPool>) -> Result<Html<String>, StatusCod
     let mut conn = med_timeout(&pg_pool).await.map_err(intern_feil)?;
     let status = hent_regel_status(&mut conn).await.map_err(intern_feil)?;
     let max_xid = hent_max_xid(&mut conn).await.map_err(intern_feil)?;
-    Ok(Html(regel_tabell(&status, max_xid)))
+    let stream_ms = hent_stream_tid(&mut conn).await.map_err(intern_feil)?;
+    Ok(Html(regel_tabell(&status, max_xid, stream_ms)))
 }
 
 /// HTML-fragment med antall records uten trace_id per topic.
@@ -234,6 +235,24 @@ fn tidspunkt_tekst(ms: Option<i64>) -> String {
         })
 }
 
+fn varighet_tekst(ms: i64) -> String {
+    let sekunder = ms.max(0) / 1_000;
+    let dager = sekunder / 86_400;
+    let timer = sekunder / 3_600 % 24;
+    let minutter = sekunder / 60 % 60;
+    let sekunder = sekunder % 60;
+
+    if dager > 0 {
+        format!("{dager}d {timer:02}t {minutter:02}m")
+    } else if timer > 0 {
+        format!("{timer}t {minutter:02}m {sekunder:02}s")
+    } else if minutter > 0 {
+        format!("{minutter}m {sekunder:02}s")
+    } else {
+        format!("{sekunder}s")
+    }
+}
+
 /// Topic-navn og nøkkel-ID kommer fra databasen og escapes.
 fn signaturfeil_tabell(feil: &[Signaturfeil]) -> String {
     if feil.is_empty() {
@@ -297,17 +316,18 @@ fn regel_navn(regel: RegelId) -> &'static str {
 }
 
 /// Alle verdier er tall eller faste tekster, så de trenger ikke HTML-escaping.
-fn regel_tabell(status: &[RegelStatus], max_xid: Option<Xid8>) -> String {
+fn regel_tabell(status: &[RegelStatus], max_xid: Option<Xid8>, stream_ms: Option<i64>) -> String {
     let mut html = String::new();
     let max_xid = max_xid.map_or("–".to_string(), |x| x.to_string());
     let _ = write!(html, "<p>Høyeste xid i record_derived: {max_xid}</p>");
+    let _ = write!(html, "<p>Stream-tid: {}</p>", tidspunkt_tekst(stream_ms));
     if status.is_empty() {
         html.push_str("<p>Ingen regler har registrert fremdrift ennå.</p>");
         return html;
     }
     html.push_str(
         "<div class=\"tabell\"><table class=\"regler\"><thead><tr><th>Regel</th><th>Versjon</th><th>Siste xid</th>\
-         <th>Records bak</th><th>Funn</th></tr></thead><tbody>",
+         <th>Records bak</th><th>Stream-tid</th><th>Tid bak</th><th>Funn</th></tr></thead><tbody>",
     );
     for s in status {
         let etter = if s.etter >= MAKS_ETTERSLEP {
@@ -315,13 +335,21 @@ fn regel_tabell(status: &[RegelStatus], max_xid: Option<Xid8>) -> String {
         } else {
             s.etter.to_string()
         };
+        let tid_bak = stream_ms.zip(s.siste_stream_ms).map_or(
+            "–".to_string(),
+            |(stream_ms, regel_stream_ms)| {
+                varighet_tekst(stream_ms.saturating_sub(regel_stream_ms))
+            },
+        );
         let _ = write!(
             html,
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
             regel_navn(s.regel),
             s.regelversjon,
             s.siste_xid,
             etter,
+            tidspunkt_tekst(s.siste_stream_ms),
+            tid_bak,
             s.antall_funn
         );
     }
@@ -603,6 +631,35 @@ mod tests {
              <td>1970-01-01 00:00:00.000 UTC</td><td>-42</td>"
         ));
         assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn varighet_formateres_etter_storrelse() {
+        assert_eq!(varighet_tekst(0), "0s");
+        assert_eq!(varighet_tekst(45_000), "45s");
+        assert_eq!(varighet_tekst(185_000), "3m 05s");
+        assert_eq!(varighet_tekst(7_623_000), "2t 07m 03s");
+        assert_eq!(varighet_tekst(349_320_000), "4d 01t 02m");
+        assert_eq!(varighet_tekst(-1), "0s");
+    }
+
+    #[test]
+    fn regel_tabell_viser_stream_tid_og_etterslep() {
+        let html = regel_tabell(
+            &[RegelStatus {
+                regel: RegelId::HeleTraceSignert,
+                regelversjon: crate::regler::regelversjon::Regelversjon::new(1),
+                siste_xid: Xid8::new(1),
+                siste_stream_ms: Some(1_000),
+                etter: 0,
+                antall_funn: 0,
+            }],
+            Some(Xid8::new(1)),
+            Some(4_000),
+        );
+
+        assert!(html.contains("<p>Stream-tid: 1970-01-01 00:00:04.000 UTC</p>"));
+        assert!(html.contains("<td>1970-01-01 00:00:01.000 UTC</td><td>3s</td>"));
     }
 
     #[test]

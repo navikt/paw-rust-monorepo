@@ -23,6 +23,8 @@ pub struct RegelStatus {
     pub regel: RegelId,
     pub regelversjon: Regelversjon,
     pub siste_xid: Xid8,
+    /// Høyeste stream-tid regelen har sjekket.
+    pub siste_stream_ms: Option<i64>,
     /// Antall records i `record_derived` med xid over `siste_xid`, maks `MAKS_ETTERSLEP`.
     pub etter: i64,
     pub antall_funn: i64,
@@ -36,6 +38,7 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
         SELECT f.regel,
                f.regelversjon,
                f.siste_xid,
+               f.siste_stream_ms,
                (SELECT count(*) FROM (
                     SELECT 1 FROM record_derived rd
                     WHERE rd.xid > f.siste_xid
@@ -63,6 +66,7 @@ pub async fn hent_regel_status(conn: &mut PgConnection) -> Result<Vec<RegelStatu
                 regel: row.try_get("regel")?,
                 regelversjon: row.try_get("regelversjon")?,
                 siste_xid: row.try_get("siste_xid")?,
+                siste_stream_ms: row.try_get("siste_stream_ms")?,
                 etter: row.try_get("etter")?,
                 antall_funn: row.try_get("antall_funn")?,
             })
@@ -86,6 +90,15 @@ pub async fn hent_max_xid(conn: &mut PgConnection) -> Result<Option<Xid8>, sqlx:
     )
     .fetch_optional(&mut *conn)
     .await
+}
+
+/// Høyeste stream-tid, eller `None` når `stream_time` er tom.
+/// Tabellen har én rad per topic-partisjon, så en full skanning er billig.
+#[tracing::instrument(skip(conn))]
+pub async fn hent_stream_tid(conn: &mut PgConnection) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar("SELECT max(timestamp_ms) FROM stream_time")
+        .fetch_one(&mut *conn)
+        .await
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -352,7 +365,7 @@ mod tests {
     use super::*;
     use crate::database::funn::upsert_funn;
     use crate::database::record_derived::tests::skriv_record;
-    use crate::database::regel_fremdrift::upsert_regel_fremdrift;
+    use crate::database::regel_fremdrift::{oppdater_regel_stream_ms, upsert_regel_fremdrift};
     use crate::database::topic::{load_topic_ids, register_topics};
     use crate::database::trace::upsert_trace;
     use crate::regler::alvorlighet::Utfall;
@@ -384,6 +397,14 @@ mod tests {
             RegelId::HeleTraceSignert,
             Regelversjon::new(1),
             xid1,
+        )
+        .await
+        .unwrap();
+        oppdater_regel_stream_ms(
+            &mut conn,
+            RegelId::HeleTraceSignert,
+            Regelversjon::new(1),
+            1_500,
         )
         .await
         .unwrap();
@@ -421,6 +442,7 @@ mod tests {
                     regel: RegelId::HeleTraceSignert,
                     regelversjon: Regelversjon::new(1),
                     siste_xid: xid1,
+                    siste_stream_ms: Some(1_500),
                     etter: 2,
                     antall_funn: 2,
                 },
@@ -428,11 +450,45 @@ mod tests {
                     regel: RegelId::IngenPeriodeUtenStartet,
                     regelversjon: Regelversjon::new(1),
                     siste_xid: xid3,
+                    siste_stream_ms: None,
                     etter: 0,
                     antall_funn: 0,
                 },
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn hent_stream_tid_returnerer_hoyeste_tid() {
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+
+        assert_eq!(hent_stream_tid(&mut conn).await.unwrap(), None);
+
+        register_topics(&mut conn, &["topic-a", "topic-b"])
+            .await
+            .unwrap();
+        let ids = load_topic_ids(&mut conn).await.unwrap();
+        crate::database::stream_time::upsert_stream_time(
+            &mut conn,
+            ids.get("topic-a").unwrap(),
+            0,
+            1_000,
+        )
+        .await
+        .unwrap();
+        crate::database::stream_time::upsert_stream_time(
+            &mut conn,
+            ids.get("topic-b").unwrap(),
+            1,
+            2_000,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(hent_stream_tid(&mut conn).await.unwrap(), Some(2_000));
     }
 
     #[tokio::test]

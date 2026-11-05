@@ -24,6 +24,28 @@ pub async fn get_regel_fremdrift(
     .await
 }
 
+#[tracing::instrument(skip(conn))]
+pub async fn oppdater_regel_stream_ms(
+    conn: &mut PgConnection,
+    regel: RegelId,
+    regelversjon: Regelversjon,
+    stream_ms: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE regel_fremdrift
+        SET siste_stream_ms = GREATEST(siste_stream_ms, $3)
+        WHERE regel = $1 AND regelversjon = $2
+        "#,
+    )
+    .bind(regel)
+    .bind(regelversjon)
+    .bind(stream_ms)
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
 /// Returns `true` when the row was created or moved forward, `false` when
 /// `siste_xid` was not later than the stored value.
 #[tracing::instrument(skip(conn))]
@@ -198,5 +220,61 @@ mod tests {
             regelversjon: Regelversjon::new(1),
             siste_xid: Xid8::new(300),
         }));
+    }
+
+    #[tokio::test]
+    async fn regel_stream_tid_settes_og_gaar_ikke_bakover() {
+        async fn hent_stream_ms(conn: &mut PgConnection) -> Option<i64> {
+            sqlx::query_scalar::<_, Option<i64>>(
+                "SELECT siste_stream_ms FROM regel_fremdrift WHERE regel = $1 AND regelversjon = $2",
+            )
+            .bind(RegelId::IngenPeriodeUtenStartet)
+            .bind(Regelversjon::new(1))
+            .fetch_one(conn)
+            .await
+            .unwrap()
+        }
+
+        let guard = setup_postgres_container().await.unwrap();
+        let pool = &guard.pg_pool;
+        sqlx::migrate!("./migrations").run(pool).await.unwrap();
+        let mut conn = pool.acquire().await.unwrap();
+
+        upsert_regel_fremdrift(
+            &mut conn,
+            RegelId::IngenPeriodeUtenStartet,
+            Regelversjon::new(1),
+            Xid8::START,
+        )
+        .await
+        .unwrap();
+        assert_eq!(hent_stream_ms(&mut conn).await, None);
+        oppdater_regel_stream_ms(
+            &mut conn,
+            RegelId::IngenPeriodeUtenStartet,
+            Regelversjon::new(1),
+            100,
+        )
+        .await
+        .unwrap();
+        assert_eq!(hent_stream_ms(&mut conn).await, Some(100));
+        oppdater_regel_stream_ms(
+            &mut conn,
+            RegelId::IngenPeriodeUtenStartet,
+            Regelversjon::new(1),
+            50,
+        )
+        .await
+        .unwrap();
+        assert_eq!(hent_stream_ms(&mut conn).await, Some(100));
+        oppdater_regel_stream_ms(
+            &mut conn,
+            RegelId::IngenPeriodeUtenStartet,
+            Regelversjon::new(1),
+            200,
+        )
+        .await
+        .unwrap();
+        assert_eq!(hent_stream_ms(&mut conn).await, Some(200));
     }
 }

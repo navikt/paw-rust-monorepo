@@ -8,7 +8,9 @@ use crate::{
     database::{
         funn::{delete_funn, upsert_funn},
         record_derived::{get_neste_record_derived_xids, get_record_derived_at_xid},
-        regel_fremdrift::{RegelFremdrift, get_regel_fremdrift, upsert_regel_fremdrift},
+        regel_fremdrift::{
+            RegelFremdrift, get_regel_fremdrift, oppdater_regel_stream_ms, upsert_regel_fremdrift,
+        },
         xid8::Xid8,
     },
     regler::{
@@ -109,6 +111,7 @@ pub async fn exec_regler(
     let neste_xids =
         get_neste_record_derived_xids(&mut tx, regel_fremdrift.siste_xid, batch_size).await?;
     let antall_nye_xids = neste_xids.len();
+    let mut maks_stream_ms: Option<i64> = None;
     for neste_xid in neste_xids {
         let klar = upsert_regel_fremdrift(&mut tx, regel_id, regelversjon, neste_xid).await?;
         if !klar {
@@ -117,6 +120,7 @@ pub async fn exec_regler(
         let Some((record, stream_ms)) = get_record_derived_at_xid(&mut tx, neste_xid).await? else {
             continue;
         };
+        maks_stream_ms = Some(maks_stream_ms.map_or(stream_ms, |maks| maks.max(stream_ms)));
         match exec(&mut tx, regel_id, neste_xid, &record).await? {
             IkkeAktuell => {}
             AltOk(nokkel) => {
@@ -128,6 +132,9 @@ pub async fn exec_regler(
                 upsert_funn(&mut tx, regel_id, regelversjon, &nokkel, &utfall, stream_ms).await?
             }
         }
+    }
+    if let Some(stream_ms) = maks_stream_ms {
+        oppdater_regel_stream_ms(&mut tx, regel_id, regelversjon, stream_ms).await?;
     }
     tx.commit().await?;
     Span::current().record("antall_nye_xids", antall_nye_xids);
