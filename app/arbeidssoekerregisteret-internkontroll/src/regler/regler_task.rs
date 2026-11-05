@@ -61,7 +61,7 @@ pub fn spawn_regel_task(
     })
 }
 
-#[tracing::instrument(skip(pg_pool))]
+#[tracing::instrument(skip(pg_pool), fields(antall_nye_xids = tracing::field::Empty))]
 pub async fn exec_regler(
     pg_pool: &sqlx::PgPool,
     regler: &[Regel],
