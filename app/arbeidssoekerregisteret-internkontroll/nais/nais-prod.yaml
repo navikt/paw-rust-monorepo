@@ -72,7 +72,7 @@ spec:
     sqlInstances:
       - type: POSTGRES_18
         tier: db-custom-2-7680
-        diskSize: 40
+        diskSize: 80
         databases:
           - name: internkontroll
         flags:
