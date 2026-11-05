@@ -64,10 +64,10 @@ spec:
           namespace: nais-system
   resources:
     limits:
-      memory: 256Mi
+      memory: 512Mi
     requests:
-      memory: 256Mi
-      cpu: 10m
+      memory: 512Mi
+      cpu: 850m
   gcp:
     sqlInstances:
       - type: POSTGRES_18
