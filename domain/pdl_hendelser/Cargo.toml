@@ -4,15 +4,24 @@ version = "0.1.0"
 edition.workspace = true
 
 [features]
-leesah = ["dep:apache-avro", "dep:serde_with", "dep:thiserror"]
+leesah = ["dep:avro_types", "dep:paw_avro_serde", "dep:serde_with", "dep:thiserror"]
 
 [dependencies]
+avro_types = { path = "../avro_types", optional = true }
+paw_avro_serde = { path = "../../lib/paw_avro_serde", optional = true }
+
 serde = { workspace = true, features = ["derive"] }
+apache-avro = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 strum = { workspace = true }
-apache-avro = { workspace = true, optional = true }
 serde_with = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
-pdl_hendelser = { path = ".", features = ["leesah"] }
+test_data_generator = { path = "../../test/test_data_generator" }
+schema_registry_mock = { path = "../../test/schema_registry_mock" }
+
+uuid = { workspace = true, features = ["serde"] }
+mockito = { workspace = true }
+tokio = { workspace = true }
+schema_registry_converter = { workspace = true }

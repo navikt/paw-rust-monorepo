@@ -4,8 +4,8 @@ use crate::model::dao::profilering::ProfileringRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::profilering::Profilering;
-use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
+use paw_avro_serde::serde::AvroDeserializer;
 use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -83,14 +83,17 @@ mod tests {
     async fn test_process_messages() {
         let context = &init().await;
 
+        let arbeidssoeker_id = 12355i64;
         let periode_id = Uuid::new_v4();
         let opplysninger_id = Uuid::new_v4();
         let profilering_id = Uuid::new_v4();
-        let profilering =
+
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload =
             create_dummy_profilering("01017012345", periode_id, opplysninger_id, profilering_id);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-profilering-v1", profilering)
+            .create_avro_message("paw.arbeidssoker-profilering-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;

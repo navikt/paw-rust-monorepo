@@ -4,20 +4,19 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+paw_avro_serde = { path = "../../lib/paw_avro_serde" }
+
 serde = { workspace = true, features = ["derive"] }
 uuid = { workspace = true, features = ["serde"] }
 strum = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 serde_with = { workspace = true }
 thiserror = { workspace = true }
-apache-avro = { workspace = true }
-schema_registry_converter = { workspace = true }
 
 [dev-dependencies]
-anyhow = { workspace = true }
+schema_registry_mock = { path = "../../test/schema_registry_mock" }
+
 tokio = { workspace = true }
 serde_json = { workspace = true }
 mockito = { workspace = true }
-schema_registry_mock = { path = "../../test/schema_registry_mock" }
-kafka_broker_testcontainer = { path = "../../test/kafka_broker_testcontainer" }
-schema_registry_testcontainer = { path = "../../test/schema_registry_testcontainer" }
+schema_registry_converter = { workspace = true }

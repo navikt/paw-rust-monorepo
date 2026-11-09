@@ -211,10 +211,11 @@ mod tests {
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
 
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode.clone())
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -262,14 +263,20 @@ mod tests {
     }
 
     async fn test_process_opplysninger(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
         let opplysninger_id = context.opplysninger_id;
 
-        let opplysninger = create_dummy_opplysninger(identitetsnummer, periode_id, opplysninger_id);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_opplysninger(identitetsnummer, periode_id, opplysninger_id);
         let message = context
             .avro_generator
-            .create_avro_message("paw.opplysninger-om-arbeidssoeker-v1", opplysninger.clone())
+            .create_avro_message(
+                "paw.opplysninger-om-arbeidssoeker-v1",
+                Some(key),
+                Some(payload),
+            )
             .await;
 
         let mut tx = context.start_tx().await;
@@ -291,12 +298,14 @@ mod tests {
     }
 
     async fn test_process_profilering(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
         let opplysninger_id = context.opplysninger_id;
         let profilering_id = context.profilering_id;
 
-        let profilering = create_dummy_profilering(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_profilering(
             identitetsnummer,
             periode_id,
             opplysninger_id,
@@ -304,7 +313,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-profilering-v1", profilering.clone())
+            .create_avro_message("paw.arbeidssoker-profilering-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -327,12 +336,14 @@ mod tests {
     }
 
     async fn test_process_egenvurdering(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
         let profilering_id = context.profilering_id;
         let egenvurdering_id = context.egenvurdering_id;
 
-        let egenvurdering = create_dummy_egenvurdering(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_egenvurdering(
             identitetsnummer,
             periode_id,
             profilering_id,
@@ -340,7 +351,11 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoeker-egenvurdering-v1", egenvurdering.clone())
+            .create_avro_message(
+                "paw.arbeidssoeker-egenvurdering-v1",
+                Some(key),
+                Some(payload),
+            )
             .await;
 
         let mut tx = context.start_tx().await;
@@ -367,11 +382,13 @@ mod tests {
     }
 
     async fn test_process_bekreftelse(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let identitetsnummer = context.identitetsnummer;
         let periode_id = context.periode_id;
         let bekreftelse_id = context.bekreftelse_id;
 
-        let bekreftelse = create_dummy_bekreftelse(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_bekreftelse(
             identitetsnummer,
             periode_id,
             bekreftelse_id,
@@ -382,7 +399,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse.clone())
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -408,14 +425,17 @@ mod tests {
     }
 
     async fn test_process_bekreftelse_paavegneav(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_start_paavegneav(periode_id, Bekreftelsesloesning::Dagpenger);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_paavegneav(periode_id, Bekreftelsesloesning::Dagpenger);
         let message = context
             .avro_generator
             .create_avro_message(
                 "paw.arbeidssoker-bekreftelse-paavegneav-v1",
-                paavegneav.clone(),
+                Some(key),
+                Some(payload),
             )
             .await;
 

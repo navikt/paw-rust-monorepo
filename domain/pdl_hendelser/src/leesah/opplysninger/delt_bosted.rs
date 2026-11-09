@@ -1,5 +1,5 @@
 use crate::leesah::opplysninger::common::adresse::{Matrikkeladresse, UkjentBosted, Vegadresse};
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -8,9 +8,9 @@ use serde_with::serde_as;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeltBosted {
-    #[serde_as(as = "AvroDate")]
+    #[serde_as(as = "EpochDate")]
     pub startdato_for_kontrakt: NaiveDate,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub sluttdato_for_kontrakt: Option<NaiveDate>,
     pub co_adressenavn: Option<String>,
     pub vegadresse: Option<Vegadresse>,

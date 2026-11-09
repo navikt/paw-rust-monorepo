@@ -1,17 +1,19 @@
 use schema_registry_converter::schema_registry_common::{SchemaType, SuppliedSchema};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fmt;
 
+#[derive(Serialize, Deserialize)]
 pub struct AvroSchema {
-    pub id: i32,
-    pub version: i32,
-    pub topic: &'static str,
-    pub schema: &'static str,
+    id: i32,
+    version: i32,
+    subject: &'static str,
+    schema: &'static str,
 }
 
 impl AvroSchema {
     pub fn subject(&self) -> String {
-        format!("{}-value", self.topic)
+        self.subject.to_owned()
     }
 
     pub fn subject_config_path(&self) -> String {
@@ -31,13 +33,7 @@ impl AvroSchema {
     }
 
     pub fn subject_version_response_body(&self) -> String {
-        json!({
-            "subject": format!("{}-value", self.topic),
-            "version": self.version,
-            "id": self.id,
-            "schema": self.schema
-        })
-        .to_string()
+        serde_json::to_string(&self).unwrap()
     }
 
     pub fn schema_id_response_body(&self) -> String {
@@ -61,7 +57,7 @@ impl fmt::Debug for AvroSchema {
         f.debug_struct("AvroSchema")
             .field("id", &self.id)
             .field("version", &self.version)
-            .field("topic", &self.topic)
+            .field("subject", &self.subject)
             .finish()
     }
 }
@@ -71,38 +67,52 @@ pub fn avro_schemas() -> Vec<AvroSchema> {
         AvroSchema {
             id: 1,
             version: 1,
-            topic: "paw.arbeidssokerperioder-v1",
-            schema: include_str!("../schemas/periode.json"),
+            subject: "paw.arbeidssokerperioder-v1-value",
+            schema: include_str!("../avro/json/arbeidssoekerregisteret/periode.json"),
         },
         AvroSchema {
             id: 2,
             version: 1,
-            topic: "paw.opplysninger-om-arbeidssoeker-v1",
-            schema: include_str!("../schemas/opplysninger.json"),
+            subject: "paw.opplysninger-om-arbeidssoeker-v1-value",
+            schema: include_str!("../avro/json/arbeidssoekerregisteret/opplysninger.json"),
         },
         AvroSchema {
             id: 3,
             version: 1,
-            topic: "paw.arbeidssoker-profilering-v1",
-            schema: include_str!("../schemas/profilering.json"),
+            subject: "paw.arbeidssoker-profilering-v1-value",
+            schema: include_str!("../avro/json/arbeidssoekerregisteret/profilering.json"),
         },
         AvroSchema {
             id: 4,
             version: 1,
-            topic: "paw.arbeidssoeker-egenvurdering-v1",
-            schema: include_str!("../schemas/egenvurdering.json"),
+            subject: "paw.arbeidssoeker-egenvurdering-v1-value",
+            schema: include_str!("../avro/json/arbeidssoekerregisteret/egenvurdering.json"),
         },
         AvroSchema {
             id: 5,
             version: 1,
-            topic: "paw.arbeidssoker-bekreftelse-v1",
-            schema: include_str!("../schemas/bekreftelse.json"),
+            subject: "paw.arbeidssoker-bekreftelse-v1-value",
+            schema: include_str!("../avro/json/arbeidssoekerregisteret/bekreftelse.json"),
         },
         AvroSchema {
             id: 6,
             version: 1,
-            topic: "paw.arbeidssoker-bekreftelse-paavegneav-v1",
-            schema: include_str!("../schemas/bekreftelse-paavegneav.json"),
+            subject: "paw.arbeidssoker-bekreftelse-paavegneav-v1-value",
+            schema: include_str!(
+                "../avro/json/arbeidssoekerregisteret/bekreftelse-paavegneav.json"
+            ),
+        },
+        AvroSchema {
+            id: 7,
+            version: 1,
+            subject: "pdl.leesah-v1-key",
+            schema: include_str!("../avro/json/common/string.json"),
+        },
+        AvroSchema {
+            id: 8,
+            version: 1,
+            subject: "pdl.leesah-v1-value",
+            schema: include_str!("../avro/json/pdl/personhendelse.json"),
         },
     ]
 }

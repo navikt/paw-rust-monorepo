@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -9,6 +9,6 @@ use serde_with::serde_as;
 pub struct UtflyttingFraNorge {
     pub tilflyttingsland: Option<String>,
     pub tilflyttingssted_i_utlandet: Option<String>,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub utflyttingsdato: Option<NaiveDate>,
 }

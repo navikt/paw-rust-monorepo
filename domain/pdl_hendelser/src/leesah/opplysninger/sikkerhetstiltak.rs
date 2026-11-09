@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -18,8 +18,8 @@ pub struct Sikkerhetstiltak {
     #[serde(rename = "type")]
     pub tiltakstype: String,
     pub beskrivelse: String,
-    #[serde_as(as = "AvroDate")]
+    #[serde_as(as = "EpochDate")]
     pub gyldig_fom: NaiveDate,
-    #[serde_as(as = "AvroDate")]
+    #[serde_as(as = "EpochDate")]
     pub gyldig_tom: NaiveDate,
 }

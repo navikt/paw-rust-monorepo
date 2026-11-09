@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -7,6 +7,6 @@ use serde_with::serde_as;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Doedsfall {
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub doedsdato: Option<NaiveDate>,
 }

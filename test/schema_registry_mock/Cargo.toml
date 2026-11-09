@@ -8,5 +8,6 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 reqwest = { workspace = true }
 mockito = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 schema_registry_converter = { workspace = true }

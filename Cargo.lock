@@ -261,6 +261,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "avro_types"
+version = "0.1.0"
+dependencies = [
+ "apache-avro",
+ "chrono",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "aws-lc-rs"
 version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1172,14 +1182,11 @@ dependencies = [
 name = "eksterne_hendelser"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "apache-avro",
  "chrono",
- "kafka_broker_testcontainer",
  "mockito",
+ "paw_avro_serde",
  "schema_registry_converter",
  "schema_registry_mock",
- "schema_registry_testcontainer",
  "serde",
  "serde_json",
  "serde_with",
@@ -2439,6 +2446,7 @@ dependencies = [
  "mockito",
  "nais_schema_registry",
  "oauth2",
+ "paw_avro_serde",
  "paw_error_handling",
  "paw_kafka",
  "paw_kafka_key_gen_api_mock",
@@ -3161,6 +3169,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "paw_avro_datum_serde"
+version = "0.1.0"
+dependencies = [
+ "apache-avro",
+ "avro_types",
+ "chrono",
+ "serde",
+ "serde_with",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "paw_avro_serde"
+version = "0.1.0"
+dependencies = [
+ "apache-avro",
+ "mockito",
+ "schema_registry_converter",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "paw_error_handling"
 version = "0.1.0"
 dependencies = [
@@ -3432,12 +3465,19 @@ name = "pdl_hendelser"
 version = "0.1.0"
 dependencies = [
  "apache-avro",
+ "avro_types",
  "chrono",
- "pdl_hendelser",
+ "mockito",
+ "paw_avro_serde",
+ "schema_registry_converter",
+ "schema_registry_mock",
  "serde",
  "serde_with",
  "strum",
+ "test_data_generator",
  "thiserror 2.0.20",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -4377,6 +4417,7 @@ dependencies = [
  "mockito",
  "reqwest 0.13.5",
  "schema_registry_converter",
+ "serde",
  "serde_json",
  "tokio",
 ]
@@ -5242,9 +5283,11 @@ dependencies = [
 name = "test_data_generator"
 version = "0.1.0"
 dependencies = [
+ "apache-avro",
  "chrono",
  "dab_oppfolgingperioder",
  "eksterne_hendelser",
+ "paw_avro_serde",
  "pdl_hendelser",
  "rdkafka",
  "schema_registry_converter",

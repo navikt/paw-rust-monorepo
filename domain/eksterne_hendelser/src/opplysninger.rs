@@ -32,7 +32,6 @@ impl Display for Opplysninger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::serde::{AvroDeserializer, AvroSerializer};
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
     use crate::vo::ja_nei_vet_ikke::JaNeiVetIkke;
@@ -40,14 +39,17 @@ mod tests {
     use crate::vo::metadata::MainMetadata;
     use chrono::{DateTime, Utc};
     use mockito::Server;
+    use paw_avro_serde::serde::{AvroDeserializer, AvroSerializer};
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use std::collections::HashMap;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_serde() {
         let mut mockito_server = Server::new_async().await;
-        let guard = create_schema_registry_mock(&mut mockito_server)
+        let schemas = avro_schemas();
+        let guard = create_schema_registry_mock_2(&mut mockito_server, schemas)
             .await
             .unwrap();
         let schema_registry_settings = guard.schema_registry_settings;

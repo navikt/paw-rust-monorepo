@@ -1,5 +1,5 @@
 use crate::leesah::opplysninger::common::{KjoennType, Personnavn};
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -18,7 +18,7 @@ pub struct ForelderBarnRelasjon {
 #[serde(rename_all = "camelCase")]
 pub struct RelatertBiPerson {
     pub navn: Personnavn,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub foedselsdato: Option<NaiveDate>,
     pub statsborgerskap: Option<String>,
     pub kjoenn: Option<KjoennType>,

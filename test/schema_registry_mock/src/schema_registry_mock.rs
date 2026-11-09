@@ -1,4 +1,4 @@
-use crate::schema_definitions::avro_schemas;
+use crate::schema_definitions::{AvroSchema, avro_schemas};
 use mockito::{Mock, ServerGuard};
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use std::error::Error;
@@ -11,8 +11,16 @@ pub struct SchemaRegistryMockGuard {
 pub async fn create_schema_registry_mock(
     mockito_server: &mut ServerGuard,
 ) -> Result<SchemaRegistryMockGuard, Box<dyn Error>> {
+    let schemas = avro_schemas();
+    create_schema_registry_mock_2(mockito_server, schemas).await
+}
+
+pub async fn create_schema_registry_mock_2(
+    mockito_server: &mut ServerGuard,
+    schemas: Vec<AvroSchema>,
+) -> Result<SchemaRegistryMockGuard, Box<dyn Error>> {
     let mut mocks = vec![];
-    for schema in avro_schemas() {
+    for schema in schemas {
         println!("Creating schema registry mock for schema {:?}", schema);
         mocks.push(
             mockito_server

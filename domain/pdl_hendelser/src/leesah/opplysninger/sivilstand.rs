@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -9,9 +9,9 @@ use serde_with::serde_as;
 pub struct Sivilstand {
     #[serde(rename = "type")]
     pub sivilstand_type: String,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub gyldig_fra_og_med: Option<NaiveDate>,
     pub relatert_ved_sivilstand: Option<String>,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub bekreftelsesdato: Option<NaiveDate>,
 }

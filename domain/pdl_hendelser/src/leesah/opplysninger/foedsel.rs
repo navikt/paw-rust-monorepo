@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -8,7 +8,7 @@ use serde_with::serde_as;
 #[serde(rename_all = "camelCase")]
 pub struct Foedsel {
     pub foedselsaar: Option<i32>,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub foedselsdato: Option<NaiveDate>,
     pub foedeland: Option<String>,
     pub foedested: Option<String>,

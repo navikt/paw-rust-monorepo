@@ -1,8 +1,7 @@
-pub mod hendelse_type;
+pub mod error;
+pub mod typer;
 pub mod opplysninger;
 pub mod personhendelse;
 
-pub use hendelse_type::{Endringstype, Opplysningstype};
-pub use personhendelse::{
-    PERSONHENDELSE_SCHEMA, Personhendelse, PersonhendelseDeserializer, PersonhendelseSerializer,
-};
+pub use typer::{Endringstype, Opplysningstype};
+pub use personhendelse::Personhendelse;

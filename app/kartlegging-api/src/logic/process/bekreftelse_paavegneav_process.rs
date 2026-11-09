@@ -4,12 +4,12 @@ use crate::model::dao::bekreftelse_paavegneav::BekreftelsePaaVegneAvRow;
 use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::bekreftelse::paa_vegne_av::{Handling, PaaVegneAv};
-use eksterne_hendelser::serde::AvroDeserializer;
 use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
 use sqlx::{Postgres, Transaction};
+use paw_avro_serde::serde::AvroDeserializer;
 
 pub struct BekreftelsePaaVegneAvProcessor {
     pub deserializer: AvroDeserializer,
@@ -125,15 +125,17 @@ mod tests {
     }
 
     async fn test_process_paavegneav_start_1(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_start_paavegneav(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_paavegneav(
             periode_id,
             Bekreftelsesloesning::Arbeidssoekerregisteret,
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -160,15 +162,17 @@ mod tests {
     }
 
     async fn test_process_paavegneav_start_2(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_start_paavegneav(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_paavegneav(
             periode_id,
             Bekreftelsesloesning::FriskmeldtTilArbeidsformidling,
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -198,15 +202,17 @@ mod tests {
     }
 
     async fn test_process_paavegneav_stopp(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id;
         let periode_id = context.periode_id;
 
-        let paavegneav = create_dummy_stopp_paavegneav(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_stopp_paavegneav(
             periode_id,
             Bekreftelsesloesning::Arbeidssoekerregisteret,
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", paavegneav)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-paavegneav-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -264,6 +270,7 @@ mod tests {
                 pg_pool: postgres_guard.pg_pool,
                 avro_generator: AvroGenerator::new(schema_registry_settings.clone()),
                 processor: BekreftelsePaaVegneAvProcessor::new(schema_registry_settings.clone()),
+                arbeidssoeker_id: 12345,
                 periode_id: Uuid::new_v4(),
             }
         }
@@ -277,6 +284,7 @@ mod tests {
         pg_pool: PgPool,
         avro_generator: AvroGenerator,
         processor: BekreftelsePaaVegneAvProcessor,
+        arbeidssoeker_id: i64,
         periode_id: Uuid,
     }
 

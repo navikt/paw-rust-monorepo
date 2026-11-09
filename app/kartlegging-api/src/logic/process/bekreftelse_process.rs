@@ -6,8 +6,8 @@ use crate::model::dao::{bekreftelse, kartlegging};
 use crate::model::error::{DaoError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::bekreftelse::bekreftelse::Bekreftelse;
-use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
+use paw_avro_serde::serde::AvroDeserializer;
 use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::Message;
 use rdkafka::message::OwnedMessage;
@@ -193,10 +193,11 @@ mod tests {
         let identitetsnummer = context.identitetsnummer_1;
         let periode_id = context.periode_id_1;
 
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -249,7 +250,8 @@ mod tests {
         let periode_id = context.periode_id_1;
         let bekreftelse_id = context.bekreftelse_id_1;
 
-        let bekreftelse = create_dummy_bekreftelse(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_bekreftelse(
             identitetsnummer,
             periode_id,
             bekreftelse_id,
@@ -260,7 +262,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -314,6 +316,7 @@ mod tests {
     }
 
     async fn test_process_bekreftelse_for_perioden_beholder_ledighet(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let periode_id = context.periode_id_1;
         let bekreftelse_id = Uuid::new_v4();
         let mut tx = context.start_tx().await;
@@ -325,7 +328,9 @@ mod tests {
         let arbeidsledig_fra = kartlegging_row
             .arbeidsledig_fra
             .expect("Forventet arbeidsledig_fra fra første bekreftelse");
-        let hendelse = Bekreftelse {
+
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = Bekreftelse {
             id: bekreftelse_id,
             periode_id,
             bekreftelsesloesning: Bekreftelsesloesning::Arbeidssoekerregisteret,
@@ -339,7 +344,7 @@ mod tests {
         };
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", hendelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
             .await;
 
         context
@@ -368,7 +373,8 @@ mod tests {
         let periode_id = context.periode_id_1;
         let bekreftelse_id = context.bekreftelse_id_2;
 
-        let bekreftelse = create_dummy_bekreftelse(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_bekreftelse(
             identitetsnummer,
             periode_id,
             bekreftelse_id,
@@ -379,7 +385,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -429,11 +435,13 @@ mod tests {
     }
 
     async fn test_process_bekreftelse_3_uten_periode(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer = context.identitetsnummer_3;
         let periode_id = context.periode_id_3;
         let bekreftelse_id = context.bekreftelse_id_3;
 
-        let bekreftelse = create_dummy_bekreftelse(
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_bekreftelse(
             identitetsnummer,
             periode_id,
             bekreftelse_id,
@@ -444,7 +452,7 @@ mod tests {
         );
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -496,11 +504,13 @@ mod tests {
     /// re-levering av bekreftelsen (slik konsumentløkken ville gjort etter pause+seek+resume)
     /// fullføre og koble bekreftelsen til riktig `kartlegginger`-rad.
     async fn test_process_bekreftelse_4_kaldstart_periode_ankommer_senere(context: &TestContext) {
+        let arbeidssoeker_id = context.arbeidssoeker_id_1;
         let identitetsnummer = context.identitetsnummer_1;
         let periode_id = context.periode_id_4;
         let bekreftelse_id = context.bekreftelse_id_4;
 
-        let bekreftelse = create_dummy_bekreftelse(
+        let key_1 = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload_1 = create_dummy_bekreftelse(
             identitetsnummer,
             periode_id,
             bekreftelse_id,
@@ -511,7 +521,7 @@ mod tests {
         );
         let bekreftelse_message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", bekreftelse)
+            .create_avro_message("paw.arbeidssoker-bekreftelse-v1", Some(key_1), Some(payload_1))
             .await;
 
         // Steg 1: bekreftelsen ankommer før perioden finnes. Skal avvente (ikke persistere).
@@ -542,10 +552,11 @@ mod tests {
         );
 
         // Steg 2: perioden ankommer og prosesseres normalt.
-        let periode = create_dummy_start_periode(identitetsnummer, periode_id, None);
+        let key_2 = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload_2 = create_dummy_start_periode(identitetsnummer, periode_id, None);
         let periode_message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key_2), Some(payload_2))
             .await;
         let mut periode_tx = context.start_tx().await;
         context

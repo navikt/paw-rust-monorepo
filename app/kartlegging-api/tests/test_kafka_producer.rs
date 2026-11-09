@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use eksterne_hendelser::bekreftelse::vo::bekreftelsesloesning::Bekreftelsesloesning;
-use eksterne_hendelser::serde::AvroSerializer;
 use kartlegging_api::config::read_kafka_config;
 use nais_schema_registry::config::create_schema_registry_settings;
 use rdkafka::message::ToBytes;
@@ -17,6 +16,7 @@ use test_data_generator::eksterne_hendelser::{
     create_dummy_start_periode, create_dummy_stopp_paavegneav, datetime_rfc3339,
 };
 use uuid::Uuid;
+use paw_avro_serde::serde::AvroSerializer;
 
 #[ignore]
 #[tokio::test]

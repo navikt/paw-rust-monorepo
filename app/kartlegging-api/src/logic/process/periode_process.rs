@@ -13,8 +13,8 @@ use crate::model::dto::navn::Navn;
 use crate::model::error::{DaoError, IdentityError, PayloadProcessorError};
 use crate::model::result::ProcessorResult;
 use eksterne_hendelser::periode::Periode;
-use eksterne_hendelser::serde::AvroDeserializer;
 use eksterne_hendelser::vo::metadata::Metadata;
+use paw_avro_serde::serde::AvroDeserializer;
 use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_key_gen_client::model::IdentitetType;
@@ -332,10 +332,11 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_start_periode(identitetsnummer_1, periode_id_1, None);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_periode(identitetsnummer_1, periode_id_1, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -388,10 +389,11 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_1 = context.periode_id_1;
 
-        let periode = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1, None, None);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_avslutt_periode(identitetsnummer_2, periode_id_1, None, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;
@@ -444,10 +446,11 @@ mod tests {
         let identitetsnummer_2 = context.identitetsnummer_1_2;
         let periode_id_2 = context.periode_id_2;
 
-        let periode = create_dummy_start_periode(identitetsnummer_2, periode_id_2, None);
+        let key = arbeidssoeker_id.to_be_bytes().to_vec();
+        let payload = create_dummy_start_periode(identitetsnummer_2, periode_id_2, None);
         let message = context
             .avro_generator
-            .create_avro_message("paw.arbeidssokerperioder-v1", periode)
+            .create_avro_message("paw.arbeidssokerperioder-v1", Some(key), Some(payload))
             .await;
 
         let mut tx = context.start_tx().await;

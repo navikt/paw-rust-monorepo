@@ -35,7 +35,6 @@ impl Display for Periode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::serde::{AvroDeserializer, AvroSerializer};
     use crate::vo::avvikstype::AvviksType;
     use crate::vo::bruker::Bruker;
     use crate::vo::brukertype::BrukerType;
@@ -43,8 +42,10 @@ mod tests {
     use crate::vo::tidspunkt_fra_kilde::TidspunktFraKilde;
     use chrono::{DateTime, Utc};
     use mockito::Server;
+    use paw_avro_serde::serde::{AvroDeserializer, AvroSerializer};
     use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
-    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock;
+    use schema_registry_mock::schema_definitions::avro_schemas;
+    use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
 
     #[test]
     fn test_periode_is_active() {
@@ -58,7 +59,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_serde() {
         let mut mockito_server = Server::new_async().await;
-        let guard = create_schema_registry_mock(&mut mockito_server)
+        let schemas = avro_schemas();
+        let guard = create_schema_registry_mock_2(&mut mockito_server, schemas)
             .await
             .unwrap();
         let schema_registry_settings = guard.schema_registry_settings;

@@ -1,0 +1,14 @@
+[package]
+name = "paw_avro_datum_serde"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+apache-avro = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+avro_types = { path = "../../domain/avro_types" }

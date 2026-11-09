@@ -1,4 +1,4 @@
-use eksterne_hendelser::serde::AvroSerializer;
+use paw_avro_serde::serde::AvroSerializer;
 use rdkafka::Timestamp;
 use rdkafka::message::OwnedMessage;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
@@ -16,10 +16,18 @@ impl AvroGenerator {
         }
     }
 
-    pub async fn create_avro_payload(
+    pub async fn create_avro_key<K: Serialize>(&self, topic: &'static str, key: K) -> Vec<u8> {
+        let strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), true);
+        self.avro_serializer
+            .serialize(key, &strategy)
+            .await
+            .expect("Kunne ikke serialisere melding")
+    }
+
+    pub async fn create_avro_payload<V: Serialize>(
         &self,
         topic: &'static str,
-        payload: impl Serialize,
+        payload: V,
     ) -> Vec<u8> {
         let strategy = SubjectNameStrategy::TopicNameStrategy(topic.to_string(), false);
         self.avro_serializer
@@ -28,15 +36,19 @@ impl AvroGenerator {
             .expect("Kunne ikke serialisere melding")
     }
 
-    pub async fn create_avro_message(
+    pub async fn create_avro_message<V: Serialize>(
         &self,
         topic: &'static str,
-        payload: impl Serialize,
+        key: Option<Vec<u8>>,
+        payload: Option<V>,
     ) -> OwnedMessage {
-        let payload = self.create_avro_payload(topic, payload).await;
+        let avro_payload = match payload {
+            Some(p) => Some(self.create_avro_payload(topic, p).await),
+            None => None,
+        };
         OwnedMessage::new(
-            Some(payload),
-            Some("dummy-key".as_bytes().to_vec()),
+            avro_payload,
+            key,
             topic.to_string(),
             Timestamp::now(),
             0,

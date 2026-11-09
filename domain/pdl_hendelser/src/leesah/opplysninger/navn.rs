@@ -1,4 +1,4 @@
-use crate::serde::AvroDate;
+use avro_types::date::EpochDate;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -20,6 +20,6 @@ pub struct Navn {
     pub etternavn: String,
     pub forkortet_navn: Option<String>,
     pub originalt_navn: Option<OriginaltNavn>,
-    #[serde_as(as = "Option<AvroDate>")]
+    #[serde_as(as = "Option<EpochDate>")]
     pub gyldig_fra_og_med: Option<NaiveDate>,
 }
