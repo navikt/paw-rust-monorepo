@@ -5443,6 +5443,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiltak-kafka-adapter"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "mockito",
+ "paw_observability",
+ "paw_rust_base",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "serde_yaml",
+ "strum",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "time"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
