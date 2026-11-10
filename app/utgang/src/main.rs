@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
     let db_config = toml::from_str::<DatabaseConfig>(read_config_file!("database_config.toml"))?;
-    let pg_pool = init_db(db_config).await?;
+    let pg_pool = init_db(&db_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let kafka_config = toml::from_str::<KafkaConfig>(read_config_file!("kafka_config.toml"))?;
     let hwm_version = *kafka_config.hwm_version;

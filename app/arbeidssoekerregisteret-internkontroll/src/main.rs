@@ -68,7 +68,7 @@ async fn run_app(record_verifier: RecordVerifier) -> Result<(), Box<dyn Error>> 
         read_toml_config(read_config_file!("database_config.toml"))?;
     let app_state = Arc::new(simple_app_state::AppState::new());
     let runtime_env = runtime_env();
-    let pg_pool = paw_sqlx::postgres::init_db(database_config).await?;
+    let pg_pool = paw_sqlx::postgres::init_db(&database_config).await?;
     let auth_state = visualisering::auth_state(read_config_file!("auth_config.toml")).await?;
     let http_routes = paw_observability::server::routes(app_state.clone())
         .merge(visualisering::routes(pg_pool.clone(), auth_state));

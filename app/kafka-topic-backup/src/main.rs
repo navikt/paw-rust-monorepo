@@ -53,7 +53,7 @@ async fn run_app() -> Result<(), Box<dyn Error>> {
     info!("HTTP server startet");
     let db_config = read_database_config()?;
     info!("Database config: {:?}", db_config);
-    let pg_pool = init_db(db_config).await?;
+    let pg_pool = init_db(&db_config).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let hwm_version = *kafka_config.hwm_version;
     let consumer = create_kafka_consumer(

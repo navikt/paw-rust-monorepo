@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let app_state = Arc::new(AppState::new());
 
     let db_config = read_database_config()?;
-    let pg_pool = init_db(db_config).await?;
+    let pg_pool = init_db(&db_config).await?;
     clear_db(&pg_pool).await?;
     sqlx::migrate!("./migrations")
         .run(&pg_pool)

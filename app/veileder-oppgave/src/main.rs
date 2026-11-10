@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let app_config = read_application_config()?;
 
     let db_config = read_database_config()?;
-    let pg_pool = init_db(db_config).await?;
+    let pg_pool = init_db(&db_config).await?;
     sqlx::migrate!("./migrations")
         .run(&pg_pool)
         .await

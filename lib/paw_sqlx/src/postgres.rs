@@ -26,9 +26,9 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
     Ok(pool)
 }
 
-pub async fn init_db(config: DatabaseConfig) -> Result<PgPool> {
+pub async fn init_db(config: &DatabaseConfig) -> Result<PgPool> {
     tracing::info!("Database config: {:?}", config);
-    let pg_pool = get_pg_pool(&config).await?;
+    let pg_pool = get_pg_pool(config).await?;
     tracing::info!("Postgres pool opprettet");
     Ok(pg_pool)
 }

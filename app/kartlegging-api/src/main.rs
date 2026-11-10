@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-    let pg_pool = init_db(database_config).await?;
+    let pg_pool = init_db(&database_config).await?;
 
     tracing::info!("Migrerer endringer for databasen");
     sqlx::migrate!("./migrations")
