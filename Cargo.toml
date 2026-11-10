@@ -61,9 +61,9 @@ axum = "0.8"
 axum-test = "21.1"
 base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
-futures = "0.3.32"
+futures = "0.3"
 http-body-util = "0.1"
-log = "0.4.29"
+log = "0.4"
 log4rs = "1.4.0"
 env_logger = "0.11"
 opentelemetry = { version = "0.33", features = ["trace"] }
@@ -72,12 +72,12 @@ opentelemetry_sdk = { version = "0.33", features = ["trace", "rt-tokio"] }
 opentelemetry-http = { version = "0.33", features = ["reqwest", "internal-logs"] }
 prometheus = "0.14.0"
 rdkafka = { version = "0.39.0", features = ["ssl-vendored", "tracing", "tokio"] }
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 serde-env-field = "0.4.0"
-serde_json = "1.0.1"
+serde_json = "1.0"
 sqlx = { version = "0.9", features = ["postgres", "uuid", "runtime-tokio", "tls-rustls", "macros", "chrono", "json"] }
 temp-env = "0.3.6"
-tokio = { version = "1.5", features = ["full"] }
+tokio = { version = "1.54", features = ["full"] }
 toml = "1"
 tonic = { version = "0.14", features = ["transport"] }
 tower = "0.5.3"
@@ -86,7 +86,7 @@ tower-http = { version = "0.7", features = ["trace"] }
 tracing = "0.1.44"
 tracing-test = "0.2.6"
 tracing-opentelemetry = "0.34"
-tracing-subscriber = { version = "0.3.2", features = ["env-filter", "fmt", "json", "tracing-log"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json", "tracing-log"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 utoipa = { version = "6", features = ["chrono", "uuid"] }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
@@ -105,6 +105,6 @@ itertools = "0.15"
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }
 serde_yaml = "0.9"
-jsonschema = "0.60"
+jsonschema = "0.61"
 dtor = "1.0"
 p256 = { version = "0.14", features = ["ecdsa", "pkcs8"] }
