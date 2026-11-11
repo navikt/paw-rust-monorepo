@@ -3,12 +3,17 @@ name = "paw_rust_base"
 version = "0.1.0"
 edition.workspace = true
 
+[features]
+axum = ["dep:axum"]
+
 [dependencies]
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
+axum = { workspace = true, optional = true }
 
 [dev-dependencies]
 temp-env = { workspace = true }

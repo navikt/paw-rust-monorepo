@@ -12,15 +12,13 @@ use kartlegging_api::logic::metrics::setup_metrics;
 use kartlegging_api::logic::metrics::task::metrics_task;
 use kartlegging_api::logic::process::message_process::KartleggingMessageProcessor;
 use kartlegging_api::logic::service::arbeidssoeker_service::ArbeidssoekerService;
-use kartlegging_api::server::{
-    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
-};
 use nais_schema_registry::config::create_schema_registry_settings;
 use paw_kafka::error::KafkaError;
 use paw_key_gen_client::client::PawKeyGenClient;
 use paw_oauth2_resource_server::oauth2::state::AuthState;
 use paw_observability::health::simple_app_state;
 use paw_observability::otel::setup_otel;
+use paw_rust_base::axum::server::{async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task};
 use paw_rust_base::panic_logger::register_panic_logger;
 use paw_sqlx::postgres::init_db;
 use paw_tilgangskontroll_v2_client::client::PawTilgangskontrollV2Client;

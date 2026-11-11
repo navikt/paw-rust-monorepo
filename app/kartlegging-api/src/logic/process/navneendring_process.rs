@@ -148,21 +148,21 @@ mod tests {
     use crate::model::dao::arbeidssoeker::ArbeidssoekerRow;
     use crate::model::error::PayloadProcessorError;
     use crate::model::result::ProcessorResult;
-    use chrono::Utc;
     use mockito::{Mock, Server, ServerGuard};
     use paw_key_gen_client::client::PawKeyGenClient;
     use pdl_api_mock::{default_pdl_mock_responses, init_pdl_mock};
     use pdl_client::client::PDLClient;
-    use pdl_hendelser::leesah::opplysninger::navn::Navn;
-    use pdl_hendelser::leesah::{Endringstype, Opplysningstype, Personhendelse};
+    use pdl_hendelser::leesah::{Endringstype, Personhendelse};
     use postgres_testcontainer::postgres::setup_postgres_container;
     use schema_registry_mock::schema_definitions::avro_schemas;
     use schema_registry_mock::schema_registry_mock::create_schema_registry_mock_2;
     use sqlx::{PgPool, Postgres, Transaction};
     use std::sync::Arc;
     use test_data_generator::avro::AvroGenerator;
+    use test_data_generator::pdl_hendelser::{
+        create_dummy_personhendelse_bostedsadresse, create_dummy_personhendelse_navn,
+    };
     use token_client_stub::TokenClientStub;
-    use uuid::Uuid;
 
     const PDL_LEESAH_TOPIC: &str = "pdl.leesah-v1";
 
@@ -182,12 +182,9 @@ mod tests {
     }
 
     async fn test_process_messages_with_no_key(context: &TestContext) -> anyhow::Result<()> {
-        let payload = context.create_hendelse(
-            vec![],
-            Opplysningstype::NavnV1,
-            Endringstype::Opprettet,
-            None,
-        );
+        let personidenter = vec!["01017012345"];
+        let payload =
+            create_dummy_personhendelse_navn(personidenter, Endringstype::Opprettet, None);
         let message = context
             .avro_generator
             .create_avro_message(PDL_LEESAH_TOPIC, None, Some(payload))
@@ -267,13 +264,13 @@ mod tests {
     async fn test_process_messages_with_irrelevant_type(
         context: &TestContext,
     ) -> anyhow::Result<()> {
+        let personidenter = vec!["01017012345"];
         let key = context
             .avro_generator
             .create_avro_key(PDL_LEESAH_TOPIC, "101701234500".to_string())
             .await;
-        let payload = context.create_hendelse(
-            vec![],
-            Opplysningstype::FoedselsdatoV1,
+        let payload = create_dummy_personhendelse_bostedsadresse(
+            personidenter,
             Endringstype::Opprettet,
             None,
         );
@@ -310,16 +307,13 @@ mod tests {
     async fn test_process_messages_with_wrong_aktor_id(
         context: &TestContext,
     ) -> anyhow::Result<()> {
+        let personidenter = vec!["01017012345"];
         let key = context
             .avro_generator
             .create_avro_key(PDL_LEESAH_TOPIC, "201701234500".to_string())
             .await;
-        let payload = context.create_hendelse(
-            vec![],
-            Opplysningstype::NavnV1,
-            Endringstype::Opprettet,
-            None,
-        );
+        let payload =
+            create_dummy_personhendelse_navn(personidenter, Endringstype::Opprettet, None);
         let message = context
             .avro_generator
             .create_avro_message(PDL_LEESAH_TOPIC, Some(key), Some(payload))
@@ -353,16 +347,13 @@ mod tests {
     }
 
     async fn test_process_messages_with_altered_name(context: &TestContext) -> anyhow::Result<()> {
+        let personidenter = vec!["01017012345"];
         let key = context
             .avro_generator
             .create_avro_key(PDL_LEESAH_TOPIC, "101701234500".to_string())
             .await;
-        let payload = context.create_hendelse(
-            vec![],
-            Opplysningstype::NavnV1,
-            Endringstype::Opprettet,
-            None,
-        );
+        let payload =
+            create_dummy_personhendelse_navn(personidenter, Endringstype::Opprettet, None);
         let message = context
             .avro_generator
             .create_avro_message(PDL_LEESAH_TOPIC, Some(key), Some(payload))
@@ -396,16 +387,13 @@ mod tests {
     async fn test_process_messages_with_unaltered_name(
         context: &TestContext,
     ) -> anyhow::Result<()> {
+        let personidenter = vec!["01017012345"];
         let key = context
             .avro_generator
             .create_avro_key(PDL_LEESAH_TOPIC, "101701234500".to_string())
             .await;
-        let payload = context.create_hendelse(
-            vec![],
-            Opplysningstype::NavnV1,
-            Endringstype::Opprettet,
-            None,
-        );
+        let payload =
+            create_dummy_personhendelse_navn(personidenter, Endringstype::Opprettet, None);
         let message = context
             .avro_generator
             .create_avro_message(PDL_LEESAH_TOPIC, Some(key), Some(payload))
@@ -539,44 +527,6 @@ mod tests {
             arbeidssoeker::insert(&mut tx, &row).await?;
             tx.commit().await.expect("Kunne ikke commit transaksjon");
             Ok(row)
-        }
-
-        fn create_hendelse(
-            &self,
-            personidenter: Vec<String>,
-            opplysningstype: Opplysningstype,
-            endringstype: Endringstype,
-            navn: Option<Navn>,
-        ) -> Personhendelse {
-            Personhendelse {
-                hendelse_id: Uuid::new_v4().to_string(),
-                personidenter,
-                master: "PDL".to_string(),
-                opprettet: Utc::now(),
-                opplysningstype,
-                endringstype,
-                tidligere_hendelse_id: None,
-                adressebeskyttelse: None,
-                delt_bosted: None,
-                doedfoedt_barn: None,
-                doedsfall: None,
-                falsk_identitet: None,
-                foedsel: None,
-                foedselsdato: None,
-                forelder_barn_relasjon: None,
-                familierelasjon: None,
-                sivilstand: None,
-                vergemaal_eller_fremtidsfullmakt: None,
-                utflytting_fra_norge: None,
-                innflytting_til_norge: None,
-                folkeregisteridentifikator: None,
-                navn,
-                sikkerhetstiltak: None,
-                statsborgerskap: None,
-                telefonnummer: None,
-                kontaktadresse: None,
-                bostedsadresse: None,
-            }
         }
 
         fn create_arbeidssoeker_row(&self, fornavn: &str, etternavn: &str) -> ArbeidssoekerRow {

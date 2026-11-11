@@ -13,7 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 types = { path = "../../domain/types" }
 errors = { path = "../../domain/errors" }
-paw_rust_base = { path = "../../lib/paw_rust_base" }
+paw_rust_base = { path = "../../lib/paw_rust_base", features = ["axum"] }
 paw_observability = { path = "../../lib/paw_observability" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_oauth2_resource_server = { path = "../../lib/paw_oauth2_resource_server" }

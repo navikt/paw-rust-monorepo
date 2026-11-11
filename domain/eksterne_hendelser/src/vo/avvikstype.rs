@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::parse::{EnumTypeParseError, enum_type_not_found};
 use serde::{Deserialize, Serialize};
 use strum::{AsRefStr, EnumString};

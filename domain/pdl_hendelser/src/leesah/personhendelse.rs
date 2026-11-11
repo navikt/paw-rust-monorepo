@@ -93,7 +93,7 @@ pub(crate) mod tests {
     fn debug_skjuler_personopplysninger() {
         let personhendelse = create_dummy_personhendelse_navn();
         let debug = format!("{:?}", personhendelse);
-        assert!(debug.contains("FOLKEREGISTERET"));
+        assert!(debug.contains("FREG"));
         for pii in ["01017012345", "Luke", "Skywalker"] {
             assert!(!debug.contains(pii), "Debug inneholder {pii}: {debug}");
         }
@@ -151,7 +151,7 @@ pub(crate) mod tests {
         Personhendelse {
             hendelse_id: Uuid::new_v4().to_string(),
             personidenter: vec!["01017012345".to_string()],
-            master: "FOLKEREGISTERET".to_string(),
+            master: "FREG".to_string(),
             opprettet: DateTime::<Utc>::from_timestamp_millis(1_700_000_000_000).unwrap(),
             opplysningstype: Opplysningstype::NavnV1,
             endringstype: Endringstype::Opprettet,

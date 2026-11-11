@@ -3263,11 +3263,13 @@ name = "paw_rust_base"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "serde",
  "temp-env",
  "thiserror 2.0.21",
  "tokio",
  "toml",
+ "tracing",
 ]
 
 [[package]]

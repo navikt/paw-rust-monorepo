@@ -2,6 +2,9 @@ use errors::app::AppError;
 use paw_oauth2_resource_server::oauth2::state::AuthState;
 use paw_observability::health::simple_app_state;
 use paw_observability::otel::setup_otel;
+use paw_rust_base::axum::server::{
+    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
+};
 use paw_rust_base::panic_logger::register_panic_logger;
 use poao_tilgang_client::client::PoaoTilgangClient;
 use reqwest::Client;
@@ -11,9 +14,6 @@ use tilgangskontroll_v2::api::build_router;
 use tilgangskontroll_v2::config::{
     HTTP_TIMEOUT, read_auth_config, read_otel_tracing_config, read_poao_tilgang_client_config,
     read_token_client_config,
-};
-use tilgangskontroll_v2::server::{
-    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
 };
 
 #[tokio::main]

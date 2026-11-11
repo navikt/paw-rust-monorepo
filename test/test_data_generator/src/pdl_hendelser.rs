@@ -15,7 +15,7 @@ pub fn create_dummy_personhendelse_navn(
     Personhendelse {
         hendelse_id: Uuid::new_v4().to_string(),
         personidenter: personidenter.iter().map(|&s| s.to_string()).collect(),
-        master: "FOLKEREGISTERET".to_string(),
+        master: "FREG".to_string(),
         opprettet: Utc::now(),
         opplysningstype: Opplysningstype::NavnV1,
         endringstype,
@@ -51,7 +51,7 @@ pub fn create_dummy_personhendelse_bostedsadresse(
     Personhendelse {
         hendelse_id: Uuid::new_v4().to_string(),
         personidenter: personidenter.iter().map(|&s| s.to_string()).collect(),
-        master: "FOLKEREGISTERET".to_string(),
+        master: "FREG".to_string(),
         opprettet: Utc::now(),
         opplysningstype: Opplysningstype::BostedsadresseV1,
         endringstype,

@@ -2,10 +2,12 @@ use axum::Router;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::task::{JoinError, JoinHandle};
 
+pub const SERVER_ADDRESS : &str = "0.0.0.0:8080";
+
 pub async fn web_server_task(routes: Router) -> JoinHandle<anyhow::Result<()>> {
-    tracing::info!("Starter webserver på adresse 0.0.0.0:8080");
+    tracing::info!("Starter webserver på adresse {}", SERVER_ADDRESS);
     tokio::spawn(async move {
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+        let listener = tokio::net::TcpListener::bind(SERVER_ADDRESS).await?;
         axum::serve(listener, routes).await?;
         Ok(())
     })

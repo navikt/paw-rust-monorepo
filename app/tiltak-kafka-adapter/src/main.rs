@@ -1,12 +1,12 @@
 use paw_observability::health::simple_app_state;
 use paw_observability::otel::setup_otel;
+use paw_rust_base::axum::server::{
+    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
+};
 use paw_rust_base::panic_logger::register_panic_logger;
 use std::sync::Arc;
 use tiltak_kafka_adapter::api::build_router;
 use tiltak_kafka_adapter::config::read_otel_tracing_config;
-use tiltak_kafka_adapter::server::{
-    async_task_handler, shutdown_handler, shutdown_signal_task, web_server_task,
-};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

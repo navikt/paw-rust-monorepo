@@ -17,7 +17,7 @@ oauth2 = { path = "../../domain/oauth2" }
 eksterne_hendelser = { path = "../../domain/eksterne_hendelser" }
 dab_oppfolgingperioder = { path = "../../domain/dab_oppfolgingperioder" }
 pdl_hendelser = { path = "../../domain/pdl_hendelser", features = ["leesah"] }
-paw_rust_base = { path = "../../lib/paw_rust_base" }
+paw_rust_base = { path = "../../lib/paw_rust_base", features = ["axum"] }
 paw_observability = { path = "../../lib/paw_observability" }
 paw_error_handling = { path = "../../lib/paw_error_handling" }
 paw_sqlx = { path = "../../lib/paw_sqlx" }
