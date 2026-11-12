@@ -66,7 +66,7 @@ mocks-stop:
 
 # Remove local mock services
 mocks-down:
-    docker compose -f docker/mocks/docker-compose.yaml down
+    docker compose -f docker/mocks/docker-compose.yaml down -v
 
 # Start local Postgres
 postgres-up:
@@ -78,7 +78,7 @@ postgres-stop:
 
 # Remove local Postgres
 postgres-down:
-    docker compose -f docker/postgres/docker-compose.yaml down
+    docker compose -f docker/postgres/docker-compose.yaml down -v
 
 # Start local Kafka + Schema Registry + UI
 kafka-up:
@@ -90,7 +90,7 @@ kafka-stop:
 
 # Remove local Kafka
 kafka-down:
-    docker compose -f docker/kafka/docker-compose.yaml down
+    docker compose -f docker/kafka/docker-compose.yaml down -v
 
 # Start all local infrastructure
 infra-up: mocks-up postgres-up kafka-up

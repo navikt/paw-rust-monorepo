@@ -1,0 +1,159 @@
+use rdkafka::Message;
+use rdkafka::message::OwnedMessage;
+use std::error::Error;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum DaoError {
+    #[error(
+        "Fant ingen rader for ID i {table}-tabellen for melding på topic '{topic}', partition {partition}, offset {offset}"
+    )]
+    NoRows {
+        table: String,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Fant flere rader ({count}) for ID i {table}-tabellen for melding på topic '{topic}', partition {partition}, offset {offset}"
+    )]
+    MultipleRows {
+        table: String,
+        count: usize,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+}
+
+impl DaoError {
+    pub fn no_rows(owned_message: &OwnedMessage, table: &str) -> Self {
+        Self::NoRows {
+            table: table.to_string(),
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn multiple_rows(owned_message: &OwnedMessage, table: &str, count: usize) -> Self {
+        Self::MultipleRows {
+            table: table.to_string(),
+            count,
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+}
+
+#[derive(Error, Debug, Eq, PartialEq)]
+pub enum PayloadProcessorError {
+    #[error(
+        "Failed to deserialize payload from topic '{topic}' at partition {partition}, offset {offset}: {message}"
+    )]
+    DeserializationError {
+        message: String,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error("Message has no key from topic '{topic}' at partition {partition}, offset {offset}")]
+    NoKey {
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Message has no payload from topic '{topic}' at partition {partition}, offset {offset}"
+    )]
+    NoPayload {
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Message has corrupt payload from topic '{topic}' at partition {partition}, offset {offset}"
+    )]
+    CorruptPayload {
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Processing failed for message from topic '{topic}' at partition {partition}, offset {offset}: {message}"
+    )]
+    ProcessingError {
+        message: String,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+    #[error(
+        "Pausing processing for messages on topic '{topic}' at partition {partition}, offset {offset} to await dependency on topics {synced_topics_string}"
+    , synced_topics_string = synced_topics.join(", "))]
+    AwaitingDependency {
+        synced_topics: Vec<String>,
+        topic: String,
+        partition: i32,
+        offset: i64,
+    },
+}
+
+impl PayloadProcessorError {
+    pub fn deserialization_error(owned_message: &OwnedMessage, error: &dyn Error) -> Self {
+        Self::DeserializationError {
+            message: error.to_string(),
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn no_key_error(owned_message: &OwnedMessage) -> Self {
+        Self::NoKey {
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn no_payload_error(owned_message: &OwnedMessage) -> Self {
+        Self::NoPayload {
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn corrupt_payload_error(owned_message: &OwnedMessage) -> Self {
+        Self::CorruptPayload {
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+
+    pub fn processing_error(owned_message: &OwnedMessage, message: &str) -> Self {
+        Self::ProcessingError {
+            message: message.to_string(),
+            topic: owned_message.topic().to_string(),
+            partition: owned_message.partition(),
+            offset: owned_message.offset(),
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum LogicError {
+    #[error("Precondition failed: {message}")]
+    PreconditionFailed { message: String },
+}
+
+impl LogicError {
+    pub fn precondition_failed(message: &str) -> Self {
+        Self::PreconditionFailed {
+            message: message.to_string(),
+        }
+    }
+}

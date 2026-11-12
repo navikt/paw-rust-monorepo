@@ -28,7 +28,8 @@ Tabellen, topicet og intervallene følger `AGENTS.md`. Valgene nedenfor, inklude
 ### Tabell `arbeidssoekere`
 
 ```sql
-CREATE TABLE arbeidssoekere (
+CREATE TABLE arbeidssoekere
+(
     periode_id         UUID PRIMARY KEY,
     identitetsnummer   VARCHAR(20)  NOT NULL,
     periode_startet    TIMESTAMP(6) NOT NULL,
@@ -39,7 +40,7 @@ CREATE TABLE arbeidssoekere (
     synk_antall_feil   INT          NOT NULL
 );
 
-CREATE INDEX arbeidssoekere_periode_id_idx ON arbeidssoekere (periode_id);
+CREATE INDEX arbeidssoekere_identitetsnummer_idx ON arbeidssoekere (identitetsnummer);
 CREATE INDEX arbeidssoekere_synk_status_idx ON arbeidssoekere (synk_status, synk_status_endret);
 ```
 

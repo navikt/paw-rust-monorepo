@@ -1,0 +1,76 @@
+### POST /api/v1/kartlegging for IDENTITETSNUMMER
+POST {{baseUrl}}/api/v1/kartlegging
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "IDENTITETSNUMMER",
+    "identitetsnummer": "04896995192",
+    "paging": {
+        "page": 1,
+        "pageSize": 100,
+        "sortOrder": "DESC"
+    }
+}
+
+### POST /api/v1/kartlegging for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v1/kartlegging
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "TILKNYTTET_KONTOR",
+    "kontorId": "4154",
+    "paging": {
+        "page": 1,
+        "pageSize": 50,
+        "sortOrder": "DESC"
+    }
+}
+
+### POST /api/v1/arbeidsledighet for IDENTITETSNUMMER
+POST {{baseUrl}}/api/v1/arbeidsledighet
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "IDENTITETSNUMMER",
+    "identitetsnummer": "04896995192",
+    "paging": {
+        "page": 1,
+        "pageSize": 100,
+        "sortOrder": "DESC"
+    }
+}
+
+### POST /api/v1/arbeidsledighet for TILKNYTTET_KONTOR
+POST {{baseUrl}}/api/v1/arbeidsledighet
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("azure")}}
+
+{
+    "type": "TILKNYTTET_KONTOR",
+    "kontorId": "4154",
+    "paging": {
+        "page": 1,
+        "pageSize": 50,
+        "sortOrder": "DESC"
+    }
+}
+
+### GET /api/v1/statistics
+GET {{baseUrl}}/api/v1/statistics
+Accept: application/json
+
+### POST /api/v1/statistics
+POST {{baseUrl}}/api/v1/statistics
+Accept: application/json
+Content-Type: application/json
+
+{
+    "kontorId": "4154"
+}

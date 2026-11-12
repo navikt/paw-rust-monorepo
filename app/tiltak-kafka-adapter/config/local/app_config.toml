@@ -1,0 +1,4 @@
+metrics_task_interval = "PT1M"
+
+[kafka]
+paw_periode_topic = "paw.arbeidssokerperioder-v1"

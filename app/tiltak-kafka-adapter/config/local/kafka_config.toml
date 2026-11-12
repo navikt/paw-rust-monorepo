@@ -1,4 +1,4 @@
 hwm_version = 1
 brokers = "localhost:9092"
-group_id_prefix = "paw-arbeidssoekerregisteret-api-kartlegging"
+group_id_prefix = "paw-arbeidssoekerregisteret-tiltak-kafka-adapter"
 partition_assignment_strategy = "range"
