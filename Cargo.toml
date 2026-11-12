@@ -10,6 +10,7 @@ members = [
     "domain/eksterne_hendelser",
     "domain/regler_arbeidssoeker",
     "domain/dab_oppfolgingperioder",
+    "domain/mulighetsrommet",
     "domain/pdl_graphql",
     "domain/pdl_hendelser",
     "lib/paw_error_handling",

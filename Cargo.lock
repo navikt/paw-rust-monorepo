@@ -2690,6 +2690,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mulighetsrommet"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strum",
+]
+
+[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
