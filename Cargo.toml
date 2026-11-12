@@ -24,6 +24,7 @@ members = [
     "lib/nais_schema_registry",
     "lib/paw_test",
     "lib/paw_key_gen_client",
+    "lib/mulighetsrommet_client",
     "lib/pdl_client",
     "lib/texas_client",
     "lib/poao_tilgang_client",

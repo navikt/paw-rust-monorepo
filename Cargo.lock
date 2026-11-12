@@ -2699,6 +2699,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mulighetsrommet_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mockito",
+ "mulighetsrommet",
+ "paw_observability",
+ "reqwest 0.13.5",
+ "serde",
+ "serde-env-field",
+ "serde_json",
+ "texas_client",
+ "thiserror 2.0.21",
+ "token_client_stub",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
