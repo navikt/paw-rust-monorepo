@@ -43,12 +43,22 @@ impl PayloadProcessor for PeriodeProcessor {
                 tracing::debug!("Mottok {}-hendelse", &periode);
 
                 if periode.avsluttet.is_none() {
-                    let row = ArbeidssoekerRow::from(periode);
-                    let rows_affected = arbeidssoeker::insert(tx, &row).await?;
-                    tracing::debug!(
-                        "Opprettet arbeidssøker-rad ({} rows affected)",
-                        rows_affected
-                    );
+                    let count = arbeidssoeker::count_by_periode_id(tx, &periode.id).await?;
+                    if count > 0 {
+                        let row = ArbeidssoekerRow::from(periode);
+                        let rows_affected = arbeidssoeker::update(tx, &row).await?;
+                        tracing::debug!(
+                            "Opprettet arbeidssøker-rad ({} rows affected)",
+                            rows_affected
+                        );
+                    } else {
+                        let row = ArbeidssoekerRow::from(periode);
+                        let rows_affected = arbeidssoeker::insert(tx, &row).await?;
+                        tracing::debug!(
+                            "Opprettet arbeidssøker-rad ({} rows affected)",
+                            rows_affected
+                        );
+                    }
                 } else {
                     let rows_affected =
                         arbeidssoeker::delete_by_periode_id(tx, &periode.id).await?;
