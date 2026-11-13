@@ -5446,7 +5446,6 @@ dependencies = [
  "serde",
  "serde-env-field",
  "serde_json",
- "serde_with",
  "sqlx",
  "strum",
  "test_data_generator",
