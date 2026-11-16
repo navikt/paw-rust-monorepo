@@ -2,162 +2,226 @@
 
 ## Problem og tilnærming
 
-`tiltak-kafka-adapter` er i dag et skjelett med health-endepunkter. Appen skal:
+Appen har en periodekonsument og en arbeidsliste i Postgres. Den skal:
 
 1. Konsumere `paw.arbeidssokerperioder-v1` og holde en arbeidsliste med aktive perioder i Postgres.
-2. Kjøre en skedulert jobb hvert 10. minutt som synkroniserer hver arbeidssøker høyst hver 2. time.
+2. Kjøre en skedulert jobb hvert 10. minutt som synkroniserer hver arbeidssøker. Vellykket synkroniserte arbeidssøkere blir klare for ny synkronisering etter 2 timer.
 3. Hente alle identer fra `paw_kafka_key_gen` og tiltakshistorikk fra Mulighetsrommet.
 4. (Senere) Produsere Kafka-melding og oppdatere status i samme logiske operasjon.
 
-Arkitekturen skal tåle flere instanser. Forslaget er å koordinere i Postgres med en betinget `UPDATE ... WHERE synk_status = 'VENTER'` (uten `FOR UPDATE`) og bruke `synk_id` som vakt per kjøring.
+Arkitekturen skal tåle flere instanser. Instansene koordinerer gjennom `tiltak_synk` i Postgres.
 
-## Forslag til arkitektur
-
-Tabellen, topicet og intervallene følger `AGENTS.md`. Valgene nedenfor, inkludert statusverdier og bruk av `synk_id`, er forslag utover kravene der.
+## Arkitektur
 
 | Område | Valg | Begrunnelse |
 |---|---|---|
 | Skedulering | `tokio::time::interval` med `MissedTickBehavior::Delay` | Samme mønster som `veileder-oppgave`. Ingen ny avhengighet. Kjøringer i samme instans overlapper aldri. |
-| Koordinering mellom instanser | Postgres: betinget flipp `VENTER` → `AKTIV` med `RETURNING`, `synk_id` som vakt ved statusoppdatering | Trenger ikke leader election eller distribuert lås. |
+| Koordinering mellom instanser | `VENTER` → `AKTIV` med `FOR UPDATE SKIP LOCKED`, `synk_id` som vakt ved statusoppdatering | To instanser får disjunkte batcher. Trenger ikke leader election eller distribuert lås. |
 | Kilde til arbeidslisten | HWM-konsument (`paw_kafka::hwm`) på periode-topic, Avro via schema registry, `eksterne_hendelser::Periode` | Samme mønster som `kartlegging-api`. |
 | Identer | `paw_key_gen_client::finn_identiteter`, send alle `FOLKEREGISTERIDENT` (gjeldende og historiske) | API-et krever historiske identer for komplett historikk. |
 | Auth mot Mulighetsrommet og key-gen | Entra M2M via `texas_client` | Avklart med Mulighetsrommet. |
 | Ukjente enum-verdier | `Ukjent(String)` | Nye tiltakstyper skal ikke stoppe jobben. |
 | Lagring av tiltakshistorikk | Ingen | Data går bare videre i Kafka-meldingen. |
 
-### Tabell `arbeidssoekere`
+### Tabellene `arbeidssoekere` og `tiltak_synk`
 
 ```sql
 CREATE TABLE arbeidssoekere
 (
-    periode_id         UUID PRIMARY KEY,
-    identitetsnummer   VARCHAR(20)  NOT NULL,
-    periode_startet    TIMESTAMP(6) NOT NULL,
-    synk_id            UUID         NOT NULL,
-    synk_status        VARCHAR(20)  NOT NULL,
-    synk_status_endret TIMESTAMP(6) NOT NULL,
-    synk_sist_kjoert   TIMESTAMP(6) NOT NULL,
-    synk_antall_feil   INT          NOT NULL
+    periode_id       UUID PRIMARY KEY,
+    identitetsnummer VARCHAR(20)  NOT NULL,
+    periode_startet  TIMESTAMP(6) NOT NULL
+);
+
+CREATE TABLE tiltak_synk
+(
+    periode_id    UUID PRIMARY KEY REFERENCES arbeidssoekere (periode_id) ON DELETE CASCADE,
+    synk_id       UUID         NOT NULL,
+    status        VARCHAR(20)  NOT NULL,
+    status_endret TIMESTAMP(6) NOT NULL,
+    sist_kjoert   TIMESTAMP(6) NOT NULL,
+    antall_feil   INT          NOT NULL
 );
 
 CREATE INDEX arbeidssoekere_identitetsnummer_idx ON arbeidssoekere (identitetsnummer);
-CREATE INDEX arbeidssoekere_synk_status_idx ON arbeidssoekere (synk_status, synk_status_endret);
+CREATE INDEX tiltak_synk_status_idx ON tiltak_synk (status, status_endret);
 ```
 
-- Periode startet: Forslaget er `INSERT ... ON CONFLICT (periode_id) DO NOTHING`, med `periode_startet` fra perioden, en ny `synk_id`, status `VENTER`, `synk_status_endret` satt til nå og `synk_antall_feil = 0`. Siden `synk_sist_kjoert` ikke kan være null, settes den ved opprettelse til eldre enn synkroniseringsintervallet slik at perioden kan behandles ved neste kjøring.
-- Periode avsluttet: `DELETE` på `periode_id`.
+- Konsumenten skriver bare til `arbeidssoekere`. Init-steget i jobben oppretter manglende rader i `tiltak_synk`, både for perioder som allerede ligger i dev og for nye perioder.
+- Ved periodeslutt slettes raden i `arbeidssoekere`. Postgres sletter raden i `tiltak_synk` via `ON DELETE CASCADE`.
+- En person har aldri mer enn én aktiv periode.
 
-Forslaget bruker UTC konsekvent for tidsfeltene, som er `TIMESTAMP(6)` uten tidssone. `synk_sist_kjoert` settes ved vellykket synkronisering; verdien ved opprettelse er en startverdi, ikke tidspunktet for en faktisk kjøring. Feilede forsøk kan prøves på nytt etter ventetiden under, selv om det er mindre enn to timer siden forsøket.
+Tidsfeltene er `TIMESTAMP(6)` uten tidssone. Bruk UTC konsekvent (`timezone('UTC', now())`). `sist_kjoert` er tidspunktet for siste kjøring, vellykket eller ikke. Nye rader får `sist_kjoert = 'epoch'`.
 
-### Statusmaskin
+## Synkroniseringsjobben
 
+Hver kjøring får en ny `synk_id` (UUIDv4) og kjører fem steg i fast rekkefølge. Et feilet steg logges og stopper ikke resten av kjøringen.
+
+| # | Steg | Overgang | Betingelse |
+|---|------|----------|------------|
+| 1 | init | (ingen rad) → `VENTER` | periode i `arbeidssoekere` uten rad i `tiltak_synk` |
+| 2 | feilet | `FEILET` → `VENTER` | `antall_feil < maks_feil_per_rad` (10) |
+| 2 | feilet | `FEILET` → `AVBRUTT` | `antall_feil >= maks_feil_per_rad` |
+| 2 | feilet | `AKTIV` → `VENTER` | `status_endret < now - synk_ventetid` (krasjet instans) |
+| 3 | avbrutt | `AVBRUTT` → `VENTER`, `antall_feil = 0` | `sist_kjoert < now - synk_ventetid` (2 timer) |
+| 4 | ferdig | `FERDIG` → `VENTER`, `antall_feil = 0` | `sist_kjoert < now - synk_ventetid` (2 timer) |
+| 5 | normal | `VENTER` → `AKTIV` → `FERDIG`/`FEILET` | batcher på `batch_stoerrelse` (100) til ingen `VENTER` gjenstår |
+
+Steg 1–4 er idempotente og trygge å kjøre fra flere instanser samtidig.
+
+Konsekvenser:
+
+- `FEILET` prøves på nytt ved hver kjøring, altså hvert 10. minutt, i opptil 10 forsøk. Deretter blir raden `AVBRUTT` i 2 timer og får 10 nye forsøk.
+- `FEILET` → `VENTER` nullstiller ikke `antall_feil`. Ellers når raden aldri grensen og blir aldri `AVBRUTT`.
+
+### SQL
+
+Steg 1, init:
+
+```sql
+INSERT INTO tiltak_synk (periode_id, synk_id, status, status_endret, sist_kjoert, antall_feil)
+SELECT a.periode_id, $1, 'VENTER', timezone('UTC', now()), 'epoch'::timestamp, 0
+FROM arbeidssoekere a
+WHERE NOT EXISTS (SELECT 1 FROM tiltak_synk t WHERE t.periode_id = a.periode_id)
+ON CONFLICT (periode_id) DO NOTHING;
 ```
-VENTER --flipp--> AKTIV --ok--> FERDIG
-                    |--feil---> FEILET
-                    |--avbrutt-> AVBRUTT
-AKTIV (synk_status_endret eldre enn ett skeduleringsintervall)    --> VENTER
-FEILET (synk_status_endret eldre enn økende ventetid, se under)   --> VENTER
-FERDIG (synk_sist_kjoert eldre enn synkroniseringsintervall)      --> VENTER
-AVBRUTT --> VENTER (ved neste kjøring)
+
+Steg 2, feilet (én transaksjon):
+
+```sql
+UPDATE tiltak_synk SET status = 'AVBRUTT', status_endret = timezone('UTC', now())
+WHERE status = 'FEILET' AND antall_feil >= $1;
+UPDATE tiltak_synk SET status = 'VENTER', status_endret = timezone('UTC', now())
+WHERE status = 'FEILET' AND antall_feil < $1;
+UPDATE tiltak_synk SET status = 'VENTER', status_endret = timezone('UTC', now())
+WHERE status = 'AKTIV' AND status_endret < timezone('UTC', now()) - $2::interval;
 ```
 
-### Én kjøring (hvert 10. minutt per instans)
+Steg 3 og 4, avbrutt og ferdig (`$1` = status):
 
-1. Opprett en unik kjørings-ID og sett `feil = 0`. Kjørings-ID-en lagres i `synk_id` når raden tas av kjøringen.
-2. **Gjenopprett:**
-   - `AKTIV` → `VENTER` når `synk_status_endret` er eldre enn skeduleringsintervallet.
-   - `AVBRUTT` → `VENTER` med en gang.
-   - `FEILET` → `VENTER` med økende ventetid. Ventetiden dobles for hver feil og stopper ved synkroniseringsintervallet. Med 10 minutters intervall blir den 10, 20, 40 og 80 minutter, og deretter fast 2 timer:
-     ```sql
-     UPDATE arbeidssoekere
-     SET synk_status = 'VENTER', synk_status_endret = timezone('UTC', now())
-     WHERE synk_status = 'FEILET'
-       AND synk_status_endret < timezone('UTC', now()) - LEAST(
-             $1::interval * power(2, LEAST(synk_antall_feil - 1, 10)),
-             $2::interval);
-     ```
-     Ved `FEILET` økes `synk_antall_feil` med 1. Ved `FERDIG` settes `synk_antall_feil = 0`.
-3. **Planlegg:** `FERDIG` → `VENTER` når `synk_sist_kjoert` er eldre enn synkroniseringsintervallet.
-4. **Løkke:** Flipp opptil `batch_stoerrelse` (500) rader fra `VENTER` til `AKTIV` uten `FOR UPDATE`. Postgres har ikke `UPDATE ... LIMIT`, så grensen ligger i en sub-select:
-   ```sql
-   UPDATE arbeidssoekere
-   SET synk_status = 'AKTIV', synk_status_endret = timezone('UTC', now()), synk_id = $1
-   WHERE synk_status = 'VENTER'
-     AND synk_sist_kjoert < timezone('UTC', now()) - $3::interval
-     AND periode_id IN (
-       SELECT periode_id FROM arbeidssoekere
-       WHERE synk_status = 'VENTER'
-         AND synk_sist_kjoert < timezone('UTC', now()) - $3::interval
-       ORDER BY synk_status_endret
-       LIMIT $2)
-   RETURNING periode_id, identitetsnummer, periode_startet;
-   ```
-   Den ytre `WHERE synk_status = 'VENTER'` gjør flippen trygg ved samtidighet. Hvis to instanser velger samme rad, blokkerer den andre `UPDATE`-en til den første committer. Postgres sjekker deretter `WHERE` på nytt mot den nye radversjonen (READ COMMITTED), og raden blir ikke med i den samtidige flippen. Den som taper, får færre enn 500 rader.
+```sql
+UPDATE tiltak_synk
+SET status = 'VENTER', status_endret = timezone('UTC', now()), antall_feil = 0
+WHERE status = $1 AND sist_kjoert < timezone('UTC', now()) - $2::interval;
+```
 
-   Behandle batchen (se under) og oppdater hver rad med vakt:
-   ```sql
-   UPDATE arbeidssoekere
-   SET synk_status = $3, synk_status_endret = timezone('UTC', now()), ...
-   WHERE periode_id = $1 AND synk_id = $2 AND synk_status = 'AKTIV';
-   ```
-   Vakten på `synk_id` hindrer at en treg kjøring overskriver en rad som er satt tilbake til `VENTER` og tatt av en annen kjøring.
-5. **Avbryt:** Forslaget er å avbryte kjøringen ved 401 eller 403 fra Mulighetsrommet eller key-gen. Ellers: hvis `feil > maks_feil_per_kjoering` (10), sett resten av radene med denne `synk_id` og status `AKTIV` til `AVBRUTT`, og avslutt kjøringen.
-6. **Neste batch:** Fortsett til flippen returnerer 0 rader. Hvis den returnerer 0 fordi en annen instans tok de samme radene, sjekk om det fortsatt finnes `VENTER`-rader med `synk_sist_kjoert` eldre enn synkroniseringsintervallet, og prøv igjen før løkken stopper.
+Steg 5, claim av én batch:
 
-Steg 2 og 3 er idempotente, så det gjør ingenting at flere instanser kjører dem samtidig.
+```sql
+UPDATE tiltak_synk t
+SET status = 'AKTIV', synk_id = $1, status_endret = timezone('UTC', now())
+FROM arbeidssoekere a
+WHERE a.periode_id = t.periode_id
+  AND t.periode_id IN (
+    SELECT periode_id FROM tiltak_synk
+    WHERE status = 'VENTER'
+    ORDER BY sist_kjoert
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED)
+RETURNING t.periode_id, a.identitetsnummer;
+```
 
-**Lange batcher:** En batch trenger ikke bli ferdig innen 10 minutter. Rader i `AKTIV` blir ikke tatt av andre kjøringer før gjenopprettingen har satt dem tilbake til `VENTER`, etter ett intervall. Skjer det mens den første kjøringen fortsatt jobber, kan arbeidssøkeren behandles to ganger. Vakten avviser en foreldet statusoppdatering, men hindrer ikke doble API-kall eller Kafka-meldinger. Mekanismen oppfyller derfor ikke kravet om å unngå gjentatt prosessering fullt ut; avklar lease-fornyelse eller annen koordinering før implementering.
+Steg 5, resultat per rad (vakt på `synk_id` og `AKTIV`):
 
-### Behandling av én batch
+```sql
+-- ok
+UPDATE tiltak_synk
+SET status = 'FERDIG', status_endret = timezone('UTC', now()), sist_kjoert = timezone('UTC', now()), antall_feil = 0
+WHERE periode_id = $1 AND synk_id = $2 AND status = 'AKTIV';
+-- feil
+UPDATE tiltak_synk
+SET status = 'FEILET', status_endret = timezone('UTC', now()), sist_kjoert = timezone('UTC', now()), antall_feil = antall_feil + 1
+WHERE periode_id = $1 AND synk_id = $2 AND status = 'AKTIV';
+```
 
-1. Hent identer fra key-gen per arbeidssøker (`finn_identiteter`). Bygg et kart `fnr -> periode_id`.
-2. Kall Mulighetsrommet med identene i grupper på `identer_per_kall`. Én arbeidssøker har ofte flere identer, så 500 arbeidssøkere gir mer enn 500 identer. Vi starter med én arbeidssøker per kall og prøver 500 etter testing.
-3. Grupper `historikk` på `norskIdent` via kartet, slik at hver periode får sin egen liste.
-4. (Senere) Send Kafka-melding per arbeidssøker, og sett `FERDIG` med `synk_sist_kjoert` satt til gjeldende UTC-tid.
+0 rader påvirket betyr at perioden er slettet eller raden er tatt over. Jobben logger det på debug med `periode_id` og teller det ikke som feil.
 
-Feiltelleren teller **feilede kall**, ikke feilede rader. Ett feilet kall med 500 arbeidssøkere setter alle 500 til `FEILET`, men øker telleren med 1.
+### Normal synk per arbeidssøker
+
+1. `paw_key_gen_client::finn_identiteter`, filtrer `Folkeregisterident` (gjeldende og historiske).
+2. `mulighetsrommet_client::hent_historikk(identer)`. Ett kall per arbeidssøker.
+3. `TiltakshistorikkPublisher::publiser(periode_id, historikk)`. Første implementasjon logger antall deltakelser.
+4. Oppdater raden til `FERDIG` eller `FEILET`. Alle feiltyper fra key-gen, Mulighetsrommet og publisher gir `FEILET`, også 401 og 403.
+
+Jobben venter `request_grace_time` før hvert utgående HTTP-kall (rate limit) og `batch_grace_time` før neste batch. Løkken stopper når claim returnerer 0 rader.
+
+### Avbrudd av kjøringen
+
+Telleren for feil per kjøring er en lokal variabel i jobben, ikke en kolonne. Den starter på 0 for hver kjøring og hver instans, og teller alle feil i steg 5.
+
+Når telleren når `maks_feil_per_kjoering` (10):
+
+1. Stopp behandlingen av batchen og hent ingen nye batcher.
+2. Sett gjenværende `AKTIV`-rader med denne `synk_id` tilbake til `VENTER` uten å øke `antall_feil`. Neste kjøring tar dem.
+3. Logg `synk_id` og antall rader som ble satt tilbake.
+
+```sql
+UPDATE tiltak_synk SET status = 'VENTER', status_endret = timezone('UTC', now())
+WHERE synk_id = $1 AND status = 'AKTIV';
+```
+
+`antall_feil` i `tiltak_synk` er en egen teller per rad over flere kjøringer. Den styrer `FEILET` → `AVBRUTT`.
 
 ### Kafka og database (designes senere)
 
-DB og Kafka kan ikke dele en atomisk transaksjon, og outbox er uaktuelt fordi historikken ikke skal lagres. Forslaget er å sende til Kafka og vente på leveringsbekreftelse, og deretter commite status `FERDIG`. Det gir at-least-once, så konsumentene må tåle duplikater. Dette avklares i designet av Kafka-produksjon. Perioden kan bli avsluttet mens raden er `AKTIV`. DB-vakten stopper da statusoppdateringen, men Kafka-meldingen kan alt være sendt. Dette må også håndteres i Kafka-designet. Frem til da kaller synkroniseringen en `TiltakshistorikkPublisher`-trait med en implementasjon som bare logger antall deltakelser.
+DB og Kafka kan ikke dele en atomisk transaksjon, og outbox er uaktuelt fordi historikken ikke skal lagres. Forslaget er å sende til Kafka og vente på leveringsbekreftelse, og deretter commite status `FERDIG`. Det gir at-least-once, så konsumentene må tåle duplikater. Perioden kan bli avsluttet mens raden er `AKTIV`. DB-vakten stopper da statusoppdateringen, men Kafka-meldingen kan alt være sendt. Begge deler avklares i designet av Kafka-produksjon. Frem til da kaller synkroniseringen en `TiltakshistorikkPublisher`-trait med en implementasjon som bare logger antall deltakelser.
 
-### Forslag til config (`app_config.toml`)
+### Config (`app_config.toml`, lokal og nais)
 
 ```toml
-skedulering_intervall = "PT10M"
-synkronisering_intervall = "PT2H"
-batch_stoerrelse = 500
-identer_per_kall = 1   # arbeidssøkere per kall mot Mulighetsrommet, justeres etter testing
+synk_task_interval = "PT10M"
+synk_ventetid = "PT2H"
+batch_stoerrelse = 100
+batch_grace_time = "PT0S"
+request_grace_time = "PT0S"
+maks_feil_per_rad = 10
 maks_feil_per_kjoering = 10
+
+[mulighetsrommet]   # placeholder, utvikleren fyller inn
+base_url = "http://TODO"
+scope = "api://TODO/.default"
+
+[key_gen]
+base_url = "http://paw-kafka-key-generator"
+scope = "api://dev-gcp.paw.paw-kafka-key-generator/.default"
 ```
 
-Kafka-config og otel-directives er kopiert fra `kartlegging-api` og rettes (`group_id_prefix`, `directives`).
+Durations leses med `duration::iso8601::deserialize` til `std::time::Duration`. Klientconfig følger `MulighetsrommetClientConfig` og `PawKeyGenClientConfig`.
+
+### Kodestruktur
+
+- `src/model/dao/tiltak_synk.rs`: `init_manglende`, `feilet_til_venter_eller_avbrutt` (med hengende `AKTIV`), `til_venter_etter_ventetid(status)`, `claim_batch`, `sett_ferdig`, `sett_feilet`, `frigi_aktive(synk_id)`.
+- `src/logic/synk/publisher.rs`: `trait TiltakshistorikkPublisher` og `LoggPublisher`.
+- `src/logic/synk/service.rs`: `SynkService` med `kjoer(synk_id)` som kjører de fem stegene.
+- `src/logic/synk/task.rs`: interval-løkke som kaller `kjoer`.
+- `src/config.rs`, `main.rs`: config, `texas_client`, klienter og task i `tokio::select!`.
+- `Cargo.toml`: `paw_key_gen_client`, `mulighetsrommet_client`, `texas_client`.
 
 ### Observerbarhet
 
 - `tiltakshistorikk_synkronisert_total`, `tiltakshistorikk_feilet_total`, `tiltakshistorikk_avbrutt_total` (counters)
 - `arbeidssoekere_antall{status}` (gauge)
 - `arbeidssoekere_eldste_synkronisering_sekunder` (gauge)
-- `arbeidssoekere_vedvarende_feil` (gauge, rader med `synk_antall_feil >= 5`), med varsel i Grafana
-- `#[instrument]` på kjøring og batch med `synk_id` og `periode_id`. Ingen fnr i logger eller spans.
+- `arbeidssoekere_vedvarende_feil` (gauge, rader med `antall_feil >= 5`), med varsel i Grafana
+- `#[instrument]` på kjøring (`synk_id`) og per arbeidssøker (`periode_id`). Ingen fnr i logger eller spans.
 
 ### Nais
 
 - `gcp.sqlInstances` (Postgres), `kafka.pool`, `azure.application.enabled: true`
-- `accessPolicy.outbound`: Mulighetsrommet tiltakshistorikk og `paw-kafka-key-generator`. Namespace for Mulighetsrommet må verifiseres.
+- `accessPolicy.outbound`: Utvikleren legger til policy for Mulighetsrommet manuelt.
 - `isReady` skal vise status for database og konsument.
 - `replicas.max: 2` i dev, så oppsettet med flere instanser blir testet.
 - Ingen CPU-limits. Mål minnebruken og juster fra 32Mi.
 - Scope i dev: `api://dev-gcp.paw.paw-kafka-key-generator/.default` (som i `kartlegging-api`).
-- Vurder DB-audit-logging fordi tabellen lagrer fnr.
+- Vurder DB-audit-logging fordi tabellen lagrer fnr. Eksisterende audit-logging skal ikke slås av.
 
 ## 🔴 Rød sone: forstå dette grundig
 
-- SQL for flipp, gjenoppretting, planlegging og statusoppdatering med `synk_id`-vakt (samtidighet mellom instanser)
-- Avbruddslogikken (feilteller og `AVBRUTT`)
+- SQL for claim, gjenoppretting og statusoppdatering med `synk_id`-vakt (samtidighet mellom instanser)
+- Avbruddslogikken (feilteller per kjøring og `AVBRUTT` per rad)
 - Rekkefølgen Kafka-sending og DB-commit (når Kafka designes)
 
-Standard: Fase 4 lager testskjelett og stubber med `TODO` for disse. Utvikleren skriver koden selv, med mindre noe annet blir avtalt.
+Assistenten implementerer SQL for samtidighet og avbruddslogikken. Utvikleren reviewer.
 
 Grønn sone: domenemodell, klient, migrasjoner, Nais, config og metrikk-boilerplate.
 
@@ -165,27 +229,30 @@ Grønn sone: domenemodell, klient, migrasjoner, Nais, config og metrikk-boilerpl
 
 - `domain/mulighetsrommet`: serde-tester på eksempel-JSON for alle tre deltakelsestyper og for `Ukjent`.
 - `lib/mulighetsrommet_client`: mockito, `token_client_stub`, statuskoder 200/401/403/5xx.
-- Konsument: aktiv periode oppretter en rad med `periode_startet`, gjentatt melding bevarer fremdriften, og avsluttet periode sletter raden.
-- `arbeidssoekere` med testcontainers-Postgres: første gangs behandling, to samtidige flipper overlapper ikke, gjenoppretting av gamle `AKTIV`-rader, økende ventetid for `FEILET` (1, 2 og over 5 feil), nullstilling av `synk_antall_feil` ved `FERDIG`, vakten avviser oppdatering fra feil `synk_id`, planlegging etter 2 timer, avbrudd ved over 10 feil og avbrudd med en gang ved 401 eller 403.
-- Test lange batcher og avklart lease-mekanisme med flere instanser. Test at `synk_sist_kjoert` settes ved vellykket behandling og at feilede forsøk kan gjenopptas.
+- Konsument: aktiv periode oppretter rad i `arbeidssoekere`, gjentatt melding er idempotent, og avsluttet periode sletter begge rader.
+- DAO med testcontainers-Postgres:
+  - init oppretter rader for perioder uten synk-rad, rører ikke eksisterende rader og er idempotent.
+  - feilet: `antall_feil` 9 → `VENTER` med telleren urørt, 10 → `AVBRUTT`. `AKTIV` eldre enn 2 timer → `VENTER`, nyere står.
+  - avbrutt og ferdig: eldre enn 2 timer → `VENTER` med `antall_feil = 0`, nyere står.
+  - claim: grense på 100, to samtidige claims gir disjunkte sett, bare `VENTER` tas.
+  - resultat: ok setter `FERDIG`, `sist_kjoert` og `antall_feil = 0`. Feil øker `antall_feil`. Feil `synk_id` gir 0 rader.
+  - frigi: bare `AKTIV`-rader med egen `synk_id` går til `VENTER`.
+- Service med mockito: hele kjøringen fra init til `FERDIG`, 401/403/5xx gir `FEILET`, slettet periode under kjøring, og kjøringen stopper ved feil nummer 10 med resten av batchen tilbake i `VENTER`.
 - Del aldri en statisk `PgPool` mellom flere `#[tokio::test]`.
 
 ## Todos (rekkefølge = commits, hver kan deployes)
 
-1. `domain-mulighetsrommet`: crate `domain/mulighetsrommet`, modul `tiltakshistorikk` med request/response og `oneOf` som `#[serde(tag = "type")]`, enum-verdier med `Ukjent(String)`.
-2. `lib-mulighetsrommet-client`: crate `lib/mulighetsrommet_client` etter mønsteret i `paw_key_gen_client` (config, error, client med `hent_historikk(identer)`). Mock-crate under `test/` hvis det trengs.
-3. `db-oppsett`: `paw_sqlx` i appen, migrasjoner for HWM-tabell og `arbeidssoekere`, config, oppstart i `main.rs`.
-4. `periode-konsument`: HWM-konsument som legger inn og sletter rader i arbeidslisten.
-5. `arbeidssoekere-repo`: SQL-funksjoner (flipp, gjenopprett, planlegg, oppdater, avbryt) med tester. 🔴
-6. `synk-jobb`: skedulert jobb med key-gen, Mulighetsrommet, publisher-trait og feilteller. 🔴 (avbrudd)
+1. `domain-mulighetsrommet`: Utført.
+2. `lib-mulighetsrommet-client`: Utført.
+3. `db-oppsett`: Utført.
+4. `periode-konsument`: Utført.
+5. `tiltak-synk-repo`: SQL for de fem stegene, frigi og resultat, med tester. 🔴
+6. `synk-jobb`: config, klienter, service, task, publisher og feilteller per kjøring, med tester. 🔴 (avbrudd)
 7. `metrikker`: counters og gauges.
-8. `nais-config`: Postgres, Kafka, Azure, accessPolicy, ryddet config.
+8. `nais-config`: Utført, bortsett fra outbound policy til Mulighetsrommet som utvikleren legger inn manuelt.
 9. (Senere) `kafka-produksjon`: eget design.
 
 ## Åpne punkter
 
-- `identer_per_kall`: start med 1, test 500. Sjekk responstid og om Mulighetsrommet har grense på antall identer.
-- Avklar hvordan en aktiv kjøring beholder eierskapet under lange batcher, uten at en krasjet instans blokkerer videre behandling.
-- Avklar om `synk_sist_kjoert` skal bety siste vellykkede synkronisering, som foreslått her, og om kortere retry-intervall for feilede forsøk er ønsket.
-- App- og namespace-navn og scope for Mulighetsrommet i dev og prod.
+- Utvikleren setter inn endpoint, scope og outbound policy for Mulighetsrommet manuelt før jobben aktiveres.
 - Dette er en betaversjon. Sikkerhetsgjennomgangen er utsatt og gjøres før prod.

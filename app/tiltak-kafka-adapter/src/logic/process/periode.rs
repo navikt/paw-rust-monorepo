@@ -48,7 +48,7 @@ impl PayloadProcessor for PeriodeProcessor {
                         let row = ArbeidssoekerRow::from(periode);
                         let rows_affected = arbeidssoeker::update(tx, &row).await?;
                         tracing::debug!(
-                            "Opprettet arbeidssøker-rad ({} rows affected)",
+                            "Oppdaterte arbeidssøker-rad ({} rows affected)",
                             rows_affected
                         );
                     } else {
