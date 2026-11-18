@@ -24,7 +24,7 @@ async fn test_send_messages() -> anyhow::Result<()> {
     //
     // tokio::time::sleep(Duration::from_millis(100)).await;
     //
-     producer.send_avslutt_perioder(&data).await?;
+    producer.send_avslutt_perioder(&data).await?;
     //
 
     Ok(())

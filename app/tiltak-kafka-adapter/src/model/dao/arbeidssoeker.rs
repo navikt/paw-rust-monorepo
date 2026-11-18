@@ -66,8 +66,8 @@ pub async fn select_by_identitetsnummer(
             a.periode_startet,
             t.synk_id,
             t.status,
-            t.status_endret,
-            t.sist_kjoert,
+            t.status_endret AT TIME ZONE 'UTC' AS status_endret,
+            t.sist_kjoert   AT TIME ZONE 'UTC' AS sist_kjoert,
             t.antall_feil
         FROM arbeidssoekere a
         LEFT JOIN tiltak_synk t

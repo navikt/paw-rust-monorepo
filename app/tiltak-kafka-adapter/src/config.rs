@@ -21,10 +21,11 @@ pub struct AppConfig {
 #[derive(Debug, Deserialize)]
 pub struct AppKafkaConfig {
     pub paw_periode_topic: String,
+    pub paw_arbeidsmarkedstiltak_topic: String,
 }
 
 impl AppKafkaConfig {
-    pub fn all_topics(&self) -> Vec<&str> {
+    pub fn consumer_topics(&self) -> Vec<&str> {
         vec![self.paw_periode_topic.as_str()]
     }
 }

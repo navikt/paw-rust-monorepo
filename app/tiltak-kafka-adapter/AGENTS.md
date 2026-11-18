@@ -16,7 +16,7 @@ Arkitekturen skal tåle flere instanser. Instansene koordinerer gjennom `tiltak_
 | Område | Valg | Begrunnelse |
 |---|---|---|
 | Skedulering | `tokio::time::interval` med `MissedTickBehavior::Delay` | Samme mønster som `veileder-oppgave`. Ingen ny avhengighet. Kjøringer i samme instans overlapper aldri. |
-| Koordinering mellom instanser | `VENTER` → `AKTIV` med `FOR UPDATE SKIP LOCKED`, `synk_id` som vakt ved statusoppdatering | To instanser får disjunkte batcher. Trenger ikke leader election eller distribuert lås. |
+| Koordinering mellom instanser | `VENTER` → `AKTIV` med optimistisk compare-and-set (ingen `FOR UPDATE`), `synk_id` som vakt ved statusoppdatering | To instanser får disjunkte batcher. Trenger ikke leader election, distribuert lås eller eksplisitt radlås. |
 | Kilde til arbeidslisten | HWM-konsument (`paw_kafka::hwm`) på periode-topic, Avro via schema registry, `eksterne_hendelser::Periode` | Samme mønster som `kartlegging-api`. |
 | Identer | `paw_key_gen_client::finn_identiteter`, send alle `FOLKEREGISTERIDENT` (gjeldende og historiske) | API-et krever historiske identer for komplett historikk. |
 | Auth mot Mulighetsrommet og key-gen | Entra M2M via `texas_client` | Avklart med Mulighetsrommet. |
@@ -105,21 +105,31 @@ SET status = 'VENTER', status_endret = timezone('UTC', now()), antall_feil = 0
 WHERE status = $1 AND sist_kjoert < timezone('UTC', now()) - $2::interval;
 ```
 
-Steg 5, claim av én batch:
+Steg 5, claim av én batch (compare-and-set, ingen `FOR UPDATE`):
 
 ```sql
-UPDATE tiltak_synk t
-SET status = 'AKTIV', synk_id = $1, status_endret = timezone('UTC', now())
-FROM arbeidssoekere a
-WHERE a.periode_id = t.periode_id
-  AND t.periode_id IN (
+WITH kandidater AS (
     SELECT periode_id FROM tiltak_synk
     WHERE status = 'VENTER'
-    ORDER BY sist_kjoert
+    ORDER BY sist_kjoert, periode_id
     LIMIT $2
-    FOR UPDATE SKIP LOCKED)
+)
+UPDATE tiltak_synk t
+SET status = 'AKTIV', synk_id = $1, status_endret = timezone('UTC', now())
+FROM kandidater k, arbeidssoekere a
+WHERE t.periode_id = k.periode_id
+  AND a.periode_id = t.periode_id
+  AND t.status = 'VENTER'
 RETURNING t.periode_id, a.identitetsnummer;
 ```
+
+- `AND t.status = 'VENTER'` på den ytre raden er vakten. Under `READ COMMITTED` venter en UPDATE som treffer en rad låst av en annen instans til den andre har committet. Deretter vurderer Postgres WHERE på nytt mot nyeste radversjon (EvalPlanQual). Er raden blitt `AKTIV`, filtreres den bort.
+- `RETURNING` gir nøyaktig radene som fikk jobbens `synk_id`.
+- Claim kjøres i autocommit direkte på poolen, ikke i en lang transaksjon. Radlåsene fra UPDATE holdes da bare i millisekunder.
+- Isolasjonsnivå må være `READ COMMITTED` (default).
+- `40001` (serialization_failure) og `40P01` (deadlock) behandles som en tom claim, ikke som feil. De teller ikke mot `maks_feil_per_kjoering`.
+
+Fordi kandidatene leses fra et snapshot, kan to instanser velge de samme kandidatene. Den ene får da en delvis eller tom batch. 0 rader fra claim betyr derfor ikke at køen er tom. Se stoppbetingelsen under.
 
 Steg 5, resultat per rad (vakt på `synk_id` og `AKTIV`):
 
@@ -143,7 +153,14 @@ WHERE periode_id = $1 AND synk_id = $2 AND status = 'AKTIV';
 3. `TiltakshistorikkPublisher::publiser(periode_id, historikk)`. Første implementasjon logger antall deltakelser.
 4. Oppdater raden til `FERDIG` eller `FEILET`. Alle feiltyper fra key-gen, Mulighetsrommet og publisher gir `FEILET`, også 401 og 403.
 
-Jobben venter `request_grace_time` før hvert utgående HTTP-kall (rate limit) og `batch_grace_time` før neste batch. Løkken stopper når claim returnerer 0 rader.
+Jobben venter `request_grace_time` før hvert utgående HTTP-kall (rate limit) og `batch_grace_time` før neste batch.
+
+Stoppbetingelse for batchløkken:
+
+1. Claim returnerer rader: behandle dem og nullstill telleren for tomme claims.
+2. Claim returnerer 0 rader: sjekk `SELECT EXISTS (SELECT 1 FROM tiltak_synk WHERE status = 'VENTER')`.
+   - Ingen `VENTER`: løkken er ferdig.
+   - Finnes `VENTER`: prøv igjen uten pause, maks `maks_tomme_claims` (3) tomme claims på rad. Deretter avsluttes løkken, og neste kjøring tar resten.
 
 ### Avbrudd av kjøringen
 
@@ -176,6 +193,7 @@ batch_grace_time = "PT0S"
 request_grace_time = "PT0S"
 maks_feil_per_rad = 10
 maks_feil_per_kjoering = 10
+maks_tomme_claims = 3
 
 [mulighetsrommet]   # placeholder, utvikleren fyller inn
 base_url = "http://TODO"
@@ -190,7 +208,8 @@ Durations leses med `duration::iso8601::deserialize` til `std::time::Duration`. 
 
 ### Kodestruktur
 
-- `src/model/dao/tiltak_synk.rs`: `init_manglende`, `feilet_til_venter_eller_avbrutt` (med hengende `AKTIV`), `til_venter_etter_ventetid(status)`, `claim_batch`, `sett_ferdig`, `sett_feilet`, `frigi_aktive(synk_id)`.
+- `src/model/dao/tiltak_synk.rs`: `init_manglende`, `feilet_til_venter_eller_avbrutt` (med hengende `AKTIV`), `til_venter_etter_ventetid(status)`, `claim_batch`, `finnes_ventende`, `sett_ferdig`, `sett_feilet`, `frigi_aktive(synk_id)`.
+- `src/logic/synk/tiltak_synk.rs`: `for_hver_batch`, batchløkken med stoppbetingelsen over.
 - `src/logic/synk/publisher.rs`: `trait TiltakshistorikkPublisher` og `LoggPublisher`.
 - `src/logic/synk/service.rs`: `SynkService` med `kjoer(synk_id)` som kjører de fem stegene.
 - `src/logic/synk/task.rs`: interval-løkke som kaller `kjoer`.
@@ -217,7 +236,8 @@ Durations leses med `duration::iso8601::deserialize` til `std::time::Duration`. 
 
 ## 🔴 Rød sone: forstå dette grundig
 
-- SQL for claim, gjenoppretting og statusoppdatering med `synk_id`-vakt (samtidighet mellom instanser)
+- SQL for claim (compare-and-set med `t.status = 'VENTER'`-vakt), gjenoppretting og statusoppdatering med `synk_id`-vakt (samtidighet mellom instanser)
+- Stoppbetingelsen i batchløkken
 - Avbruddslogikken (feilteller per kjøring og `AVBRUTT` per rad)
 - Rekkefølgen Kafka-sending og DB-commit (når Kafka designes)
 
@@ -234,7 +254,8 @@ Grønn sone: domenemodell, klient, migrasjoner, Nais, config og metrikk-boilerpl
   - init oppretter rader for perioder uten synk-rad, rører ikke eksisterende rader og er idempotent.
   - feilet: `antall_feil` 9 → `VENTER` med telleren urørt, 10 → `AVBRUTT`. `AKTIV` eldre enn 2 timer → `VENTER`, nyere står.
   - avbrutt og ferdig: eldre enn 2 timer → `VENTER` med `antall_feil = 0`, nyere står.
-  - claim: grense på 100, to samtidige claims gir disjunkte sett, bare `VENTER` tas.
+  - claim: grense på 100, to samtidige claims gir disjunkte sett, bare `VENTER` tas. En claim som venter på en annen instans' ucommittede claim får 0 av de radene.
+  - batchløkke: stopper når ingen `VENTER` gjenstår, og etter `maks_tomme_claims` tomme claims når `VENTER` gjenstår.
   - resultat: ok setter `FERDIG`, `sist_kjoert` og `antall_feil = 0`. Feil øker `antall_feil`. Feil `synk_id` gir 0 rader.
   - frigi: bare `AKTIV`-rader med egen `synk_id` går til `VENTER`.
 - Service med mockito: hele kjøringen fra init til `FERDIG`, 401/403/5xx gir `FEILET`, slettet periode under kjøring, og kjøringen stopper ved feil nummer 10 med resten av batchen tilbake i `VENTER`.

@@ -45,8 +45,8 @@ async fn main() -> anyhow::Result<()> {
         create_kafka_consumer(
             app_state.clone(),
             pg_pool.clone(),
-            &kafka_config,
-            app_config.clone().kafka.all_topics().as_slice(),
+            kafka_config.clone(),
+            app_config.clone().kafka.consumer_topics().as_slice(),
         )
         .map_err(|e| KafkaError::CreateConsumer(e.to_string()))?,
     );

@@ -3,8 +3,8 @@ use paw_kafka::hwm::hwm_message_processor::ProcessorError;
 use rdkafka::message::OwnedMessage;
 use sqlx::{Postgres, Transaction};
 
-pub mod root;
 pub(crate) mod periode;
+pub mod root;
 
 #[allow(async_fn_in_trait)]
 pub trait PayloadProcessor {
