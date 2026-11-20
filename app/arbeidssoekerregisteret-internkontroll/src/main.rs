@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let regel_config: RegelConfig = read_toml_config(read_config_file!("regel_config.toml"))?;
     let pg_pool = paw_sqlx::postgres::init_db(&database_config).await?;
     reset_db_if_needed(&pg_pool, *kafka_config.hwm_version).await?;
+    sqlx::migrate!("./migrations").run(&pg_pool).await?;
     let mut tx = pg_pool.begin().await?;
     let signing_key_db_ids =
         SigningKeyDbIds::new_from_db(record_verifier.key_ids(), &mut tx).await?;

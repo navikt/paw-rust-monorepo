@@ -28,9 +28,6 @@ pub async fn run_app(app_context: AppContext) -> Result<(), Box<dyn Error>> {
     });
     let subscribed_topics = subscribed_topics(app_context.runtime_env.clone());
     let topics = subscribed_topics.topic_names();
-    sqlx::migrate!("./migrations")
-        .run(&app_context.pg_pool)
-        .await?;
     let mut conn = app_context.pg_pool.acquire().await?;
     register_topics(&mut conn, &topics).await?;
     let topic_ids = load_topic_ids(&mut conn).await?;
