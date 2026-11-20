@@ -50,7 +50,7 @@ pub(crate) async fn get_db_id(
         "#,
     )
     .bind(key_id)
-    .fetch_one(&mut *conn)
+    .fetch_optional(&mut *conn)
     .await
 }
 
@@ -68,4 +68,23 @@ pub(crate) async fn generate_db_id(
     .bind(key_id)
     .fetch_one(&mut *conn)
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use postgres_testcontainer::postgres::setup_postgres_container;
+
+    #[tokio::test]
+    async fn skriver_og_henter_signeringsnoekkel() {
+        let pg = setup_postgres_container().await.unwrap();
+        sqlx::migrate!("./migrations").run(&pg.pg_pool).await.unwrap();
+        let mut conn = pg.pg_pool.acquire().await.unwrap();
+
+        assert_eq!(get_db_id(&mut conn, "ukjent-noekkel").await.unwrap(), None);
+
+        let id = generate_db_id(&mut conn, "ny-noekkel").await.unwrap();
+
+        assert_eq!(get_db_id(&mut conn, "ny-noekkel").await.unwrap(), Some(id));
+    }
 }
