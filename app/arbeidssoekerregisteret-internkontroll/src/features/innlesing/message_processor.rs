@@ -16,6 +16,7 @@ use crate::features::innlesing::{
         payload::PayloadStatus,
         record_metadata::{RecordMetadata, insert_record_metadata},
         signature::Signature,
+        signing_keys::SigningKeyDbIds,
     },
     record::kafka_record::{insert_kafka_record, kafka_record_row, record_timestamp},
     stream_time::{get_stream_time, upsert_stream_time},
@@ -29,6 +30,7 @@ pub struct InternkontrollMessageProcessor {
     topic_ids: TopicIds,
     topic_catalog: TopicCatalog,
     dekodere: Dekodere,
+    signing_key_id_map: SigningKeyDbIds,
 }
 
 impl InternkontrollMessageProcessor {
@@ -38,6 +40,7 @@ impl InternkontrollMessageProcessor {
         topic_ids: TopicIds,
         dekodere: Dekodere,
         topic_catalog: TopicCatalog,
+        signing_key_id_map: SigningKeyDbIds,
     ) -> Self {
         Self {
             dekodere,
@@ -45,6 +48,7 @@ impl InternkontrollMessageProcessor {
             record_verifier,
             topic_ids,
             topic_catalog,
+            signing_key_id_map,
         }
     }
 
@@ -93,6 +97,7 @@ impl InternkontrollMessageProcessor {
         let dekodet = self.dekodere.dekod(msg).await?;
         let record_metadata_id = insert_record_metadata(
             tx,
+            &self.signing_key_id_map,
             &RecordMetadata {
                 topic_id,
                 record_partition: msg.partition(),

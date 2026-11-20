@@ -68,6 +68,7 @@ pub async fn run_app(app_context: AppContext) -> Result<(), Box<dyn Error>> {
         topic_ids,
         dekodere,
         subscribed_topics,
+        app_context.signing_key_db_ids,
     ));
 
     let kafka_task = spawn_consumer_workers(

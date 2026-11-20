@@ -10,7 +10,7 @@ use melding::{Innhold, Melding};
 
 use arbeidssoekerregisteret_internkontroll::features::innlesing::{
     message_processor::InternkontrollMessageProcessor,
-    metadata::meldinger::Dekodere,
+    metadata::{meldinger::Dekodere, signing_keys::SigningKeyDbIds},
     topic::{load_topic_ids, register_topics},
     topic_catalog::subscribed_topics,
     topic_ids::TopicIds,
@@ -56,12 +56,17 @@ impl TestApp {
             .await
             .unwrap();
         let topic_ids = load_topic_ids(&mut conn).await.unwrap();
+        let record_verifier = RecordVerifier::new();
+        let signing_key_id_map = SigningKeyDbIds::new_from_db(record_verifier.key_ids(), &mut conn)
+            .await
+            .unwrap();
         let processor = InternkontrollMessageProcessor::new(
             catalog.signing_required_catalog(),
-            RecordVerifier::new(),
+            record_verifier,
             topic_ids.clone(),
             Dekodere::new(catalog.topic_names_mapping(), sr_settings.clone()),
             catalog,
+            signing_key_id_map,
         );
         Self {
             pool,

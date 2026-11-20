@@ -5,7 +5,9 @@ use paw_observability::health::simple_app_state::AppState;
 use paw_rust_base::env::RuntimeEnv;
 use sqlx::PgPool;
 
-use crate::features::regler::config::RegelConfig;
+use crate::features::{
+    innlesing::metadata::signing_keys::SigningKeyDbIds, regler::config::RegelConfig,
+};
 
 pub struct AppContext {
     pub kafka_config: KafkaConfig,
@@ -14,6 +16,7 @@ pub struct AppContext {
     pub runtime_env: RuntimeEnv,
     pub pg_pool: PgPool,
     pub regel_config: RegelConfig,
+    pub signing_key_db_ids: SigningKeyDbIds,
 }
 
 impl AppContext {
@@ -24,6 +27,7 @@ impl AppContext {
         runtime_env: RuntimeEnv,
         pg_pool: PgPool,
         regel_config: RegelConfig,
+        signing_key_db_ids: SigningKeyDbIds,
     ) -> Self {
         Self {
             kafka_config,
@@ -32,6 +36,7 @@ impl AppContext {
             runtime_env,
             pg_pool,
             regel_config,
+            signing_key_db_ids,
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use arbeidssoekerregisteret_internkontroll::features::innlesing::metadata::signing_keys::SigningKeyDbIds;
 use paw_kafka::hwm::stream::stream_wrapper::init_stream_wrapper_metrics;
 use paw_kafka::kafka_config::KafkaConfig;
 use paw_kafka::signing::RecordVerifier;
@@ -27,6 +28,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let regel_config: RegelConfig = read_toml_config(read_config_file!("regel_config.toml"))?;
     let pg_pool = paw_sqlx::postgres::init_db(&database_config).await?;
     reset_db_if_needed(&pg_pool, *kafka_config.hwm_version).await?;
+    let mut tx = pg_pool.begin().await?;
+    let signing_key_db_ids =
+        SigningKeyDbIds::new_from_db(record_verifier.key_ids(), &mut tx).await?;
+    tx.commit().await?;
     let app_context = AppContext::new(
         kafka_config,
         record_verifier,
@@ -34,6 +39,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         runtime_env(),
         pg_pool,
         regel_config,
+        signing_key_db_ids,
     );
     run_app(app_context).await
 }

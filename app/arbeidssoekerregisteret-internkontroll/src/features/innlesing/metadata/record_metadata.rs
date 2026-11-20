@@ -7,6 +7,7 @@ use crate::features::innlesing::metadata::arbeidssoeker_id::ArbeidssoekerId;
 use crate::features::innlesing::metadata::kilde::{Kilde, System};
 use crate::features::innlesing::metadata::payload::{Meldingstype, PayloadStatus};
 use crate::features::innlesing::metadata::signature::Signature;
+use crate::features::innlesing::metadata::signing_keys::SigningKeyDbIds;
 use crate::features::innlesing::record::kafka_record::KafkaTimestampType;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -77,35 +78,16 @@ impl FromRow<'_, PgRow> for RecordMetadata {
     }
 }
 
-/// Returns the id in `signing_key` for `key_id`, creating the row the first time.
-async fn signing_key_id(conn: &mut PgConnection, key_id: &str) -> Result<i16, sqlx::Error> {
-    sqlx::query_scalar(
-        r#"
-        WITH ny AS (
-            INSERT INTO signing_key (key_id) VALUES ($1)
-            ON CONFLICT (key_id) DO NOTHING
-            RETURNING id
-        )
-        SELECT id FROM ny
-        UNION ALL
-        SELECT id FROM signing_key WHERE key_id = $1
-        LIMIT 1
-        "#,
-    )
-    .bind(key_id)
-    .fetch_one(&mut *conn)
-    .await
-}
-
 /// Writes the derived values for a record and returns the new row id.
 /// A record is derived once, so writing it again is an error.
 #[tracing::instrument(skip(conn, record))]
 pub async fn insert_record_metadata(
     conn: &mut PgConnection,
+    signing_key_id_map: &SigningKeyDbIds,
     record: &RecordMetadata,
 ) -> Result<i64, sqlx::Error> {
     let signing_key_id = match record.signature.signing_key_id() {
-        Some(key_id) => Some(i64::from(signing_key_id(conn, key_id).await?)),
+        Some(key_id) => signing_key_id_map.get(key_id),
         None => None,
     };
     sqlx::query_scalar(
