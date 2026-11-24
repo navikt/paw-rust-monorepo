@@ -60,6 +60,12 @@ Før internkontroll eventuelt erstatter backupen, må vi avklare hvilke topics s
 4. Beskriv og prøv ut én regel for en kjent meldingsflyt. Kjør vurderingen asynkront over åpne traces.
 5. Fastsett dokumentasjons- og oppbevaringskrav. Vurder deretter arkivering av lukkede traces og om internkontroll kan overta oppgaven til `kafka-topic-backup`.
 
+## Visualisering
+
+Appen har en enkel nettside under `/stats`, med nøkkeltall øverst og fanene Oversikt, Funn, Signatur og Trace. Siden lages på serveren med `format!` og oppdateres med HTMX, som appen selv leverer. Siden viser ikke `periode_id` eller `arbeidssoeker_id`.
+
+Bare Nav-ansatte i teamets AD-gruppe får tilgang. Nais begrenser hvem som får token, Wonderwall logger inn brukeren, og appen validerer tokenet og avviser systemtokens. Når appen bygges med featuren `local`, kjører siden uten innlogging: `cargo run --no-default-features --features local`.
+
 ## Grenser for integritetskontrollen
 
 En gyldig signatur bekrefter de signerte delene av en observert melding mot en kjent offentlig nøkkel. Den beviser ikke alene at nøkkelen var tillatt på dette tidspunktet, at alle forventede meldinger ble produsert, eller at hele topic-historikken er bevart. Slike påstander krever egne regler og kontroller.
