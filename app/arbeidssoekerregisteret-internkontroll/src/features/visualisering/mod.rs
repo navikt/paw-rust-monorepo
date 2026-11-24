@@ -2,8 +2,10 @@
 //! som er stien i ingressen. `/internal` nås derfor ikke utenfra.
 
 pub mod auth;
+mod faner;
 mod html;
 mod sikkerhet;
+mod sporringer;
 
 use std::sync::Arc;
 
@@ -77,14 +79,63 @@ async fn side(
     ))
 }
 
-async fn fane_innhold(_state: &VisState, valg: &Valg) -> Result<String, StatusCode> {
-    Ok(match valg.fane {
-        Fane::Oversikt | Fane::Funn | Fane::Signatur | Fane::Trace => "<p>Kommer.</p>".to_string(),
-    })
+async fn fane_innhold(state: &VisState, valg: &Valg) -> Result<String, StatusCode> {
+    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
+        .await
+        .map_err(intern_feil)?;
+    let html = match valg.fane {
+        Fane::Oversikt => {
+            let regler = sporringer::hent_regel_status(&mut tx, state.hwm_version)
+                .await
+                .map_err(intern_feil)?;
+            let topics = sporringer::hent_topic_status(&mut tx)
+                .await
+                .map_err(intern_feil)?;
+            let stream_ms = topics.iter().filter_map(|t| t.nyeste_stream_ms).max();
+            faner::oversikt(&regler, &topics, stream_ms)
+        }
+        Fane::Funn => {
+            let antall = sporringer::hent_funn_antall(&mut tx)
+                .await
+                .map_err(intern_feil)?;
+            let regel = valg.regel.and_then(RegelId::fra_i16);
+            let rader = sporringer::hent_funn(&mut tx, regel, valg.alvorlighet)
+                .await
+                .map_err(intern_feil)?;
+            faner::funn(valg, &antall, &rader)
+        }
+        Fane::Signatur => {
+            let antall = sporringer::hent_signatur_antall(&mut tx)
+                .await
+                .map_err(intern_feil)?;
+            let feil = sporringer::hent_siste_signaturfeil(&mut tx)
+                .await
+                .map_err(intern_feil)?;
+            faner::signatur(&antall, &feil)
+        }
+        Fane::Trace => {
+            let rader = sporringer::hent_mangler_trace_id(&mut tx)
+                .await
+                .map_err(intern_feil)?;
+            faner::trace(&rader)
+        }
+    };
+    Ok(html)
 }
 
-async fn toppfelt(State(_state): State<VisState>) -> Result<Html<String>, StatusCode> {
-    Ok(Html(String::new()))
+async fn toppfelt(State(state): State<VisState>) -> Result<Html<String>, StatusCode> {
+    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
+        .await
+        .map_err(intern_feil)?;
+    let toppfelt = sporringer::hent_toppfelt(&mut tx)
+        .await
+        .map_err(intern_feil)?;
+    Ok(Html(faner::toppfelt(&toppfelt)))
+}
+
+fn intern_feil(e: sqlx::Error) -> StatusCode {
+    tracing::error!("Henting av data til visualisering feilet: {e}");
+    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 async fn htmx() -> impl IntoResponse {
