@@ -15,7 +15,7 @@ use paw_oauth2_resource_server::oauth2::{
 };
 use tower::ServiceExt;
 
-use super::{VisState, routes, sikkerhet::sikkerhetslag};
+use super::{VisState, routes, sikkerhet::sikkerhetslag, skal_logges};
 
 const NOKKEL: &str = "test-hemmelighet-som-bare-brukes-i-tester";
 const UTSTEDER: &str = "https://issuer.invalid";
@@ -187,4 +187,21 @@ async fn hx_redirect_bare_for_htmx_ved_401() {
             .headers()
             .contains_key("HX-Redirect")
     );
+}
+
+#[test]
+fn polling_logges_ikke() {
+    let headere = |par: &[(&'static str, &'static str)]| {
+        let mut h = axum::http::HeaderMap::new();
+        for (k, v) in par {
+            h.insert(*k, v.parse().unwrap());
+        }
+        h
+    };
+    assert!(skal_logges(&headere(&[])));
+    assert!(skal_logges(&headere(&[("HX-Request", "true")])));
+    assert!(!skal_logges(&headere(&[
+        ("HX-Request", "true"),
+        ("HX-Trigger", "fane")
+    ])));
 }

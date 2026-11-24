@@ -63,20 +63,34 @@ async fn side(
     }
     let er_htmx = headers.get("HX-Request").is_some_and(|v| v == "true");
     let er_gjenoppretting = headers.contains_key("HX-History-Restore-Request");
+    if skal_logges(&headers)
+        && let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal
+    {
+        tracing::info!(
+            nav_ident = ansatt.ident.as_ref(),
+            fane = valg.fane.as_str(),
+            "Visualisering vist"
+        );
+    }
     let innhold = fane_innhold(&state, &valg).await?;
     let seksjon = html::fane_seksjon(&valg, &innhold);
     let body = if er_htmx && !er_gjenoppretting {
         seksjon
     } else {
-        if let Some(Extension(Principal::NavAnsatt(ansatt))) = principal {
-            tracing::info!(nav_ident = ansatt.ident.as_ref(), "Visualisering åpnet");
-        }
         html::side(&seksjon)
     };
     Ok((
         [(header::VARY, "HX-Request, HX-History-Restore-Request")],
         Html(body),
     ))
+}
+
+/// Fanebytter, filtervalg og hele sider logges, men ikke automatisk
+/// oppdatering. Den kommer fra seksjonen med id="fane"; lenkene har ingen id.
+fn skal_logges(headers: &HeaderMap) -> bool {
+    let er_htmx = headers.get("HX-Request").is_some_and(|v| v == "true");
+    let er_polling = er_htmx && headers.get("HX-Trigger").is_some_and(|v| v == "fane");
+    !er_polling
 }
 
 async fn fane_innhold(state: &VisState, valg: &Valg) -> Result<String, StatusCode> {

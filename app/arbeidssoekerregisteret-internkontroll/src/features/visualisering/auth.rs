@@ -29,8 +29,11 @@ pub async fn auth_state(auth_config_toml: &str) -> Result<Option<Arc<AuthState>>
     Ok(Some(state))
 }
 
-/// Slipper bare gjennom innloggede Nav-ansatte. Maskin-til-maskin-tokens
-/// godtas av OAuth2-laget, men skal ikke se visualiseringen.
+/// Slipper bare gjennom tokens for en Nav-ansatt, slik at hvert oppslag har
+/// en NAV-ident å logge. Gruppen sjekkes ikke her: Entra ID utsteder bare
+/// token til medlemmer av gruppen i Nais-manifestet (`allowAllUsers: false`).
+/// Systemtokens kan ikke utstedes så lenge `accessPolicy.inbound` er tom, men
+/// avvises her i tilfelle noen legger til en regel.
 pub async fn krev_nav_ansatt(request: Request, next: Next) -> Response {
     match request.extensions().get::<Principal>() {
         Some(Principal::NavAnsatt(_)) => next.run(request).await,
