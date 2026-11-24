@@ -144,6 +144,7 @@ dependencies = [
  "eksterne_hendelser",
  "interne_hendelser",
  "itertools 0.15.0",
+ "jsonwebtoken",
  "mockito",
  "oauth2",
  "paw_kafka",

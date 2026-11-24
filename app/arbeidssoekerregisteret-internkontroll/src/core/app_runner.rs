@@ -19,9 +19,16 @@ use crate::features::innlesing::topic::{load_topic_ids, register_topics};
 use crate::features::innlesing::topic_catalog::subscribed_topics;
 use crate::features::regler::kjoring::spawn_regelkjoring;
 use crate::features::regler::regel::{alle_regler, registrer_regler};
+use crate::features::visualisering::{self, VisState};
 
 pub async fn run_app(app_context: AppContext) -> Result<(), Box<dyn Error>> {
-    let http_routes = paw_observability::server::routes(app_context.app_state.clone());
+    let vis_state = VisState {
+        pg_pool: app_context.pg_pool.clone(),
+        hwm_version: *app_context.kafka_config.hwm_version,
+    };
+    let http_routes = paw_observability::server::routes(app_context.app_state.clone()).merge(
+        visualisering::routes(vis_state, app_context.auth_state.clone()),
+    );
     let http_server_task = tokio::spawn(async move {
         let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
         axum::serve(listener, http_routes).await

@@ -14,6 +14,7 @@ use std::error::Error;
 use arbeidssoekerregisteret_internkontroll::core::app_context::AppContext;
 use arbeidssoekerregisteret_internkontroll::core::app_runner::run_app;
 use arbeidssoekerregisteret_internkontroll::features::regler::config::RegelConfig;
+use arbeidssoekerregisteret_internkontroll::features::visualisering::auth::auth_state;
 use arbeidssoekerregisteret_internkontroll::reset_db::reset_db_if_needed;
 
 #[tokio::main]
@@ -26,6 +27,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let database_config: DatabaseConfig =
         read_toml_config(read_config_file!("database_config.toml"))?;
     let regel_config: RegelConfig = read_toml_config(read_config_file!("regel_config.toml"))?;
+    let auth_state = auth_state(read_config_file!("auth_config.toml")).await?;
     let pg_pool = paw_sqlx::postgres::init_db(&database_config).await?;
     reset_db_if_needed(&pg_pool, *kafka_config.hwm_version).await?;
     sqlx::migrate!("./migrations").run(&pg_pool).await?;
@@ -41,6 +43,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         pg_pool,
         regel_config,
         signing_key_db_ids,
+        auth_state,
     );
     run_app(app_context).await
 }

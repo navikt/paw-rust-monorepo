@@ -78,7 +78,10 @@ mod tests {
     #[tokio::test]
     async fn skriver_og_henter_signeringsnoekkel() {
         let pg = setup_postgres_container().await.unwrap();
-        sqlx::migrate!("./migrations").run(&pg.pg_pool).await.unwrap();
+        sqlx::migrate!("./migrations")
+            .run(&pg.pg_pool)
+            .await
+            .unwrap();
         let mut conn = pg.pg_pool.acquire().await.unwrap();
 
         assert_eq!(get_db_id(&mut conn, "ukjent-noekkel").await.unwrap(), None);
