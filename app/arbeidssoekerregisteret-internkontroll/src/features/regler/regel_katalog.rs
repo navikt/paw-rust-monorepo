@@ -5,14 +5,16 @@ pub enum RegelId {
     IngenPeriodeUtenStartet = 2,
     MeldingHarTraceId = 3,
     StartetErSignert = 4,
+    StartetGirPeriode = 5,
 }
 
 impl RegelId {
-    pub const ALLE: [RegelId; 4] = [
+    pub const ALLE: [RegelId; 5] = [
         Self::HeleTraceSignert,
         Self::IngenPeriodeUtenStartet,
         Self::MeldingHarTraceId,
         Self::StartetErSignert,
+        Self::StartetGirPeriode,
     ];
 
     pub fn fra_i16(verdi: i16) -> Option<Self> {

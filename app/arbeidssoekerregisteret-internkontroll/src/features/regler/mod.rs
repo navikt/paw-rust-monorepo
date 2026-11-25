@@ -12,3 +12,4 @@ pub mod regel;
 pub mod regel_katalog;
 pub mod regelversjon;
 pub mod startet_er_signert;
+pub mod startet_gir_periode;

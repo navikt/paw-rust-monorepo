@@ -9,7 +9,7 @@
 //! ```
 
 use eksterne_hendelser::periode::Periode;
-use interne_hendelser::InterneHendelser;
+use interne_hendelser::{Avsluttet, InterneHendelser};
 use paw_kafka::topics::Topic;
 use paw_test::hendelse_builder::StartetBuilder;
 use rdkafka::Timestamp;
@@ -31,6 +31,15 @@ impl Innhold for StartetBuilder {
     }
     async fn payload(&self, _: &SrSettings) -> Vec<u8> {
         serde_json::to_vec(&InterneHendelser::Startet(self.build())).unwrap()
+    }
+}
+
+impl Innhold for Avsluttet {
+    fn topic(&self) -> Topic {
+        Topic::Hendelselogg
+    }
+    async fn payload(&self, _: &SrSettings) -> Vec<u8> {
+        serde_json::to_vec(&InterneHendelser::Avsluttet(self.clone())).unwrap()
     }
 }
 
