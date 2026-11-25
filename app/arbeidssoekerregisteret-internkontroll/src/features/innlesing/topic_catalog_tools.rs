@@ -6,8 +6,13 @@ use paw_kafka::{
 };
 use paw_rust_base::env::RuntimeEnv;
 
-///2026-10-01T00:00:00Z as unixtimestamp in milllis
-const DEFAULT_SIGNING_REQUIRED_FROM_TIMESTAMP_MS: i64 = 1767312000000;
+const DEFAULT_SIGNING_REQUIRED_FROM: &str = "2026-10-01T00:00:00Z";
+
+fn rfc3339_ms(time: &str) -> i64 {
+    time.parse::<chrono::DateTime<chrono::Utc>>()
+        .expect("Invalid timestamp format")
+        .timestamp_millis()
+}
 
 pub struct SigningReqiredFromTimestampMS(i64);
 
@@ -57,12 +62,12 @@ impl TopicConfig {
             topic,
             backup_required,
             priority: None,
-            dev_signing_required_from: SigningReqiredFromTimestampMS(
-                DEFAULT_SIGNING_REQUIRED_FROM_TIMESTAMP_MS,
-            ),
-            prod_signing_required_from: SigningReqiredFromTimestampMS(
-                DEFAULT_SIGNING_REQUIRED_FROM_TIMESTAMP_MS,
-            ),
+            dev_signing_required_from: SigningReqiredFromTimestampMS(rfc3339_ms(
+                DEFAULT_SIGNING_REQUIRED_FROM,
+            )),
+            prod_signing_required_from: SigningReqiredFromTimestampMS(rfc3339_ms(
+                DEFAULT_SIGNING_REQUIRED_FROM,
+            )),
         }
     }
 
@@ -76,10 +81,7 @@ impl TopicConfig {
     /// Example timestamp "2026-10-01T00:00:00Z";
     #[allow(dead_code, reason = "Bare defaults are i bruk")]
     pub fn with_dev_signing_required_from(self, time: &'static str) -> Self {
-        let timestamp_ms = time
-            .parse::<chrono::DateTime<chrono::Utc>>()
-            .expect("Invalid timestamp format")
-            .timestamp_millis();
+        let timestamp_ms = rfc3339_ms(time);
         Self {
             dev_signing_required_from: SigningReqiredFromTimestampMS(timestamp_ms),
             ..self
@@ -89,10 +91,7 @@ impl TopicConfig {
     /// Example timestamp "2026-10-01T00:00:00Z";
     #[allow(dead_code, reason = "Bare defaults are i bruk")]
     pub fn with_prod_signing_required_from(self, time: &'static str) -> Self {
-        let timestamp_ms = time
-            .parse::<chrono::DateTime<chrono::Utc>>()
-            .expect("Invalid timestamp format")
-            .timestamp_millis();
+        let timestamp_ms = rfc3339_ms(time);
         Self {
             prod_signing_required_from: SigningReqiredFromTimestampMS(timestamp_ms),
             ..self
