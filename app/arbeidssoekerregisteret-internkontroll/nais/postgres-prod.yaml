@@ -5,5 +5,5 @@ spec:
   majorVersion: "18"
   resources:
     cpu: 1000m
-    diskSize: 100Gi
+    diskSize: 25Gi
     memory: 4Gi
