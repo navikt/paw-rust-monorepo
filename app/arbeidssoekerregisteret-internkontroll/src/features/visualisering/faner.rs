@@ -1,14 +1,12 @@
-//! HTML for toppfeltet og hver fane. Tekst fra databasen (topic-navn,
-//! nøkkel-ID, meldingstype) escapes. Resten er tall, UUID-er eller faste tekster.
+//! HTML for toppfeltet og hver fane. Maud escaper tekst fra databasen
+//! (topic-navn, nøkkel-ID, meldingstype).
 
-use std::fmt::Write;
+use maud::{Markup, html};
 
 use crate::features::innlesing::metadata::signature::SignatureStatus;
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
 
-use super::html::{
-    Fane, Valg, alvorlighet_navn, escape_html, regel_navn, tidspunkt_tekst, varighet_tekst,
-};
+use super::html::{Fane, Valg, alvorlighet_navn, regel_navn, tidspunkt_tekst, varighet_tekst};
 use super::sporringer::{
     FunnAntall, FunnRad, MAKS_FUNN_I_LISTE, MAKS_SIGNATURFEIL_I_LISTE, ManglerTraceId, RegelStatus,
     SignaturAntall, Signaturfeil, TopicStatus, Toppfelt,
@@ -16,194 +14,139 @@ use super::sporringer::{
 
 const STREK: &str = "–";
 
-pub fn toppfelt(t: &Toppfelt) -> String {
-    format!(
-        r#"<ul class="nokkeltall">
-<li><span class="dempet">Stream-tid</span><span class="verdi">{}</span></li>
-<li class="kritisk"><span class="dempet">Kritiske funn</span><span class="verdi">{}</span></li>
-<li class="advarsel"><span class="dempet">Advarsler</span><span class="verdi">{}</span></li>
-<li><span class="dempet">Signaturfeil</span><span class="verdi">{}</span></li>
-</ul>"#,
-        tidspunkt_tekst(t.stream_ms),
-        t.kritiske_funn,
-        t.advarsler,
-        t.signaturfeil,
-    )
+pub fn toppfelt(t: &Toppfelt) -> Markup {
+    html! {
+        ul.nokkeltall {
+            li { span.dempet { "Stream-tid" } span.verdi { (tidspunkt_tekst(t.stream_ms)) } }
+            li.kritisk { span.dempet { "Kritiske funn" } span.verdi { (t.kritiske_funn) } }
+            li.advarsel { span.dempet { "Advarsler" } span.verdi { (t.advarsler) } }
+            li { span.dempet { "Signaturfeil" } span.verdi { (t.signaturfeil) } }
+        }
+    }
 }
 
-pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Option<i64>) -> String {
-    let mut html = String::from("<h2>Regler</h2>");
-    if regler.is_empty() {
-        html.push_str("<p>Ingen regler har registrert fremdrift ennå.</p>");
-    } else {
-        html.push_str(
-            r#"<p class="dempet">Meldinger bak regnes bare for partisjoner regelen har startet på.</p>
-<div class="tabell"><table><thead><tr><th>Regel</th><th class="tall">Versjon</th><th class="tall">Partisjoner</th>
-<th class="tall">Meldinger bak</th><th>Eldste stream-tid</th><th class="tall">Tid bak</th><th class="tall">Funn</th></tr></thead><tbody>"#,
-        );
-        for r in regler {
-            let tid_bak = stream_ms
-                .zip(r.eldste_stream_ms)
-                .map_or(STREK.to_string(), |(naa, regel)| {
-                    varighet_tekst(naa - regel)
-                });
-            let _ = write!(
-                html,
-                r##"<tr><td>{}</td><td class="tall">{}</td><td class="tall">{}</td><td class="tall">{}</td><td>{}</td><td class="tall">{}</td><td class="tall"><a href="{url}" hx-get="{url}" hx-target="#fane" hx-swap="outerHTML" hx-push-url="true">{}</a></td></tr>"##,
-                regel_navn(r.regel),
-                r.regelversjon,
-                r.partisjoner,
-                r.meldinger_bak,
-                tidspunkt_tekst(r.eldste_stream_ms),
-                tid_bak,
-                r.antall_funn,
-                url = Valg {
-                    fane: Fane::Funn,
-                    regel: Some(r.regel as i16),
-                    alvorlighet: None,
+pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Option<i64>) -> Markup {
+    html! {
+        h2 { "Regler" }
+        @if regler.is_empty() {
+            p { "Ingen regler har registrert fremdrift ennå." }
+        } @else {
+            p.dempet { "Meldinger bak regnes bare for partisjoner regelen har startet på." }
+            div.tabell { table {
+                thead { tr {
+                    th { "Regel" } th.tall { "Versjon" } th.tall { "Partisjoner" }
+                    th.tall { "Meldinger bak" } th { "Eldste stream-tid" } th.tall { "Tid bak" } th.tall { "Funn" }
+                } }
+                tbody { @for r in regler {
+                    @let tid_bak = stream_ms
+                        .zip(r.eldste_stream_ms)
+                        .map_or(STREK.to_string(), |(naa, regel)| varighet_tekst(naa - regel));
+                    @let funn_url = Valg { fane: Fane::Funn, regel: Some(r.regel as i16), alvorlighet: None }.url();
+                    tr {
+                        td { (regel_navn(r.regel)) }
+                        td.tall { (r.regelversjon) }
+                        td.tall { (r.partisjoner) }
+                        td.tall { (r.meldinger_bak) }
+                        td { (tidspunkt_tekst(r.eldste_stream_ms)) }
+                        td.tall { (tid_bak) }
+                        td.tall { a href=(funn_url) { (r.antall_funn) } }
+                    }
+                } }
+            } }
+        }
+        h2 { "Topics" }
+        div.tabell { table {
+            thead { tr {
+                th { "Topic" } th.tall { "Partisjoner med stream-tid" }
+                th { "Eldste stream-tid" } th { "Nyeste stream-tid" }
+            } }
+            tbody { @for t in topics {
+                tr {
+                    td { (t.topic) }
+                    td.tall { (t.partisjoner) }
+                    td { (tidspunkt_tekst(t.eldste_stream_ms)) }
+                    td { (tidspunkt_tekst(t.nyeste_stream_ms)) }
                 }
-                .url(),
-            );
-        }
-        html.push_str("</tbody></table></div>");
+            } }
+        } }
     }
-    html.push_str("<h2>Topics</h2>");
-    html.push_str(
-        r#"<div class="tabell"><table><thead><tr><th>Topic</th><th class="tall">Partisjoner med stream-tid</th>
-<th>Eldste stream-tid</th><th>Nyeste stream-tid</th></tr></thead><tbody>"#,
-    );
-    for t in topics {
-        let _ = write!(
-            html,
-            r#"<tr><td>{}</td><td class="tall">{}</td><td>{}</td><td>{}</td></tr>"#,
-            escape_html(&t.topic),
-            t.partisjoner,
-            tidspunkt_tekst(t.eldste_stream_ms),
-            tidspunkt_tekst(t.nyeste_stream_ms),
-        );
-    }
-    html.push_str("</tbody></table></div>");
-    html
 }
 
-/// Lenke som bytter fanen til et nytt filtervalg.
-fn filterlenke(valg: Valg, aktiv: bool, tekst: &str) -> String {
-    let url = valg.url();
-    let aktiv = if aktiv { r#" aria-current="true""# } else { "" };
-    format!(
-        r##"<a href="{url}" hx-get="{url}" hx-target="#fane" hx-swap="outerHTML" hx-push-url="true"{aktiv}>{tekst}</a>"##
-    )
+fn filterlenke(valg: Valg, aktiv: bool, tekst: &str) -> Markup {
+    html! { a href=(valg.url()) aria-current=[aktiv.then_some("true")] { (tekst) } }
 }
 
-pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> String {
+pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
     let regel = valg.regel.and_then(RegelId::fra_i16);
-    let mut html = String::from("<h2>Antall funn</h2>");
-    if antall.is_empty() {
-        html.push_str("<p>Ingen funn.</p>");
-    } else {
-        html.push_str(
-            r#"<div class="tabell"><table><thead><tr><th>Regel</th><th class="tall">Versjon</th>"#,
-        );
-        for a in Alvorlighet::ALLE {
-            let _ = write!(html, r#"<th class="tall">{}</th>"#, alvorlighet_navn(a));
+    let mut regelversjoner: Vec<_> = antall.iter().map(|a| (a.regel, a.regelversjon)).collect();
+    regelversjoner.dedup();
+    let antall_for = |nokkel, a| {
+        antall
+            .iter()
+            .filter(|x| (x.regel, x.regelversjon) == nokkel && x.alvorlighet == a)
+            .map(|x| x.antall)
+            .sum::<i64>()
+    };
+    html! {
+        h2 { "Antall funn" }
+        @if antall.is_empty() {
+            p { "Ingen funn." }
+        } @else {
+            div.tabell { table {
+                thead { tr {
+                    th { "Regel" } th.tall { "Versjon" }
+                    @for a in Alvorlighet::ALLE { th.tall { (alvorlighet_navn(a)) } }
+                } }
+                tbody { @for nokkel in &regelversjoner {
+                    tr {
+                        td { (regel_navn(nokkel.0)) }
+                        td.tall { (nokkel.1) }
+                        @for a in Alvorlighet::ALLE { td.tall { (antall_for(*nokkel, a)) } }
+                    }
+                } }
+            } }
         }
-        html.push_str("</tr></thead><tbody>");
-        let mut forrige = None;
-        for rad in antall {
-            let nokkel = (rad.regel, rad.regelversjon);
-            if forrige == Some(nokkel) {
-                continue;
+
+        h2 { "Siste funn" }
+        nav.filter aria-label="Regel" {
+            (filterlenke(Valg { regel: None, ..*valg }, regel.is_none(), "Alle regler"))
+            @for r in RegelId::ALLE {
+                (filterlenke(Valg { regel: Some(r as i16), ..*valg }, regel == Some(r), regel_navn(r)))
             }
-            forrige = Some(nokkel);
-            let _ = write!(
-                html,
-                r#"<tr><td>{}</td><td class="tall">{}</td>"#,
-                regel_navn(rad.regel),
-                rad.regelversjon
-            );
-            for a in Alvorlighet::ALLE {
-                let n = antall
-                    .iter()
-                    .filter(|x| (x.regel, x.regelversjon) == nokkel && x.alvorlighet == a)
-                    .map(|x| x.antall)
-                    .sum::<i64>();
-                let _ = write!(html, r#"<td class="tall">{n}</td>"#);
-            }
-            html.push_str("</tr>");
         }
-        html.push_str("</tbody></table></div>");
+        nav.filter aria-label="Alvorlighet" {
+            (filterlenke(Valg { alvorlighet: None, ..*valg }, valg.alvorlighet.is_none(), "Alle alvorligheter"))
+            @for a in Alvorlighet::ALLE {
+                (filterlenke(Valg { alvorlighet: Some(a), ..*valg }, valg.alvorlighet == Some(a), alvorlighet_navn(a)))
+            }
+        }
+        @if rader.is_empty() {
+            p { "Ingen funn med dette filteret." }
+        } @else {
+            p.dempet { "Maks " (MAKS_FUNN_I_LISTE) ", mest alvorlige og nyeste først." }
+            div.tabell { table {
+                thead { tr {
+                    th { "Alvorlighet" } th { "Regel" } th.tall { "Versjon" } th.tall { "Kode" }
+                    th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" }
+                    th { "Tidspunkt (Kafka)" } th { "Meldingstype" } th { "Trace-ID" }
+                } }
+                tbody { @for f in rader {
+                    tr {
+                        td { (alvorlighet_navn(f.alvorlighet)) }
+                        td { (regel_navn(f.regel)) }
+                        td.tall { (f.regelversjon) }
+                        td.tall { (f.kode) }
+                        td { (f.topic) }
+                        td.tall { (f.record_partition) }
+                        td.tall { (f.record_offset) }
+                        td { (tidspunkt_tekst(f.record_timestamp_ms)) }
+                        td { (f.meldingstype.as_deref().unwrap_or(STREK)) }
+                        td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                    }
+                } }
+            } }
+        }
     }
-
-    html.push_str("<h2>Siste funn</h2><div class=\"filter\" aria-label=\"Regel\">");
-    html.push_str(&filterlenke(
-        Valg {
-            regel: None,
-            ..*valg
-        },
-        regel.is_none(),
-        "Alle regler",
-    ));
-    for r in RegelId::ALLE {
-        html.push_str(&filterlenke(
-            Valg {
-                regel: Some(r as i16),
-                ..*valg
-            },
-            regel == Some(r),
-            regel_navn(r),
-        ));
-    }
-    html.push_str("</div><div class=\"filter\" aria-label=\"Alvorlighet\">");
-    html.push_str(&filterlenke(
-        Valg {
-            alvorlighet: None,
-            ..*valg
-        },
-        valg.alvorlighet.is_none(),
-        "Alle alvorligheter",
-    ));
-    for a in Alvorlighet::ALLE {
-        html.push_str(&filterlenke(
-            Valg {
-                alvorlighet: Some(a),
-                ..*valg
-            },
-            valg.alvorlighet == Some(a),
-            alvorlighet_navn(a),
-        ));
-    }
-    html.push_str("</div>");
-
-    if rader.is_empty() {
-        html.push_str("<p>Ingen funn med dette filteret.</p>");
-        return html;
-    }
-    let _ = write!(
-        html,
-        r#"<p class="dempet">Maks {MAKS_FUNN_I_LISTE}, mest alvorlige og nyeste først.</p>
-<div class="tabell"><table><thead><tr><th>Alvorlighet</th><th>Regel</th><th class="tall">Versjon</th><th class="tall">Kode</th>
-<th>Topic</th><th class="tall">Partisjon</th><th class="tall">Offset</th><th>Tidspunkt (Kafka)</th><th>Meldingstype</th><th>Trace-ID</th></tr></thead><tbody>"#
-    );
-    for f in rader {
-        let _ = write!(
-            html,
-            r#"<tr><td>{}</td><td>{}</td><td class="tall">{}</td><td class="tall">{}</td><td>{}</td><td class="tall">{}</td><td class="tall">{}</td><td>{}</td><td>{}</td><td class="mono">{}</td></tr>"#,
-            alvorlighet_navn(f.alvorlighet),
-            regel_navn(f.regel),
-            f.regelversjon,
-            f.kode,
-            escape_html(&f.topic),
-            f.record_partition,
-            f.record_offset,
-            tidspunkt_tekst(f.record_timestamp_ms),
-            f.meldingstype
-                .as_deref()
-                .map_or(STREK.to_string(), escape_html),
-            f.trace_id.map_or(STREK.to_string(), |t| t.to_string()),
-        );
-    }
-    html.push_str("</tbody></table></div>");
-    html
 }
 
 fn signatur_status_tekst(status: SignatureStatus) -> &'static str {
@@ -240,71 +183,65 @@ fn signatur_problem(status: SignatureStatus) -> &'static str {
     }
 }
 
-pub fn signatur(antall: &[SignaturAntall], feil: &[Signaturfeil]) -> String {
-    let mut html = String::from(
-        "<h2>Signaturfeil per topic</h2>\
-         <p class=\"dempet\">Usignerte meldinger fra før signatur ble påkrevd regnes ikke som feil.</p>",
-    );
-    if antall.is_empty() {
-        html.push_str("<p>Ingen meldinger har feilet signaturvalidering.</p>");
-        return html;
+pub fn signatur(antall: &[SignaturAntall], feil: &[Signaturfeil]) -> Markup {
+    html! {
+        h2 { "Signaturfeil per topic" }
+        p.dempet { "Usignerte meldinger fra før signatur ble påkrevd regnes ikke som feil." }
+        @if antall.is_empty() {
+            p { "Ingen meldinger har feilet signaturvalidering." }
+        } @else {
+            div.tabell { table {
+                thead { tr { th { "Topic" } th { "Status" } th.tall { "Antall" } } }
+                tbody { @for a in antall {
+                    tr {
+                        td { (a.topic) }
+                        td { (signatur_status_tekst(a.signature_status)) }
+                        td.tall { (a.antall) }
+                    }
+                } }
+            } }
+            h2 { "Siste signaturfeil" }
+            p.dempet { "De " (MAKS_SIGNATURFEIL_I_LISTE) " siste, nyeste først." }
+            div.tabell { table {
+                thead { tr {
+                    th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" } th { "Tidspunkt (Kafka)" }
+                    th { "Status" } th { "Problem" } th { "Nøkkel-ID" } th { "Trace-ID" }
+                } }
+                tbody { @for f in feil {
+                    tr {
+                        td { (f.topic) }
+                        td.tall { (f.record_partition) }
+                        td.tall { (f.record_offset) }
+                        td { (tidspunkt_tekst(f.record_timestamp_ms)) }
+                        td { (signatur_status_tekst(f.signature_status)) }
+                        td.bryt { (signatur_problem(f.signature_status)) }
+                        td { (f.key_id.as_deref().unwrap_or(STREK)) }
+                        td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                    }
+                } }
+            } }
+        }
     }
-    html.push_str(
-        r#"<div class="tabell"><table><thead><tr><th>Topic</th><th>Status</th><th class="tall">Antall</th></tr></thead><tbody>"#,
-    );
-    for a in antall {
-        let _ = write!(
-            html,
-            r#"<tr><td>{}</td><td>{}</td><td class="tall">{}</td></tr>"#,
-            escape_html(&a.topic),
-            signatur_status_tekst(a.signature_status),
-            a.antall,
-        );
-    }
-    let _ = write!(
-        html,
-        r#"</tbody></table></div><h2>Siste signaturfeil</h2><p class="dempet">De {MAKS_SIGNATURFEIL_I_LISTE} siste, nyeste først.</p>
-<div class="tabell"><table><thead><tr><th>Topic</th><th class="tall">Partisjon</th><th class="tall">Offset</th><th>Tidspunkt (Kafka)</th>
-<th>Status</th><th>Problem</th><th>Nøkkel-ID</th><th>Trace-ID</th></tr></thead><tbody>"#
-    );
-    for f in feil {
-        let _ = write!(
-            html,
-            r#"<tr><td>{}</td><td class="tall">{}</td><td class="tall">{}</td><td>{}</td><td>{}</td><td class="bryt">{}</td><td>{}</td><td class="mono">{}</td></tr>"#,
-            escape_html(&f.topic),
-            f.record_partition,
-            f.record_offset,
-            tidspunkt_tekst(f.record_timestamp_ms),
-            signatur_status_tekst(f.signature_status),
-            signatur_problem(f.signature_status),
-            f.key_id.as_deref().map_or(STREK.to_string(), escape_html),
-            f.trace_id.map_or(STREK.to_string(), |t| t.to_string()),
-        );
-    }
-    html.push_str("</tbody></table></div>");
-    html
 }
 
-pub fn trace(rader: &[ManglerTraceId]) -> String {
-    let mut html = String::from("<h2>Meldinger uten trace_id</h2>");
-    if rader.is_empty() {
-        html.push_str("<p>Alle meldinger har trace_id.</p>");
-        return html;
+pub fn trace(rader: &[ManglerTraceId]) -> Markup {
+    html! {
+        h2 { "Meldinger uten trace_id" }
+        @if rader.is_empty() {
+            p { "Alle meldinger har trace_id." }
+        } @else {
+            div.tabell { table {
+                thead { tr { th { "Topic" } th.tall { "Antall" } th { "Siste tidspunkt (Kafka)" } } }
+                tbody { @for r in rader {
+                    tr {
+                        td { (r.topic) }
+                        td.tall { (r.antall) }
+                        td { (tidspunkt_tekst(r.siste_timestamp_ms)) }
+                    }
+                } }
+            } }
+        }
     }
-    html.push_str(
-        r#"<div class="tabell"><table><thead><tr><th>Topic</th><th class="tall">Antall</th><th>Siste tidspunkt (Kafka)</th></tr></thead><tbody>"#,
-    );
-    for r in rader {
-        let _ = write!(
-            html,
-            r#"<tr><td>{}</td><td class="tall">{}</td><td>{}</td></tr>"#,
-            escape_html(&r.topic),
-            r.antall,
-            tidspunkt_tekst(r.siste_timestamp_ms),
-        );
-    }
-    html.push_str("</tbody></table></div>");
-    html
 }
 
 #[cfg(test)]
@@ -329,7 +266,8 @@ mod tests {
                 key_id: Some("<i>".into()),
                 trace_id: None,
             }],
-        );
+        )
+        .into_string();
         assert!(!html.contains("<b>"));
         assert!(!html.contains("<i>"));
         assert!(html.contains("&lt;i&gt;"));
@@ -338,7 +276,8 @@ mod tests {
             topic: "<script>".into(),
             antall: 3,
             siste_timestamp_ms: Some(0),
-        }]);
+        }])
+        .into_string();
         assert!(!html.contains("<script>"));
     }
 
@@ -363,7 +302,7 @@ mod tests {
                 antall: 2,
             },
         ];
-        let html = funn(&valg, &antall, &[]);
+        let html = funn(&valg, &antall, &[]).into_string();
         assert_eq!(html.matches("<td>Melding har trace_id</td>").count(), 1);
         assert!(
             html.contains(
@@ -387,7 +326,8 @@ mod tests {
             }],
             &[],
             Some(4_000),
-        );
+        )
+        .into_string();
         assert!(html.contains(r#"<td class="tall">3s</td>"#));
         assert!(html.contains(r#"<td class="tall">7</td>"#));
     }

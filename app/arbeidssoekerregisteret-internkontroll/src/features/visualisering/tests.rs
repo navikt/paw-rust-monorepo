@@ -6,7 +6,6 @@ use axum::{
     Router,
     body::Body,
     http::{Request, StatusCode, header},
-    routing::get,
 };
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, encode};
 use paw_oauth2_resource_server::oauth2::{
@@ -15,7 +14,7 @@ use paw_oauth2_resource_server::oauth2::{
 };
 use tower::ServiceExt;
 
-use super::{VisState, routes, sikkerhet::sikkerhetslag, skal_logges};
+use super::{VisState, routes};
 
 const NOKKEL: &str = "test-hemmelighet-som-bare-brukes-i-tester";
 const UTSTEDER: &str = "https://issuer.invalid";
@@ -27,8 +26,9 @@ const RUTER: &[&str] = &[
     "/stats",
     "/stats/",
     "/stats/?fane=funn",
-    "/stats/toppfelt",
-    "/stats/static/htmx.min.js",
+    "/stats/fragment/fane?fane=trace",
+    "/stats/fragment/toppfelt",
+    "/stats/static/oppdater.js",
     "/stats/static/app.css",
 ];
 
@@ -133,7 +133,7 @@ async fn systemtoken_avvises() {
 async fn nav_ansatt_slipper_inn() {
     let app = routes(state(), Some(auth_state()));
     let token = nav_ansatt_token();
-    for sti in ["/stats/static/htmx.min.js", "/stats/static/app.css"] {
+    for sti in ["/stats/static/oppdater.js", "/stats/static/app.css"] {
         let response = get_med(&app, sti, Some(&token)).await;
         assert_eq!(response.status(), StatusCode::OK, "{sti}");
     }
@@ -149,8 +149,9 @@ async fn sikkerhetsheadere_settes() {
     assert_eq!(h[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
     assert_eq!(h[header::CACHE_CONTROL], "no-store");
     let csp = h[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
-    assert!(csp.starts_with("default-src 'self'"));
-    assert!(!csp.contains("unsafe-inline"));
+    assert!(csp.starts_with("default-src 'none'"));
+    assert!(csp.contains("script-src 'self'"));
+    assert!(!csp.contains("unsafe"));
 }
 
 #[tokio::test]
@@ -161,47 +162,10 @@ async fn ugyldige_valg_avvises_foer_databasen() {
         "/stats/?fane=funn&regel=999",
         "/stats/?fane=funn&regel=abc",
         "/stats/?fane=funn&alvorlighet=alvorlig",
+        "/stats/fragment/fane?fane=ukjent",
+        "/stats/fragment/fane?fane=funn&regel=999",
     ] {
         let response = get_med(&app, sti, None).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{sti}");
     }
-}
-
-#[tokio::test]
-async fn hx_redirect_bare_for_htmx_ved_401() {
-    let app = sikkerhetslag(Router::new().route("/x", get(|| async { StatusCode::UNAUTHORIZED })));
-    let kall = |htmx: bool| {
-        let mut req = Request::get("/x");
-        if htmx {
-            req = req.header("HX-Request", "true");
-        }
-        app.clone().oneshot(req.body(Body::empty()).unwrap())
-    };
-    let med = kall(true).await.unwrap();
-    assert_eq!(med.status(), StatusCode::UNAUTHORIZED);
-    assert_eq!(med.headers()["HX-Redirect"], "/stats/");
-    assert!(
-        !kall(false)
-            .await
-            .unwrap()
-            .headers()
-            .contains_key("HX-Redirect")
-    );
-}
-
-#[test]
-fn polling_logges_ikke() {
-    let headere = |par: &[(&'static str, &'static str)]| {
-        let mut h = axum::http::HeaderMap::new();
-        for (k, v) in par {
-            h.insert(*k, v.parse().unwrap());
-        }
-        h
-    };
-    assert!(skal_logges(&headere(&[])));
-    assert!(skal_logges(&headere(&[("HX-Request", "true")])));
-    assert!(!skal_logges(&headere(&[
-        ("HX-Request", "true"),
-        ("HX-Trigger", "fane")
-    ])));
 }

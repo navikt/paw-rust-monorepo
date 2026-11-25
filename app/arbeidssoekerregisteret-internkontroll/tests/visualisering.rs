@@ -21,11 +21,8 @@ use paw_rust_base::env::RuntimeEnv;
 use paw_test::hendelse_builder::StartetBuilder;
 use tower::ServiceExt;
 
-async fn hent(app: &Router, sti: &str, htmx: bool) -> (StatusCode, String) {
-    let mut req = Request::get(sti);
-    if htmx {
-        req = req.header("HX-Request", "true");
-    }
+async fn hent(app: &Router, sti: &str) -> (StatusCode, String) {
+    let req = Request::get(sti);
     let response = app
         .clone()
         .oneshot(req.body(Body::empty()).unwrap())
@@ -66,7 +63,7 @@ async fn alle_faner_viser_innlest_data() {
     let (_app, router) = app_med_data().await;
     let topic = topic_navn(&Topic::Hendelselogg);
 
-    let (status, html) = hent(&router, "/stats/toppfelt", true).await;
+    let (status, html) = hent(&router, "/stats/fragment/toppfelt").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         html.contains("Advarsler</span><span class=\"verdi\">1</span>"),
@@ -77,28 +74,32 @@ async fn alle_faner_viser_innlest_data() {
         "{html}"
     );
 
-    let (status, html) = hent(&router, "/stats/?fane=oversikt", true).await;
+    let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("<td>Melding har trace_id</td>"), "{html}");
     assert!(!html.contains("<!DOCTYPE html>"));
 
     for sti in [
-        "/stats/?fane=funn",
-        "/stats/?fane=funn&regel=3",
-        "/stats/?fane=funn&regel=3&alvorlighet=advarsel",
+        "/stats/fragment/fane?fane=funn",
+        "/stats/fragment/fane?fane=funn&regel=3",
+        "/stats/fragment/fane?fane=funn&regel=3&alvorlighet=advarsel",
     ] {
-        let (status, html) = hent(&router, sti, true).await;
+        let (status, html) = hent(&router, sti).await;
         assert_eq!(status, StatusCode::OK, "{sti}");
         assert!(html.contains(&format!("<td>{topic}</td>")), "{sti}: {html}");
     }
-    let (_, html) = hent(&router, "/stats/?fane=funn&alvorlighet=kritisk", true).await;
+    let (_, html) = hent(
+        &router,
+        "/stats/fragment/fane?fane=funn&alvorlighet=kritisk",
+    )
+    .await;
     assert!(html.contains("Ingen funn med dette filteret."));
 
-    let (status, html) = hent(&router, "/stats/?fane=signatur", true).await;
+    let (status, html) = hent(&router, "/stats/fragment/fane?fane=signatur").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("Mangler signatur"), "{html}");
 
-    let (status, html) = hent(&router, "/stats/?fane=trace", true).await;
+    let (status, html) = hent(&router, "/stats/fragment/fane?fane=trace").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         html.contains(&format!("<td>{topic}</td><td class=\"tall\">1</td>")),
@@ -107,10 +108,16 @@ async fn alle_faner_viser_innlest_data() {
 }
 
 #[tokio::test]
-async fn vanlig_navigasjon_gir_hele_siden() {
+async fn hele_siden_virker_uten_javascript() {
     let (_app, router) = app_med_data().await;
-    let (status, html) = hent(&router, "/stats/?fane=trace", false).await;
+    let (status, html) = hent(&router, "/stats/?fane=trace").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.starts_with("<!DOCTYPE html>"));
     assert!(html.contains(r#"aria-current="page">Trace</a>"#));
+    // Toppfelt og fane er rendret på serveren, så siden virker uten JavaScript.
+    assert!(html.contains("Signaturfeil</span><span class=\"verdi\">1</span>"));
+    assert!(html.contains("<h2>Meldinger uten trace_id</h2>"));
+    // Eneste skript er vårt eget, og ingen inline-skript.
+    assert_eq!(html.matches("<script").count(), 1);
+    assert!(html.contains(r#"<script src="/stats/static/oppdater.js" defer></script>"#));
 }

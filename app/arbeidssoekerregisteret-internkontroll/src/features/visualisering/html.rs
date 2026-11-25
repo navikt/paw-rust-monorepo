@@ -1,11 +1,15 @@
-//! HTML-byggeklosser. All tekst som ikke er en fast streng i koden, skal
-//! gjennom [`escape_html`] før den havner i HTML-en.
+//! Felles byggeklosser for siden. Maud escaper alt som settes inn med `( … )`.
 
 use std::fmt::Write;
 
+use maud::{DOCTYPE, Markup, html};
 use serde::Deserialize;
 
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
+
+/// Sekunder mellom hver automatiske oppdatering.
+const FANE_INTERVALL: u32 = 30;
+const TOPPFELT_INTERVALL: u32 = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -57,33 +61,27 @@ impl Valg {
         }
     }
 
-    /// URL til valget, klar til bruk i et HTML-attributt. Bygges bare av
-    /// enum-verdier og tall, aldri av tekst fra requesten.
-    pub fn url(&self) -> String {
-        let mut url = format!("/stats/?fane={}", self.fane.as_str());
+    /// Bygges bare av enum-verdier og tall, aldri av tekst fra requesten.
+    fn query(&self) -> String {
+        let mut q = format!("fane={}", self.fane.as_str());
         if let Some(regel) = self.regel {
-            let _ = write!(url, "&amp;regel={regel}");
+            let _ = write!(q, "&regel={regel}");
         }
         if let Some(alvorlighet) = self.alvorlighet {
-            let _ = write!(url, "&amp;alvorlighet={}", alvorlighet.as_str());
+            let _ = write!(q, "&alvorlighet={}", alvorlighet.as_str());
         }
-        url
+        q
     }
-}
 
-pub fn escape_html(s: &str) -> String {
-    let mut ut = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => ut.push_str("&amp;"),
-            '<' => ut.push_str("&lt;"),
-            '>' => ut.push_str("&gt;"),
-            '"' => ut.push_str("&quot;"),
-            '\'' => ut.push_str("&#39;"),
-            _ => ut.push(c),
-        }
+    /// Lenke til hele siden med dette valget.
+    pub fn url(&self) -> String {
+        format!("/stats/?{}", self.query())
     }
-    ut
+
+    /// Bare faneinnholdet, for automatisk oppdatering.
+    pub fn fragment_url(&self) -> String {
+        format!("/stats/fragment/fane?{}", self.query())
+    }
 }
 
 pub fn tidspunkt_tekst(ms: Option<i64>) -> String {
@@ -126,70 +124,49 @@ pub fn alvorlighet_navn(alvorlighet: Alvorlighet) -> &'static str {
     }
 }
 
-/// Hele siden. Toppfeltet hentes av HTMX, fanen rendres med en gang.
-pub fn side(fane_seksjon: &str) -> String {
-    format!(
-        r#"<!DOCTYPE html>
-<html lang="nb">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="htmx-config" content='{{"includeIndicatorStyles":false,"historyCacheSize":0}}'>
-    <title>Internkontroll</title>
-    <link rel="stylesheet" href="/stats/static/app.css">
-    <script src="/stats/static/htmx.min.js"></script>
-</head>
-<body>
-    <main>
-        <h1>Internkontroll</h1>
-        <p>Internkontroll for arbeidssøkerregisteret. Siden viser hvor langt innlesing og regelkjøring har kommet, og hvilke avvik som er funnet. Tallene oppdateres automatisk.</p>
-        <section id="toppfelt" aria-label="Nøkkeltall" hx-get="/stats/toppfelt" hx-trigger="load, every 60s">
-            <p class="dempet">Laster nøkkeltall …</p>
-        </section>
-        {fane_seksjon}
-    </main>
-</body>
-</html>"#
-    )
-}
-
-/// Fanevelger og innholdet i valgt fane. Byttes ut i sin helhet ved fanebytte,
-/// filtervalg og polling, slik at URL-en for pollingen alltid følger valget.
-pub fn fane_seksjon(valg: &Valg, innhold: &str) -> String {
-    let mut html = format!(
-        r#"<section id="fane" hx-get="{}" hx-trigger="every 30s" hx-swap="outerHTML">
-<nav class="faner" aria-label="Faner">"#,
-        valg.url()
-    );
-    for fane in Fane::ALLE {
-        let url = Valg::fane(fane).url();
-        let aktiv = if fane == valg.fane {
-            r#" aria-current="page""#
-        } else {
-            ""
-        };
-        let _ = write!(
-            html,
-            r##"<a href="{url}" hx-get="{url}" hx-target="#fane" hx-swap="outerHTML" hx-push-url="true"{aktiv}>{}</a>"##,
-            fane.navn()
-        );
+/// Hele siden. Virker uten JavaScript; `oppdater.js` henter bare nye tall.
+pub fn side(valg: &Valg, toppfelt: Markup, innhold: Markup) -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="nb" {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { "Internkontroll" }
+                link rel="stylesheet" href="/stats/static/app.css";
+                script src="/stats/static/oppdater.js" defer {}
+            }
+            body {
+                main {
+                    h1 { "Internkontroll" }
+                    p {
+                        "Internkontroll for arbeidssøkerregisteret. Siden viser hvor langt innlesing "
+                        "og regelkjøring har kommet, og hvilke avvik som er funnet. Tallene oppdateres automatisk."
+                    }
+                    section #toppfelt aria-label="Nøkkeltall"
+                        data-oppdater="/stats/fragment/toppfelt" data-intervall=(TOPPFELT_INTERVALL) {
+                        (toppfelt)
+                    }
+                    nav.faner aria-label="Faner" {
+                        @for fane in Fane::ALLE {
+                            a href=(Valg::fane(fane).url())
+                                aria-current=[(fane == valg.fane).then_some("page")] {
+                                (fane.navn())
+                            }
+                        }
+                    }
+                    section #fane data-oppdater=(valg.fragment_url()) data-intervall=(FANE_INTERVALL) {
+                        (innhold)
+                    }
+                }
+            }
+        }
     }
-    let _ = write!(html, "</nav>\n<div>{innhold}</div>\n</section>");
-    html
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn escape_html_escaper_alle_spesialtegn() {
-        assert_eq!(
-            escape_html("<script>&'\"x"),
-            "&lt;script&gt;&amp;&#39;&quot;x"
-        );
-        assert_eq!(escape_html("æøå"), "æøå");
-    }
 
     #[test]
     fn varighet_formateres_etter_storrelse() {
@@ -208,22 +185,31 @@ mod tests {
     }
 
     #[test]
-    fn url_kombinerer_filtre_og_escaper_skilletegn() {
+    fn url_kombinerer_filtre() {
         let valg = Valg {
             fane: Fane::Funn,
             regel: Some(3),
             alvorlighet: Some(Alvorlighet::Kritisk),
         };
+        assert_eq!(valg.url(), "/stats/?fane=funn&regel=3&alvorlighet=kritisk");
         assert_eq!(
-            valg.url(),
-            "/stats/?fane=funn&amp;regel=3&amp;alvorlighet=kritisk"
+            valg.fragment_url(),
+            "/stats/fragment/fane?fane=funn&regel=3&alvorlighet=kritisk"
         );
     }
 
     #[test]
-    fn fane_seksjon_markerer_aktiv_fane() {
-        let html = fane_seksjon(&Valg::fane(Fane::Signatur), "");
-        assert!(html.contains(r#"hx-push-url="true" aria-current="page">Signatur</a>"#));
+    fn side_markerer_aktiv_fane_og_escaper_url() {
+        let valg = Valg {
+            fane: Fane::Signatur,
+            regel: Some(3),
+            alvorlighet: None,
+        };
+        let html = side(&valg, html! {}, html! {}).into_string();
+        assert!(
+            html.contains(r#"<a href="/stats/?fane=signatur" aria-current="page">Signatur</a>"#)
+        );
         assert_eq!(html.matches("aria-current").count(), 1);
+        assert!(html.contains(r#"data-oppdater="/stats/fragment/fane?fane=signatur&amp;regel=3""#));
     }
 }

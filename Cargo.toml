@@ -103,6 +103,7 @@ strum = { version = "0.28", features = ["derive"] }
 serde_with = { version = "3", features = ["chrono"] }
 utoipa-swagger-ui = { version = "10.0", features = ["axum"] }
 itertools = "0.15"
+maud = { version = "0.27", features = ["axum"] }
 
 testcontainers = "0.27"
 testcontainers-modules = { version = "0.15", features = ["postgres"] }

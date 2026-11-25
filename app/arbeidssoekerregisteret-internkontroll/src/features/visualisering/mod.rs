@@ -12,19 +12,20 @@ use std::sync::Arc;
 use axum::{
     Extension, Router,
     extract::{Query, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{StatusCode, header},
     middleware,
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::get,
 };
+use maud::Markup;
 use oauth2::principal::Principal;
 use paw_oauth2_resource_server::oauth2::{middleware::oauth2_server_layer, state::AuthState};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 
 use crate::features::regler::regel_katalog::RegelId;
 use html::{Fane, Valg};
 
-const HTMX_JS: &str = include_str!("static/htmx.min.js");
+const OPPDATER_JS: &str = include_str!("static/oppdater.js");
 const APP_CSS: &str = include_str!("static/app.css");
 
 #[derive(Clone)]
@@ -37,8 +38,9 @@ pub fn routes(state: VisState, auth_state: Option<Arc<AuthState>>) -> Router {
     let mut router = Router::new()
         .route("/stats", get(side))
         .route("/stats/", get(side))
-        .route("/stats/toppfelt", get(toppfelt))
-        .route("/stats/static/htmx.min.js", get(htmx))
+        .route("/stats/fragment/fane", get(fane_fragment))
+        .route("/stats/fragment/toppfelt", get(toppfelt_fragment))
+        .route("/stats/static/oppdater.js", get(js))
         .route("/stats/static/app.css", get(css));
     if let Some(auth_state) = auth_state {
         // Sist lagt til kjører først: OAuth2 validerer tokenet, deretter
@@ -50,85 +52,96 @@ pub fn routes(state: VisState, auth_state: Option<Arc<AuthState>>) -> Router {
     sikkerhet::sikkerhetslag(router).with_state(state)
 }
 
-/// Hele siden ved vanlig navigasjon, bare fanen ved HTMX-kall. Gjenoppretting
-/// av historikk får alltid hele siden.
+fn valider(valg: &Valg) -> Result<(), StatusCode> {
+    match valg.regel {
+        Some(r) if RegelId::fra_i16(r).is_none() => Err(StatusCode::BAD_REQUEST),
+        _ => Ok(()),
+    }
+}
+
+/// Hele siden. Hver visning logges med NAV-ident. Automatisk oppdatering går
+/// til fragmentrutene og logges ikke.
 async fn side(
     State(state): State<VisState>,
-    headers: HeaderMap,
     principal: Option<Extension<Principal>>,
     Query(valg): Query<Valg>,
-) -> Result<impl IntoResponse, StatusCode> {
-    if valg.regel.is_some_and(|r| RegelId::fra_i16(r).is_none()) {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-    let er_htmx = headers.get("HX-Request").is_some_and(|v| v == "true");
-    let er_gjenoppretting = headers.contains_key("HX-History-Restore-Request");
-    if skal_logges(&headers)
-        && let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal
-    {
+) -> Result<Markup, StatusCode> {
+    valider(&valg)?;
+    if let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal {
         tracing::info!(
             nav_ident = ansatt.ident.as_ref(),
             fane = valg.fane.as_str(),
             "Visualisering vist"
         );
     }
-    let innhold = fane_innhold(&state, &valg).await?;
-    let seksjon = html::fane_seksjon(&valg, &innhold);
-    let body = if er_htmx && !er_gjenoppretting {
-        seksjon
-    } else {
-        html::side(&seksjon)
-    };
-    Ok((
-        [(header::VARY, "HX-Request, HX-History-Restore-Request")],
-        Html(body),
-    ))
-}
-
-/// Fanebytter, filtervalg og hele sider logges, men ikke automatisk
-/// oppdatering. Den kommer fra seksjonen med id="fane"; lenkene har ingen id.
-fn skal_logges(headers: &HeaderMap) -> bool {
-    let er_htmx = headers.get("HX-Request").is_some_and(|v| v == "true");
-    let er_polling = er_htmx && headers.get("HX-Trigger").is_some_and(|v| v == "fane");
-    !er_polling
-}
-
-async fn fane_innhold(state: &VisState, valg: &Valg) -> Result<String, StatusCode> {
     let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
         .await
         .map_err(intern_feil)?;
+    let toppfelt = toppfelt(&mut tx).await?;
+    let innhold = fane_innhold(&mut tx, state.hwm_version, &valg).await?;
+    Ok(html::side(&valg, toppfelt, innhold))
+}
+
+async fn fane_fragment(
+    State(state): State<VisState>,
+    Query(valg): Query<Valg>,
+) -> Result<Markup, StatusCode> {
+    valider(&valg)?;
+    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
+        .await
+        .map_err(intern_feil)?;
+    fane_innhold(&mut tx, state.hwm_version, &valg).await
+}
+
+async fn toppfelt_fragment(State(state): State<VisState>) -> Result<Markup, StatusCode> {
+    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
+        .await
+        .map_err(intern_feil)?;
+    toppfelt(&mut tx).await
+}
+
+async fn toppfelt(conn: &mut PgConnection) -> Result<Markup, StatusCode> {
+    let toppfelt = sporringer::hent_toppfelt(conn).await.map_err(intern_feil)?;
+    Ok(faner::toppfelt(&toppfelt))
+}
+
+async fn fane_innhold(
+    tx: &mut PgConnection,
+    hwm_version: i16,
+    valg: &Valg,
+) -> Result<Markup, StatusCode> {
     let html = match valg.fane {
         Fane::Oversikt => {
-            let regler = sporringer::hent_regel_status(&mut tx, state.hwm_version)
+            let regler = sporringer::hent_regel_status(&mut *tx, hwm_version)
                 .await
                 .map_err(intern_feil)?;
-            let topics = sporringer::hent_topic_status(&mut tx)
+            let topics = sporringer::hent_topic_status(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
             let stream_ms = topics.iter().filter_map(|t| t.nyeste_stream_ms).max();
             faner::oversikt(&regler, &topics, stream_ms)
         }
         Fane::Funn => {
-            let antall = sporringer::hent_funn_antall(&mut tx)
+            let antall = sporringer::hent_funn_antall(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
             let regel = valg.regel.and_then(RegelId::fra_i16);
-            let rader = sporringer::hent_funn(&mut tx, regel, valg.alvorlighet)
+            let rader = sporringer::hent_funn(&mut *tx, regel, valg.alvorlighet)
                 .await
                 .map_err(intern_feil)?;
             faner::funn(valg, &antall, &rader)
         }
         Fane::Signatur => {
-            let antall = sporringer::hent_signatur_antall(&mut tx)
+            let antall = sporringer::hent_signatur_antall(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
-            let feil = sporringer::hent_siste_signaturfeil(&mut tx)
+            let feil = sporringer::hent_siste_signaturfeil(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
             faner::signatur(&antall, &feil)
         }
         Fane::Trace => {
-            let rader = sporringer::hent_mangler_trace_id(&mut tx)
+            let rader = sporringer::hent_mangler_trace_id(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
             faner::trace(&rader)
@@ -137,23 +150,13 @@ async fn fane_innhold(state: &VisState, valg: &Valg) -> Result<String, StatusCod
     Ok(html)
 }
 
-async fn toppfelt(State(state): State<VisState>) -> Result<Html<String>, StatusCode> {
-    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
-        .await
-        .map_err(intern_feil)?;
-    let toppfelt = sporringer::hent_toppfelt(&mut tx)
-        .await
-        .map_err(intern_feil)?;
-    Ok(Html(faner::toppfelt(&toppfelt)))
-}
-
 fn intern_feil(e: sqlx::Error) -> StatusCode {
     tracing::error!("Henting av data til visualisering feilet: {e}");
     StatusCode::INTERNAL_SERVER_ERROR
 }
 
-async fn htmx() -> impl IntoResponse {
-    ([(header::CONTENT_TYPE, "text/javascript")], HTMX_JS)
+async fn js() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "text/javascript")], OPPDATER_JS)
 }
 
 async fn css() -> impl IntoResponse {

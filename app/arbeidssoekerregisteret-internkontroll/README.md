@@ -62,7 +62,7 @@ Før internkontroll eventuelt erstatter backupen, må vi avklare hvilke topics s
 
 ## Visualisering
 
-Appen har en enkel nettside under `/stats`, med nøkkeltall øverst og fanene Oversikt, Funn, Signatur og Trace. Siden lages på serveren med `format!` og oppdateres med HTMX, som appen selv leverer. Siden viser ikke `periode_id` eller `arbeidssoeker_id`.
+Appen har en enkel nettside under `/stats`, med nøkkeltall øverst og fanene Oversikt, Funn, Signatur og Trace. Siden lages på serveren med Maud, som escaper all tekst og sjekker HTML-syntaksen ved kompilering. Siden virker uten JavaScript. Et lite eget skript, `static/oppdater.js`, henter nye tall hvert 30. sekund fra `/stats/fragment/…`. Siden viser ikke `periode_id` eller `arbeidssoeker_id`.
 
 Bare Nav-ansatte i teamets AD-gruppe får tilgang. Nais begrenser hvem som får token, Wonderwall logger inn brukeren, og appen validerer tokenet og avviser systemtokens. Når appen bygges med featuren `local`, kjører siden uten innlogging: `cargo run --no-default-features --features local`.
 
