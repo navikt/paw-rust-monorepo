@@ -3,6 +3,7 @@ pub mod batch;
 pub mod config;
 pub mod fremdrift;
 pub mod funn;
+pub mod ingen_periode_uten_startet;
 pub mod kjoring;
 pub mod melding_har_trace_id;
 pub mod nivaa;
