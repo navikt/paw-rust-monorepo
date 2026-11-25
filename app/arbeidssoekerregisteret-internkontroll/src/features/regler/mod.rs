@@ -10,3 +10,4 @@ pub mod oppslag;
 pub mod regel;
 pub mod regel_katalog;
 pub mod regelversjon;
+pub mod startet_er_signert;

@@ -6,6 +6,7 @@ use sqlx::PgConnection;
 
 use crate::features::innlesing::topic_ids::TopicIds;
 use crate::features::regler::melding_har_trace_id::MeldingHarTraceId;
+use crate::features::regler::startet_er_signert::StartetErSignert;
 use crate::features::regler::{
     batch::BatchRad, fremdrift::Fremdrift, funn::Vurdering, nivaa::Nivaa, regel_katalog::RegelId,
     regelversjon::Regelversjon,
@@ -64,5 +65,5 @@ pub fn registrer_regler(
 }
 
 pub fn alle_regler() -> Vec<Box<dyn Regel>> {
-    vec![Box::new(MeldingHarTraceId)]
+    vec![Box::new(MeldingHarTraceId), Box::new(StartetErSignert)]
 }
