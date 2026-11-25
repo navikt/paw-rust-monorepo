@@ -21,13 +21,43 @@ use uuid::Uuid;
 use crate::features::innlesing::metadata::arbeidssoeker_id::ArbeidssoekerId;
 use crate::features::innlesing::metadata::kilde::{Opphav, opphav_fra_header, opphav_fra_hendelse};
 use crate::features::innlesing::metadata::payload::Meldingstype;
+use crate::features::innlesing::metadata::utfoert::Utfoert;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DekodetMelding {
     pub meldingstype: Meldingstype,
     pub periode_id: Option<Uuid>,
     pub arbeidssoeker_id: Option<ArbeidssoekerId>,
     pub opphav: Opphav,
+    pub identitetsnummer: Option<String>,
+    pub utfoert: Option<Utfoert>,
+}
+
+impl std::fmt::Debug for DekodetMelding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DekodetMelding")
+            .field("meldingstype", &self.meldingstype)
+            .field("opphav", &self.opphav)
+            .field("utfoert", &self.utfoert)
+            .finish_non_exhaustive()
+    }
+}
+
+impl DekodetMelding {
+    fn gjelder(self, identitetsnummer: &str, utfoert: Utfoert) -> Self {
+        Self {
+            identitetsnummer: Some(identitetsnummer.to_string()),
+            utfoert: Some(utfoert),
+            ..self
+        }
+    }
+
+    fn utfoert(self, utfoert: Utfoert) -> Self {
+        Self {
+            utfoert: Some(utfoert),
+            ..self
+        }
+    }
 }
 
 fn melding(
@@ -41,6 +71,8 @@ fn melding(
         periode_id,
         arbeidssoeker_id: Some(ArbeidssoekerId::new(arbeidssoeker_id)),
         opphav,
+        identitetsnummer: None,
+        utfoert: None,
     }
 }
 
@@ -58,11 +90,15 @@ pub fn dekod_hendelselogg(payload: Option<&[u8]>) -> Option<DekodetMelding> {
         melding(meldingstype, periode_id, arbeidssoeker_id, opphav)
     };
     Some(match hendelse {
-        InterneHendelser::Startet(h) => melding(T::HendelseStartet, Some(h.hendelse_id), h.id),
-        InterneHendelser::Avsluttet(h) => melding(T::HendelseAvsluttet, h.periode_id, h.id),
-        InterneHendelser::Avvist(h) => melding(T::HendelseAvvist, None, h.id),
+        InterneHendelser::Startet(h) => melding(T::HendelseStartet, Some(h.hendelse_id), h.id)
+            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
+        InterneHendelser::Avsluttet(h) => melding(T::HendelseAvsluttet, h.periode_id, h.id)
+            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
+        InterneHendelser::Avvist(h) => melding(T::HendelseAvvist, None, h.id)
+            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
         InterneHendelser::AvvistStoppAvPeriode(h) => {
             melding(T::HendelseAvvistStoppAvPeriode, None, h.id)
+                .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata))
         }
         InterneHendelser::ArbeidssoekerIdFlettetInn(h) => {
             melding(T::HendelseArbeidssoekerIdFlettetInn, None, h.id)
@@ -77,6 +113,7 @@ pub fn dekod_hendelselogg(payload: Option<&[u8]>) -> Option<DekodetMelding> {
         ),
         InterneHendelser::OpplysningerOmArbeidssoekerMottatt(h) => {
             melding(T::HendelseOpplysningerOmArbeidssoekerMottatt, None, h.id)
+                .gjelder(&h.identitetsnummer, Utfoert::fra_intern(h.metadata()))
         }
     })
 }
@@ -179,11 +216,14 @@ impl Dekodere {
             Dekoder::Hendelselogg => dekod_hendelselogg(payload),
             Dekoder::BekreftelseHendelselogg => dekod_bekreftelse_hendelselogg(payload),
             Dekoder::Periode => self.avro::<Periode>(payload).await?.map(|p| {
-                let meldingstype = match p.avsluttet {
-                    None => Meldingstype::PeriodeStartet,
-                    Some(_) => Meldingstype::PeriodeAvsluttet,
+                let (meldingstype, metadata) = match &p.avsluttet {
+                    None => (Meldingstype::PeriodeStartet, &p.startet),
+                    Some(avsluttet) => (Meldingstype::PeriodeAvsluttet, avsluttet),
                 };
-                uten_arbeidssoeker(meldingstype, p.id, Opphav::IKKE_AKTUELT)
+                uten_arbeidssoeker(meldingstype, p.id, Opphav::IKKE_AKTUELT).gjelder(
+                    &p.identitetsnummer,
+                    Utfoert::fra_ekstern(metadata.tidspunkt, &metadata.utfoert_av),
+                )
             }),
             Dekoder::Opplysninger => self.avro::<Opplysninger>(payload).await?.map(|o| {
                 uten_arbeidssoeker(
@@ -191,6 +231,10 @@ impl Dekodere {
                     o.periode_id,
                     Opphav::IKKE_AKTUELT,
                 )
+                .utfoert(Utfoert::fra_ekstern(
+                    o.sendt_inn_av.tidspunkt,
+                    &o.sendt_inn_av.utfoert_av,
+                ))
             }),
             Dekoder::Profilering => self.avro::<Profilering>(payload).await?.map(|p| {
                 uten_arbeidssoeker(
@@ -198,6 +242,10 @@ impl Dekodere {
                     p.periode_id,
                     Opphav::IKKE_AKTUELT,
                 )
+                .utfoert(Utfoert::fra_ekstern(
+                    p.sendt_inn_av.tidspunkt,
+                    &p.sendt_inn_av.utfoert_av,
+                ))
             }),
             Dekoder::Egenvurdering => self.avro::<Egenvurdering>(payload).await?.map(|e| {
                 uten_arbeidssoeker(
@@ -205,6 +253,10 @@ impl Dekodere {
                     e.periode_id,
                     Opphav::IKKE_AKTUELT,
                 )
+                .utfoert(Utfoert::fra_ekstern(
+                    e.sendt_inn_av.tidspunkt,
+                    &e.sendt_inn_av.utfoert_av,
+                ))
             }),
             Dekoder::Bekreftelse => self.avro::<Bekreftelse>(payload).await?.map(|b| {
                 uten_arbeidssoeker(
@@ -212,6 +264,10 @@ impl Dekodere {
                     b.periode_id,
                     Opphav::bekreftelse(&b.bekreftelsesloesning),
                 )
+                .utfoert(Utfoert::fra_ekstern(
+                    b.svar.sendt_inn_av.tidspunkt,
+                    &b.svar.sendt_inn_av.utfoert_av,
+                ))
             }),
             Dekoder::PaaVegneAv => self.avro::<PaaVegneAv>(payload).await?.map(|p| {
                 let meldingstype = match p.handling {
@@ -252,5 +308,7 @@ fn uten_arbeidssoeker(
         periode_id: Some(periode_id),
         arbeidssoeker_id: None,
         opphav,
+        identitetsnummer: None,
+        utfoert: None,
     }
 }

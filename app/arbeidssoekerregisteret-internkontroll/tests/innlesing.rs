@@ -114,3 +114,50 @@ async fn meldinger_lagres_med_metadata_og_backup_etter_topic() {
         Some(1)
     );
 }
+
+type Person = (Option<String>, Option<i64>, Option<String>, Option<String>);
+
+async fn person(app: &TestApp, topic: &Topic) -> Person {
+    sqlx::query_as(
+        "SELECT identitetsnummer, utfoert_tidspunkt_ms, utfoert_av_type::text, utfoert_av_id
+         FROM record_metadata WHERE topic_id = $1",
+    )
+    .bind(app.topic_id(topic))
+    .fetch_one(&app.pool)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn hvem_det_gjelder_og_hvem_som_utfoerte_lagres_i_millisekunder() {
+    let app = TestApp::start().await;
+    app.les_inn(StartetBuilder {
+        identitetsnummer: "11111111111".into(),
+        utfoert_av_id: "Z123456".into(),
+        bruker_type: interne_hendelser::vo::BrukerType::Veileder,
+        tidspunkt: paw_test::hendelse_builder::rfc3339("2024-01-01T12:00:00.123Z"),
+        ..Default::default()
+    })
+    .await;
+    app.les_inn(create_dummy_start_periode(
+        "22222222222",
+        Uuid::new_v4(),
+        Some(paw_test::hendelse_builder::rfc3339(
+            "2024-01-01T12:00:00.456Z",
+        )),
+    ))
+    .await;
+
+    assert_eq!(
+        person(&app, &Topic::Hendelselogg).await,
+        (
+            Some("11111111111".into()),
+            Some(1_704_110_400_123),
+            Some("veileder".into()),
+            Some("Z123456".into())
+        )
+    );
+    let (identitetsnummer, tidspunkt_ms, _, _) = person(&app, &Topic::Periode).await;
+    assert_eq!(identitetsnummer.as_deref(), Some("22222222222"));
+    assert_eq!(tidspunkt_ms, Some(1_704_110_400_456));
+}

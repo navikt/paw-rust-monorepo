@@ -118,6 +118,10 @@ impl InternkontrollMessageProcessor {
                 arbeidssoeker_id: dekodet
                     .as_ref()
                     .and_then(|melding| melding.arbeidssoeker_id),
+                identitetsnummer: dekodet
+                    .as_ref()
+                    .and_then(|melding| melding.identitetsnummer.clone()),
+                utfoert: dekodet.as_ref().and_then(|melding| melding.utfoert.clone()),
                 derived_at: Utc::now(),
             },
         )

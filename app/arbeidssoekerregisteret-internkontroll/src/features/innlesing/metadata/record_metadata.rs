@@ -8,6 +8,7 @@ use crate::features::innlesing::metadata::kilde::{Kilde, System};
 use crate::features::innlesing::metadata::payload::{Meldingstype, PayloadStatus};
 use crate::features::innlesing::metadata::signature::Signature;
 use crate::features::innlesing::metadata::signing_keys::SigningKeyDbIds;
+use crate::features::innlesing::metadata::utfoert::{Utfoert, UtfoertAvType};
 use crate::features::innlesing::record::kafka_record::KafkaTimestampType;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -26,6 +27,8 @@ pub struct RecordMetadata {
     pub meldingstype: Option<Meldingstype>,
     pub periode_id: Option<Uuid>,
     pub arbeidssoeker_id: Option<ArbeidssoekerId>,
+    pub identitetsnummer: Option<String>,
+    pub utfoert: Option<Utfoert>,
     pub derived_at: DateTime<Utc>,
 }
 
@@ -44,8 +47,9 @@ impl std::fmt::Debug for RecordMetadata {
             .field("system", &self.system)
             .field("payload_status", &self.payload_status)
             .field("meldingstype", &self.meldingstype)
+            .field("utfoert", &self.utfoert)
             .field("derived_at", &self.derived_at)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -73,6 +77,19 @@ impl FromRow<'_, PgRow> for RecordMetadata {
             meldingstype: row.try_get("meldingstype")?,
             periode_id: row.try_get("periode_id")?,
             arbeidssoeker_id: row.try_get("arbeidssoeker_id")?,
+            identitetsnummer: row.try_get("identitetsnummer")?,
+            utfoert: match (
+                row.try_get::<Option<i64>, _>("utfoert_tidspunkt_ms")?,
+                row.try_get::<Option<UtfoertAvType>, _>("utfoert_av_type")?,
+                row.try_get::<Option<String>, _>("utfoert_av_id")?,
+            ) {
+                (Some(tidspunkt_ms), Some(av_type), Some(av_id)) => Some(Utfoert {
+                    tidspunkt_ms,
+                    av_type,
+                    av_id,
+                }),
+                _ => None,
+            },
             derived_at: row.try_get("derived_at")?,
         })
     }
@@ -97,9 +114,11 @@ pub async fn insert_record_metadata(
             record_timestamp_type, record_timestamp_ms,
             signature_status, signing_key_id,
             timestamp_delta_ms, trace_id, kilde, system,
-            payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at
+            payload_status, meldingstype, periode_id, arbeidssoeker_id, derived_at,
+            identitetsnummer, utfoert_tidspunkt_ms, utfoert_av_type, utfoert_av_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+                $17, $18, $19, $20)
         RETURNING id
         "#,
     )
@@ -119,6 +138,10 @@ pub async fn insert_record_metadata(
     .bind(record.periode_id)
     .bind(record.arbeidssoeker_id)
     .bind(record.derived_at)
+    .bind(&record.identitetsnummer)
+    .bind(record.utfoert.as_ref().map(|u| u.tidspunkt_ms))
+    .bind(record.utfoert.as_ref().map(|u| u.av_type))
+    .bind(record.utfoert.as_ref().map(|u| u.av_id.as_str()))
     .fetch_one(&mut *conn)
     .await
 }
