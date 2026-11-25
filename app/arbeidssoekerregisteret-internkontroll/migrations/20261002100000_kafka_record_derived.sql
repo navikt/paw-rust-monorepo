@@ -59,6 +59,8 @@ CREATE TYPE System AS ENUM (
     'friskmeldt_til_arbeidsformidling'
 );
 
+CREATE TYPE utfoert_av_type AS ENUM ('udefinert', 'ukjent_verdi', 'system', 'sluttbruker', 'veileder');
+
 CREATE TABLE record_metadata (
     id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     topic_id           SMALLINT NOT NULL,
@@ -80,11 +82,17 @@ CREATE TABLE record_metadata (
     meldingstype       meldingstype,
     periode_id         UUID,
     arbeidssoeker_id   BIGINT,
+    identitetsnummer   TEXT,
+    utfoert_tidspunkt_ms BIGINT,
+    utfoert_av_type    utfoert_av_type,
+    utfoert_av_id      TEXT,
     derived_at         TIMESTAMPTZ NOT NULL,
     UNIQUE (topic_id, record_partition, record_offset),
     FOREIGN KEY (signing_key_id) REFERENCES signing_key (id),
     CHECK ((signing_key_id IS NOT NULL) = (signature_status IN
-        ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large')))
+        ('valid', 'signature_mismatch', 'malformed_signature', 'key_revoked', 'payload_too_large'))),
+    CHECK ((utfoert_tidspunkt_ms IS NULL) = (utfoert_av_type IS NULL)
+       AND (utfoert_av_type IS NULL) = (utfoert_av_id IS NULL))
 );
 
 -- Mirror of one Kafka record. Headers are stored as two parallel arrays:
