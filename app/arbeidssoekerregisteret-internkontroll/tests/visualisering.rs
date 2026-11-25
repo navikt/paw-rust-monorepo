@@ -4,8 +4,7 @@
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{
-    kjoring::kjor_runde,
-    regel::{alle_regler, registrer_regler},
+    kjoring::kjor_runde, melding_har_trace_id::MeldingHarTraceId, regel::registrer_regler,
 };
 use arbeidssoekerregisteret_internkontroll::features::visualisering::{VisState, routes};
 use axum::{
@@ -37,7 +36,11 @@ async fn hent(app: &Router, sti: &str) -> (StatusCode, String) {
 async fn app_med_data() -> (TestApp, Router) {
     let app = TestApp::start().await;
     app.les_inn(Melding::ny(StartetBuilder::default())).await;
-    let regler = registrer_regler(alle_regler(), &app.topic_ids, &RuntimeEnv::Local);
+    let regler = registrer_regler(
+        vec![Box::new(MeldingHarTraceId)],
+        &app.topic_ids,
+        &RuntimeEnv::Local,
+    );
     let tildelt = AssignedPartitions::default();
     tildelt.add([TopicPartition {
         topic: topic_navn(&Topic::Hendelselogg).to_string(),

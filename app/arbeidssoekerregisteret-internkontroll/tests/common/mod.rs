@@ -15,7 +15,13 @@ use arbeidssoekerregisteret_internkontroll::features::innlesing::{
     topic_catalog::subscribed_topics,
     topic_ids::TopicIds,
 };
+use arbeidssoekerregisteret_internkontroll::features::regler::{
+    kjoring::kjor_runde,
+    regel::{Regel, registrer_regler},
+};
 use mockito::ServerGuard;
+use paw_kafka::hwm::rebalance::topic_partition_update::TopicPartition;
+use paw_kafka::hwm::stream::assigned_partitions::AssignedPartitions;
 use paw_kafka::signing::RecordVerifier;
 use paw_kafka::topics::{Topic, get_topic};
 use paw_rust_base::env::RuntimeEnv;
@@ -108,5 +114,32 @@ impl TestApp {
         let mut tx = self.pool.begin().await.unwrap();
         self.processor.process(&mut tx, msg).await.unwrap();
         tx.commit().await.unwrap();
+    }
+}
+
+impl TestApp {
+    /// Kjører `regler` på partisjon 0 til det ikke er mer å gjøre.
+    pub async fn kjor_regler(&self, regler: Vec<Box<dyn Regel>>) {
+        let regler = registrer_regler(regler, &self.topic_ids, &RuntimeEnv::Local);
+        let tildelt = AssignedPartitions::default();
+        tildelt.add([TopicPartition {
+            topic: topic_navn(&Topic::Hendelselogg).to_string(),
+            partition: 0,
+        }]);
+        while kjor_runde(&self.pool, &regler, &tildelt, 2).await.unwrap() > 0 {}
+    }
+
+    /// (topic, offset, kode) for alle funn, sortert.
+    pub async fn funn(&self) -> Vec<(String, i64, i16)> {
+        sqlx::query_as(
+            "SELECT t.name::text, rm.record_offset, f.kode
+             FROM funn f
+             JOIN record_metadata rm ON rm.id = f.record_metadata_id
+             JOIN topic t ON t.id = rm.topic_id
+             ORDER BY 1, 2",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .unwrap()
     }
 }

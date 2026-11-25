@@ -5,7 +5,8 @@ mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{
     kjoring::kjor_runde,
-    regel::{RegistrertRegel, alle_regler, registrer_regler},
+    melding_har_trace_id::MeldingHarTraceId,
+    regel::{RegistrertRegel, registrer_regler},
 };
 use common::TestApp;
 use common::melding::Melding;
@@ -20,7 +21,11 @@ use common::topic_navn;
 const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
 
 fn regler(app: &TestApp) -> Vec<RegistrertRegel> {
-    registrer_regler(alle_regler(), &app.topic_ids, &RuntimeEnv::Local)
+    registrer_regler(
+        vec![Box::new(MeldingHarTraceId)],
+        &app.topic_ids,
+        &RuntimeEnv::Local,
+    )
 }
 
 fn tildel(tildelt: &AssignedPartitions, partisjon: i32) {

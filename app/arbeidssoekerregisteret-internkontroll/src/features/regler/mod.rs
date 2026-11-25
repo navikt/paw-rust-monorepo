@@ -6,6 +6,7 @@ pub mod funn;
 pub mod kjoring;
 pub mod melding_har_trace_id;
 pub mod nivaa;
+pub mod oppslag;
 pub mod regel;
 pub mod regel_katalog;
 pub mod regelversjon;
