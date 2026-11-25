@@ -1,6 +1,3 @@
-//! IngenPeriodeUtenStartet: en periode uten startet-hendelse gir funn, som
-//! fjernes hvis startet-hendelsen kommer senere.
-
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::ingen_periode_uten_startet::IngenPeriodeUtenStartet;

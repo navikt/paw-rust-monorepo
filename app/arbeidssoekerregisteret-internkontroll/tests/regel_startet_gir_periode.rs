@@ -1,6 +1,3 @@
-//! StartetGirPeriode: en startet-hendelse som skulle startet en periode, men
-//! ikke har fått en, gir funn. Gjentatte forsøk mens perioden er åpen er i orden.
-
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{

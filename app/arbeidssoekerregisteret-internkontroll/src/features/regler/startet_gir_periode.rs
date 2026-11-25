@@ -1,20 +1,3 @@
-//! Hver `hendelse_startet` som starter en ny periode, skal gi en melding på
-//! Periode-topicet med samme ID.
-//!
-//! Hendelseloggen skriver `Startet` ved hvert forsøk på å registrere seg, også
-//! når personen allerede er arbeidssøker. Prosessoren som lager perioder, lager
-//! bare én per åpen periode. En startet-hendelse uten periode er derfor i orden
-//! når forrige startet- eller avsluttet-hendelse for samme arbeidssøker-ID var
-//! en startet-hendelse. Fletting endrer ikke dette: en arbeidssøker-ID med åpen
-//! periode blir aldri flettet bort.
-//!
-//! Har en tidligere startet-hendelse heller ikke fått periode, er den første
-//! av dem funnet. Arbeidssøker-ID-en er da i ugyldig tilstand, og de senere
-//! regnes som duplikater.
-//!
-//! Det er ingen tidsgrense: kommer perioden senere, fjernes funnet. Den som
-//! henter ut funn, filtrerer bort de som er for nye.
-
 use paw_kafka::topics::Topic;
 use sqlx::PgConnection;
 

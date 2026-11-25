@@ -1,6 +1,3 @@
-//! Filteret for modne funn: et funn vises først når regelen har kommet
-//! vinduet forbi meldingen, målt i stream time.
-
 mod common;
 
 use std::time::Duration;
@@ -18,7 +15,6 @@ const VINDU: Duration = Duration::from_secs(60);
 fn startet(tid: i64) -> Melding<StartetBuilder> {
     Melding::ny(StartetBuilder {
         hendelse_id: Uuid::new_v4(),
-        // Hver sin arbeidssøker, så ingen regnes som duplikat.
         arbeidssoeker_id: tid,
         ..Default::default()
     })

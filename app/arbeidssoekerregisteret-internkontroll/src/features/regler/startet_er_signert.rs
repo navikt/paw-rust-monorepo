@@ -1,8 +1,3 @@
-//! Hver `hendelse_startet` i hendelseloggen skal være signert.
-//!
-//! Usignerte meldinger fra før signatur ble påkrevd er i orden. Signaturen er
-//! allerede vurdert ved innlesing, så regelen leser bare statusen.
-
 use paw_kafka::topics::Topic;
 use sqlx::PgConnection;
 
@@ -33,8 +28,6 @@ const fn advarsel(kode: i16) -> Utfall {
     }
 }
 
-/// Én utfallskode per signaturstatus som ikke er i orden. Kodene er en del av
-/// regelversjonen: endres de, må versjonen økes.
 fn utfall(status: SignatureStatus) -> Option<Utfall> {
     use SignatureStatus as S;
     match status {
@@ -44,7 +37,6 @@ fn utfall(status: SignatureStatus) -> Option<Utfall> {
         S::MalformedSignature => Some(kritisk(3)),
         S::KeyRevoked => Some(kritisk(4)),
         S::UnknownKey => Some(kritisk(5)),
-        // Disse sier at vi ikke klarte å vurdere signaturen, ikke at den er feil.
         S::PayloadTooLarge => Some(advarsel(6)),
         S::NoRecordTimestamp => Some(advarsel(7)),
         S::TechnicalError => Some(advarsel(8)),

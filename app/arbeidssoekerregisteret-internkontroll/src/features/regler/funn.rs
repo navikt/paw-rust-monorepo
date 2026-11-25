@@ -78,7 +78,6 @@ pub async fn lagre_vurdering(
     Ok(())
 }
 
-/// Et funn som er gammelt nok til at regelen trolig har sett alt som hører til.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::FromRow)]
 pub struct ModentFunn {
     pub regel: RegelId,
@@ -87,15 +86,6 @@ pub struct ModentFunn {
     pub kode: i16,
 }
 
-/// Funn der regelen har kommet minst `vindu` forbi meldingen funnet peker på,
-/// målt i stream time og ikke veggklokke. Da gir filteret samme svar ved full
-/// reset og ny innlesing.
-///
-/// Regelens stream time er høyeste `siste_stream_ms` i partisjonen på tvers av
-/// topicene den leser. Batchene flettes på stream time, så alt som var lest inn
-/// før den tiden på de andre topicene, er behandlet. Står partisjonen stille,
-/// står også stream time stille, og nye funn vises ikke før det kommer trafikk.
-/// Funn på meldinger uten tidsstempel tas alltid med.
 pub async fn hent_modne_funn(
     conn: &mut PgConnection,
     vindu: std::time::Duration,

@@ -1,13 +1,9 @@
-//! Oppslag reglene deler. Alle oppslag i historikk ser bare på meldinger
-//! regelen allerede har behandlet, se [`crate::features::regler::regel::Regel::vurder`].
-
 use sqlx::PgConnection;
 use uuid::Uuid;
 
 use crate::features::innlesing::metadata::{payload::Meldingstype, signature::SignatureStatus};
 use crate::features::regler::fremdrift::Fremdrift;
 
-/// Feltene fra `record_metadata` reglene trenger om meldingen de vurderer.
 #[derive(Debug, Clone, Copy, sqlx::FromRow)]
 pub struct Melding {
     pub topic_id: i16,
@@ -33,15 +29,12 @@ pub async fn hent_melding(
     .await
 }
 
-/// Hvor langt regelen har kommet i `topic_id`. -1 når topicet ikke er lest.
 fn siste_offset(sett: &[Fremdrift], topic_id: i16) -> i64 {
     sett.iter()
         .find(|f| f.topic_id == topic_id)
         .map_or(-1, |f| f.siste_offset)
 }
 
-/// Har regelen sett en melding på `topic_id` i `partisjon` med `periode_id`
-/// og en av `meldingstyper`? Tom `meldingstyper` godtar alle typer.
 pub async fn har_sett_periode(
     conn: &mut PgConnection,
     sett: &[Fremdrift],
@@ -67,9 +60,6 @@ pub async fn har_sett_periode(
     .await
 }
 
-/// Meldingstypen til siste melding før `melding` på samme topic og partisjon
-/// med samme `arbeidssoeker_id` og en av `meldingstyper`. `None` når det ikke
-/// finnes noen, eller meldingen mangler `arbeidssoeker_id`.
 pub async fn forrige_for_arbeidssoeker(
     conn: &mut PgConnection,
     sett: &[Fremdrift],

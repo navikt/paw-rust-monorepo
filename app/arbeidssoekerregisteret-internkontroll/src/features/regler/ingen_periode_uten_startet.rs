@@ -1,9 +1,3 @@
-//! Hver periode på Periode-topicet skal ha en `hendelse_startet` i
-//! hendelseloggen med samme ID.
-//!
-//! Periode-ID-en er `hendelse_id` fra startet-hendelsen, så de matches på
-//! `periode_id`. Kommer startet-hendelsen etter perioden, fjernes funnet.
-
 use paw_kafka::topics::Topic;
 use sqlx::PgConnection;
 
