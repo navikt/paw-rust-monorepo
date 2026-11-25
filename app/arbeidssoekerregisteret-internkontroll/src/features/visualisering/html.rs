@@ -114,6 +114,7 @@ pub fn regel_navn(regel: RegelId) -> &'static str {
         RegelId::IngenPeriodeUtenStartet => "Ingen periode uten startet",
         RegelId::StartetErSignert => "Startet er signert",
         RegelId::StartetGirPeriode => "Startet gir periode",
+        RegelId::PeriodeStartetLikStartet => "Periode startet lik startet",
     }
 }
 

@@ -8,6 +8,7 @@ pub mod ingen_periode_uten_startet;
 pub mod kjoring;
 pub mod nivaa;
 pub mod oppslag;
+pub mod periode_startet_lik_startet;
 pub mod regel;
 pub mod regel_katalog;
 pub mod regelversjon;
