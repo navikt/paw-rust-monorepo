@@ -25,6 +25,7 @@ use veileder_oppgave::opprett_ekstern_oppgave_task::spawn_ekstern_oppgave_task;
 #[tokio::main]
 async fn main() -> Result<()> {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel()?;
     init_metrics();
     tracing::info!("Application started");

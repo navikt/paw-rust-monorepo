@@ -32,6 +32,7 @@ const KONTROLL_BATCH_SIZE: NonZeroU16 =
 #[tokio::main]
 async fn main() -> Result<()> {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel()?;
     let reqwest_client = reqwest::Client::new();
     let token_client_config = toml::from_str(read_config_file!("token_client_config.toml"))?;

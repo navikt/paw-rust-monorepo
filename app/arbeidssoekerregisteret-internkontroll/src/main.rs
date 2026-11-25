@@ -20,6 +20,7 @@ use arbeidssoekerregisteret_internkontroll::reset_db::reset_db_if_needed;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel().unwrap();
     init_stream_wrapper_metrics();
     let record_verifier = RecordVerifier::from_embedded_keys()?;

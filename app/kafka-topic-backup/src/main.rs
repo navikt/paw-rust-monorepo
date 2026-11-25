@@ -20,6 +20,7 @@ use tracing::{error, info};
 #[tokio::main]
 async fn main() {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel().unwrap();
     info!("Starter applikasjon");
     match run_app().await {

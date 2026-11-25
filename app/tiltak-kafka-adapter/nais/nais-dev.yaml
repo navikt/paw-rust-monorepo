@@ -16,7 +16,7 @@ spec:
     - name: PAW_LOG_LEVEL
       value: "DEBUG"
     - name: PGSSLMODE
-      value: "VerifyFull"
+      value: "verify-ca"
     - name: PGSSLROOTCERT
       value: "$(DB_TILTAK_SSLROOTCERT)"
     - name: PGSSLCERT

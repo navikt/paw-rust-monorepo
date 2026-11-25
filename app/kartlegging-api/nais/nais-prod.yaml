@@ -16,7 +16,7 @@ spec:
     - name: PAW_LOG_LEVEL
       value: "INFO"
     - name: PGSSLMODE
-      value: "VerifyFull"
+      value: "verify-ca"
     - name: PGSSLROOTCERT
       value: "$(NAIS_DATABASE_PAW_ARBEIDSSOEKERREGISTERET_API_KARTLEGGING_KARTLEGGING_SSLROOTCERT)"
     - name: PGSSLCERT

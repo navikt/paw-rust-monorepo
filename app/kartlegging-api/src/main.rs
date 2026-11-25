@@ -30,6 +30,7 @@ use texas_client::token_client::create_token_client;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
 
     let app_config = Arc::new(read_app_config()?);
     let otel_tracing_config = read_otel_tracing_config()?;

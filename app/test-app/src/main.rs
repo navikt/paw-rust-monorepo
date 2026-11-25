@@ -18,6 +18,7 @@ const HENDELSELOGG_TOPIC: &str = "paw.arbeidssoker-hendelseslogg-v1";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel()?;
     info!("Starter test app");
 

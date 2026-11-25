@@ -19,6 +19,7 @@ use tilgangskontroll_v2::config::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     register_panic_logger();
+    paw_rust_base::tls::install_crypto_provider();
 
     let otel_tracing_config = read_otel_tracing_config()?;
     let auth_config = read_auth_config()?;

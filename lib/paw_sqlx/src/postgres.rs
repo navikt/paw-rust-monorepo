@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::config::DatabaseConfig;
 use anyhow::Result;
 use errors::database::DatabaseError;
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use sqlx::{AssertSqlSafe, ConnectOptions};
 use sqlx::{FromRow, PgPool};
 
@@ -11,8 +11,15 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
     let database_url = config.full_url();
     let statement_log_level = config.statement_log_level();
     let slow_statement_threshold = config.slow_statement_threshold();
-    let connect_options = PgConnectOptions::from_str(&database_url)
+    let mut connect_options =
+        PgConnectOptions::from_str(&database_url).map_err(DatabaseError::InitializePool)?;
+    // sqlx faller stille tilbake til Prefer, uten sertifikatsjekk, når PGSSLMODE ikke kan leses.
+    if let Some(ssl_mode) = ssl_mode(std::env::var("PGSSLMODE").ok().as_deref())
         .map_err(DatabaseError::InitializePool)?
+    {
+        connect_options = connect_options.ssl_mode(ssl_mode);
+    }
+    let connect_options = connect_options
         .log_statements(statement_log_level)
         .log_slow_statements(log::LevelFilter::Warn, slow_statement_threshold);
     let max_connections = config.max_connections.map(|v| *v).unwrap_or(5);
@@ -24,6 +31,10 @@ async fn get_pg_pool(config: &DatabaseConfig) -> Result<PgPool> {
         .await
         .map_err(DatabaseError::VerifyConnection)?;
     Ok(pool)
+}
+
+fn ssl_mode(verdi: Option<&str>) -> Result<Option<PgSslMode>, sqlx::Error> {
+    verdi.map(PgSslMode::from_str).transpose()
 }
 
 pub async fn init_db(config: &DatabaseConfig) -> Result<PgPool> {
@@ -61,4 +72,19 @@ pub async fn clear_db(pool: &PgPool) -> Result<()> {
 #[derive(Debug, FromRow)]
 struct TableNameRow {
     pub tablename: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ugyldig_pgsslmode_avvises_i_stedet_for_aa_bli_prefer() {
+        assert!(ssl_mode(Some("VerifyFull")).is_err());
+        assert!(matches!(
+            ssl_mode(Some("verify-full")),
+            Ok(Some(PgSslMode::VerifyFull))
+        ));
+        assert!(matches!(ssl_mode(None), Ok(None)));
+    }
 }

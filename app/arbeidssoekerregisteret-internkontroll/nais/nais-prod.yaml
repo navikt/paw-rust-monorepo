@@ -17,7 +17,7 @@ spec:
     max: 1
   env:
     - name: PGSSLMODE
-      value: "VerifyFull"
+      value: "verify-ca"
     - name: PGSSLROOTCERT
       value: "$(NAIS_DATABASE_ARBEIDSSOEKERREGISTERET_INTERNKONTROLL_INTERNKONTROLL_SSLROOTCERT)"
     - name: PGSSLCERT
