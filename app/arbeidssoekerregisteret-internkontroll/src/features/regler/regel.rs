@@ -5,6 +5,7 @@ use paw_rust_base::env::RuntimeEnv;
 use sqlx::PgConnection;
 
 use crate::features::innlesing::topic_ids::TopicIds;
+use crate::features::regler::hele_trace_signert::HeleTraceSignert;
 use crate::features::regler::ingen_periode_uten_startet::IngenPeriodeUtenStartet;
 use crate::features::regler::startet_er_signert::StartetErSignert;
 use crate::features::regler::startet_gir_periode::StartetGirPeriode;
@@ -67,6 +68,7 @@ pub fn registrer_regler(
 
 pub fn alle_regler() -> Vec<Box<dyn Regel>> {
     vec![
+        Box::new(HeleTraceSignert),
         Box::new(StartetErSignert),
         Box::new(IngenPeriodeUtenStartet),
         Box::new(StartetGirPeriode),
