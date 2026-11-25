@@ -9,7 +9,7 @@ pub struct DatabaseConfig {
     pub host: String,
     pub port: u16,
     pub username: String,
-    pub password: String,
+    pub password: Option<String>,
     pub database: String,
     pub statement_log_level: Option<String>,
     pub slow_statement_threshold_ms: Option<u64>,
@@ -18,9 +18,13 @@ pub struct DatabaseConfig {
 
 impl DatabaseConfig {
     pub fn full_url(&self) -> String {
+        let bruker = match &self.password {
+            Some(password) => format!("{}:{}", self.username, password.as_str()),
+            None => self.username.to_string(),
+        };
         format!(
-            "postgresql://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database
+            "postgresql://{}@{}:{}/{}",
+            bruker, self.host, self.port, self.database
         )
     }
 
