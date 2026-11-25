@@ -1,12 +1,12 @@
-//! Regelkjøring ende til ende med referanseregelen MeldingHarTraceId:
+//! Regelkjøring ende til ende med StartetErSignert:
 //! meldinger leses inn, regelkjøringen går runder til det ikke er mer å gjøre.
 
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{
     kjoring::kjor_runde,
-    melding_har_trace_id::MeldingHarTraceId,
     regel::{RegistrertRegel, registrer_regler},
+    startet_er_signert::StartetErSignert,
 };
 use common::TestApp;
 use common::melding::Melding;
@@ -15,14 +15,13 @@ use paw_kafka::hwm::stream::assigned_partitions::AssignedPartitions;
 use paw_kafka::topics::Topic;
 use paw_rust_base::env::RuntimeEnv;
 use paw_test::hendelse_builder::StartetBuilder;
+use rdkafka::Message;
 
 use common::topic_navn;
 
-const TRACEPARENT: &str = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
-
 fn regler(app: &TestApp) -> Vec<RegistrertRegel> {
     registrer_regler(
-        vec![Box::new(MeldingHarTraceId)],
+        vec![Box::new(StartetErSignert)],
         &app.topic_ids,
         &RuntimeEnv::Local,
     )
@@ -51,24 +50,31 @@ async fn funn(app: &TestApp) -> Vec<(i32, i64)> {
     .unwrap()
 }
 
-async fn les_inn(app: &TestApp, partisjon: i32, med_trace: bool) {
-    let melding = Melding::ny(StartetBuilder::default()).partisjon(partisjon);
-    let melding = if med_trace {
-        melding.header("traceparent", TRACEPARENT)
-    } else {
-        melding
-    };
-    app.les_inn(melding).await;
+async fn les_inn(app: &TestApp, partisjon: i32, signert: bool) {
+    let msg = app
+        .les_inn(Melding::ny(StartetBuilder::default()).partisjon(partisjon))
+        .await;
+    if !signert {
+        sqlx::query(
+            "UPDATE record_metadata SET signature_status = 'missing_signature'
+             WHERE record_partition = $1 AND record_offset = $2",
+        )
+        .bind(partisjon)
+        .bind(msg.offset())
+        .execute(&app.pool)
+        .await
+        .unwrap();
+    }
 }
 
 #[tokio::test]
-async fn melding_uten_trace_id_gir_funn_over_flere_batcher() {
+async fn usignert_startet_gir_funn_over_flere_batcher() {
     let app = TestApp::start().await;
     let regler = regler(&app);
     let tildelt = AssignedPartitions::default();
     tildel(&tildelt, 0);
-    for med_trace in [true, false, true, false, false] {
-        les_inn(&app, 0, med_trace).await;
+    for signert in [true, false, true, false, false] {
+        les_inn(&app, 0, signert).await;
     }
 
     kjor_til_tom(&app, &regler, &tildelt).await;

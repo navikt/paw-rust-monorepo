@@ -3,16 +3,14 @@
 pub enum RegelId {
     HeleTraceSignert = 1,
     IngenPeriodeUtenStartet = 2,
-    MeldingHarTraceId = 3,
-    StartetErSignert = 4,
-    StartetGirPeriode = 5,
+    StartetErSignert = 3,
+    StartetGirPeriode = 4,
 }
 
 impl RegelId {
-    pub const ALLE: [RegelId; 5] = [
+    pub const ALLE: [RegelId; 4] = [
         Self::HeleTraceSignert,
         Self::IngenPeriodeUtenStartet,
-        Self::MeldingHarTraceId,
         Self::StartetErSignert,
         Self::StartetGirPeriode,
     ];

@@ -112,7 +112,6 @@ pub fn regel_navn(regel: RegelId) -> &'static str {
     match regel {
         RegelId::HeleTraceSignert => "Hele trace er signert",
         RegelId::IngenPeriodeUtenStartet => "Ingen periode uten startet",
-        RegelId::MeldingHarTraceId => "Melding har trace_id",
         RegelId::StartetErSignert => "Startet er signert",
         RegelId::StartetGirPeriode => "Startet gir periode",
     }

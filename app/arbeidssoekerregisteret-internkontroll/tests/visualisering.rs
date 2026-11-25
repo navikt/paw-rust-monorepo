@@ -4,7 +4,7 @@
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{
-    kjoring::kjor_runde, melding_har_trace_id::MeldingHarTraceId, regel::registrer_regler,
+    kjoring::kjor_runde, regel::registrer_regler, startet_er_signert::StartetErSignert,
 };
 use arbeidssoekerregisteret_internkontroll::features::visualisering::{VisState, routes};
 use axum::{
@@ -32,12 +32,16 @@ async fn hent(app: &Router, sti: &str) -> (StatusCode, String) {
     (status, String::from_utf8(body.to_vec()).unwrap())
 }
 
-/// Leser inn én melding uten trace, kjører regelen og gir den en signaturfeil.
+/// Leser inn én startet-melding uten trace og signatur, og kjører regelen.
 async fn app_med_data() -> (TestApp, Router) {
     let app = TestApp::start().await;
     app.les_inn(Melding::ny(StartetBuilder::default())).await;
+    sqlx::query("UPDATE record_metadata SET signature_status = 'missing_signature'")
+        .execute(&app.pool)
+        .await
+        .unwrap();
     let regler = registrer_regler(
-        vec![Box::new(MeldingHarTraceId)],
+        vec![Box::new(StartetErSignert)],
         &app.topic_ids,
         &RuntimeEnv::Local,
     );
@@ -47,10 +51,6 @@ async fn app_med_data() -> (TestApp, Router) {
         partition: 0,
     }]);
     while kjor_runde(&app.pool, &regler, &tildelt, 10).await.unwrap() > 0 {}
-    sqlx::query("UPDATE record_metadata SET signature_status = 'missing_signature'")
-        .execute(&app.pool)
-        .await
-        .unwrap();
     let router = routes(
         VisState {
             pg_pool: app.pool.clone(),
@@ -69,7 +69,7 @@ async fn alle_faner_viser_innlest_data() {
     let (status, html) = hent(&router, "/stats/fragment/toppfelt").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
-        html.contains("Advarsler</span><span class=\"verdi\">1</span>"),
+        html.contains("Kritiske funn</span><span class=\"verdi\">1</span>"),
         "{html}"
     );
     assert!(
@@ -79,13 +79,13 @@ async fn alle_faner_viser_innlest_data() {
 
     let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<td>Melding har trace_id</td>"), "{html}");
+    assert!(html.contains("<td>Startet er signert</td>"), "{html}");
     assert!(!html.contains("<!DOCTYPE html>"));
 
     for sti in [
         "/stats/fragment/fane?fane=funn",
         "/stats/fragment/fane?fane=funn&regel=3",
-        "/stats/fragment/fane?fane=funn&regel=3&alvorlighet=advarsel",
+        "/stats/fragment/fane?fane=funn&regel=3&alvorlighet=kritisk",
     ] {
         let (status, html) = hent(&router, sti).await;
         assert_eq!(status, StatusCode::OK, "{sti}");
@@ -93,7 +93,7 @@ async fn alle_faner_viser_innlest_data() {
     }
     let (_, html) = hent(
         &router,
-        "/stats/fragment/fane?fane=funn&alvorlighet=kritisk",
+        "/stats/fragment/fane?fane=funn&alvorlighet=advarsel",
     )
     .await;
     assert!(html.contains("Ingen funn med dette filteret."));

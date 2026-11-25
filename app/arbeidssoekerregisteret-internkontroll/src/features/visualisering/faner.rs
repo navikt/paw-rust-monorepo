@@ -285,39 +285,39 @@ mod tests {
     fn funn_viser_filtre_og_samler_antall_per_regel() {
         let valg = Valg {
             fane: Fane::Funn,
-            regel: Some(RegelId::MeldingHarTraceId as i16),
+            regel: Some(RegelId::StartetErSignert as i16),
             alvorlighet: None,
         };
         let antall = [
             FunnAntall {
-                regel: RegelId::MeldingHarTraceId,
+                regel: RegelId::StartetErSignert,
                 regelversjon: Regelversjon::new(1),
                 alvorlighet: Alvorlighet::Advarsel,
                 antall: 4,
             },
             FunnAntall {
-                regel: RegelId::MeldingHarTraceId,
+                regel: RegelId::StartetErSignert,
                 regelversjon: Regelversjon::new(1),
                 alvorlighet: Alvorlighet::Kritisk,
                 antall: 2,
             },
         ];
         let html = funn(&valg, &antall, &[]).into_string();
-        assert_eq!(html.matches("<td>Melding har trace_id</td>").count(), 1);
+        assert_eq!(html.matches("<td>Startet er signert</td>").count(), 1);
         assert!(
             html.contains(
                 r#"<td class="tall">2</td><td class="tall">4</td><td class="tall">0</td>"#
             )
         );
         assert!(html.contains(r#"href="/stats/?fane=funn&amp;regel=3&amp;alvorlighet=kritisk""#));
-        assert!(html.contains(r#"aria-current="true">Melding har trace_id</a>"#));
+        assert!(html.contains(r#"aria-current="true">Startet er signert</a>"#));
     }
 
     #[test]
     fn oversikt_viser_tid_bak() {
         let html = oversikt(
             &[RegelStatus {
-                regel: RegelId::MeldingHarTraceId,
+                regel: RegelId::StartetErSignert,
                 regelversjon: Regelversjon::new(1),
                 partisjoner: 2,
                 eldste_stream_ms: Some(1_000),
