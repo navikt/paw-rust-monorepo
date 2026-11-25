@@ -1,5 +1,6 @@
 //! Lesespørringer for visualiseringen. Ingen av dem returnerer `periode_id`
-//! eller `arbeidssoeker_id`.
+//! eller `arbeidssoeker_id`. Se modulkommentaren i `mod.rs` før du legger til
+//! en spørring som gjør det.
 
 use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;

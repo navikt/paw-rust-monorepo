@@ -1,5 +1,10 @@
 //! Enkel visualisering for teamet. Serveres av appen selv under `/stats`,
 //! som er stien i ingressen. `/internal` nås derfor ikke utenfra.
+//!
+//! Rutene her skal bare vise aggregater og topic/partisjon/offset, aldri
+//! personopplysninger som `periode_id` eller `arbeidssoeker_id`. Derfor logges
+//! bare visning av hele siden, ikke fragmentene. Sensitive data skal ligge bak
+//! egne endepunkter med detaljert logging av hvem som så hva.
 
 pub mod auth;
 mod faner;
