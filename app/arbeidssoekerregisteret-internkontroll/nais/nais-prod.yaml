@@ -16,14 +16,6 @@ spec:
     min: 1
     max: 1
   env:
-    - name: PGSSLMODE
-      value: "verify-ca"
-    - name: PGSSLROOTCERT
-      value: "$(NAIS_DATABASE_ARBEIDSSOEKERREGISTERET_INTERNKONTROLL_INTERNKONTROLL_SSLROOTCERT)"
-    - name: PGSSLCERT
-      value: "$(NAIS_DATABASE_ARBEIDSSOEKERREGISTERET_INTERNKONTROLL_INTERNKONTROLL_SSLCERT)"
-    - name: PGSSLKEY
-      value: "$(NAIS_DATABASE_ARBEIDSSOEKERREGISTERET_INTERNKONTROLL_INTERNKONTROLL_SSLKEY)"
     - name: PAA_VEGNE_AV_TOPIC
       value: "paw.arbeidssoker-bekreftelse-paavegneav-v2"
   liveness:
@@ -69,19 +61,6 @@ spec:
     requests:
       memory: 512Mi
       cpu: 3000m
-  gcp:
-    sqlInstances:
-      - type: POSTGRES_18
-        tier: db-custom-2-7680
-        diskSize: 80
-        databases:
-          - name: internkontroll
-        flags:
-          - name: "cloudsql.enable_pgaudit"
-            value: "on"
-          - name: "pgaudit.log"
-            value: "write,ddl,role"
-          - name: "pgaudit.log_parameter"
-            value: "on"
-          - name: "pgaudit.log_relation"
-            value: "on"
+  uses:
+    postgres:
+      - name: internkontroll-db

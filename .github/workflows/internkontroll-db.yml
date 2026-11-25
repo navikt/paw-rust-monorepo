@@ -1,0 +1,43 @@
+name: Internkontroll - deploy Postgres
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/internkontroll-db.yml"
+      - "app/arbeidssoekerregisteret-internkontroll/nais/postgres-dev.yaml"
+      - "app/arbeidssoekerregisteret-internkontroll/nais/postgres-prod.yaml"
+concurrency:
+  group: internkontroll-db
+  cancel-in-progress: false
+jobs:
+  deploy-dev:
+    name: Apply Postgres i dev-gcp
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nais/setup@cc4e4226c3c8e819ded324ecd8608fd905347428 # v1.0.4
+        with:
+          team: paw
+      - run: nais apply app/arbeidssoekerregisteret-internkontroll/nais/postgres-dev.yaml --environment dev-gcp
+
+  deploy-prod:
+    #if: github.ref == 'refs/heads/main'
+    if: false
+    name: Apply Postgres i prod-gcp
+    needs: [deploy-dev]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nais/setup@cc4e4226c3c8e819ded324ecd8608fd905347428 # v1.0.4
+        with:
+          team: paw
+      - run: nais apply app/arbeidssoekerregisteret-internkontroll/nais/postgres-prod.yaml --environment prod-gcp
