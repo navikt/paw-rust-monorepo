@@ -77,21 +77,3 @@ pub async fn lagre_vurdering(
     }
     Ok(())
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::FromRow)]
-pub struct ModentFunn {
-    pub regel: RegelId,
-    pub regelversjon: Regelversjon,
-    pub record_metadata_id: i64,
-    pub kode: i16,
-}
-
-pub async fn hent_modne_funn(conn: &mut PgConnection) -> Result<Vec<ModentFunn>, sqlx::Error> {
-    sqlx::query_as(
-        "SELECT regel, regelversjon, record_metadata_id, kode
-         FROM modne_funn
-         ORDER BY record_metadata_id",
-    )
-    .fetch_all(conn)
-    .await
-}

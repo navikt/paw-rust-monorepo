@@ -1,7 +1,7 @@
 mod common;
 
 use arbeidssoekerregisteret_internkontroll::features::regler::{
-    funn::hent_modne_funn, regel::Regel, startet_gir_periode::StartetGirPeriode,
+    regel::Regel, startet_gir_periode::StartetGirPeriode,
 };
 use common::{TestApp, melding::Melding};
 use paw_test::hendelse_builder::StartetBuilder;
@@ -19,8 +19,10 @@ fn startet(tid: i64) -> Melding<StartetBuilder> {
 }
 
 async fn modne(app: &TestApp) -> usize {
-    let mut conn = app.pool.acquire().await.unwrap();
-    hent_modne_funn(&mut conn).await.unwrap().len()
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM modne_funn")
+        .fetch_one(&app.pool)
+        .await
+        .unwrap() as usize
 }
 
 fn regel() -> Vec<Box<dyn Regel>> {
