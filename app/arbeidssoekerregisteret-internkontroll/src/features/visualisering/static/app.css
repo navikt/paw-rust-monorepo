@@ -1,42 +1,26 @@
-:root {
-    color-scheme: light dark;
-    --bakgrunn: #fff;
-    --tekst: #23262a;
-    --dempet: #5d6570;
-    --kantlinje: #cfd3d8;
-    --flate: #f1f3f5;
-    --flate-svak: #f8f9fa;
-    --tabell-hover: #e8edf2;
-    --aktiv: #0063c1;
-    --kritisk: #c30000;
-    --kritisk-bakgrunn: #fce8e8;
-    --advarsel: #874000;
-    --advarsel-bakgrunn: #fff0d6;
-    --info: #005a9c;
-    --info-bakgrunn: #e3f2fd;
-    --fremdrift-ajour: #167447;
-    --fremdrift-etterslep: #d29b35;
-}
+/* Temaet styres av data-tema på <html>, satt av serveren fra cookien `tema`.
+ * light-dark() velger farge etter color-scheme, så hver farge defineres én gang. */
+:root { color-scheme: light dark; }
+:root[data-tema="lys"] { color-scheme: light; }
+:root[data-tema="mork"] { color-scheme: dark; }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bakgrunn: #181a1d;
-        --tekst: #f1f3f5;
-        --dempet: #aab1ba;
-        --kantlinje: #737b85;
-        --flate: #30353b;
-        --flate-svak: #24282d;
-        --tabell-hover: #39414a;
-        --aktiv: #9ecbff;
-        --kritisk: #ff8a8a;
-        --advarsel: #ffc166;
-        --kritisk-bakgrunn: #4a3030;
-        --advarsel-bakgrunn: #493a26;
-        --info: #9ecbff;
-        --info-bakgrunn: #27384a;
-        --fremdrift-ajour: #65d69a;
-        --fremdrift-etterslep: #ffc166;
-    }
+:root {
+    --bakgrunn: light-dark(#fff, #181a1d);
+    --tekst: light-dark(#23262a, #f1f3f5);
+    --dempet: light-dark(#5d6570, #aab1ba);
+    --kantlinje: light-dark(#cfd3d8, #737b85);
+    --flate: light-dark(#f1f3f5, #30353b);
+    --flate-svak: light-dark(#f8f9fa, #24282d);
+    --tabell-hover: light-dark(#e8edf2, #39414a);
+    --aktiv: light-dark(#0063c1, #9ecbff);
+    --kritisk: light-dark(#c30000, #ff8a8a);
+    --kritisk-bakgrunn: light-dark(#fce8e8, #4a3030);
+    --advarsel: light-dark(#874000, #ffc166);
+    --advarsel-bakgrunn: light-dark(#fff0d6, #493a26);
+    --info: light-dark(#005a9c, #9ecbff);
+    --info-bakgrunn: light-dark(#e3f2fd, #27384a);
+    --fremdrift-ajour: light-dark(#167447, #65d69a);
+    --fremdrift-etterslep: light-dark(#d29b35, #ffc166);
 }
 
 body {
@@ -120,3 +104,9 @@ meter.fremdrift.etterslep::-moz-meter-bar { background: var(--fremdrift-ettersle
 .prosent { margin-left: 0.35rem; }
 td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
 td.bryt { white-space: normal; min-width: 20rem; }
+
+.tema { float: right; margin: 0; padding: 0; border: 0; font-size: 0.875rem; }
+.tema legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tema label { margin-left: 0.5rem; cursor: pointer; }
+.tema button { margin-left: 0.5rem; font: inherit; }
+.js .tema button { display: none; }

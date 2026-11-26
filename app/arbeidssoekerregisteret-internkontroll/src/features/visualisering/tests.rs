@@ -169,3 +169,62 @@ async fn ugyldige_valg_avvises_foer_databasen() {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{sti}");
     }
 }
+
+async fn post_tema(app: &Router, body: &str, token: Option<&str>) -> axum::response::Response {
+    let mut req = Request::post("/stats/tema")
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded");
+    if let Some(token) = token {
+        req = req.header(header::AUTHORIZATION, format!("Bearer {token}"));
+    }
+    app.clone()
+        .oneshot(req.body(Body::from(body.to_owned())).unwrap())
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn tema_krever_nav_ansatt() {
+    let app = routes(state(), Some(auth_state()));
+    assert_eq!(
+        post_tema(&app, "tema=mork", None).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        post_tema(&app, "tema=mork", Some(&system_token()))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let response = post_tema(&app, "tema=mork", Some(&nav_ansatt_token())).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+}
+
+#[tokio::test]
+async fn tema_settes_i_cookie_og_sender_tilbake() {
+    let app = routes(state(), None);
+    for tema in ["lys", "mork", "auto"] {
+        let response = post_tema(&app, &format!("tema={tema}"), None).await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER, "{tema}");
+        assert_eq!(response.headers()[header::LOCATION], "/stats/");
+        assert_eq!(
+            response.headers()[header::SET_COOKIE],
+            format!("tema={tema}; Path=/stats; Max-Age=31536000; SameSite=Lax; HttpOnly; Secure")
+        );
+    }
+}
+
+#[tokio::test]
+async fn ugyldig_tema_avvises() {
+    let app = routes(state(), None);
+    for body in [
+        "tema=ukjent",
+        "tema=",
+        "",
+        "tema=lys%3B%20Domain%3Devil",
+        "annet=lys",
+    ] {
+        let response = post_tema(&app, body, None).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{body:?}");
+        assert!(response.headers().get(header::SET_COOKIE).is_none());
+    }
+}

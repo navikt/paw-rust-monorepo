@@ -144,12 +144,81 @@ pub fn alvorlighet_merke(alvorlighet: Alvorlighet) -> Markup {
     }
 }
 
+/// Fargetema. `Auto` følger nettleseren.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tema {
+    Lys,
+    Mork,
+    #[default]
+    Auto,
+}
+
+impl Tema {
+    pub const ALLE: [Tema; 3] = [Self::Lys, Self::Mork, Self::Auto];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lys => "lys",
+            Self::Mork => "mork",
+            Self::Auto => "auto",
+        }
+    }
+
+    fn navn(self) -> &'static str {
+        match self {
+            Self::Lys => "Lys",
+            Self::Mork => "Mørk",
+            Self::Auto => "Auto",
+        }
+    }
+
+    /// Leser `tema` fra en `Cookie`-header. Manglende eller ukjent verdi gir `Auto`.
+    pub fn fra_cookie_header(header: Option<&str>) -> Self {
+        header
+            .into_iter()
+            .flat_map(|h| h.split(';'))
+            .filter_map(|par| par.trim().split_once('='))
+            .find(|(navn, _)| *navn == "tema")
+            .and_then(|(_, verdi)| Self::ALLE.into_iter().find(|t| t.as_str() == verdi))
+            .unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TemaSkjema {
+    pub tema: Tema,
+}
+
+fn temavelger(valgt: Tema) -> Markup {
+    html! {
+        form.tema method="post" action="/stats/tema" {
+            fieldset {
+                legend { "Tema" }
+                @for tema in Tema::ALLE {
+                    label {
+                        input type="radio" name="tema" value=(tema.as_str()) checked[tema == valgt];
+                        " " (tema.navn())
+                    }
+                }
+                button type="submit" { "Bytt tema" }
+            }
+        }
+    }
+}
+
 /// Hele siden. Virker uten JavaScript; `oppdater.js` henter bare nye tall.
 /// Fanelenkene viser tellerne fra sidelastingen og oppdateres ikke automatisk.
-pub fn side(valg: &Valg, toppfelt_data: &Toppfelt, toppfelt: Markup, innhold: Markup) -> Markup {
+pub fn side(
+    valg: &Valg,
+    tema: Tema,
+    toppfelt_data: &Toppfelt,
+    toppfelt: Markup,
+    innhold: Markup,
+) -> Markup {
     html! {
         (DOCTYPE)
-        html lang="nb" {
+        html lang="nb" data-tema=(tema.as_str()) {
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
@@ -159,6 +228,7 @@ pub fn side(valg: &Valg, toppfelt_data: &Toppfelt, toppfelt: Markup, innhold: Ma
             }
             body {
                 main {
+                    (temavelger(tema))
                     h1 { "Internkontroll" }
                     p {
                         "Internkontroll for arbeidssøkerregisteret. Siden viser hvor langt innlesing "
@@ -256,7 +326,7 @@ mod tests {
             advarsler: 7,
             signaturfeil: 3,
         };
-        let html = side(&valg, &toppfelt, html! {}, html! {}).into_string();
+        let html = side(&valg, Tema::Mork, &toppfelt, html! {}, html! {}).into_string();
         assert!(
             html.contains(r#"<a href="/stats/?fane=signatur" aria-current="page">Signatur<span"#)
         );
@@ -266,5 +336,21 @@ mod tests {
         assert!(!html.contains(r#"aria-label="Oversikt 0"#));
         assert!(!html.contains(r#"aria-label="Trace 0"#));
         assert!(html.contains(r#"data-oppdater="/stats/fragment/fane?fane=signatur&amp;regel=3""#));
+        assert!(html.contains(r#"<html lang="nb" data-tema="mork">"#));
+        assert!(html.contains(r#"value="mork" checked>"#));
+        assert_eq!(html.matches("checked").count(), 1);
+    }
+
+    #[test]
+    fn tema_leses_fra_cookie() {
+        assert_eq!(Tema::fra_cookie_header(None), Tema::Auto);
+        assert_eq!(Tema::fra_cookie_header(Some("")), Tema::Auto);
+        assert_eq!(Tema::fra_cookie_header(Some("tema=ukjent")), Tema::Auto);
+        assert_eq!(Tema::fra_cookie_header(Some("tema=<b>")), Tema::Auto);
+        assert_eq!(Tema::fra_cookie_header(Some("xtema=lys")), Tema::Auto);
+        for tema in Tema::ALLE {
+            let header = format!("a=1; tema={}; b=2", tema.as_str());
+            assert_eq!(Tema::fra_cookie_header(Some(&header)), tema);
+        }
     }
 }

@@ -33,6 +33,11 @@
     }
   };
 
+  // Med JS lagres temaet straks det velges, og knappen skjules via .js.
+  document.documentElement.classList.add("js");
+  const temaskjema = document.querySelector("form.tema");
+  temaskjema?.addEventListener("change", () => temaskjema.requestSubmit());
+
   for (const el of elementer()) {
     const sekunder = Math.max(Number(el.dataset.intervall) || 30, 10);
     setInterval(() => oppdater(el), sekunder * 1000);
