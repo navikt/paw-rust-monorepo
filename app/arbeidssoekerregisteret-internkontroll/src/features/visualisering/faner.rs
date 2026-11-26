@@ -78,7 +78,9 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
                                     aria-label=(tekst) {
                                     (tekst)
                                 }
-                                span.prosent { (tekst) }
+                                // Kolonneoverskriften gir konteksten. Skjermlesere får hele
+                                // teksten fra meteren, så tallet ved siden av skjules for dem.
+                                span.prosent aria-hidden="true" { (prosent) " %" }
                             } @else {
                                 (STREK)
                             }
@@ -559,7 +561,7 @@ mod tests {
         assert!(html.contains(r#"<td class="tall">3s</td>"#));
         assert!(html.contains(r#"<td class="tall">7</td>"#));
         assert!(html.contains(r#"aria-label="25 % ajour""#));
-        assert!(html.contains("<span class=\"prosent\">25 % ajour</span>"));
+        assert!(html.contains(r#"<span class="prosent" aria-hidden="true">25 %</span>"#));
     }
 
     #[test]
