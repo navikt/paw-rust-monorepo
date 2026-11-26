@@ -6,7 +6,9 @@ use maud::{Markup, html};
 use crate::features::innlesing::metadata::signature::SignatureStatus;
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
 
-use super::html::{Fane, Valg, alvorlighet_navn, regel_navn, tidspunkt_tekst, varighet_tekst};
+use super::html::{
+    Fane, Valg, alvorlighet_merke, alvorlighet_navn, regel_navn, tidspunkt_tekst, varighet_tekst,
+};
 use super::sporringer::{
     FunnAntall, FunnRad, MAKS_FUNN_I_LISTE, MAKS_SIGNATURFEIL_I_LISTE, ManglerTraceId, RegelStatus,
     SignaturAntall, Signaturfeil, TopicStatus, Toppfelt,
@@ -17,10 +19,14 @@ const STREK: &str = "–";
 pub fn toppfelt(t: &Toppfelt) -> Markup {
     html! {
         ul.nokkeltall {
-            li { span.dempet { "Stream-tid" } span.verdi { (tidspunkt_tekst(t.stream_ms)) } }
-            li.kritisk { span.dempet { "Kritiske funn" } span.verdi { (t.kritiske_funn) } }
-            li.advarsel { span.dempet { "Advarsler" } span.verdi { (t.advarsler) } }
-            li { span.dempet { "Signaturfeil" } span.verdi { (t.signaturfeil) } }
+            li.aktiv { span.dempet { "Stream-tid" } span.verdi { (tidspunkt_tekst(t.stream_ms)) } }
+            li.kritisk class=[(t.kritiske_funn == 0).then_some("null")] {
+                span.dempet { "Kritiske funn" } span.verdi { (t.kritiske_funn) }
+            }
+            li.advarsel class=[(t.advarsler == 0).then_some("null")] {
+                span.dempet { "Advarsler" } span.verdi { (t.advarsler) }
+            }
+            li.aktiv { span.dempet { "Signaturfeil" } span.verdi { (t.signaturfeil) } }
         }
     }
 }
@@ -76,6 +82,100 @@ fn filterlenke(valg: Valg, aktiv: bool, tekst: &str) -> Markup {
     html! { a href=(valg.url()) aria-current=[aktiv.then_some("true")] { (tekst) } }
 }
 
+const FUNN_DIAGRAM_BREDDE: u32 = 1_000;
+
+#[derive(Debug, PartialEq, Eq)]
+struct FunnDiagramRad {
+    regel: RegelId,
+    kritisk: i64,
+    advarsel: i64,
+    info: i64,
+    total: i64,
+    segmentbredder: [u32; 3],
+}
+
+/// Slår sammen regelversjoner og skalerer søylene etter største regel-total.
+fn funn_diagram_beregning(antall: &[FunnAntall]) -> Vec<FunnDiagramRad> {
+    let mut summer: Vec<FunnDiagramRad> = Vec::new();
+    for funn in antall {
+        let rad = if let Some(rad) = summer.iter_mut().find(|rad| rad.regel == funn.regel) {
+            rad
+        } else {
+            summer.push(FunnDiagramRad {
+                regel: funn.regel,
+                kritisk: 0,
+                advarsel: 0,
+                info: 0,
+                total: 0,
+                segmentbredder: [0; 3],
+            });
+            summer.last_mut().expect("la nettopp til en rad")
+        };
+        let verdi = funn.antall.max(0);
+        match funn.alvorlighet {
+            Alvorlighet::Kritisk => rad.kritisk = rad.kritisk.saturating_add(verdi),
+            Alvorlighet::Advarsel => rad.advarsel = rad.advarsel.saturating_add(verdi),
+            Alvorlighet::Info => rad.info = rad.info.saturating_add(verdi),
+        }
+        rad.total = rad.total.saturating_add(verdi);
+    }
+
+    let storste_total = summer.iter().map(|rad| rad.total).max().unwrap_or(0);
+    if storste_total > 0 {
+        for rad in &mut summer {
+            let mut kumulativ = 0_u128;
+            let mut forrige_bredde = 0_u32;
+            for (indeks, verdi) in [rad.kritisk, rad.advarsel, rad.info]
+                .into_iter()
+                .enumerate()
+            {
+                kumulativ += verdi as u128;
+                let bredde =
+                    (kumulativ * u128::from(FUNN_DIAGRAM_BREDDE) / storste_total as u128) as u32;
+                rad.segmentbredder[indeks] = bredde - forrige_bredde;
+                forrige_bredde = bredde;
+            }
+        }
+    }
+    summer
+}
+
+fn funn_diagram(antall: &[FunnAntall]) -> Markup {
+    let rader = funn_diagram_beregning(antall);
+    html! {
+        section.funn-diagram aria-label="Funn per regel" {
+            ul.funn-diagram-legend aria-label="Alvorlighetsnivå" {
+                li { span.prikk.seg-kritisk aria-hidden="true" {} "Kritisk" }
+                li { span.prikk.seg-advarsel aria-hidden="true" {} "Advarsel" }
+                li { span.prikk.seg-info aria-hidden="true" {} "Info" }
+            }
+            div.funn-diagram-rader {
+                @for rad in rader {
+                    @let etikett = format!(
+                        "{}: {} kritisk, {} advarsel, {} info",
+                        regel_navn(rad.regel), rad.kritisk, rad.advarsel, rad.info
+                    );
+                    div.funn-diagram-rad {
+                        span.regel { (regel_navn(rad.regel)) }
+                        span.tall { (rad.total) }
+                        svg width="100%" height="24" viewBox="0 0 1000 24"
+                            preserveAspectRatio="none" role="img" aria-label=(etikett) {
+                            @let [k, a, i] = rad.segmentbredder;
+                            @for (klasse, x, bredde) in [
+                                ("seg-kritisk", 0, k),
+                                ("seg-advarsel", k, a),
+                                ("seg-info", k + a, i),
+                            ] {
+                                rect class=(klasse) x=(x) y="0" width=(bredde) height="24" {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
     let regel = valg.regel.and_then(RegelId::fra_i16);
     let mut regelversjoner: Vec<_> = antall.iter().map(|a| (a.regel, a.regelversjon)).collect();
@@ -92,6 +192,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
         @if antall.is_empty() {
             p { "Ingen funn." }
         } @else {
+            (funn_diagram(antall))
             div.tabell { table {
                 thead { tr {
                     th { "Regel" } th.tall { "Versjon" }
@@ -117,7 +218,10 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
         nav.filter aria-label="Alvorlighet" {
             (filterlenke(Valg { alvorlighet: None, ..*valg }, valg.alvorlighet.is_none(), "Alle alvorligheter"))
             @for a in Alvorlighet::ALLE {
-                (filterlenke(Valg { alvorlighet: Some(a), ..*valg }, valg.alvorlighet == Some(a), alvorlighet_navn(a)))
+                a href=(Valg { alvorlighet: Some(a), ..*valg }.url())
+                    aria-current=[(valg.alvorlighet == Some(a)).then_some("true")] {
+                    (alvorlighet_merke(a))
+                }
             }
         }
         @if rader.is_empty() {
@@ -132,7 +236,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                 } }
                 tbody { @for f in rader {
                     tr {
-                        td { (alvorlighet_navn(f.alvorlighet)) }
+                        td { (alvorlighet_merke(f.alvorlighet)) }
                         td { (regel_navn(f.regel)) }
                         td.tall { (f.regelversjon) }
                         td.tall { (f.kode) }
@@ -310,7 +414,80 @@ mod tests {
             )
         );
         assert!(html.contains(r#"href="/stats/?fane=funn&amp;regel=3&amp;alvorlighet=kritisk""#));
-        assert!(html.contains(r#"aria-current="true">Startet er signert</a>"#));
+        assert!(html.contains(r#"aria-current="true""#));
+        assert!(html.contains(r#"class="merke merke-kritisk""#));
+        assert!(html.contains("Kritisk"));
+    }
+
+    #[test]
+    fn funn_diagram_skalerer_proporsjonalt_og_slaar_sammen_versjoner() {
+        let antall = [
+            FunnAntall {
+                regel: RegelId::StartetErSignert,
+                regelversjon: Regelversjon::new(1),
+                alvorlighet: Alvorlighet::Kritisk,
+                antall: 2,
+            },
+            FunnAntall {
+                regel: RegelId::StartetErSignert,
+                regelversjon: Regelversjon::new(2),
+                alvorlighet: Alvorlighet::Advarsel,
+                antall: 4,
+            },
+            FunnAntall {
+                regel: RegelId::StartetGirPeriode,
+                regelversjon: Regelversjon::new(1),
+                alvorlighet: Alvorlighet::Info,
+                antall: 3,
+            },
+        ];
+
+        let rader = funn_diagram_beregning(&antall);
+        assert_eq!(rader.len(), 2);
+        assert_eq!(rader[0].total, 6);
+        assert_eq!(rader[0].segmentbredder, [333, 667, 0]);
+        assert_eq!(rader[1].total, 3);
+        assert_eq!(rader[1].segmentbredder, [0, 0, 500]);
+    }
+
+    #[test]
+    fn funn_diagram_takler_null_funn_og_en_regel() {
+        assert!(funn_diagram_beregning(&[]).is_empty());
+
+        let rader = funn_diagram_beregning(&[FunnAntall {
+            regel: RegelId::StartetErSignert,
+            regelversjon: Regelversjon::new(1),
+            alvorlighet: Alvorlighet::Info,
+            antall: 5,
+        }]);
+        assert_eq!(rader.len(), 1);
+        assert_eq!(rader[0].total, 5);
+        assert_eq!(rader[0].segmentbredder, [0, 0, FUNN_DIAGRAM_BREDDE]);
+    }
+
+    #[test]
+    fn generert_html_inneholder_ikke_inline_stil() {
+        let toppfelt_html = toppfelt(&Toppfelt {
+            stream_ms: None,
+            kritiske_funn: 0,
+            advarsler: 2,
+            signaturfeil: 0,
+        })
+        .into_string();
+        let funn_html = funn(
+            &Valg::fane(Fane::Funn),
+            &[FunnAntall {
+                regel: RegelId::StartetErSignert,
+                regelversjon: Regelversjon::new(1),
+                alvorlighet: Alvorlighet::Info,
+                antall: 1,
+            }],
+            &[],
+        )
+        .into_string();
+
+        assert!(!toppfelt_html.contains("style="));
+        assert!(!funn_html.contains("style="));
     }
 
     #[test]

@@ -126,6 +126,22 @@ pub fn alvorlighet_navn(alvorlighet: Alvorlighet) -> &'static str {
     }
 }
 
+/// Vis alvorlighetsnivå med både tekst og et formbasert ikon.
+pub fn alvorlighet_merke(alvorlighet: Alvorlighet) -> Markup {
+    let ikon = match alvorlighet {
+        Alvorlighet::Info => "●",
+        Alvorlighet::Advarsel => "▲",
+        Alvorlighet::Kritisk => "■",
+    };
+    html! {
+        span class=(format!("merke merke-{}", alvorlighet.as_str())) {
+            span aria-hidden="true" { (ikon) }
+            " "
+            (alvorlighet_navn(alvorlighet))
+        }
+    }
+}
+
 /// Hele siden. Virker uten JavaScript; `oppdater.js` henter bare nye tall.
 pub fn side(valg: &Valg, toppfelt: Markup, innhold: Markup) -> Markup {
     html! {
@@ -184,6 +200,19 @@ mod tests {
     fn tidspunkt_formateres_i_utc() {
         assert_eq!(tidspunkt_tekst(Some(0)), "1970-01-01 00:00:00.000 UTC");
         assert_eq!(tidspunkt_tekst(None), "–");
+    }
+
+    #[test]
+    fn alvorlighetsmerke_viser_navn_som_tekst() {
+        for (alvorlighet, navn) in [
+            (Alvorlighet::Info, "Info"),
+            (Alvorlighet::Advarsel, "Advarsel"),
+            (Alvorlighet::Kritisk, "Kritisk"),
+        ] {
+            let html = alvorlighet_merke(alvorlighet).into_string();
+            assert!(html.contains(navn));
+            assert!(html.contains(r#"aria-hidden="true""#));
+        }
     }
 
     #[test]
