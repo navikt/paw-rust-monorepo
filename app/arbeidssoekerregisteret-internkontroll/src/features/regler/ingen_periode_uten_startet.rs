@@ -5,10 +5,9 @@ use crate::features::innlesing::metadata::payload::Meldingstype;
 use crate::features::regler::{
     alvorlighet::{Alvorlighet, Utfall},
     batch::BatchRad,
-    fremdrift::Fremdrift,
     funn::Vurdering,
     nivaa::Nivaa,
-    oppslag::{har_sett_periode, hent_melding},
+    oppslag::{Sett, har_sett_periode, hent_melding},
     regel::{Regel, VurderFuture},
     regel_katalog::RegelId,
     regelversjon::Regelversjon,
@@ -42,7 +41,7 @@ impl Regel for IngenPeriodeUtenStartet {
         &'a self,
         conn: &'a mut PgConnection,
         rad: &'a BatchRad,
-        sett: &'a [Fremdrift],
+        sett: &'a Sett<'a>,
     ) -> VurderFuture<'a> {
         Box::pin(async move {
             let melding = hent_melding(conn, rad.record_metadata_id).await?;
@@ -52,12 +51,10 @@ impl Regel for IngenPeriodeUtenStartet {
             Ok(match melding.meldingstype {
                 Some(Meldingstype::HendelseStartet) => Vurdering::Ok,
                 Some(Meldingstype::PeriodeStartet) => {
-                    // `sett` følger rekkefølgen i `topics()`.
-                    let hendelselogg = sett[0].topic_id;
                     if har_sett_periode(
                         conn,
                         sett,
-                        hendelselogg,
+                        &Topic::Hendelselogg,
                         melding.record_partition,
                         periode_id,
                         &[Meldingstype::HendelseStartet],

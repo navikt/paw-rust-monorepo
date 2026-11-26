@@ -11,7 +11,7 @@ use crate::features::regler::periode_startet_lik_startet::PeriodeStartetLikStart
 use crate::features::regler::startet_er_signert::StartetErSignert;
 use crate::features::regler::startet_gir_periode::StartetGirPeriode;
 use crate::features::regler::{
-    batch::BatchRad, fremdrift::Fremdrift, funn::Vurdering, nivaa::Nivaa, regel_katalog::RegelId,
+    batch::BatchRad, funn::Vurdering, nivaa::Nivaa, oppslag::Sett, regel_katalog::RegelId,
     regelversjon::Regelversjon,
 };
 
@@ -34,7 +34,7 @@ pub trait Regel: Send + Sync {
         &'a self,
         conn: &'a mut PgConnection,
         rad: &'a BatchRad,
-        sett: &'a [Fremdrift],
+        sett: &'a Sett<'a>,
     ) -> VurderFuture<'a>;
 }
 
@@ -42,6 +42,8 @@ pub trait Regel: Send + Sync {
 pub struct RegistrertRegel {
     pub regel: Box<dyn Regel>,
     pub topic_ids: Vec<i16>,
+    /// I samme rekkefølge som `regel.topics()`.
+    pub topics: Vec<(Topic, i16)>,
 }
 
 pub fn registrer_regler(
@@ -52,7 +54,7 @@ pub fn registrer_regler(
     regler
         .into_iter()
         .map(|regel| {
-            let topic_ids = regel
+            let topic_ids: Vec<i16> = regel
                 .topics()
                 .iter()
                 .map(|topic| {
@@ -62,7 +64,17 @@ pub fn registrer_regler(
                         .unwrap_or_else(|| panic!("Topic {navn} mangler i topic-katalogen"))
                 })
                 .collect();
-            RegistrertRegel { regel, topic_ids }
+            let topics = regel
+                .topics()
+                .iter()
+                .cloned()
+                .zip(topic_ids.iter().copied())
+                .collect();
+            RegistrertRegel {
+                regel,
+                topic_ids,
+                topics,
+            }
         })
         .collect()
 }

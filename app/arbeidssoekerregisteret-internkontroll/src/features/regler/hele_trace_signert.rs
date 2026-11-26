@@ -5,9 +5,9 @@ use crate::features::innlesing::metadata::signature::SignatureStatus;
 use crate::features::regler::{
     alvorlighet::{Alvorlighet, Utfall},
     batch::BatchRad,
-    fremdrift::Fremdrift,
     funn::Vurdering,
     nivaa::Nivaa,
+    oppslag::Sett,
     regel::{Regel, VurderFuture},
     regel_katalog::RegelId,
     regelversjon::Regelversjon,
@@ -50,7 +50,7 @@ impl Regel for HeleTraceSignert {
         &'a self,
         conn: &'a mut PgConnection,
         rad: &'a BatchRad,
-        _sett: &'a [Fremdrift],
+        _sett: &'a Sett<'a>,
     ) -> VurderFuture<'a> {
         Box::pin(async move {
             let (trace_id, status): (Option<uuid::Uuid>, SignatureStatus) = sqlx::query_as(

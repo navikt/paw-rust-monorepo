@@ -5,10 +5,9 @@ use crate::features::innlesing::metadata::payload::Meldingstype;
 use crate::features::regler::{
     alvorlighet::{Alvorlighet, Utfall},
     batch::BatchRad,
-    fremdrift::Fremdrift,
     funn::Vurdering,
     nivaa::Nivaa,
-    oppslag::{forrige_for_arbeidssoeker, har_sett_periode, hent_melding},
+    oppslag::{Sett, forrige_for_arbeidssoeker, har_sett_periode, hent_melding},
     regel::{Regel, VurderFuture},
     regel_katalog::RegelId,
     regelversjon::Regelversjon,
@@ -42,7 +41,7 @@ impl Regel for StartetGirPeriode {
         &'a self,
         conn: &'a mut PgConnection,
         rad: &'a BatchRad,
-        sett: &'a [Fremdrift],
+        sett: &'a Sett<'a>,
     ) -> VurderFuture<'a> {
         Box::pin(async move {
             let melding = hent_melding(conn, rad.record_metadata_id).await?;
@@ -54,12 +53,10 @@ impl Regel for StartetGirPeriode {
                     Ok(Vurdering::Ok)
                 }
                 Some(Meldingstype::HendelseStartet) => {
-                    // `sett` følger rekkefølgen i `topics()`.
-                    let periode_topic = sett[1].topic_id;
                     let har_periode = har_sett_periode(
                         conn,
                         sett,
-                        periode_topic,
+                        &Topic::Periode,
                         melding.record_partition,
                         periode_id,
                         &[],

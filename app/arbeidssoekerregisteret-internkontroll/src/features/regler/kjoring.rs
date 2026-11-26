@@ -10,6 +10,7 @@ use crate::features::regler::{
     config::RegelConfig,
     fremdrift::{Fremdrift, oppdater_fremdrift},
     funn::lagre_vurdering,
+    oppslag::Sett,
     regel::RegistrertRegel,
 };
 
@@ -186,7 +187,10 @@ pub async fn kjor_jobb(
     let regel = jobb.regel.regel.as_ref();
     let batch = neste_batch(conn, jobb.partisjon, &jobb.fremdrift, batch_size).await?;
     for rad in &batch {
-        let vurdering = regel.vurder(conn, rad, &jobb.fremdrift).await?;
+        let vurdering = {
+            let sett = Sett::ny(&jobb.regel.topics, &jobb.fremdrift);
+            regel.vurder(conn, rad, &sett).await?
+        };
         lagre_vurdering(
             conn,
             regel.id(),

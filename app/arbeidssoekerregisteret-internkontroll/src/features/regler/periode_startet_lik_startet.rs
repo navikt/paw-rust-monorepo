@@ -5,10 +5,9 @@ use crate::features::innlesing::metadata::payload::Meldingstype;
 use crate::features::regler::{
     alvorlighet::{Alvorlighet, Utfall},
     batch::BatchRad,
-    fremdrift::Fremdrift,
     funn::Vurdering,
     nivaa::Nivaa,
-    oppslag::hent_melding,
+    oppslag::{Sett, hent_melding},
     regel::{Regel, VurderFuture},
     regel_katalog::RegelId,
     regelversjon::Regelversjon,
@@ -50,19 +49,23 @@ impl Regel for PeriodeStartetLikStartet {
         &'a self,
         conn: &'a mut PgConnection,
         rad: &'a BatchRad,
-        sett: &'a [Fremdrift],
+        sett: &'a Sett<'a>,
     ) -> VurderFuture<'a> {
         Box::pin(async move {
             let melding = hent_melding(conn, rad.record_metadata_id).await?;
             let Some(periode_id) = melding.periode_id else {
                 return Ok(Vurdering::IkkeRelevant);
             };
-            // `sett` følger rekkefølgen i `topics()`.
             let (motpart_topic, motpart_type) = match melding.meldingstype {
-                Some(Meldingstype::HendelseStartet) => (&sett[1], Meldingstype::PeriodeStartet),
-                Some(Meldingstype::PeriodeStartet) => (&sett[0], Meldingstype::HendelseStartet),
+                Some(Meldingstype::HendelseStartet) => {
+                    (Topic::Periode, Meldingstype::PeriodeStartet)
+                }
+                Some(Meldingstype::PeriodeStartet) => {
+                    (Topic::Hendelselogg, Meldingstype::HendelseStartet)
+                }
                 _ => return Ok(Vurdering::IkkeRelevant),
             };
+            let motpart_id = sett.topic_id(&motpart_topic);
             let ulikt: Option<(bool, bool, bool)> = sqlx::query_as(
                 "SELECT naa.identitetsnummer IS DISTINCT FROM m.identitetsnummer,
                         (naa.utfoert_av_type, naa.utfoert_av_id)
@@ -79,8 +82,8 @@ impl Regel for PeriodeStartetLikStartet {
             .bind(rad.record_metadata_id)
             .bind(periode_id)
             .bind(motpart_type)
-            .bind(motpart_topic.topic_id)
-            .bind(motpart_topic.siste_offset)
+            .bind(motpart_id)
+            .bind(sett.siste_offset(motpart_id))
             .fetch_optional(conn)
             .await?;
             Ok(match ulikt {

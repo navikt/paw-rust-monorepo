@@ -1,6 +1,8 @@
 use sqlx::PgConnection;
 use uuid::Uuid;
 
+use paw_kafka::topics::Topic;
+
 use crate::features::innlesing::metadata::{payload::Meldingstype, signature::SignatureStatus};
 use crate::features::regler::fremdrift::Fremdrift;
 
@@ -29,16 +31,36 @@ pub async fn hent_melding(
     .await
 }
 
-fn siste_offset(sett: &[Fremdrift], topic_id: i16) -> i64 {
-    sett.iter()
-        .find(|f| f.topic_id == topic_id)
-        .map_or(-1, |f| f.siste_offset)
+pub struct Sett<'a> {
+    topics: &'a [(Topic, i16)],
+    fremdrift: &'a [Fremdrift],
+}
+
+impl<'a> Sett<'a> {
+    pub fn ny(topics: &'a [(Topic, i16)], fremdrift: &'a [Fremdrift]) -> Self {
+        Self { topics, fremdrift }
+    }
+
+    pub fn topic_id(&self, topic: &Topic) -> i16 {
+        self.topics
+            .iter()
+            .find(|(t, _)| t == topic)
+            .expect("topic mangler i regelens topics()")
+            .1
+    }
+
+    pub fn siste_offset(&self, topic_id: i16) -> i64 {
+        self.fremdrift
+            .iter()
+            .find(|f| f.topic_id == topic_id)
+            .map_or(-1, |f| f.siste_offset)
+    }
 }
 
 pub async fn har_sett_periode(
     conn: &mut PgConnection,
-    sett: &[Fremdrift],
-    topic_id: i16,
+    sett: &Sett<'_>,
+    topic: &Topic,
     partisjon: i32,
     periode_id: Uuid,
     meldingstyper: &[Meldingstype],
@@ -52,9 +74,9 @@ pub async fn har_sett_periode(
          )",
     )
     .bind(periode_id)
-    .bind(topic_id)
+    .bind(sett.topic_id(topic))
     .bind(partisjon)
-    .bind(siste_offset(sett, topic_id))
+    .bind(sett.siste_offset(sett.topic_id(topic)))
     .bind(meldingstyper)
     .fetch_one(conn)
     .await
@@ -62,14 +84,16 @@ pub async fn har_sett_periode(
 
 pub async fn forrige_for_arbeidssoeker(
     conn: &mut PgConnection,
-    sett: &[Fremdrift],
+    sett: &Sett<'_>,
     melding: &Melding,
     meldingstyper: &[Meldingstype],
 ) -> Result<Option<Meldingstype>, sqlx::Error> {
     let Some(arbeidssoeker_id) = melding.arbeidssoeker_id else {
         return Ok(None);
     };
-    let grense = siste_offset(sett, melding.topic_id).min(melding.record_offset - 1);
+    let grense = sett
+        .siste_offset(melding.topic_id)
+        .min(melding.record_offset - 1);
     sqlx::query_scalar(
         "SELECT meldingstype FROM record_metadata
          WHERE arbeidssoeker_id = $1 AND topic_id = $2 AND record_partition = $3
