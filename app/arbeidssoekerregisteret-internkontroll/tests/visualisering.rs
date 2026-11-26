@@ -94,6 +94,11 @@ async fn alle_faner_viser_innlest_data() {
     let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("<td>Startet er signert</td>"), "{html}");
+    // Uten HWM vet vi ikke om regelen er ajour, så eldste stream-tid vises.
+    assert!(
+        html.contains("<td>2024-01-01 12:01:00.000 UTC</td>"),
+        "{html}"
+    );
     assert!(!html.contains("<!DOCTYPE html>"));
 
     for sti in [
@@ -122,6 +127,21 @@ async fn alle_faner_viser_innlest_data() {
         html.contains(&format!("<td>{topic}</td><td class=\"tall\">1</td>")),
         "{html}"
     );
+}
+
+/// En regel som har nådd HWM er ajour, selv om stream-tiden i partisjonen er
+/// gammel fordi det ikke har kommet nye meldinger.
+#[tokio::test]
+async fn regel_som_har_naadd_hwm_er_ajour() {
+    let (app, router) = app_med_data().await;
+    sqlx::query("INSERT INTO hwm (version, topic, partition, hwm) VALUES (1, $1, 0, 1)")
+        .bind(topic_navn(&Topic::Hendelselogg))
+        .execute(&app.pool)
+        .await
+        .unwrap();
+    let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains(r#"aria-label="100 % ajour""#), "{html}");
 }
 
 #[tokio::test]

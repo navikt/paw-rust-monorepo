@@ -58,10 +58,18 @@ pub struct RegelStatus {
     pub eldste_stream_ms: Option<i64>,
     pub meldinger_bak: i64,
     pub antall_funn: i64,
+    pub ajour: bool,
 }
 
 /// Fremdrift per regelversjon. `meldinger_bak` er summen av HWM minus
 /// `siste_offset` over partisjonene regelen har startet på.
+///
+/// `eldste_stream_ms` tar bare med partisjoner med meldinger igjen å lese,
+/// eller der HWM er ukjent.
+/// En partisjon uten ny trafikk står ellers med stream-tiden til sin siste
+/// melding, som kan være uker gammel, og regelen ville sett ut til å henge
+/// etter selv om den er ajour. `ajour` er sann når HWM er kjent og nådd i
+/// alle partisjonene.
 pub async fn hent_regel_status(
     conn: &mut PgConnection,
     hwm_version: i16,
@@ -69,10 +77,11 @@ pub async fn hent_regel_status(
     sqlx::query_as(
         "SELECT rf.regel, rf.regelversjon,
                 COUNT(*) AS partisjoner,
-                MIN(rf.siste_stream_ms) AS eldste_stream_ms,
+                MIN(rf.siste_stream_ms) FILTER (WHERE h.hwm IS NULL OR h.hwm > rf.siste_offset) AS eldste_stream_ms,
                 COALESCE(SUM(GREATEST(h.hwm - rf.siste_offset, 0)), 0)::BIGINT AS meldinger_bak,
                 (SELECT COUNT(*) FROM modne_funn f
-                 WHERE f.regel = rf.regel AND f.regelversjon = rf.regelversjon) AS antall_funn
+                 WHERE f.regel = rf.regel AND f.regelversjon = rf.regelversjon) AS antall_funn,
+                BOOL_AND(h.hwm IS NOT NULL AND h.hwm <= rf.siste_offset) AS ajour
          FROM regel_fremdrift rf
          JOIN topic t ON t.id = rf.topic_id
          LEFT JOIN hwm h ON h.version = $1 AND h.topic = t.name

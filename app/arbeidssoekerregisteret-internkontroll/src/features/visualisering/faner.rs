@@ -45,7 +45,7 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
         @if regler.is_empty() {
             p { "Ingen regler har registrert fremdrift ennå." }
         } @else {
-            p.dempet { "Meldinger bak regnes bare for partisjoner regelen har startet på." }
+            p.dempet { "Meldinger bak regnes bare for partisjoner regelen har startet på. Eldste stream-tid og fremdrift regnes bare for partisjoner med meldinger igjen å lese." }
             div.tabell { table {
                 thead { tr {
                     th { "Regel" } th.tall { "Versjon" } th.tall { "Partisjoner" }
@@ -53,24 +53,28 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
                     th.tall { "Tid bak" } th.tall { "Funn" }
                 } }
                 tbody { @for r in regler {
+                    // Ajour: regelen er så langt som innlesingen har kommet.
+                    @let eldste = if r.ajour { stream_ms } else { r.eldste_stream_ms };
                     @let tid_bak = stream_ms
-                        .zip(r.eldste_stream_ms)
+                        .zip(eldste)
                         .map_or(STREK.to_string(), |(naa, regel)| varighet_tekst(naa - regel));
-                    @let fremdrift = fremdrift_prosent(min_stream_ms, stream_ms, r.eldste_stream_ms);
+                    @let fremdrift = if r.ajour {
+                        Some(100)
+                    } else {
+                        fremdrift_prosent(min_stream_ms, stream_ms, eldste)
+                    };
                     @let funn_url = Valg { fane: Fane::Funn, regel: Some(r.regel as i16), alvorlighet: None }.url();
                     tr {
                         td { (regel_navn(r.regel)) }
                         td.tall { (r.regelversjon) }
                         td.tall { (r.partisjoner) }
                         td.tall { (r.meldinger_bak) }
-                        td { (tidspunkt_tekst(r.eldste_stream_ms)) }
+                        td { (tidspunkt_tekst(eldste)) }
                         td class="tall fremdrift-celle" {
-                            @if let (Some(prosent), Some(min), Some(max), Some(verdi)) =
-                                (fremdrift, min_stream_ms, stream_ms, r.eldste_stream_ms) {
-                                @let hoy = (min as i128 + (max as i128 - min as i128) * 9 / 10) as i64;
+                            @if let Some(prosent) = fremdrift {
                                 @let tekst = format!("{prosent} % ajour");
                                 meter class=(if prosent < 90 { "fremdrift etterslep" } else { "fremdrift ajour" })
-                                    min=(min) max=(max) value=(verdi) low=(min) high=(hoy) optimum=(max)
+                                    min="0" max="100" value=(prosent) low="0" high="90" optimum="100"
                                     aria-label=(tekst) {
                                     (tekst)
                                 }
@@ -541,6 +545,7 @@ mod tests {
                 eldste_stream_ms: Some(1_000),
                 meldinger_bak: 7,
                 antall_funn: 0,
+                ajour: false,
             }],
             &[TopicStatus {
                 topic: "topic".into(),
@@ -555,6 +560,31 @@ mod tests {
         assert!(html.contains(r#"<td class="tall">7</td>"#));
         assert!(html.contains(r#"aria-label="25 % ajour""#));
         assert!(html.contains("<span class=\"prosent\">25 % ajour</span>"));
+    }
+
+    #[test]
+    fn regel_som_er_ajour_vises_som_fullfort() {
+        let html = oversikt(
+            &[RegelStatus {
+                regel: RegelId::HeleTraceSignert,
+                regelversjon: Regelversjon::new(1),
+                partisjoner: 8,
+                eldste_stream_ms: None,
+                meldinger_bak: 0,
+                antall_funn: 0,
+                ajour: true,
+            }],
+            &[TopicStatus {
+                topic: "stille-topic".into(),
+                partisjoner: 1,
+                eldste_stream_ms: Some(0),
+                nyeste_stream_ms: Some(0),
+            }],
+            Some(4_000),
+        )
+        .into_string();
+        assert!(html.contains(r#"aria-label="100 % ajour""#), "{html}");
+        assert!(html.contains(r#"<td class="tall">0s</td>"#), "{html}");
     }
 
     #[test]
