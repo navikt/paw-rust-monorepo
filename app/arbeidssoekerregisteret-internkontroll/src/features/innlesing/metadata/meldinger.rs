@@ -44,9 +44,9 @@ impl std::fmt::Debug for DekodetMelding {
 }
 
 impl DekodetMelding {
-    fn gjelder(self, identitetsnummer: &str, utfoert: Utfoert) -> Self {
+    fn gjelder(self, identitetsnummer: String, utfoert: Utfoert) -> Self {
         Self {
-            identitetsnummer: Some(identitetsnummer.to_string()),
+            identitetsnummer: Some(identitetsnummer),
             utfoert: Some(utfoert),
             ..self
         }
@@ -90,15 +90,23 @@ pub fn dekod_hendelselogg(payload: Option<&[u8]>) -> Option<DekodetMelding> {
         melding(meldingstype, periode_id, arbeidssoeker_id, opphav)
     };
     Some(match hendelse {
-        InterneHendelser::Startet(h) => melding(T::HendelseStartet, Some(h.hendelse_id), h.id)
-            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
-        InterneHendelser::Avsluttet(h) => melding(T::HendelseAvsluttet, h.periode_id, h.id)
-            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
-        InterneHendelser::Avvist(h) => melding(T::HendelseAvvist, None, h.id)
-            .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata)),
+        InterneHendelser::Startet(h) => {
+            let utfoert = Utfoert::fra_intern(&h.metadata);
+            melding(T::HendelseStartet, Some(h.hendelse_id), h.id)
+                .gjelder(h.identitetsnummer, utfoert)
+        }
+        InterneHendelser::Avsluttet(h) => {
+            let utfoert = Utfoert::fra_intern(&h.metadata);
+            melding(T::HendelseAvsluttet, h.periode_id, h.id).gjelder(h.identitetsnummer, utfoert)
+        }
+        InterneHendelser::Avvist(h) => {
+            let utfoert = Utfoert::fra_intern(&h.metadata);
+            melding(T::HendelseAvvist, None, h.id).gjelder(h.identitetsnummer, utfoert)
+        }
         InterneHendelser::AvvistStoppAvPeriode(h) => {
+            let utfoert = Utfoert::fra_intern(&h.metadata);
             melding(T::HendelseAvvistStoppAvPeriode, None, h.id)
-                .gjelder(&h.identitetsnummer, Utfoert::fra_intern(&h.metadata))
+                .gjelder(h.identitetsnummer, utfoert)
         }
         InterneHendelser::ArbeidssoekerIdFlettetInn(h) => {
             melding(T::HendelseArbeidssoekerIdFlettetInn, None, h.id)
@@ -112,8 +120,9 @@ pub fn dekod_hendelselogg(payload: Option<&[u8]>) -> Option<DekodetMelding> {
             h.flyttet_til_arbeidssoeker_id,
         ),
         InterneHendelser::OpplysningerOmArbeidssoekerMottatt(h) => {
+            let utfoert = Utfoert::fra_intern(h.metadata());
             melding(T::HendelseOpplysningerOmArbeidssoekerMottatt, None, h.id)
-                .gjelder(&h.identitetsnummer, Utfoert::fra_intern(h.metadata()))
+                .gjelder(h.identitetsnummer, utfoert)
         }
     })
 }
@@ -220,10 +229,9 @@ impl Dekodere {
                     None => (Meldingstype::PeriodeStartet, &p.startet),
                     Some(avsluttet) => (Meldingstype::PeriodeAvsluttet, avsluttet),
                 };
-                uten_arbeidssoeker(meldingstype, p.id, Opphav::IKKE_AKTUELT).gjelder(
-                    &p.identitetsnummer,
-                    Utfoert::fra_ekstern(metadata.tidspunkt, &metadata.utfoert_av),
-                )
+                let utfoert = Utfoert::fra_ekstern(metadata.tidspunkt, &metadata.utfoert_av);
+                uten_arbeidssoeker(meldingstype, p.id, Opphav::IKKE_AKTUELT)
+                    .gjelder(p.identitetsnummer, utfoert)
             }),
             Dekoder::Opplysninger => self.avro::<Opplysninger>(payload).await?.map(|o| {
                 uten_arbeidssoeker(
