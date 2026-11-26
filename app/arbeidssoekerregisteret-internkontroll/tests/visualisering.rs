@@ -33,13 +33,27 @@ async fn hent(app: &Router, sti: &str) -> (StatusCode, String) {
 }
 
 /// Leser inn én startet-melding uten trace og signatur, og kjører regelen.
+const T: i64 = 1_704_110_400_000;
+
 async fn app_med_data() -> (TestApp, Router) {
     let app = TestApp::start().await;
-    app.les_inn(Melding::ny(StartetBuilder::default())).await;
-    sqlx::query("UPDATE record_metadata SET signature_status = 'missing_signature'")
-        .execute(&app.pool)
-        .await
-        .unwrap();
+    app.les_inn(Melding::ny(StartetBuilder::default()).tidspunkt_ms(T))
+        .await;
+    app.les_inn(
+        Melding::ny(StartetBuilder::default())
+            .tidspunkt_ms(T + 60_000)
+            .header(
+                "traceparent",
+                "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+            ),
+    )
+    .await;
+    sqlx::query(
+        "UPDATE record_metadata SET signature_status = 'missing_signature' WHERE record_offset = 0",
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
     let regler = registrer_regler(
         vec![Box::new(StartetErSignert)],
         &app.topic_ids,

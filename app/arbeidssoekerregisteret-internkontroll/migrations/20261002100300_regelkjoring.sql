@@ -17,3 +17,15 @@ CREATE TABLE funn (
     alvorlighet        alvorlighet NOT NULL,
     PRIMARY KEY (regel, regelversjon, record_metadata_id)
 );
+
+-- Funn der regelen har kommet minst ett minutt forbi meldingen i stream time.
+-- Yngre funn kan fortsatt bli fjernet av en melding som ikke er lest ennå.
+CREATE VIEW modne_funn AS
+SELECT f.*
+FROM funn f
+JOIN record_metadata rm ON rm.id = f.record_metadata_id
+WHERE rm.record_timestamp_ms IS NULL
+   OR rm.record_timestamp_ms + 60000 <= (
+       SELECT MAX(rf.siste_stream_ms) FROM regel_fremdrift rf
+       WHERE rf.regel = f.regel AND rf.regelversjon = f.regelversjon
+         AND rf.topic_partition = rm.record_partition);

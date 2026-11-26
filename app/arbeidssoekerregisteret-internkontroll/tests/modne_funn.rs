@@ -1,7 +1,5 @@
 mod common;
 
-use std::time::Duration;
-
 use arbeidssoekerregisteret_internkontroll::features::regler::{
     funn::hent_modne_funn, startet_gir_periode::StartetGirPeriode,
 };
@@ -10,7 +8,6 @@ use paw_test::hendelse_builder::StartetBuilder;
 use uuid::Uuid;
 
 const T: i64 = 1_704_110_400_000;
-const VINDU: Duration = Duration::from_secs(60);
 
 fn startet(tid: i64) -> Melding<StartetBuilder> {
     Melding::ny(StartetBuilder {
@@ -23,7 +20,7 @@ fn startet(tid: i64) -> Melding<StartetBuilder> {
 
 async fn modne(app: &TestApp) -> usize {
     let mut conn = app.pool.acquire().await.unwrap();
-    hent_modne_funn(&mut conn, VINDU).await.unwrap().len()
+    hent_modne_funn(&mut conn).await.unwrap().len()
 }
 
 #[tokio::test]

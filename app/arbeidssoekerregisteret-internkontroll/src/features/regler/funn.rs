@@ -86,22 +86,12 @@ pub struct ModentFunn {
     pub kode: i16,
 }
 
-pub async fn hent_modne_funn(
-    conn: &mut PgConnection,
-    vindu: std::time::Duration,
-) -> Result<Vec<ModentFunn>, sqlx::Error> {
+pub async fn hent_modne_funn(conn: &mut PgConnection) -> Result<Vec<ModentFunn>, sqlx::Error> {
     sqlx::query_as(
-        "SELECT f.regel, f.regelversjon, f.record_metadata_id, f.kode
-         FROM funn f
-         JOIN record_metadata rm ON rm.id = f.record_metadata_id
-         WHERE rm.record_timestamp_ms IS NULL
-            OR rm.record_timestamp_ms + $1 <= (
-                SELECT MAX(rf.siste_stream_ms) FROM regel_fremdrift rf
-                WHERE rf.regel = f.regel AND rf.regelversjon = f.regelversjon
-                  AND rf.topic_partition = rm.record_partition)
-         ORDER BY f.record_metadata_id",
+        "SELECT regel, regelversjon, record_metadata_id, kode
+         FROM modne_funn
+         ORDER BY record_metadata_id",
     )
-    .bind(i64::try_from(vindu.as_millis()).unwrap_or(i64::MAX))
     .fetch_all(conn)
     .await
 }

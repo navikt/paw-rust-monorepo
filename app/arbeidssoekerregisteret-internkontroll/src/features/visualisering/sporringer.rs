@@ -41,8 +41,8 @@ pub async fn hent_toppfelt(conn: &mut PgConnection) -> Result<Toppfelt, sqlx::Er
     sqlx::query_as(
         "SELECT
             (SELECT MAX(timestamp_ms) FROM stream_time) AS stream_ms,
-            (SELECT COUNT(*) FROM funn WHERE alvorlighet = 'kritisk') AS kritiske_funn,
-            (SELECT COUNT(*) FROM funn WHERE alvorlighet = 'advarsel') AS advarsler,
+            (SELECT COUNT(*) FROM modne_funn WHERE alvorlighet = 'kritisk') AS kritiske_funn,
+            (SELECT COUNT(*) FROM modne_funn WHERE alvorlighet = 'advarsel') AS advarsler,
             (SELECT COUNT(*) FROM record_metadata
              WHERE signature_status NOT IN ('valid', 'unsigned_before_required')) AS signaturfeil",
     )
@@ -71,7 +71,7 @@ pub async fn hent_regel_status(
                 COUNT(*) AS partisjoner,
                 MIN(rf.siste_stream_ms) AS eldste_stream_ms,
                 COALESCE(SUM(GREATEST(h.hwm - rf.siste_offset, 0)), 0)::BIGINT AS meldinger_bak,
-                (SELECT COUNT(*) FROM funn f
+                (SELECT COUNT(*) FROM modne_funn f
                  WHERE f.regel = rf.regel AND f.regelversjon = rf.regelversjon) AS antall_funn
          FROM regel_fremdrift rf
          JOIN topic t ON t.id = rf.topic_id
@@ -119,7 +119,7 @@ pub struct FunnAntall {
 pub async fn hent_funn_antall(conn: &mut PgConnection) -> Result<Vec<FunnAntall>, sqlx::Error> {
     sqlx::query_as(
         "SELECT regel, regelversjon, alvorlighet, COUNT(*) AS antall
-         FROM funn
+         FROM modne_funn
          GROUP BY regel, regelversjon, alvorlighet
          ORDER BY regel, regelversjon, alvorlighet DESC",
     )
@@ -151,7 +151,7 @@ pub async fn hent_funn(
         "SELECT f.regel, f.regelversjon, f.kode, f.alvorlighet,
                 t.name AS topic, rm.record_partition, rm.record_offset,
                 rm.record_timestamp_ms, rm.meldingstype::TEXT AS meldingstype, rm.trace_id
-         FROM funn f
+         FROM modne_funn f
          JOIN record_metadata rm ON rm.id = f.record_metadata_id
          JOIN topic t ON t.id = rm.topic_id
          WHERE ($1::SMALLINT IS NULL OR f.regel = $1)
