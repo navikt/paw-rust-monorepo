@@ -86,7 +86,7 @@ async fn side(
         .await
         .map_err(intern_feil)?;
     let toppfelt = faner::toppfelt(&toppfelt_data, chrono::Utc::now());
-    let innhold = fane_innhold(&mut tx, state.hwm_version, &valg).await?;
+    let innhold = fane_innhold(&mut tx, state.hwm_version, &valg, toppfelt_data.stream_ms).await?;
     Ok(html::side(&valg, &toppfelt_data, toppfelt, innhold))
 }
 
@@ -98,7 +98,15 @@ async fn fane_fragment(
     let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
         .await
         .map_err(intern_feil)?;
-    fane_innhold(&mut tx, state.hwm_version, &valg).await
+    let stream_ms = if valg.fane == Fane::Oversikt {
+        sporringer::hent_toppfelt(&mut tx)
+            .await
+            .map_err(intern_feil)?
+            .stream_ms
+    } else {
+        None
+    };
+    fane_innhold(&mut tx, state.hwm_version, &valg, stream_ms).await
 }
 
 async fn toppfelt_fragment(State(state): State<VisState>) -> Result<Markup, StatusCode> {
@@ -115,6 +123,7 @@ async fn fane_innhold(
     tx: &mut PgConnection,
     hwm_version: i16,
     valg: &Valg,
+    stream_ms: Option<i64>,
 ) -> Result<Markup, StatusCode> {
     let html = match valg.fane {
         Fane::Oversikt => {
@@ -124,7 +133,6 @@ async fn fane_innhold(
             let topics = sporringer::hent_topic_status(&mut *tx)
                 .await
                 .map_err(intern_feil)?;
-            let stream_ms = topics.iter().filter_map(|t| t.nyeste_stream_ms).max();
             faner::oversikt(&regler, &topics, stream_ms)
         }
         Fane::Funn => {

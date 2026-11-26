@@ -14,6 +14,8 @@
     --advarsel-bakgrunn: #fff0d6;
     --info: #005a9c;
     --info-bakgrunn: #e3f2fd;
+    --fremdrift-ajour: #167447;
+    --fremdrift-etterslep: #d29b35;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,6 +34,8 @@
         --advarsel-bakgrunn: #493a26;
         --info: #9ecbff;
         --info-bakgrunn: #27384a;
+        --fremdrift-ajour: #65d69a;
+        --fremdrift-etterslep: #ffc166;
     }
 }
 
@@ -105,5 +109,14 @@ th { position: sticky; top: 0; background: var(--bakgrunn); color: var(--dempet)
 tbody tr:nth-child(even) { background: var(--flate-svak); }
 tbody tr:hover { background: var(--tabell-hover); }
 td.tall, th.tall { text-align: right; font-variant-numeric: tabular-nums; }
+td.fremdrift-celle { white-space: nowrap; }
+meter.fremdrift { appearance: none; width: 7rem; height: 1rem; vertical-align: middle; }
+meter.fremdrift::-webkit-meter-bar { background: var(--flate); border: 1px solid var(--kantlinje); border-radius: 999px; }
+meter.fremdrift::-webkit-meter-optimum-value { background: var(--fremdrift-ajour); border-radius: 999px; }
+meter.fremdrift::-webkit-meter-suboptimum-value,
+meter.fremdrift::-webkit-meter-even-less-good-value { background: var(--fremdrift-etterslep); border-radius: 999px; }
+meter.fremdrift::-moz-meter-bar { background: var(--fremdrift-ajour); border-radius: 999px; }
+meter.fremdrift.etterslep::-moz-meter-bar { background: var(--fremdrift-etterslep); }
+.prosent { margin-left: 0.35rem; }
 td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
 td.bryt { white-space: normal; min-width: 20rem; }

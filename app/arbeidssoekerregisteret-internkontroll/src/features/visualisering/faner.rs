@@ -36,6 +36,10 @@ pub fn toppfelt(t: &Toppfelt, sist_oppdatert: DateTime<Utc>) -> Markup {
 }
 
 pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Option<i64>) -> Markup {
+    let min_stream_ms = topics
+        .iter()
+        .filter_map(|topic| topic.eldste_stream_ms)
+        .min();
     html! {
         h2 { "Regler" }
         @if regler.is_empty() {
@@ -45,12 +49,14 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
             div.tabell { table {
                 thead { tr {
                     th { "Regel" } th.tall { "Versjon" } th.tall { "Partisjoner" }
-                    th.tall { "Meldinger bak" } th { "Eldste stream-tid" } th.tall { "Tid bak" } th.tall { "Funn" }
+                    th.tall { "Meldinger bak" } th { "Eldste stream-tid" } th.tall { "Fremdrift" }
+                    th.tall { "Tid bak" } th.tall { "Funn" }
                 } }
                 tbody { @for r in regler {
                     @let tid_bak = stream_ms
                         .zip(r.eldste_stream_ms)
                         .map_or(STREK.to_string(), |(naa, regel)| varighet_tekst(naa - regel));
+                    @let fremdrift = fremdrift_prosent(min_stream_ms, stream_ms, r.eldste_stream_ms);
                     @let funn_url = Valg { fane: Fane::Funn, regel: Some(r.regel as i16), alvorlighet: None }.url();
                     tr {
                         td { (regel_navn(r.regel)) }
@@ -58,6 +64,21 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
                         td.tall { (r.partisjoner) }
                         td.tall { (r.meldinger_bak) }
                         td { (tidspunkt_tekst(r.eldste_stream_ms)) }
+                        td class="tall fremdrift-celle" {
+                            @if let (Some(prosent), Some(min), Some(max), Some(verdi)) =
+                                (fremdrift, min_stream_ms, stream_ms, r.eldste_stream_ms) {
+                                @let hoy = (min as i128 + (max as i128 - min as i128) * 9 / 10) as i64;
+                                @let tekst = format!("{prosent} % ajour");
+                                meter class=(if prosent < 90 { "fremdrift etterslep" } else { "fremdrift ajour" })
+                                    min=(min) max=(max) value=(verdi) low=(min) high=(hoy) optimum=(max)
+                                    aria-label=(tekst) {
+                                    (tekst)
+                                }
+                                span.prosent { (tekst) }
+                            } @else {
+                                (STREK)
+                            }
+                        }
                         td.tall { (tid_bak) }
                         td.tall { a href=(funn_url) { (r.antall_funn) } }
                     }
@@ -80,6 +101,17 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
             } }
         } }
     }
+}
+
+fn fremdrift_prosent(min: Option<i64>, max: Option<i64>, verdi: Option<i64>) -> Option<u8> {
+    let (min, max, verdi) = (min?, max?, verdi?);
+    if max <= min {
+        return None;
+    }
+    let verdi = i128::from(verdi.clamp(min, max));
+    let min = i128::from(min);
+    let max = i128::from(max);
+    Some(((verdi - min) * 100 / (max - min)) as u8)
 }
 
 fn filterlenke(valg: Valg, aktiv: bool, tekst: &str) -> Markup {
@@ -510,11 +542,28 @@ mod tests {
                 meldinger_bak: 7,
                 antall_funn: 0,
             }],
-            &[],
+            &[TopicStatus {
+                topic: "topic".into(),
+                partisjoner: 1,
+                eldste_stream_ms: Some(0),
+                nyeste_stream_ms: Some(4_000),
+            }],
             Some(4_000),
         )
         .into_string();
         assert!(html.contains(r#"<td class="tall">3s</td>"#));
         assert!(html.contains(r#"<td class="tall">7</td>"#));
+        assert!(html.contains(r#"aria-label="25 % ajour""#));
+        assert!(html.contains("<span class=\"prosent\">25 % ajour</span>"));
+    }
+
+    #[test]
+    fn fremdrift_prosent_har_grenser_og_clamper() {
+        assert_eq!(fremdrift_prosent(Some(0), Some(100), Some(97)), Some(97));
+        assert_eq!(fremdrift_prosent(None, Some(100), Some(97)), None);
+        assert_eq!(fremdrift_prosent(Some(0), Some(100), None), None);
+        assert_eq!(fremdrift_prosent(Some(5), Some(5), Some(5)), None);
+        assert_eq!(fremdrift_prosent(Some(0), Some(100), Some(-10)), Some(0));
+        assert_eq!(fremdrift_prosent(Some(0), Some(100), Some(110)), Some(100));
     }
 }
