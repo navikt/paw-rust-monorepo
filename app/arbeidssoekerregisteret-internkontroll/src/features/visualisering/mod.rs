@@ -82,9 +82,12 @@ async fn side(
     let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
         .await
         .map_err(intern_feil)?;
-    let toppfelt = toppfelt(&mut tx).await?;
+    let toppfelt_data = sporringer::hent_toppfelt(&mut tx)
+        .await
+        .map_err(intern_feil)?;
+    let toppfelt = faner::toppfelt(&toppfelt_data);
     let innhold = fane_innhold(&mut tx, state.hwm_version, &valg).await?;
-    Ok(html::side(&valg, toppfelt, innhold))
+    Ok(html::side(&valg, &toppfelt_data, toppfelt, innhold))
 }
 
 async fn fane_fragment(

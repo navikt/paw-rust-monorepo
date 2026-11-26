@@ -7,6 +7,8 @@ use serde::Deserialize;
 
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
 
+use super::sporringer::Toppfelt;
+
 /// Sekunder mellom hver automatiske oppdatering.
 const FANE_INTERVALL: u32 = 30;
 const TOPPFELT_INTERVALL: u32 = 60;
@@ -143,7 +145,7 @@ pub fn alvorlighet_merke(alvorlighet: Alvorlighet) -> Markup {
 }
 
 /// Hele siden. Virker uten JavaScript; `oppdater.js` henter bare nye tall.
-pub fn side(valg: &Valg, toppfelt: Markup, innhold: Markup) -> Markup {
+pub fn side(valg: &Valg, toppfelt_data: &Toppfelt, toppfelt: Markup, innhold: Markup) -> Markup {
     html! {
         (DOCTYPE)
         html lang="nb" {
@@ -167,9 +169,20 @@ pub fn side(valg: &Valg, toppfelt: Markup, innhold: Markup) -> Markup {
                     }
                     nav.faner aria-label="Faner" {
                         @for fane in Fane::ALLE {
+                            @let antall = match fane {
+                                Fane::Funn => Some(toppfelt_data.kritiske_funn.saturating_add(toppfelt_data.advarsler)),
+                                Fane::Signatur => Some(toppfelt_data.signaturfeil),
+                                Fane::Oversikt | Fane::Trace => None,
+                            };
                             a href=(Valg::fane(fane).url())
                                 aria-current=[(fane == valg.fane).then_some("page")] {
                                 (fane.navn())
+                                @if let Some(antall) = antall {
+                                    span class=(if fane == Fane::Funn && antall > 0 && toppfelt_data.kritiske_funn > 0 { "fanetall kritisk" } else { "fanetall" })
+                                        aria-label=(format!("{} {antall}", fane.navn())) {
+                                        (antall)
+                                    }
+                                }
                             }
                         }
                     }
@@ -236,11 +249,21 @@ mod tests {
             regel: Some(3),
             alvorlighet: None,
         };
-        let html = side(&valg, html! {}, html! {}).into_string();
+        let toppfelt = Toppfelt {
+            stream_ms: None,
+            kritiske_funn: 5,
+            advarsler: 7,
+            signaturfeil: 3,
+        };
+        let html = side(&valg, &toppfelt, html! {}, html! {}).into_string();
         assert!(
-            html.contains(r#"<a href="/stats/?fane=signatur" aria-current="page">Signatur</a>"#)
+            html.contains(r#"<a href="/stats/?fane=signatur" aria-current="page">Signatur<span"#)
         );
         assert_eq!(html.matches("aria-current").count(), 1);
+        assert!(html.contains(r#"class="fanetall" aria-label="Signatur 3">3</span>"#));
+        assert!(html.contains(r#"class="fanetall kritisk" aria-label="Funn 12">12</span>"#));
+        assert!(!html.contains(r#"aria-label="Oversikt 0"#));
+        assert!(!html.contains(r#"aria-label="Trace 0"#));
         assert!(html.contains(r#"data-oppdater="/stats/fragment/fane?fane=signatur&amp;regel=3""#));
     }
 }
