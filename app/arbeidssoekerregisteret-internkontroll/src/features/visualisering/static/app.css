@@ -58,6 +58,11 @@ p { max-width: 48rem; }
 .nokkeltall .verdi { display: block; font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .nokkeltall .kritisk:not(.null) .verdi { color: var(--kritisk); }
 .nokkeltall .advarsel:not(.null) .verdi { color: var(--advarsel); }
+.sist-oppdatert { margin: 0.75rem 0 0; color: var(--dempet); font-size: 0.875rem; }
+.utdatert-varsel { display: none; }
+#toppfelt.oppdaterer::after { content: "Oppdaterer …"; display: block; margin-top: 0.5rem; color: var(--dempet); font-size: 0.875rem; }
+#toppfelt.utdatert .utdatert-varsel { display: block; margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px dashed var(--kantlinje); border-radius: 4px; color: var(--dempet); }
+#toppfelt.utdatert .nokkeltall { padding: 0.5rem; border: 1px dashed var(--kantlinje); border-radius: 6px; }
 
 .faner { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.5rem 0 1rem; border-bottom: 1px solid var(--kantlinje); }
 .faner a { padding: 0.5rem 1rem; text-decoration: none; color: var(--tekst); border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; }

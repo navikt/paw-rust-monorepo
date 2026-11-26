@@ -145,6 +145,7 @@ pub fn alvorlighet_merke(alvorlighet: Alvorlighet) -> Markup {
 }
 
 /// Hele siden. Virker uten JavaScript; `oppdater.js` henter bare nye tall.
+/// Fanelenkene viser tellerne fra sidelastingen og oppdateres ikke automatisk.
 pub fn side(valg: &Valg, toppfelt_data: &Toppfelt, toppfelt: Markup, innhold: Markup) -> Markup {
     html! {
         (DOCTYPE)

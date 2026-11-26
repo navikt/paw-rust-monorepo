@@ -85,7 +85,7 @@ async fn side(
     let toppfelt_data = sporringer::hent_toppfelt(&mut tx)
         .await
         .map_err(intern_feil)?;
-    let toppfelt = faner::toppfelt(&toppfelt_data);
+    let toppfelt = faner::toppfelt(&toppfelt_data, chrono::Utc::now());
     let innhold = fane_innhold(&mut tx, state.hwm_version, &valg).await?;
     Ok(html::side(&valg, &toppfelt_data, toppfelt, innhold))
 }
@@ -105,12 +105,10 @@ async fn toppfelt_fragment(State(state): State<VisState>) -> Result<Markup, Stat
     let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
         .await
         .map_err(intern_feil)?;
-    toppfelt(&mut tx).await
-}
-
-async fn toppfelt(conn: &mut PgConnection) -> Result<Markup, StatusCode> {
-    let toppfelt = sporringer::hent_toppfelt(conn).await.map_err(intern_feil)?;
-    Ok(faner::toppfelt(&toppfelt))
+    let toppfelt = sporringer::hent_toppfelt(&mut tx)
+        .await
+        .map_err(intern_feil)?;
+    Ok(faner::toppfelt(&toppfelt, chrono::Utc::now()))
 }
 
 async fn fane_innhold(

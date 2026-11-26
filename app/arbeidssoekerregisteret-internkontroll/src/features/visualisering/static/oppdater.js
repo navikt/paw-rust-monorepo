@@ -6,6 +6,8 @@
 
   const oppdater = async (el) => {
     if (document.hidden) return;
+    el.setAttribute("aria-busy", "true");
+    el.classList.add("oppdaterer");
     try {
       const svar = await fetch(el.dataset.oppdater, {
         credentials: "same-origin",
@@ -16,9 +18,18 @@
         location.reload();
         return;
       }
-      if (svar.ok) el.innerHTML = await svar.text();
+      if (svar.ok) {
+        el.innerHTML = await svar.text();
+        el.classList.remove("utdatert");
+      } else {
+        el.classList.add("utdatert");
+      }
     } catch {
       // Nettverksfeil: prøv igjen ved neste intervall.
+      el.classList.add("utdatert");
+    } finally {
+      el.removeAttribute("aria-busy");
+      el.classList.remove("oppdaterer");
     }
   };
 

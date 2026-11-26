@@ -1,6 +1,7 @@
 //! HTML for toppfeltet og hver fane. Maud escaper tekst fra databasen
 //! (topic-navn, nøkkel-ID, meldingstype).
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use maud::{Markup, html};
 
 use crate::features::innlesing::metadata::signature::SignatureStatus;
@@ -16,8 +17,11 @@ use super::sporringer::{
 
 const STREK: &str = "–";
 
-pub fn toppfelt(t: &Toppfelt) -> Markup {
+pub fn toppfelt(t: &Toppfelt, sist_oppdatert: DateTime<Utc>) -> Markup {
+    let datetime = sist_oppdatert.to_rfc3339_opts(SecondsFormat::Secs, true);
     html! {
+        p.sist-oppdatert { "Sist oppdatert " time datetime=(datetime) { (sist_oppdatert.format("%H:%M:%S")) } }
+        p.utdatert-varsel role="status" { "Tallene kan være utdaterte." }
         ul.nokkeltall {
             li.aktiv { span.dempet { "Stream-tid" } span.verdi { (tidspunkt_tekst(t.stream_ms)) } }
             li.kritisk class=[(t.kritiske_funn == 0).then_some("null")] {
@@ -467,12 +471,15 @@ mod tests {
 
     #[test]
     fn generert_html_inneholder_ikke_inline_stil() {
-        let toppfelt_html = toppfelt(&Toppfelt {
-            stream_ms: None,
-            kritiske_funn: 0,
-            advarsler: 2,
-            signaturfeil: 0,
-        })
+        let toppfelt_html = toppfelt(
+            &Toppfelt {
+                stream_ms: None,
+                kritiske_funn: 0,
+                advarsler: 2,
+                signaturfeil: 0,
+            },
+            DateTime::from_timestamp(0, 0).unwrap(),
+        )
         .into_string();
         let funn_html = funn(
             &Valg::fane(Fane::Funn),
@@ -487,6 +494,8 @@ mod tests {
         .into_string();
 
         assert!(!toppfelt_html.contains("style="));
+        assert!(toppfelt_html.contains(r#"<time datetime="1970-01-01T00:00:00Z">00:00:00</time>"#));
+        assert!(toppfelt_html.contains("Tallene kan være utdaterte."));
         assert!(!funn_html.contains("style="));
     }
 
