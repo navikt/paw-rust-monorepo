@@ -5,6 +5,8 @@
     --dempet: #5d6570;
     --kantlinje: #cfd3d8;
     --flate: #f1f3f5;
+    --flate-svak: #f8f9fa;
+    --tabell-hover: #e8edf2;
     --aktiv: #0063c1;
     --kritisk: #c30000;
     --kritisk-bakgrunn: #fce8e8;
@@ -21,6 +23,8 @@
         --dempet: #aab1ba;
         --kantlinje: #737b85;
         --flate: #30353b;
+        --flate-svak: #24282d;
+        --tabell-hover: #39414a;
         --aktiv: #9ecbff;
         --kritisk: #ff8a8a;
         --advarsel: #ffc166;
@@ -89,8 +93,10 @@ p { max-width: 48rem; }
 
 .tabell { overflow: auto; max-height: 75vh; }
 table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--kantlinje); white-space: nowrap; vertical-align: top; }
-th { position: sticky; top: 0; background: var(--bakgrunn); }
+th, td { text-align: left; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--kantlinje); white-space: nowrap; vertical-align: top; }
+th { position: sticky; top: 0; background: var(--bakgrunn); color: var(--dempet); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; border-bottom-width: 2px; }
+tbody tr:nth-child(even) { background: var(--flate-svak); }
+tbody tr:hover { background: var(--tabell-hover); }
 td.tall, th.tall { text-align: right; font-variant-numeric: tabular-nums; }
 td.mono { font-family: ui-monospace, monospace; font-size: 0.9em; }
 td.bryt { white-space: normal; min-width: 20rem; }
