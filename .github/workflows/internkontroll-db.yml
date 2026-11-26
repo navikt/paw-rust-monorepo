@@ -26,8 +26,7 @@ jobs:
       - run: nais apply app/arbeidssoekerregisteret-internkontroll/nais/postgres-dev.yaml --environment dev-gcp
 
   deploy-prod:
-    #if: github.ref == 'refs/heads/main'
-    if: false
+    if: github.ref == 'refs/heads/main'
     name: Apply Postgres i prod-gcp
     needs: [deploy-dev]
     runs-on: ubuntu-latest
