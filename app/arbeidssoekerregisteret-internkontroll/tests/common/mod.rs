@@ -120,12 +120,16 @@ impl TestApp {
 impl TestApp {
     /// Kjører `regler` på partisjon 0 til det ikke er mer å gjøre.
     pub async fn kjor_regler(&self, regler: Vec<Box<dyn Regel>>) {
+        self.kjor_regler_paa(regler, &[0]).await;
+    }
+
+    pub async fn kjor_regler_paa(&self, regler: Vec<Box<dyn Regel>>, partisjoner: &[i32]) {
         let regler = registrer_regler(regler, &self.topic_ids, &RuntimeEnv::Local);
         let tildelt = AssignedPartitions::default();
-        tildelt.add([TopicPartition {
+        tildelt.add(partisjoner.iter().map(|&partition| TopicPartition {
             topic: topic_navn(&Topic::Hendelselogg).to_string(),
-            partition: 0,
-        }]);
+            partition,
+        }));
         while kjor_runde(&self.pool, &regler, &tildelt, 2).await.unwrap() > 0 {}
     }
 
