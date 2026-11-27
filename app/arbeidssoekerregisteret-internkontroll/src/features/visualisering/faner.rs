@@ -275,13 +275,19 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
             p.dempet { "Maks " (MAKS_FUNN_I_LISTE) ", mest alvorlige og nyeste først." }
             div.tabell { table {
                 thead { tr {
+                    th { span.skjult { "Detaljer" } }
                     th { "Alvorlighet" } th { "Regel" } th.tall { "Versjon" } th { "Utfall" }
                     th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" }
                     th { "Tidspunkt (Kafka)" } th { "Meldingstype" } th { "Trace-ID" }
-                    th { span.skjult { "Detaljer" } }
                 } }
                 tbody { @for f in rader {
                     tr {
+                        td {
+                            a href=(FunnNokkel::url(f.regel, f.regelversjon, f.record_metadata_id)) {
+                                "Detaljer"
+                                span.skjult { " om funn i " (f.topic) ", offset " (f.record_offset) }
+                            }
+                        }
                         td { (alvorlighet_merke(f.alvorlighet)) }
                         td { (regel_navn(f.regel)) }
                         td.tall { (f.regelversjon) }
@@ -292,7 +298,6 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                         td { (tidspunkt_tekst(f.record_timestamp_ms)) }
                         td { (f.meldingstype.as_deref().unwrap_or(STREK)) }
                         td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
-                        td { a href=(FunnNokkel::url(f.regel, f.regelversjon, f.record_metadata_id)) { "Detaljer" } }
                     }
                 } }
             } }
