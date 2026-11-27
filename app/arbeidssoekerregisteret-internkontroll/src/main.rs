@@ -13,12 +13,20 @@ use std::error::Error;
 
 use arbeidssoekerregisteret_internkontroll::core::app_context::AppContext;
 use arbeidssoekerregisteret_internkontroll::core::app_runner::run_app;
+use arbeidssoekerregisteret_internkontroll::core::feil::uten_detaljer;
 use arbeidssoekerregisteret_internkontroll::features::regler::config::RegelConfig;
 use arbeidssoekerregisteret_internkontroll::features::visualisering::auth::auth_state;
 use arbeidssoekerregisteret_internkontroll::reset_db::reset_db_if_needed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    kjor().await.map_err(|e| {
+        tracing::error!("Appen stoppet: {e}");
+        uten_detaljer(e)
+    })
+}
+
+async fn kjor() -> Result<(), Box<dyn Error>> {
     register_panic_logger();
     paw_rust_base::tls::install_crypto_provider();
     setup_nais_otel().unwrap();
