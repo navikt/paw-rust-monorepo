@@ -153,23 +153,6 @@ pub async fn opprett_arbeidssoeker(pool: &PgPool, test_data: &TestData) {
     tx.commit().await.expect("Kunne ikke commit transaksjon");
 }
 
-pub async fn opprett_arbeidssoeker_batch(
-    pool: &PgPool,
-    antall: usize,
-    status: SynkStatus,
-) -> Vec<Uuid> {
-    let mut data = Vec::new();
-    for _ in 0..antall {
-        data.push(TestData::from_status(status.clone()));
-    }
-    let mut tx = pool.begin().await.expect("Kunne ikke starte transaksjon");
-    for d in &data {
-        insert_arbeidssoeker(&mut tx, d).await;
-    }
-    tx.commit().await.expect("Kunne ikke commit transaksjon");
-    data.iter().map(|d| d.periode_id.clone()).collect()
-}
-
 pub async fn opprett_komplett(pool: &PgPool, test_data: &TestData) {
     let mut tx = pool.begin().await.expect("Kunne ikke starte transaksjon");
     insert_arbeidssoeker(&mut tx, test_data).await;

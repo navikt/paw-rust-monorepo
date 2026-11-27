@@ -6,9 +6,8 @@ use crate::support::mocks::{
 };
 use crate::support::test_data::{
     TestData, count_tiltak_synk_by_status, finn_tiltak_synk_by_periode_id, init_pool,
-    opprett_arbeidssoeker_batch, opprett_komplett, opprett_komplett_batch,
+    opprett_komplett, opprett_komplett_batch,
 };
-use crate::support::tracing::setup_test_tracing;
 use sqlx::PgPool;
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -103,7 +102,6 @@ async fn stopper_naar_behandling_ber_om_det() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn hele_kjoeringen_fra_init_til_ferdig() {
-    setup_test_tracing().expect("OTEL setup feilet");
     let pool = init_pool().await;
 
     let fnr_list = vec!["01017012345", "02017012345", "03017012345"];
@@ -145,7 +143,6 @@ async fn hele_kjoeringen_fra_init_til_ferdig() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn feilstatus_fra_mulighetsrommet_gir_feilet() {
-    setup_test_tracing().expect("OTEL setup feilet");
     let pool = init_pool().await;
 
     let responses = vec![
@@ -228,10 +225,15 @@ async fn slettet_periode_under_kjoering_telles_ikke() {
 async fn stopper_ved_maks_feil_og_frigir_resten() {
     let pool = init_pool().await;
 
-    opprett_arbeidssoeker_batch(&pool, 15, SynkStatus::Venter).await;
+    let ventende = TestData::batch_of_venter(15);
+    let mut responses = Vec::new();
+    for v in &ventende {
+        responses.push(ErrorRequest::new(v.identitetsnummer.as_str(), 404));
+        opprett_komplett(&pool, v).await;
+    }
 
     let config = synk_config(10);
-    let mocks = create_mocks_from_test_data(&vec![]).await;
+    let mocks = create_mocks_from_http_status(responses).await;
     let jobb =
         create_tiltak_synk_jobb(&pool, &config, mocks.server.url(), TestPublisher::new(None));
 
