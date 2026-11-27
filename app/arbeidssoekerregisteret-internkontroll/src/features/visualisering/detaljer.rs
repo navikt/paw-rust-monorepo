@@ -10,7 +10,7 @@ use crate::features::regler::{regel_katalog::RegelId, regelversjon::Regelversjon
 
 use super::html::{alvorlighet_merke, kode_tekst, tidspunkt_tekst, trace_id_tekst};
 use super::pseudonym::Pseudonymer;
-use super::sporringer::{DetaljMelding, FunnDetaljer};
+use super::sporringer::{DetaljMelding, FunnDetaljer, Kontekst, KontekstNivaa};
 
 const STREK: &str = "–";
 
@@ -40,13 +40,14 @@ struct VistMelding {
     utfoert_av: Option<String>,
 }
 
-/// Meldingene i den rekkefølgen funnet lagret dem, med fødselsnummer byttet ut.
-/// Personen i første melding blir A, så bokstavene leses likt fra gang til gang.
+/// Meldingene i rekkefølgen `rekkefolge`, med fødselsnummer byttet ut.
+/// Personene får bokstav før utført av, så personen i første melding blir A.
+/// Samme `pseudonymer` brukes for alle lister på siden.
 fn vis_meldinger(
+    pseudonymer: &mut Pseudonymer,
     rekkefolge: &[RecordMetadataId],
     mut hentet: Vec<DetaljMelding>,
 ) -> Vec<VistMelding> {
-    let mut pseudonymer = Pseudonymer::default();
     let mut rader: Vec<VistMelding> = rekkefolge
         .iter()
         .map(|id| {
@@ -103,13 +104,111 @@ fn utfoert_av_type_tekst(t: UtfoertAvType) -> &'static str {
     }
 }
 
+/// Utsnittet rundt meldingen funnet gjelder, klart til visning.
+pub struct KontekstVisning {
+    pub nivaa: KontekstNivaa,
+    pub sentrum: DetaljMelding,
+    pub kontekst: Kontekst,
+}
+
+impl KontekstVisning {
+    pub fn antall_vist(&self) -> usize {
+        self.kontekst.foer.len() + 1 + self.kontekst.etter.len()
+    }
+}
+
+fn celler(rad: &VistMelding) -> Markup {
+    html! {
+        @if let Some(m) = &rad.kilde {
+            td { (m.topic) }
+            td.tall { (m.record_partition) }
+            td.tall { (m.record_offset) }
+            td { (tidspunkt_tekst(m.record_timestamp_ms)) }
+            td { (m.meldingstype.as_deref().unwrap_or(STREK)) }
+            td { (m.kilde.as_deref().unwrap_or(STREK)) }
+            td { (rad.person.as_deref().unwrap_or(STREK)) }
+            td { (rad.utfoert_av_type.map_or(STREK, utfoert_av_type_tekst)) }
+            td { (rad.utfoert_av.as_deref().unwrap_or(STREK)) }
+            td { (tidspunkt_tekst(m.utfoert_tidspunkt_ms)) }
+            td.mono { (trace_id_tekst(m.trace_id)) }
+        } @else {
+            td colspan="11" { "Melding " (rad.id) " finnes ikke lenger." }
+        }
+    }
+}
+
+fn utelatt(antall: i64, tekst: &str) -> Markup {
+    html! {
+        @if antall > 0 {
+            tr.utelatt { td colspan="12" { (antall) " " (tekst) } }
+        }
+    }
+}
+
+fn kontekst_tabell(
+    pseudonymer: &mut Pseudonymer,
+    brukt: &[RecordMetadataId],
+    visning: KontekstVisning,
+) -> Markup {
+    let KontekstVisning {
+        nivaa,
+        sentrum,
+        kontekst,
+    } = visning;
+    let sentrum_id = sentrum.id;
+    let hentet: Vec<DetaljMelding> = kontekst
+        .foer
+        .into_iter()
+        .chain(std::iter::once(sentrum))
+        .chain(kontekst.etter)
+        .collect();
+    let rekkefolge: Vec<RecordMetadataId> = hentet.iter().map(|m| m.id).collect();
+    let rader = vis_meldinger(pseudonymer, &rekkefolge, hentet);
+    let overskrift = match nivaa {
+        KontekstNivaa::Periode => "Meldinger for perioden",
+        KontekstNivaa::Trace => "Meldinger i tracen",
+    };
+    html! {
+        h2 { (overskrift) }
+        p.dempet {
+            "Meldinger med samme subjekt, sortert på tidspunkt i Kafka. Bare meldingstypene "
+            "som kan forklare funnet, vises. Bokstavene er de samme som i listen over."
+        }
+        div.tabell { table.kontekst {
+            thead { tr {
+                th { "Merknad" }
+                th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" }
+                th { "Tidspunkt (Kafka)" } th { "Meldingstype" } th { "Kilde" }
+                th { "Person" } th { "Utført av-type" } th { "Utført av" }
+                th { "Utført tidspunkt" } th { "Trace-ID" }
+            } }
+            tbody {
+                (utelatt(kontekst.utelatt_foer, "tidligere meldinger vises ikke."))
+                @for rad in &rader {
+                    @if rad.id == sentrum_id {
+                        tr.her { td { strong { "Funnet gjelder denne" } } (celler(rad)) }
+                    } @else if brukt.contains(&rad.id) {
+                        tr { td { span.brukt-merke { "Brukt av regelen" } } (celler(rad)) }
+                    } @else {
+                        tr { td {} (celler(rad)) }
+                    }
+                }
+                (utelatt(kontekst.utelatt_etter, "senere meldinger vises ikke."))
+            }
+        } }
+    }
+}
+
 pub fn funn_detaljer(
     regel: RegelId,
     versjon: Regelversjon,
     funn: &FunnDetaljer,
     hentet: Vec<DetaljMelding>,
+    kontekst: Option<KontekstVisning>,
 ) -> Markup {
-    let rader = vis_meldinger(&funn.meldinger, hentet);
+    let mut pseudonymer = Pseudonymer::default();
+    let rader = vis_meldinger(&mut pseudonymer, &funn.meldinger, hentet);
+    let kontekst = kontekst.map(|k| kontekst_tabell(&mut pseudonymer, &funn.meldinger, k));
     let finnes = || rader.iter().filter(|r| r.kilde.is_some());
     let ulik_person = ulike(finnes().map(|r| r.person.clone()));
     let ulik_type = ulike(finnes().map(|r| r.utfoert_av_type));
@@ -130,8 +229,8 @@ pub fn funn_detaljer(
         }
         h2 { "Meldinger" }
         p.dempet {
-            "Første melding er den som sist bestemte funnet. Personer vises som bokstaver "
-            "som bare gjelder på denne siden."
+            "Meldingene regelen brukte. Første melding er den som sist bestemte funnet. "
+            "Personer vises som bokstaver som bare gjelder på denne siden, og som ikke lagres."
         }
         div.tabell { table {
             thead { tr {
@@ -144,24 +243,11 @@ pub fn funn_detaljer(
                 th { "Trace-ID" }
             } }
             tbody { @for rad in &rader {
-                tr {
-                    @if let Some(m) = &rad.kilde {
-                        td { (m.topic) }
-                        td.tall { (m.record_partition) }
-                        td.tall { (m.record_offset) }
-                        td { (tidspunkt_tekst(m.record_timestamp_ms)) }
-                        td { (m.meldingstype.as_deref().unwrap_or(STREK)) }
-                        td { (m.kilde.as_deref().unwrap_or(STREK)) }
-                        td { (rad.person.as_deref().unwrap_or(STREK)) }
-                        td { (rad.utfoert_av_type.map_or(STREK, utfoert_av_type_tekst)) }
-                        td { (rad.utfoert_av.as_deref().unwrap_or(STREK)) }
-                        td { (tidspunkt_tekst(m.utfoert_tidspunkt_ms)) }
-                        td.mono { (trace_id_tekst(m.trace_id)) }
-                    } @else {
-                        td colspan="11" { "Melding " (rad.id) " finnes ikke lenger." }
-                    }
-                }
+                tr { (celler(rad)) }
             } }
         } }
+        @if let Some(kontekst) = kontekst {
+            (kontekst)
+        }
     }
 }

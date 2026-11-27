@@ -31,7 +31,10 @@ use oauth2::principal::Principal;
 use paw_oauth2_resource_server::oauth2::{middleware::oauth2_server_layer, state::AuthState};
 use sqlx::{PgConnection, PgPool};
 
-use crate::features::regler::{regel_katalog::RegelId, regelversjon::Regelversjon};
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
+use crate::features::regler::{
+    nivaa::Nivaa, regel::alle_regler, regel_katalog::RegelId, regelversjon::Regelversjon,
+};
 use detaljer::FunnNokkel;
 use html::{Fane, Tema, TemaSkjema, Valg};
 
@@ -131,15 +134,6 @@ async fn funn_detaljer(
     let Query(nokkel) = nokkel.map_err(|_| StatusCode::BAD_REQUEST)?;
     let regel = RegelId::fra_i16(nokkel.regel).ok_or(StatusCode::BAD_REQUEST)?;
     let versjon = Regelversjon::new(nokkel.versjon);
-    if let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal {
-        tracing::info!(
-            nav_ident = ansatt.ident.as_ref(),
-            regel = nokkel.regel,
-            regelversjon = nokkel.versjon,
-            melding = %nokkel.melding,
-            "Funndetaljer vist"
-        );
-    }
     let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
         .await
         .map_err(intern_feil)?;
@@ -150,13 +144,66 @@ async fn funn_detaljer(
     let meldinger = sporringer::hent_detaljmeldinger(&mut tx, &funn.meldinger)
         .await
         .map_err(intern_feil)?;
+    let kontekst = hent_kontekst(&mut tx, regel, nokkel.melding).await?;
+    if let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal {
+        tracing::info!(
+            nav_ident = ansatt.ident.as_ref(),
+            regel = nokkel.regel,
+            regelversjon = nokkel.versjon,
+            melding = %nokkel.melding,
+            nivaa = kontekst.as_ref().map_or("ingen", |k| match k.nivaa {
+                sporringer::KontekstNivaa::Trace => "trace",
+                sporringer::KontekstNivaa::Periode => "periode",
+            }),
+            antall_vist = meldinger.len() + kontekst.as_ref().map_or(0, |k| k.antall_vist()),
+            "Funndetaljer vist"
+        );
+    }
     let tema = Tema::fra_cookie_header(headers.get(header::COOKIE).and_then(|v| v.to_str().ok()));
     Ok(html::enkel_side(
         "Funndetaljer",
         tema,
-        detaljer::funn_detaljer(regel, versjon, &funn, meldinger),
+        detaljer::funn_detaljer(regel, versjon, &funn, meldinger, kontekst),
     ))
 }
+
+/// Meldinger rundt meldingen funnet gjelder, for regler på trace- eller
+/// periodenivå. Nivå og meldingstyper kommer fra regelen. `sentrum` er
+/// nøkkelen til et funn som finnes, så subjektet kommer fra databasen.
+async fn hent_kontekst(
+    tx: &mut PgConnection,
+    regel: RegelId,
+    sentrum: RecordMetadataId,
+) -> Result<Option<detaljer::KontekstVisning>, StatusCode> {
+    let Some(regel) = alle_regler().into_iter().find(|r| r.id() == regel) else {
+        return Ok(None);
+    };
+    let (nivaa, vindu) = match regel.nivaa() {
+        Nivaa::Trace => (sporringer::KontekstNivaa::Trace, KONTEKST_VINDU_TRACE),
+        Nivaa::Periode => (sporringer::KontekstNivaa::Periode, KONTEKST_VINDU_PERIODE),
+        Nivaa::Melding | Nivaa::Arbeidssoeker => return Ok(None),
+    };
+    let Some(sentrum) = sporringer::hent_detaljmeldinger(&mut *tx, &[sentrum])
+        .await
+        .map_err(intern_feil)?
+        .pop()
+    else {
+        return Ok(None);
+    };
+    let kontekst = sporringer::hent_kontekst(tx, nivaa, sentrum.id, regel.kontekst_typer(), vindu)
+        .await
+        .map_err(intern_feil)?;
+    Ok(Some(detaljer::KontekstVisning {
+        nivaa,
+        sentrum,
+        kontekst,
+    }))
+}
+
+/// Antall meldinger på hver side av meldingen funnet gjelder. En trace er én
+/// operasjon, så den trenger et mindre utsnitt enn en periode.
+const KONTEKST_VINDU_PERIODE: i64 = 100;
+const KONTEKST_VINDU_TRACE: i64 = 25;
 
 async fn fane_fragment(
     State(state): State<VisState>,

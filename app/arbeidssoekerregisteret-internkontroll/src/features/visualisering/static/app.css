@@ -109,3 +109,7 @@ th.avvik { text-decoration: underline wavy; }
 .funn-antall .fordeling-kolonne { width: 40%; min-width: 8rem; vertical-align: middle; }
 .funn-antall th .merke { text-transform: none; letter-spacing: normal; }
 .fordeling { display: block; height: 0.75rem; border-radius: 2px; background: var(--flate); }
+
+.kontekst tr.her td { background: var(--info-bakgrunn); border-top: 2px solid var(--aktiv); border-bottom: 2px solid var(--aktiv); }
+.kontekst tr.utelatt td { color: var(--dempet); font-style: italic; }
+.brukt-merke { font-size: 0.75rem; border: 1px solid currentColor; border-radius: 0.25rem; padding: 0 0.25rem; }

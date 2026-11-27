@@ -7,7 +7,8 @@ use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::features::innlesing::metadata::{
-    record_metadata_id::RecordMetadataId, signature::SignatureStatus, utfoert::UtfoertAvType,
+    payload::Meldingstype, record_metadata_id::RecordMetadataId, signature::SignatureStatus,
+    utfoert::UtfoertAvType,
 };
 use crate::features::regler::{
     alvorlighet::Alvorlighet, regel_katalog::RegelId, regelversjon::Regelversjon,
@@ -328,4 +329,211 @@ pub async fn hent_detaljmeldinger(
     .bind(meldinger)
     .fetch_all(conn)
     .await
+}
+
+/// Sorteringsnøkkel på tvers av topics: tidspunkt i Kafka, så topic og offset.
+/// Meldinger uten tidsstempel kommer først.
+macro_rules! kontekst_noekkel {
+    ($t:literal) => {
+        concat!(
+            "(COALESCE(",
+            $t,
+            ".record_timestamp_ms, -1), ",
+            $t,
+            ".topic_id, ",
+            $t,
+            ".record_offset)"
+        )
+    };
+}
+
+/// Meldinger med samme subjekt (`$kol`) som meldingen `$1`, av typene `$2`
+/// (alle hvis tom), på én side av den, nærmeste først. Høyst `$3` rader.
+macro_rules! kontekst_side {
+    ($kol:literal, $op:literal, $retning:literal) => {
+        concat!(
+            "SELECT rm.id, t.name AS topic, rm.record_partition, rm.record_offset,
+                    rm.record_timestamp_ms, rm.meldingstype::TEXT AS meldingstype,
+                    rm.kilde::TEXT AS kilde, rm.trace_id,
+                    rm.identitetsnummer, rm.utfoert_tidspunkt_ms, rm.utfoert_av_type,
+                    rm.utfoert_av_id
+             FROM record_metadata s
+             JOIN record_metadata rm ON rm.",
+            $kol,
+            " = s.",
+            $kol,
+            "
+             JOIN topic t ON t.id = rm.topic_id
+             WHERE s.id = $1
+               AND (cardinality($2::meldingstype[]) = 0 OR rm.meldingstype = ANY($2))
+               AND ",
+            kontekst_noekkel!("rm"),
+            " ",
+            $op,
+            " ",
+            kontekst_noekkel!("s"),
+            "
+             ORDER BY COALESCE(rm.record_timestamp_ms, -1) ",
+            $retning,
+            ", rm.topic_id ",
+            $retning,
+            ", rm.record_offset ",
+            $retning,
+            "
+             LIMIT $3"
+        )
+    };
+}
+
+/// Antall meldinger før og etter meldingen `$1`, med samme filter som over.
+macro_rules! kontekst_antall {
+    ($kol:literal) => {
+        concat!(
+            "SELECT count(*) FILTER (WHERE ",
+            kontekst_noekkel!("rm"),
+            " < ",
+            kontekst_noekkel!("s"),
+            "),
+                    count(*) FILTER (WHERE ",
+            kontekst_noekkel!("rm"),
+            " > ",
+            kontekst_noekkel!("s"),
+            ")
+             FROM record_metadata s
+             JOIN record_metadata rm ON rm.",
+            $kol,
+            " = s.",
+            $kol,
+            "
+             WHERE s.id = $1
+               AND (cardinality($2::meldingstype[]) = 0 OR rm.meldingstype = ANY($2))"
+        )
+    };
+}
+
+/// Subjektet utsnittet hentes for. Andre nivåer har ingen kontekstliste.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KontekstNivaa {
+    Trace,
+    Periode,
+}
+
+/// Utsnitt rundt en melding: inntil `vindu` meldinger på hver side, i
+/// rekkefølge, og hvor mange som ble utelatt før og etter.
+pub struct Kontekst {
+    pub foer: Vec<DetaljMelding>,
+    pub etter: Vec<DetaljMelding>,
+    pub utelatt_foer: i64,
+    pub utelatt_etter: i64,
+}
+
+/// `sentrum` skal være meldingen et funn gjelder, slått opp fra `funn`,
+/// aldri en id fra requesten. Subjektet hentes fra den raden.
+pub async fn hent_kontekst(
+    conn: &mut PgConnection,
+    nivaa: KontekstNivaa,
+    sentrum: RecordMetadataId,
+    typer: &[Meldingstype],
+    vindu: i64,
+) -> Result<Kontekst, sqlx::Error> {
+    let (foer_sql, etter_sql, antall_sql) = match nivaa {
+        KontekstNivaa::Trace => (
+            kontekst_side!("trace_id", "<", "DESC"),
+            kontekst_side!("trace_id", ">", "ASC"),
+            kontekst_antall!("trace_id"),
+        ),
+        KontekstNivaa::Periode => (
+            kontekst_side!("periode_id", "<", "DESC"),
+            kontekst_side!("periode_id", ">", "ASC"),
+            kontekst_antall!("periode_id"),
+        ),
+    };
+    let mut foer: Vec<DetaljMelding> = sqlx::query_as(foer_sql)
+        .bind(sentrum)
+        .bind(typer)
+        .bind(vindu)
+        .fetch_all(&mut *conn)
+        .await?;
+    foer.reverse();
+    let etter: Vec<DetaljMelding> = sqlx::query_as(etter_sql)
+        .bind(sentrum)
+        .bind(typer)
+        .bind(vindu)
+        .fetch_all(&mut *conn)
+        .await?;
+    let (antall_foer, antall_etter): (i64, i64) = sqlx::query_as(antall_sql)
+        .bind(sentrum)
+        .bind(typer)
+        .fetch_one(conn)
+        .await?;
+    Ok(Kontekst {
+        utelatt_foer: antall_foer - foer.len() as i64,
+        utelatt_etter: antall_etter - etter.len() as i64,
+        foer,
+        etter,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use postgres_testcontainer::postgres::setup_postgres_container;
+
+    /// Setter inn en melding i periode `p` og gir id-en tilbake.
+    async fn melding(
+        conn: &mut PgConnection,
+        offset: i64,
+        tid: Option<i64>,
+        meldingstype: &str,
+        p: Uuid,
+    ) -> RecordMetadataId {
+        sqlx::query_scalar(
+            "INSERT INTO record_metadata (topic_id, record_partition, record_offset,
+                 record_timestamp_type, record_timestamp_ms, signature_status, payload_status,
+                 meldingstype, periode_id, derived_at)
+             VALUES (1, 0, $1, 'create_time', $2, 'unsigned_before_required', 'ok',
+                     $3::meldingstype, $4, now())
+             RETURNING id",
+        )
+        .bind(offset)
+        .bind(tid)
+        .bind(meldingstype)
+        .bind(p)
+        .fetch_one(conn)
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn utsnittet_holder_seg_innenfor_vinduet_og_teller_resten() {
+        let pg = setup_postgres_container().await.unwrap();
+        sqlx::migrate!("./migrations")
+            .run(&pg.pg_pool)
+            .await
+            .unwrap();
+        let mut conn = pg.pg_pool.acquire().await.unwrap();
+        sqlx::query("INSERT INTO topic (name) VALUES ('t')")
+            .execute(&mut *conn)
+            .await
+            .unwrap();
+        let p = Uuid::new_v4();
+        let annen = Uuid::new_v4();
+        let mut ids = Vec::new();
+        // Uten tidsstempel sorteres først, selv med høyest offset.
+        ids.push(melding(&mut conn, 9, None, "hendelse_startet", p).await);
+        for (offset, tid) in [(1, 100), (2, 200), (3, 300), (4, 400), (5, 500)] {
+            ids.push(melding(&mut conn, offset, Some(tid), "periode_startet", p).await);
+        }
+        melding(&mut conn, 6, Some(250), "opplysninger", p).await;
+        melding(&mut conn, 7, Some(250), "periode_startet", annen).await;
+
+        let typer = [Meldingstype::HendelseStartet, Meldingstype::PeriodeStartet];
+        let k = hent_kontekst(&mut conn, KontekstNivaa::Periode, ids[3], &typer, 2)
+            .await
+            .unwrap();
+        let offsets = |m: &[DetaljMelding]| m.iter().map(|m| m.record_offset).collect::<Vec<_>>();
+        assert_eq!(offsets(&k.foer), [1, 2]);
+        assert_eq!(offsets(&k.etter), [4, 5]);
+        assert_eq!((k.utelatt_foer, k.utelatt_etter), (1, 0));
+    }
 }

@@ -27,3 +27,15 @@ impl Nivaa {
         }
     }
 }
+
+/// Meldingene som starter og avslutter en periode, på begge topics. Det er
+/// disse som kan forklare funn på periodenivå.
+pub const PERIODE_KONTEKST: &[crate::features::innlesing::metadata::payload::Meldingstype] = {
+    use crate::features::innlesing::metadata::payload::Meldingstype as T;
+    &[
+        T::HendelseStartet,
+        T::HendelseAvsluttet,
+        T::PeriodeStartet,
+        T::PeriodeAvsluttet,
+    ]
+};

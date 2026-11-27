@@ -167,7 +167,9 @@ mod funndetaljer {
     use arbeidssoekerregisteret_internkontroll::features::regler::periode_startet_lik_startet::PeriodeStartetLikStartet;
     use interne_hendelser::vo::BrukerType;
     use paw_test::hendelse_builder::rfc3339;
-    use test_data_generator::eksterne_hendelser::create_dummy_start_periode;
+    use test_data_generator::eksterne_hendelser::{
+        create_dummy_avslutt_periode, create_dummy_start_periode,
+    };
     use uuid::Uuid;
 
     const FNR_STARTET: &str = "12345678901";
@@ -264,5 +266,63 @@ mod funndetaljer {
         ] {
             assert_eq!(hent(&router, sti).await.0, forventet, "{sti}");
         }
+    }
+
+    #[tokio::test]
+    async fn viser_meldinger_for_perioden_rundt_funnet() {
+        let (app, router, sti) = app_med_funn().await;
+        // Funnet gjelder periode-meldingen. Avslutningen kommer etter og er ikke brukt.
+        let id: uuid::Uuid = sqlx::query_scalar(
+            "SELECT periode_id FROM record_metadata WHERE meldingstype = 'periode_startet'",
+        )
+        .fetch_one(&app.pool)
+        .await
+        .unwrap();
+        app.les_inn(
+            Melding::ny(create_dummy_avslutt_periode(
+                FNR_PERIODE,
+                id,
+                Some(rfc3339("2024-01-01T12:00:00.000Z")),
+                Some(rfc3339("2024-02-01T12:00:00.000Z")),
+            ))
+            .tidspunkt_ms(T + 20),
+        )
+        .await;
+
+        let (status, html) = hent(&router, &sti).await;
+        assert_eq!(status, StatusCode::OK, "{html}");
+        let (_, kontekst) = html
+            .split_once("Meldinger for perioden")
+            .expect("mangler utsnittet");
+        assert_eq!(
+            kontekst.matches("<tr").count(),
+            4,
+            "tittel og tre meldinger: {kontekst}"
+        );
+        assert_eq!(
+            kontekst.matches("Funnet gjelder denne").count(),
+            1,
+            "{kontekst}"
+        );
+        assert_eq!(
+            kontekst.matches("Brukt av regelen").count(),
+            1,
+            "{kontekst}"
+        );
+        assert!(kontekst.contains("periode_avsluttet"), "{kontekst}");
+        // Samme bokstav som i listen over: perioden er A, startet-hendelsen B.
+        // Periodemeldingene er utført av sluttbrukeren selv, så A står to ganger per rad.
+        assert_eq!(
+            kontekst.matches("<td>Person A</td>").count(),
+            4,
+            "{kontekst}"
+        );
+        assert_eq!(
+            kontekst.matches("<td>Person B</td>").count(),
+            1,
+            "{kontekst}"
+        );
+        assert!(!html.contains(FNR_STARTET), "{html}");
+        assert!(!html.contains(FNR_PERIODE), "{html}");
     }
 }

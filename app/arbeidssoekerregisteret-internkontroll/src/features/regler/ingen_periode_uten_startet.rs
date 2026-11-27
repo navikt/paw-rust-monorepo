@@ -33,6 +33,10 @@ impl Regel for IngenPeriodeUtenStartet {
         Nivaa::Periode
     }
 
+    fn kontekst_typer(&self) -> &'static [Meldingstype] {
+        crate::features::regler::nivaa::PERIODE_KONTEKST
+    }
+
     fn topics(&self) -> &'static [Topic] {
         &[Topic::Hendelselogg, Topic::Periode]
     }

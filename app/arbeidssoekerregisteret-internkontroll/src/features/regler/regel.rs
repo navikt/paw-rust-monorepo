@@ -4,6 +4,7 @@ use paw_kafka::topics::{Topic, get_topic};
 use paw_rust_base::env::RuntimeEnv;
 use sqlx::PgConnection;
 
+use crate::features::innlesing::metadata::payload::Meldingstype;
 use crate::features::innlesing::topic_ids::TopicIds;
 use crate::features::regler::hele_trace_signert::HeleTraceSignert;
 use crate::features::regler::ingen_periode_uten_startet::IngenPeriodeUtenStartet;
@@ -25,6 +26,12 @@ pub trait Regel: Send + Sync {
     fn nivaa(&self) -> Nivaa;
     /// Topics regelen leser. Alle må ligge i topic-katalogen.
     fn topics(&self) -> &'static [Topic];
+
+    /// Meldingstypene som kan forklare et funn, vist rundt meldingen på
+    /// detaljsiden. Tom liste betyr alle typer.
+    fn kontekst_typer(&self) -> &'static [Meldingstype] {
+        &[]
+    }
 
     /// Vurderer én melding. `sett` er fremdriften før `rad`, én per topic i
     /// [`Regel::topics`]. Historikk som slås opp, skal begrenses til
