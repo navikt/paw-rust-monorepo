@@ -8,7 +8,8 @@ use crate::features::innlesing::metadata::signature::SignatureStatus;
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
 
 use super::html::{
-    Fane, Valg, alvorlighet_merke, alvorlighet_navn, regel_navn, tidspunkt_tekst, varighet_tekst,
+    Fane, Valg, alvorlighet_merke, alvorlighet_navn, kode_tekst, regel_med_hjelp, regel_navn,
+    tidspunkt_tekst, varighet_tekst,
 };
 use super::sporringer::{
     FunnAntall, FunnRad, MAKS_FUNN_I_LISTE, MAKS_SIGNATURFEIL_I_LISTE, ManglerTraceId, RegelStatus,
@@ -65,7 +66,7 @@ pub fn oversikt(regler: &[RegelStatus], topics: &[TopicStatus], stream_ms: Optio
                     };
                     @let funn_url = Valg { fane: Fane::Funn, regel: Some(r.regel as i16), alvorlighet: None }.url();
                     tr {
-                        td { (regel_navn(r.regel)) }
+                        td { (regel_med_hjelp(r.regel)) }
                         td.tall { (r.regelversjon) }
                         td.tall { (r.partisjoner) }
                         td.tall { (r.meldinger_bak) }
@@ -242,7 +243,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                 } }
                 tbody { @for nokkel in &regelversjoner {
                     tr {
-                        td { (regel_navn(nokkel.0)) }
+                        td { (regel_med_hjelp(nokkel.0)) }
                         td.tall { (nokkel.1) }
                         @for a in Alvorlighet::ALLE { td.tall { (antall_for(*nokkel, a)) } }
                     }
@@ -272,7 +273,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
             p.dempet { "Maks " (MAKS_FUNN_I_LISTE) ", mest alvorlige og nyeste først." }
             div.tabell { table {
                 thead { tr {
-                    th { "Alvorlighet" } th { "Regel" } th.tall { "Versjon" } th.tall { "Kode" }
+                    th { "Alvorlighet" } th { "Regel" } th.tall { "Versjon" } th { "Utfall" }
                     th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" }
                     th { "Tidspunkt (Kafka)" } th { "Meldingstype" } th { "Trace-ID" }
                 } }
@@ -281,7 +282,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                         td { (alvorlighet_merke(f.alvorlighet)) }
                         td { (regel_navn(f.regel)) }
                         td.tall { (f.regelversjon) }
-                        td.tall { (f.kode) }
+                        td { (kode_tekst(f.regel, f.kode)) }
                         td { (f.topic) }
                         td.tall { (f.record_partition) }
                         td.tall { (f.record_offset) }
@@ -449,7 +450,7 @@ mod tests {
             },
         ];
         let html = funn(&valg, &antall, &[]).into_string();
-        assert_eq!(html.matches("<td>Startet er signert</td>").count(), 1);
+        assert_eq!(html.matches("<summary>Startet-hendelsen er signert</summary>").count(), 1);
         assert!(
             html.contains(
                 r#"<td class="tall">2</td><td class="tall">4</td><td class="tall">0</td>"#

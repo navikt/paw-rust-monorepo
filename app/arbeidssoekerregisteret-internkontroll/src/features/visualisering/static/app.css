@@ -110,3 +110,6 @@ td.bryt { white-space: normal; min-width: 20rem; }
 .tema label { margin-left: 0.5rem; cursor: pointer; }
 .tema button { margin-left: 0.5rem; font: inherit; }
 .js .tema button { display: none; }
+
+.regel-hjelp summary { cursor: pointer; }
+.regel-hjelp p { margin: 0.25rem 0 0; max-width: 40ch; font-size: 0.875rem; }

@@ -111,12 +111,24 @@ pub fn varighet_tekst(ms: i64) -> String {
 }
 
 pub fn regel_navn(regel: RegelId) -> &'static str {
-    match regel {
-        RegelId::HeleTraceSignert => "Hele trace er signert",
-        RegelId::IngenPeriodeUtenStartet => "Ingen periode uten startet",
-        RegelId::StartetErSignert => "Startet er signert",
-        RegelId::StartetGirPeriode => "Startet gir periode",
-        RegelId::PeriodeStartetLikStartet => "Periode startet lik startet",
+    regel.navn()
+}
+
+/// Regelnavn som kan åpnes for å vise hva regelen sjekker.
+pub fn regel_med_hjelp(regel: RegelId) -> Markup {
+    html! {
+        details.regel-hjelp {
+            summary { (regel.navn()) }
+            p { (regel.beskrivelse()) }
+        }
+    }
+}
+
+/// Utfallskoden med kort tekst, for eksempel «3 Ulikt tidspunkt».
+pub fn kode_tekst(regel: RegelId, kode: i16) -> String {
+    match regel.kode_tekst(kode) {
+        Some(tekst) => format!("{kode} {tekst}"),
+        None => kode.to_string(),
     }
 }
 

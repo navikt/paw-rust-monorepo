@@ -93,7 +93,7 @@ async fn alle_faner_viser_innlest_data() {
 
     let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<td>Startet er signert</td>"), "{html}");
+    assert!(html.contains("<summary>Startet-hendelsen er signert</summary>"), "{html}");
     // Uten HWM vet vi ikke om regelen er ajour, så eldste stream-tid vises.
     assert!(
         html.contains("<td>2024-01-01 12:01:00.000 UTC</td>"),
