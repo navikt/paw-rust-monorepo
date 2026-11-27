@@ -5,13 +5,15 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use maud::{Markup, html};
 
 use crate::features::innlesing::metadata::signature::SignatureStatus;
-use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
+use crate::features::regler::{
+    alvorlighet::Alvorlighet, regel_katalog::RegelId, regelversjon::Regelversjon,
+};
 
 use super::detaljer::FunnNokkel;
 
 use super::html::{
-    Fane, Valg, alvorlighet_merke, alvorlighet_navn, kode_tekst, regel_med_hjelp, regel_navn,
-    tidspunkt_tekst, trace_id_tekst, varighet_tekst,
+    Fane, Valg, alvorlighet_merke, kode_tekst, regel_med_hjelp, regel_navn, tidspunkt_tekst,
+    trace_id_tekst, varighet_tekst,
 };
 use super::sporringer::{
     FunnAntall, FunnRad, MAKS_FUNN_I_LISTE, MAKS_SIGNATURFEIL_I_LISTE, ManglerTraceId, RegelStatus,
@@ -132,6 +134,7 @@ const FUNN_DIAGRAM_BREDDE: u32 = 1_000;
 #[derive(Debug, PartialEq, Eq)]
 struct FunnDiagramRad {
     regel: RegelId,
+    regelversjon: Regelversjon,
     kritisk: i64,
     advarsel: i64,
     info: i64,
@@ -139,15 +142,19 @@ struct FunnDiagramRad {
     segmentbredder: [u32; 3],
 }
 
-/// Slår sammen regelversjoner og skalerer søylene etter største regel-total.
+/// Summerer per regelversjon og skalerer søylene etter største total.
 fn funn_diagram_beregning(antall: &[FunnAntall]) -> Vec<FunnDiagramRad> {
     let mut summer: Vec<FunnDiagramRad> = Vec::new();
     for funn in antall {
-        let rad = if let Some(rad) = summer.iter_mut().find(|rad| rad.regel == funn.regel) {
+        let rad = if let Some(rad) = summer
+            .iter_mut()
+            .find(|rad| (rad.regel, rad.regelversjon) == (funn.regel, funn.regelversjon))
+        {
             rad
         } else {
             summer.push(FunnDiagramRad {
                 regel: funn.regel,
+                regelversjon: funn.regelversjon,
                 kritisk: 0,
                 advarsel: 0,
                 info: 0,
@@ -185,36 +192,20 @@ fn funn_diagram_beregning(antall: &[FunnAntall]) -> Vec<FunnDiagramRad> {
     summer
 }
 
-fn funn_diagram(antall: &[FunnAntall]) -> Markup {
-    let rader = funn_diagram_beregning(antall);
+/// Søyle med fordelingen på alvorlighet. Tallene står i cellene ved siden av,
+/// så søylen er skjult for skjermlesere.
+fn fordeling(segmentbredder: [u32; 3]) -> Markup {
+    let [k, a, i] = segmentbredder;
     html! {
-        section.funn-diagram aria-label="Funn per regel" {
-            ul.funn-diagram-legend aria-label="Alvorlighetsnivå" {
-                li { span.prikk.seg-kritisk aria-hidden="true" {} "Kritisk" }
-                li { span.prikk.seg-advarsel aria-hidden="true" {} "Advarsel" }
-                li { span.prikk.seg-info aria-hidden="true" {} "Info" }
-            }
-            div.funn-diagram-rader {
-                @for rad in rader {
-                    @let etikett = format!(
-                        "{}: {} kritisk, {} advarsel, {} info",
-                        regel_navn(rad.regel), rad.kritisk, rad.advarsel, rad.info
-                    );
-                    div.funn-diagram-rad {
-                        span.regel { (regel_navn(rad.regel)) }
-                        span.tall { (rad.total) }
-                        svg width="100%" height="24" viewBox="0 0 1000 24"
-                            preserveAspectRatio="none" role="img" aria-label=(etikett) {
-                            @let [k, a, i] = rad.segmentbredder;
-                            @for (klasse, x, bredde) in [
-                                ("seg-kritisk", 0, k),
-                                ("seg-advarsel", k, a),
-                                ("seg-info", k + a, i),
-                            ] {
-                                rect class=(klasse) x=(x) y="0" width=(bredde) height="24" {}
-                            }
-                        }
-                    }
+        svg.fordeling width="100%" height="12" viewBox=(format!("0 0 {FUNN_DIAGRAM_BREDDE} 12"))
+            preserveAspectRatio="none" aria-hidden="true" focusable="false" {
+            @for (klasse, x, bredde) in [
+                ("seg-kritisk", 0, k),
+                ("seg-advarsel", k, a),
+                ("seg-info", k + a, i),
+            ] {
+                @if bredde > 0 {
+                    rect class=(klasse) x=(x) y="0" width=(bredde) height="12" {}
                 }
             }
         }
@@ -223,31 +214,28 @@ fn funn_diagram(antall: &[FunnAntall]) -> Markup {
 
 pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
     let regel = valg.regel.and_then(RegelId::fra_i16);
-    let mut regelversjoner: Vec<_> = antall.iter().map(|a| (a.regel, a.regelversjon)).collect();
-    regelversjoner.dedup();
-    let antall_for = |nokkel, a| {
-        antall
-            .iter()
-            .filter(|x| (x.regel, x.regelversjon) == nokkel && x.alvorlighet == a)
-            .map(|x| x.antall)
-            .sum::<i64>()
-    };
+    let rader_antall = funn_diagram_beregning(antall);
     html! {
         h2 { "Antall funn" }
-        @if antall.is_empty() {
+        @if rader_antall.is_empty() {
             p { "Ingen funn." }
         } @else {
-            (funn_diagram(antall))
-            div.tabell { table {
+            div.tabell { table.funn-antall {
                 thead { tr {
                     th { "Regel" } th.tall { "Versjon" }
-                    @for a in Alvorlighet::ALLE { th.tall { (alvorlighet_navn(a)) } }
+                    @for a in Alvorlighet::ALLE { th.tall { (alvorlighet_merke(a)) } }
+                    th.tall { "Totalt" }
+                    th.fordeling-kolonne { "Fordeling" }
                 } }
-                tbody { @for nokkel in &regelversjoner {
+                tbody { @for rad in &rader_antall {
                     tr {
-                        td { (regel_med_hjelp(nokkel.0)) }
-                        td.tall { (nokkel.1) }
-                        @for a in Alvorlighet::ALLE { td.tall { (antall_for(*nokkel, a)) } }
+                        td { (regel_med_hjelp(rad.regel)) }
+                        td.tall { (rad.regelversjon) }
+                        td.tall { (rad.kritisk) }
+                        td.tall { (rad.advarsel) }
+                        td.tall { (rad.info) }
+                        td.tall { strong { (rad.total) } }
+                        td.fordeling-kolonne { (fordeling(rad.segmentbredder)) }
                     }
                 } }
             } }
@@ -476,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn funn_diagram_skalerer_proporsjonalt_og_slaar_sammen_versjoner() {
+    fn funn_diagram_skalerer_proporsjonalt_per_versjon() {
         let antall = [
             FunnAntall {
                 regel: RegelId::StartetErSignert,
@@ -499,11 +487,13 @@ mod tests {
         ];
 
         let rader = funn_diagram_beregning(&antall);
-        assert_eq!(rader.len(), 2);
-        assert_eq!(rader[0].total, 6);
-        assert_eq!(rader[0].segmentbredder, [333, 667, 0]);
-        assert_eq!(rader[1].total, 3);
-        assert_eq!(rader[1].segmentbredder, [0, 0, 500]);
+        assert_eq!(rader.len(), 3);
+        assert_eq!(rader[0].total, 2);
+        assert_eq!(rader[0].segmentbredder, [500, 0, 0]);
+        assert_eq!(rader[1].total, 4);
+        assert_eq!(rader[1].segmentbredder, [0, 1000, 0]);
+        assert_eq!(rader[2].total, 3);
+        assert_eq!(rader[2].segmentbredder, [0, 0, 750]);
     }
 
     #[test]
