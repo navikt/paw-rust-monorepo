@@ -113,3 +113,9 @@ td.bryt { white-space: normal; min-width: 20rem; }
 
 .regel-hjelp summary { cursor: pointer; }
 .regel-hjelp p { margin: 0.25rem 0 0; max-width: 40ch; font-size: 0.875rem; }
+
+.skjult { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.funn-detaljer { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
+.funn-detaljer dd { margin: 0; }
+th.avvik { text-decoration: underline wavy; }
+.avvik-merke { font-weight: normal; font-size: 0.75rem; border: 1px solid currentColor; border-radius: 0.25rem; padding: 0 0.25rem; }

@@ -77,7 +77,7 @@ impl Regel for StartetGirPeriode {
                     .await?;
                     Ok(match forrige {
                         Some(Meldingstype::HendelseStartet) => Vurdering::Ok,
-                        _ => Vurdering::Feil(MANGLER_PERIODE),
+                        _ => Vurdering::feil(MANGLER_PERIODE),
                     })
                 }
                 _ => Ok(Vurdering::IkkeRelevant),

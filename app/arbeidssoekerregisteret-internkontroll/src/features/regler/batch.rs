@@ -1,3 +1,4 @@
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use sqlx::PgConnection;
 
 use crate::features::regler::fremdrift::Fremdrift;
@@ -5,7 +6,7 @@ use crate::features::regler::fremdrift::Fremdrift;
 /// Én melding i en batch, i den rekkefølgen regelen skal se dem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::FromRow)]
 pub struct BatchRad {
-    pub record_metadata_id: i64,
+    pub record_metadata_id: RecordMetadataId,
     pub topic_id: i16,
     pub record_offset: i64,
     /// stream_time etter denne offseten: `record_timestamp_ms - LEAST(timestamp_delta_ms, 0)`.

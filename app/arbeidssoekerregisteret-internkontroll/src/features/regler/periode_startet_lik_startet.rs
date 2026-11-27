@@ -2,10 +2,11 @@ use paw_kafka::topics::Topic;
 use sqlx::PgConnection;
 
 use crate::features::innlesing::metadata::payload::Meldingstype;
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use crate::features::regler::{
     alvorlighet::{Alvorlighet, Utfall},
     batch::BatchRad,
-    funn::Vurdering,
+    funn::{Avvik, Vurdering},
     nivaa::Nivaa,
     oppslag::{Sett, hent_melding},
     regel::{Regel, VurderFuture},
@@ -70,14 +71,12 @@ impl Regel for PeriodeStartetLikStartet {
                 _ => return Ok(Vurdering::IkkeRelevant),
             };
             let motpart_id = sett.topic_id(&motpart_topic);
-            let ulikt: Option<(bool, bool, bool)> = sqlx::query_as(
-                "SELECT naa.identitetsnummer IS DISTINCT FROM m.identitetsnummer,
+            let rad_motpart: Option<(RecordMetadataId, bool, bool, Option<i64>)> = sqlx::query_as(
+                "SELECT m.id,
+                        naa.identitetsnummer IS DISTINCT FROM m.identitetsnummer,
                         (naa.utfoert_av_type, naa.utfoert_av_id)
                             IS DISTINCT FROM (m.utfoert_av_type, m.utfoert_av_id),
-                        COALESCE(
-                            abs(naa.utfoert_tidspunkt_ms - m.utfoert_tidspunkt_ms) > $6,
-                            naa.utfoert_tidspunkt_ms IS DISTINCT FROM m.utfoert_tidspunkt_ms
-                        )
+                        abs(naa.utfoert_tidspunkt_ms - m.utfoert_tidspunkt_ms)
                  FROM record_metadata naa, record_metadata m
                  WHERE naa.id = $1
                    AND m.periode_id = $2 AND m.meldingstype = $3
@@ -91,16 +90,27 @@ impl Regel for PeriodeStartetLikStartet {
             .bind(motpart_type)
             .bind(motpart_id)
             .bind(sett.siste_offset(motpart_id))
-            .bind(TILLATT_TIDSAVVIK_MS)
             .fetch_optional(conn)
             .await?;
-            Ok(match ulikt {
-                None => Vurdering::IkkeRelevant,
-                Some((true, _, _)) => Vurdering::Feil(ULIKT_IDENTITETSNUMMER),
-                Some((_, true, _)) => Vurdering::Feil(ULIK_UTFOERT_AV),
-                Some((_, _, true)) => Vurdering::Feil(ULIKT_TIDSPUNKT),
-                Some(_) => Vurdering::Ok,
-            })
+            let Some((motpart, ulik_ident, ulik_utfoert_av, tidsavvik_ms)) = rad_motpart else {
+                return Ok(Vurdering::IkkeRelevant);
+            };
+            // Tidspunktet mangler bare sammen med utført av (CHECK i record_metadata),
+            // så manglende tidsavvik fanges av ulik utført av over.
+            let utfall = if ulik_ident {
+                ULIKT_IDENTITETSNUMMER
+            } else if ulik_utfoert_av {
+                ULIK_UTFOERT_AV
+            } else if tidsavvik_ms.is_some_and(|ms| ms > TILLATT_TIDSAVVIK_MS) {
+                ULIKT_TIDSPUNKT
+            } else {
+                return Ok(Vurdering::Ok);
+            };
+            let mut avvik = Avvik::ny(utfall).med_melding(motpart);
+            if let Some(ms) = tidsavvik_ms {
+                avvik = avvik.med_detalj("tidsavvik_ms", ms);
+            }
+            Ok(Vurdering::Feil(avvik))
         })
     }
 }

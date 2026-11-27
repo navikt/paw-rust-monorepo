@@ -278,6 +278,22 @@ pub fn side(
     }
 }
 
+/// Side uten faner og automatisk oppdatering, for detaljsider.
+pub fn enkel_side(tittel: &str, tema: Tema, innhold: Markup) -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="nb" data-tema=(tema.as_str()) {
+            head {
+                meta charset="utf-8";
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                title { (tittel) " – Internkontroll" }
+                link rel="stylesheet" href="/stats/static/app.css";
+            }
+            body { main { (innhold) } }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

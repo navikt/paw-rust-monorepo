@@ -146,4 +146,29 @@ impl TestApp {
         .await
         .unwrap()
     }
+
+    /// Meldingene (topic og offset, i lagret rekkefølge) og detaljene for hvert
+    /// funn, sortert på meldingen funnet gjelder.
+    pub async fn funn_grunnlag(&self) -> Vec<(Vec<(String, i64)>, serde_json::Value)> {
+        let rader: Vec<(Vec<String>, Vec<i64>, serde_json::Value)> = sqlx::query_as(
+            "SELECT array_agg(t.name::text ORDER BY m.nr),
+                    array_agg(rm.record_offset ORDER BY m.nr),
+                    f.detaljer
+             FROM funn f
+             CROSS JOIN LATERAL unnest(f.meldinger) WITH ORDINALITY AS m(id, nr)
+             JOIN record_metadata rm ON rm.id = m.id
+             JOIN topic t ON t.id = rm.topic_id
+             GROUP BY f.regel, f.regelversjon, f.record_metadata_id, f.detaljer
+             ORDER BY f.record_metadata_id",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .unwrap();
+        rader
+            .into_iter()
+            .map(|(topics, offsets, detaljer)| {
+                (topics.into_iter().zip(offsets).collect(), detaljer)
+            })
+            .collect()
+    }
 }

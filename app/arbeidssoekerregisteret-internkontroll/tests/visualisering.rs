@@ -93,7 +93,10 @@ async fn alle_faner_viser_innlest_data() {
 
     let (status, html) = hent(&router, "/stats/fragment/fane?fane=oversikt").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<summary>Startet-hendelsen er signert</summary>"), "{html}");
+    assert!(
+        html.contains("<summary>Startet-hendelsen er signert</summary>"),
+        "{html}"
+    );
     // Uten HWM vet vi ikke om regelen er ajour, så eldste stream-tid vises.
     assert!(
         html.contains("<td>2024-01-01 12:01:00.000 UTC</td>"),
@@ -157,4 +160,109 @@ async fn hele_siden_virker_uten_javascript() {
     // Eneste skript er vårt eget, og ingen inline-skript.
     assert_eq!(html.matches("<script").count(), 1);
     assert!(html.contains(r#"<script src="/stats/static/oppdater.js" defer></script>"#));
+}
+
+mod funndetaljer {
+    use super::*;
+    use arbeidssoekerregisteret_internkontroll::features::regler::periode_startet_lik_startet::PeriodeStartetLikStartet;
+    use interne_hendelser::vo::BrukerType;
+    use paw_test::hendelse_builder::rfc3339;
+    use test_data_generator::eksterne_hendelser::create_dummy_start_periode;
+    use uuid::Uuid;
+
+    const FNR_STARTET: &str = "12345678901";
+    const FNR_PERIODE: &str = "10987654321";
+
+    /// Startet-hendelse fra en veileder og en periode for en annen person.
+    async fn app_med_funn() -> (TestApp, Router, String) {
+        let app = TestApp::start().await;
+        let id = Uuid::new_v4();
+        let tid = "2024-01-01T12:00:00.000Z";
+        app.les_inn(
+            Melding::ny(StartetBuilder {
+                hendelse_id: id,
+                identitetsnummer: FNR_STARTET.into(),
+                bruker_type: BrukerType::Veileder,
+                utfoert_av_id: "Z123456".into(),
+                tidspunkt: rfc3339(tid),
+                ..Default::default()
+            })
+            .tidspunkt_ms(T),
+        )
+        .await;
+        app.les_inn(
+            Melding::ny(create_dummy_start_periode(
+                FNR_PERIODE,
+                id,
+                Some(rfc3339(tid)),
+            ))
+            .tidspunkt_ms(T + 10),
+        )
+        .await;
+        app.kjor_regler(vec![Box::new(PeriodeStartetLikStartet)])
+            .await;
+        let (regel, versjon, melding): (i16, i32, i64) =
+            sqlx::query_as("SELECT regel, regelversjon, record_metadata_id FROM funn")
+                .fetch_one(&app.pool)
+                .await
+                .unwrap();
+        let sti = format!("/stats/funn?regel={regel}&versjon={versjon}&melding={melding}");
+        let router = routes(
+            VisState {
+                pg_pool: app.pool.clone(),
+                hwm_version: 1,
+            },
+            None,
+        );
+        (app, router, sti)
+    }
+
+    #[tokio::test]
+    async fn viser_meldingene_uten_foedselsnummer() {
+        let (_app, router, sti) = app_med_funn().await;
+        let (status, html) = hent(&router, &sti).await;
+        assert_eq!(status, StatusCode::OK, "{html}");
+        assert!(html.contains("Ulikt fødselsnummer"), "{html}");
+        // Perioden bestemte funnet og står først, så personen der er A.
+        assert!(html.contains("<td>Person A</td>"), "{html}");
+        assert!(html.contains("<td>Person B</td>"), "{html}");
+        assert!(html.contains("<td>Z123456</td>"), "{html}");
+        assert!(html.contains("avviker"), "{html}");
+        assert!(!html.contains(FNR_STARTET), "{html}");
+        assert!(!html.contains(FNR_PERIODE), "{html}");
+    }
+
+    #[tokio::test]
+    async fn funn_listen_lenker_til_detaljene() {
+        let (app, router, sti) = app_med_funn().await;
+        // Listen viser bare modne funn: regelen må ha kommet ett minutt forbi.
+        app.les_inn(Melding::ny(StartetBuilder::default()).tidspunkt_ms(T + 120_000))
+            .await;
+        app.kjor_regler(vec![Box::new(PeriodeStartetLikStartet)])
+            .await;
+        let (_, html) = hent(&router, "/stats/fragment/fane?fane=funn").await;
+        assert!(html.contains(&sti.replace('&', "&amp;")), "{html}");
+    }
+
+    #[tokio::test]
+    async fn ukjent_funn_gir_404_og_ugyldig_noekkel_gir_400() {
+        let (_app, router, _) = app_med_funn().await;
+        for (sti, forventet) in [
+            (
+                "/stats/funn?regel=5&versjon=2&melding=999999",
+                StatusCode::NOT_FOUND,
+            ),
+            (
+                "/stats/funn?regel=99&versjon=2&melding=1",
+                StatusCode::BAD_REQUEST,
+            ),
+            (
+                "/stats/funn?regel=5&versjon=2&melding=abc",
+                StatusCode::BAD_REQUEST,
+            ),
+            ("/stats/funn?regel=5", StatusCode::BAD_REQUEST),
+        ] {
+            assert_eq!(hent(&router, sti).await.0, forventet, "{sti}");
+        }
+    }
 }

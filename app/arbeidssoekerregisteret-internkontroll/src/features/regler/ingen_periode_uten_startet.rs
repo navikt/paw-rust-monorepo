@@ -63,7 +63,7 @@ impl Regel for IngenPeriodeUtenStartet {
                     {
                         Vurdering::Ok
                     } else {
-                        Vurdering::Feil(MANGLER_STARTET)
+                        Vurdering::feil(MANGLER_STARTET)
                     }
                 }
                 _ => Vurdering::IkkeRelevant,

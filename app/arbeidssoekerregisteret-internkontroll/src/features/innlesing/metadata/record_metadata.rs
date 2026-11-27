@@ -1,3 +1,4 @@
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgRow;
 use sqlx::{FromRow, PgConnection, Row};
@@ -102,7 +103,7 @@ pub async fn insert_record_metadata(
     conn: &mut PgConnection,
     signing_key_id_map: &SigningKeyDbIds,
     record: &RecordMetadata,
-) -> Result<i64, sqlx::Error> {
+) -> Result<RecordMetadataId, sqlx::Error> {
     let signing_key_id = match record.signature.signing_key_id() {
         Some(key_id) => signing_key_id_map.get(key_id),
         None => None,

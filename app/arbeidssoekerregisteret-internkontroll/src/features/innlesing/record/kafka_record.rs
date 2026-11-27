@@ -1,3 +1,4 @@
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use rdkafka::Message;
 use rdkafka::Timestamp;
 use rdkafka::message::{Headers, OwnedMessage};
@@ -55,7 +56,7 @@ pub fn kafka_record_row(msg: &OwnedMessage) -> KafkaRecordRow<'_> {
 #[tracing::instrument(skip(conn, row))]
 pub async fn insert_kafka_record(
     conn: &mut PgConnection,
-    record_metadata_id: i64,
+    record_metadata_id: RecordMetadataId,
     row: &KafkaRecordRow<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(

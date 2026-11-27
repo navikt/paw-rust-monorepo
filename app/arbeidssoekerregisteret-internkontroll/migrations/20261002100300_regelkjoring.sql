@@ -9,12 +9,17 @@ CREATE TYPE alvorlighet AS ENUM ('info', 'advarsel', 'kritisk');
 
 -- Gjeldende funn per regelversjon og subjekt. record_metadata_id peker på
 -- meldingen som sist bestemte funnet; nivået til regelen sier hva subjektet er.
+-- meldinger er alle meldingene regelen brukte, med record_metadata_id først.
+-- Uten fremmednøkkel: en id kan peke på en melding som er slettet.
+-- detaljer er tall regelen la ved for å forklare utfallet, aldri identifikatorer.
 CREATE TABLE funn (
     regel              SMALLINT    NOT NULL,
     regelversjon       INTEGER     NOT NULL,
     record_metadata_id BIGINT      NOT NULL REFERENCES record_metadata (id) ON DELETE CASCADE,
     kode               SMALLINT    NOT NULL,
     alvorlighet        alvorlighet NOT NULL,
+    meldinger          BIGINT[]    NOT NULL,
+    detaljer           JSONB       NOT NULL,
     PRIMARY KEY (regel, regelversjon, record_metadata_id)
 );
 

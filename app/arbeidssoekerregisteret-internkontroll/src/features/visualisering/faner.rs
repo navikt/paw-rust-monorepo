@@ -7,6 +7,8 @@ use maud::{Markup, html};
 use crate::features::innlesing::metadata::signature::SignatureStatus;
 use crate::features::regler::{alvorlighet::Alvorlighet, regel_katalog::RegelId};
 
+use super::detaljer::FunnNokkel;
+
 use super::html::{
     Fane, Valg, alvorlighet_merke, alvorlighet_navn, kode_tekst, regel_med_hjelp, regel_navn,
     tidspunkt_tekst, varighet_tekst,
@@ -276,6 +278,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                     th { "Alvorlighet" } th { "Regel" } th.tall { "Versjon" } th { "Utfall" }
                     th { "Topic" } th.tall { "Partisjon" } th.tall { "Offset" }
                     th { "Tidspunkt (Kafka)" } th { "Meldingstype" } th { "Trace-ID" }
+                    th { span.skjult { "Detaljer" } }
                 } }
                 tbody { @for f in rader {
                     tr {
@@ -289,6 +292,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                         td { (tidspunkt_tekst(f.record_timestamp_ms)) }
                         td { (f.meldingstype.as_deref().unwrap_or(STREK)) }
                         td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                        td { a href=(FunnNokkel::url(f.regel, f.regelversjon, f.record_metadata_id)) { "Detaljer" } }
                     }
                 } }
             } }
@@ -450,7 +454,11 @@ mod tests {
             },
         ];
         let html = funn(&valg, &antall, &[]).into_string();
-        assert_eq!(html.matches("<summary>Startet-hendelsen er signert</summary>").count(), 1);
+        assert_eq!(
+            html.matches("<summary>Startet-hendelsen er signert</summary>")
+                .count(),
+            1
+        );
         assert!(
             html.contains(
                 r#"<td class="tall">2</td><td class="tall">4</td><td class="tall">0</td>"#

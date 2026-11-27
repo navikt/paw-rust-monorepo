@@ -26,6 +26,7 @@ const RUTER: &[&str] = &[
     "/stats",
     "/stats/",
     "/stats/?fane=funn",
+    "/stats/funn?regel=5&versjon=2&melding=1",
     "/stats/fragment/fane?fane=trace",
     "/stats/fragment/toppfelt",
     "/stats/static/oppdater.js",

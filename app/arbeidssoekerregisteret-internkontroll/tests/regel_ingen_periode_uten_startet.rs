@@ -49,6 +49,14 @@ async fn periode_uten_startet_gir_funn() {
         app.funn().await,
         [(topic_navn(&Topic::Periode).to_string(), 0, 1)]
     );
+    // Regler uten motpart lagrer bare meldingen som ble vurdert.
+    assert_eq!(
+        app.funn_grunnlag().await,
+        [(
+            vec![(topic_navn(&Topic::Periode).to_string(), 0)],
+            serde_json::json!({})
+        )]
+    );
 }
 
 #[tokio::test]

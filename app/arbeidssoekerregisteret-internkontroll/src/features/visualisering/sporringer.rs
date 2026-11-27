@@ -1,11 +1,14 @@
 //! Lesespørringer for visualiseringen. Ingen av dem returnerer `periode_id`
-//! eller `arbeidssoeker_id`. Se modulkommentaren i `mod.rs` før du legger til
-//! en spørring som gjør det.
+//! eller `arbeidssoeker_id`. Bare `hent_detaljmeldinger` returnerer
+//! personopplysninger, og de pseudonymiseres før visning. Se modulkommentaren
+//! i `mod.rs` før du legger til en spørring som gjør det.
 
 use sqlx::{FromRow, PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::features::innlesing::metadata::signature::SignatureStatus;
+use crate::features::innlesing::metadata::{
+    record_metadata_id::RecordMetadataId, signature::SignatureStatus, utfoert::UtfoertAvType,
+};
 use crate::features::regler::{
     alvorlighet::Alvorlighet, regel_katalog::RegelId, regelversjon::Regelversjon,
 };
@@ -138,6 +141,7 @@ pub async fn hent_funn_antall(conn: &mut PgConnection) -> Result<Vec<FunnAntall>
 
 #[derive(Debug, FromRow)]
 pub struct FunnRad {
+    pub record_metadata_id: RecordMetadataId,
     pub regel: RegelId,
     pub regelversjon: Regelversjon,
     pub kode: i16,
@@ -157,7 +161,7 @@ pub async fn hent_funn(
     alvorlighet: Option<Alvorlighet>,
 ) -> Result<Vec<FunnRad>, sqlx::Error> {
     sqlx::query_as(
-        "SELECT f.regel, f.regelversjon, f.kode, f.alvorlighet,
+        "SELECT f.record_metadata_id, f.regel, f.regelversjon, f.kode, f.alvorlighet,
                 t.name AS topic, rm.record_partition, rm.record_offset,
                 rm.record_timestamp_ms, rm.meldingstype::TEXT AS meldingstype, rm.trace_id
          FROM modne_funn f
@@ -245,6 +249,83 @@ pub async fn hent_mangler_trace_id(
          GROUP BY t.name
          ORDER BY t.name",
     )
+    .fetch_all(conn)
+    .await
+}
+
+#[derive(Debug, FromRow)]
+pub struct FunnDetaljer {
+    pub kode: i16,
+    pub alvorlighet: Alvorlighet,
+    pub meldinger: Vec<RecordMetadataId>,
+    pub detaljer: sqlx::types::Json<serde_json::Map<String, serde_json::Value>>,
+}
+
+/// Ett gjeldende funn, slått opp på hele nøkkelen.
+pub async fn hent_funn_detaljer(
+    conn: &mut PgConnection,
+    regel: RegelId,
+    regelversjon: Regelversjon,
+    record_metadata_id: RecordMetadataId,
+) -> Result<Option<FunnDetaljer>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT kode, alvorlighet, meldinger, detaljer FROM funn
+         WHERE regel = $1 AND regelversjon = $2 AND record_metadata_id = $3",
+    )
+    .bind(regel)
+    .bind(regelversjon)
+    .bind(record_metadata_id)
+    .fetch_optional(conn)
+    .await
+}
+
+/// En melding i et funn, med personopplysninger. Skal bare vises etter
+/// pseudonymisering, se `pseudonym.rs`.
+#[derive(FromRow)]
+pub struct DetaljMelding {
+    pub id: RecordMetadataId,
+    pub topic: String,
+    pub record_partition: i32,
+    pub record_offset: i64,
+    pub record_timestamp_ms: Option<i64>,
+    pub meldingstype: Option<String>,
+    pub kilde: Option<String>,
+    pub trace_id: Option<Uuid>,
+    pub identitetsnummer: Option<String>,
+    pub utfoert_tidspunkt_ms: Option<i64>,
+    pub utfoert_av_type: Option<UtfoertAvType>,
+    pub utfoert_av_id: Option<String>,
+}
+
+impl std::fmt::Debug for DetaljMelding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DetaljMelding")
+            .field("id", &self.id)
+            .field("topic", &self.topic)
+            .field("record_partition", &self.record_partition)
+            .field("record_offset", &self.record_offset)
+            .field("utfoert_av_type", &self.utfoert_av_type)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Meldingene til et funn. `meldinger` skal komme fra `funn.meldinger`, aldri
+/// fra requesten. Meldinger som er slettet, mangler i svaret.
+pub async fn hent_detaljmeldinger(
+    conn: &mut PgConnection,
+    meldinger: &[RecordMetadataId],
+) -> Result<Vec<DetaljMelding>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT rm.id, t.name AS topic, rm.record_partition, rm.record_offset,
+                rm.record_timestamp_ms, rm.meldingstype::TEXT AS meldingstype,
+                rm.kilde::TEXT AS kilde, rm.trace_id,
+                rm.identitetsnummer, rm.utfoert_tidspunkt_ms, rm.utfoert_av_type,
+                rm.utfoert_av_id
+         FROM record_metadata rm
+         JOIN topic t ON t.id = rm.topic_id
+         WHERE rm.id = ANY($1)",
+    )
+    .bind(meldinger)
     .fetch_all(conn)
     .await
 }

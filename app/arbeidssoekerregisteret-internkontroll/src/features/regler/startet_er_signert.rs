@@ -74,7 +74,7 @@ impl Regel for StartetErSignert {
             }
             Ok(match utfall(melding.signature_status) {
                 None => Vurdering::Ok,
-                Some(utfall) => Vurdering::Feil(utfall),
+                Some(utfall) => Vurdering::feil(utfall),
             })
         })
     }

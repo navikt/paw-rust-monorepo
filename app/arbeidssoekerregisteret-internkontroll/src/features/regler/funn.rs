@@ -1,3 +1,4 @@
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use sqlx::PgConnection;
 
 use crate::features::regler::{
@@ -5,7 +6,7 @@ use crate::features::regler::{
 };
 
 /// Utfallet av å vurdere én melding.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Vurdering {
     /// Meldingen sier ikke noe om regelen, for eksempel en melding uten
     /// trace-id for en regel på trace-nivå. Eksisterende funn står.
@@ -13,7 +14,48 @@ pub enum Vurdering {
     /// Subjektet er i orden ut fra det regelen har sett.
     Ok,
     /// Subjektet er i feil ut fra det regelen har sett.
-    Feil(Utfall),
+    Feil(Avvik),
+}
+
+impl Vurdering {
+    /// Feil uten andre meldinger eller detaljer enn meldingen som ble vurdert.
+    pub fn feil(utfall: Utfall) -> Self {
+        Self::Feil(Avvik::ny(utfall))
+    }
+}
+
+/// Et funn slik regelen så det, med det som trengs for å forklare det etterpå.
+/// En senere vurdering kan finne andre meldinger, så dette lagres i stedet for
+/// å regnes ut på nytt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Avvik {
+    pub utfall: Utfall,
+    /// Andre meldinger regelen brukte. Meldingen som ble vurdert, lagres alltid
+    /// først og trenger ikke være med her.
+    pub meldinger: Vec<RecordMetadataId>,
+    /// Tall som forklarer utfallet, for eksempel `("tidsavvik_ms", 4210)`.
+    /// Aldri identifikatorer som verdier: detaljene vises i klartekst.
+    pub detaljer: Vec<(&'static str, i64)>,
+}
+
+impl Avvik {
+    pub fn ny(utfall: Utfall) -> Self {
+        Self {
+            utfall,
+            meldinger: Vec::new(),
+            detaljer: Vec::new(),
+        }
+    }
+
+    pub fn med_melding(mut self, melding: RecordMetadataId) -> Self {
+        self.meldinger.push(melding);
+        self
+    }
+
+    pub fn med_detalj(mut self, navn: &'static str, verdi: i64) -> Self {
+        self.detaljer.push((navn, verdi));
+        self
+    }
 }
 
 /// Sletter funn for regelversjon `$1, $2` med samme subjekt som meldingen `$3`.
@@ -42,13 +84,13 @@ pub async fn lagre_vurdering(
     regel: RegelId,
     versjon: Regelversjon,
     nivaa: Nivaa,
-    record_metadata_id: i64,
+    record_metadata_id: RecordMetadataId,
     vurdering: Vurdering,
 ) -> Result<(), sqlx::Error> {
-    let utfall = match vurdering {
+    let avvik = match vurdering {
         Vurdering::IkkeRelevant => return Ok(()),
         Vurdering::Ok => None,
-        Vurdering::Feil(utfall) => Some(utfall),
+        Vurdering::Feil(avvik) => Some(avvik),
     };
     let slett = match nivaa {
         Nivaa::Melding => slett_funn!("f.record_metadata_id = $3"),
@@ -62,16 +104,30 @@ pub async fn lagre_vurdering(
         .bind(record_metadata_id)
         .execute(&mut *conn)
         .await?;
-    if let Some(utfall) = utfall {
+    if let Some(avvik) = avvik {
+        let mut meldinger = vec![record_metadata_id];
+        for melding in avvik.meldinger {
+            if !meldinger.contains(&melding) {
+                meldinger.push(melding);
+            }
+        }
+        let detaljer: serde_json::Map<String, serde_json::Value> = avvik
+            .detaljer
+            .into_iter()
+            .map(|(navn, verdi)| (navn.to_string(), verdi.into()))
+            .collect();
         sqlx::query(
-            "INSERT INTO funn (regel, regelversjon, record_metadata_id, kode, alvorlighet)
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO funn (regel, regelversjon, record_metadata_id, kode, alvorlighet,
+                               meldinger, detaljer)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(regel)
         .bind(versjon)
         .bind(record_metadata_id)
-        .bind(utfall.kode)
-        .bind(utfall.alvorlighet)
+        .bind(avvik.utfall.kode)
+        .bind(avvik.utfall.alvorlighet)
+        .bind(meldinger)
+        .bind(sqlx::types::Json(detaljer))
         .execute(conn)
         .await?;
     }

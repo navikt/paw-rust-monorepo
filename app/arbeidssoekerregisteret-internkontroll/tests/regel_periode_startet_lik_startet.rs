@@ -5,6 +5,7 @@ use arbeidssoekerregisteret_internkontroll::features::regler::{
 };
 use common::{TestApp, melding::Melding};
 use eksterne_hendelser::periode::Periode;
+use paw_kafka::topics::Topic;
 use paw_test::hendelse_builder::{StartetBuilder, rfc3339};
 use test_data_generator::eksterne_hendelser::create_dummy_start_periode;
 use uuid::Uuid;
@@ -125,4 +126,22 @@ async fn tidsavvik_innenfor_feilmarginen_gir_ikke_funn() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn funn_peker_paa_begge_meldingene_og_har_tidsavvik() {
+    let id = Uuid::new_v4();
+    let app = TestApp::start().await;
+    let periode = create_dummy_start_periode(FNR, id, Some(rfc3339("2024-01-01T12:00:05.333Z")));
+    kjor(&app, startet(id), periode, true).await;
+    let hendelselogg = common::topic_navn(&Topic::Hendelselogg).to_string();
+    let periode_topic = common::topic_navn(&Topic::Periode).to_string();
+    // Ett funn per periode. Perioden kom sist, så den bestemte funnet og står først.
+    assert_eq!(
+        app.funn_grunnlag().await,
+        [(
+            vec![(periode_topic, 0), (hendelselogg, 0)],
+            serde_json::json!({ "tidsavvik_ms": 5210 })
+        )]
+    );
 }

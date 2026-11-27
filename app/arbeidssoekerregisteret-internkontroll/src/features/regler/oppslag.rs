@@ -1,3 +1,4 @@
+use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -19,7 +20,7 @@ pub struct Melding {
 
 pub async fn hent_melding(
     conn: &mut PgConnection,
-    record_metadata_id: i64,
+    record_metadata_id: RecordMetadataId,
 ) -> Result<Melding, sqlx::Error> {
     sqlx::query_as(
         "SELECT topic_id, record_partition, record_offset, meldingstype, periode_id,

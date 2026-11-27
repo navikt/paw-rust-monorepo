@@ -64,7 +64,7 @@ impl Regel for HeleTraceSignert {
                 (_, SignatureStatus::Valid | SignatureStatus::UnsignedBeforeRequired) => {
                     Vurdering::IkkeRelevant
                 }
-                _ => Vurdering::Feil(UGYLDIG_SIGNATUR_I_TRACE),
+                _ => Vurdering::feil(UGYLDIG_SIGNATUR_I_TRACE),
             })
         })
     }

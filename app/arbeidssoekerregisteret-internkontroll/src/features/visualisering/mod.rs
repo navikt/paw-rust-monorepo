@@ -4,11 +4,15 @@
 //! Rutene her skal bare vise aggregater og topic/partisjon/offset, aldri
 //! personopplysninger som `periode_id` eller `arbeidssoeker_id`. Derfor logges
 //! bare visning av hele siden, ikke fragmentene. Sensitive data skal ligge bak
-//! egne endepunkter med detaljert logging av hvem som så hva.
+//! egne endepunkter med detaljert logging av hvem som så hva. Funndetaljene er
+//! et slikt endepunkt: hver visning logges med NAV-ident og funn, og
+//! fødselsnummer byttes ut med bokstaver før visning.
 
 pub mod auth;
+mod detaljer;
 mod faner;
 mod html;
+mod pseudonym;
 mod sikkerhet;
 mod sporringer;
 
@@ -27,7 +31,8 @@ use oauth2::principal::Principal;
 use paw_oauth2_resource_server::oauth2::{middleware::oauth2_server_layer, state::AuthState};
 use sqlx::{PgConnection, PgPool};
 
-use crate::features::regler::regel_katalog::RegelId;
+use crate::features::regler::{regel_katalog::RegelId, regelversjon::Regelversjon};
+use detaljer::FunnNokkel;
 use html::{Fane, Tema, TemaSkjema, Valg};
 
 const OPPDATER_JS: &str = include_str!("static/oppdater.js");
@@ -43,6 +48,7 @@ pub fn routes(state: VisState, auth_state: Option<Arc<AuthState>>) -> Router {
     let mut router = Router::new()
         .route("/stats", get(side))
         .route("/stats/", get(side))
+        .route("/stats/funn", get(funn_detaljer))
         .route("/stats/fragment/fane", get(fane_fragment))
         .route("/stats/fragment/toppfelt", get(toppfelt_fragment))
         .route("/stats/tema", post(lagre_tema))
@@ -110,6 +116,45 @@ async fn lagre_tema(
             (header::LOCATION, "/stats/".to_string()),
             (header::SET_COOKIE, cookie),
         ],
+    ))
+}
+
+/// Ett funn med meldingene regelen brukte. Logges med NAV-ident og hvilket
+/// funn som ble åpnet. Meldingene hentes bare via `funn.meldinger`, så siden
+/// kan ikke brukes til å slå opp andre meldinger. Ukjent funn gir 404.
+async fn funn_detaljer(
+    State(state): State<VisState>,
+    principal: Option<Extension<Principal>>,
+    headers: HeaderMap,
+    nokkel: Result<Query<FunnNokkel>, axum::extract::rejection::QueryRejection>,
+) -> Result<Markup, StatusCode> {
+    let Query(nokkel) = nokkel.map_err(|_| StatusCode::BAD_REQUEST)?;
+    let regel = RegelId::fra_i16(nokkel.regel).ok_or(StatusCode::BAD_REQUEST)?;
+    let versjon = Regelversjon::new(nokkel.versjon);
+    if let Some(Extension(Principal::NavAnsatt(ansatt))) = &principal {
+        tracing::info!(
+            nav_ident = ansatt.ident.as_ref(),
+            regel = nokkel.regel,
+            regelversjon = nokkel.versjon,
+            melding = %nokkel.melding,
+            "Funndetaljer vist"
+        );
+    }
+    let mut tx = sporringer::lesetransaksjon(&state.pg_pool)
+        .await
+        .map_err(intern_feil)?;
+    let funn = sporringer::hent_funn_detaljer(&mut tx, regel, versjon, nokkel.melding)
+        .await
+        .map_err(intern_feil)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let meldinger = sporringer::hent_detaljmeldinger(&mut tx, &funn.meldinger)
+        .await
+        .map_err(intern_feil)?;
+    let tema = Tema::fra_cookie_header(headers.get(header::COOKIE).and_then(|v| v.to_str().ok()));
+    Ok(html::enkel_side(
+        "Funndetaljer",
+        tema,
+        detaljer::funn_detaljer(regel, versjon, &funn, meldinger),
     ))
 }
 
