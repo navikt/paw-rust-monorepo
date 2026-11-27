@@ -1,0 +1,10 @@
+### POST /api/v1/historikk
+POST {{baseUrl}}/api/v1/historikk
+Accept: application/json
+Content-Type: application/json
+
+{
+    "identer": [
+        "01017012345"
+    ]
+}

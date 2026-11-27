@@ -1,0 +1,2 @@
+url = "http://paw-kafka-key-generator"
+target_scope = "api://${NAIS_CLUSTER_NAME}.paw.paw-kafka-key-generator/.default"

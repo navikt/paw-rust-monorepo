@@ -3,3 +3,13 @@ metrics_task_interval = "PT10M"
 [kafka]
 paw_periode_topic = "paw.arbeidssokerperioder-v1"
 paw_arbeidsmarkedstiltak_topic = "paw.arbeidsmarkedstiltak-beta-v1"
+
+[synk]
+aktivert = false
+task_interval = "PT10M"
+synk_interval = "PT2H"
+batch_size = 100
+batch_grace_time = "PT0S"
+request_grace_time = "PT0S"
+maks_feil_per_rad = 10
+maks_feil_per_kjoering = 10

@@ -1,0 +1,46 @@
+{
+    "priority": 1,
+    "request": {
+        "method": "POST",
+        "urlPathPattern": "/api/v1/historikk",
+        "bodyPatterns": [
+            {
+                "equalToJson": "{\"identer\":[\"01017012345\"]}",
+                "ignoreArrayOrder": true,
+                "ignoreExtraElements": true
+            }
+        ]
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "historikk": [
+                {
+                    "type": "TeamTiltakAvtale",
+                    "norskIdent": "01017012345",
+                    "startDato": null,
+                    "sluttDato": null,
+                    "opprettetTidspunkt": "2026-01-01T12:00:00Z",
+                    "oppdatertTidspunkt": "2026-02-01T12:00:00Z",
+                    "id": "d94314b9-0e48-4513-9525-db4751917be8",
+                    "tittel": "Arbeidstrening",
+                    "tiltakstype": {
+                        "tiltakskode": "ARBEIDSTRENING",
+                        "navn": "Arbeidstrening"
+                    },
+                    "status": "GJENNOMFORES",
+                    "stillingsprosent": 100.0,
+                    "dagerPerUke": 5.0,
+                    "arbeidsgiver": {
+                        "organisasjonsnummer": "123456789",
+                        "navn": "Arbeidsgiver"
+                    },
+                    "opphav": "TEAM_TILTAK"
+                }
+            ]
+        }
+    }
+}

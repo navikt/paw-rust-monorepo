@@ -20,11 +20,11 @@ async fn test_send_messages() -> anyhow::Result<()> {
     let data = TestData::gen_test_data();
     let producer = TestKafkaProducer::new()?;
 
-    // producer.send_start_perioder(&data).await?;
+    producer.send_start_perioder(&data).await?;
     //
     // tokio::time::sleep(Duration::from_millis(100)).await;
     //
-    producer.send_avslutt_perioder(&data).await?;
+    // producer.send_avslutt_perioder(&data).await?;
     //
 
     Ok(())
@@ -45,17 +45,63 @@ struct TestData {
 
 impl TestData {
     fn gen_test_data() -> Vec<TestData> {
-        vec![TestData {
-            key: -1,
-            arbeidssoeker_id: 1,
-            aktor_id: "101701234500",
-            identitetsnummer: "01017012345",
-            fornavn: "Ola",
-            etternavn: "Nordmann",
-            periode_id: Uuid::from_str("07206f7d-0323-483f-961b-bd571ff384df").unwrap(),
-            periode_startet: Some(datetime_rfc3339("2026-02-01T12:00:00Z")),
-            periode_avsluttet: Some(datetime_rfc3339("2026-01-31T12:00:00Z")),
-        }]
+        vec![
+            TestData {
+                key: -1,
+                arbeidssoeker_id: 1,
+                aktor_id: "101701234500",
+                identitetsnummer: "01017012345",
+                fornavn: "Ola",
+                etternavn: "Nordmann",
+                periode_id: Uuid::from_str("07206f7d-0323-483f-961b-bd571ff384df").unwrap(),
+                periode_startet: Some(datetime_rfc3339("2026-01-01T12:00:00Z")),
+                periode_avsluttet: Some(datetime_rfc3339("2026-02-01T12:00:00Z")),
+            },
+            TestData {
+                key: -2,
+                arbeidssoeker_id: 2,
+                aktor_id: "102701234500",
+                identitetsnummer: "02017012345",
+                fornavn: "Kari",
+                etternavn: "Nordmann",
+                periode_id: Uuid::from_str("af6833ae-1b79-4c31-890e-b3f75de57acf").unwrap(),
+                periode_startet: Some(datetime_rfc3339("2026-02-01T12:00:00Z")),
+                periode_avsluttet: Some(datetime_rfc3339("2026-03-01T12:00:00Z")),
+            },
+            TestData {
+                key: -3,
+                arbeidssoeker_id: 3,
+                aktor_id: "103701234500",
+                identitetsnummer: "03017012345",
+                fornavn: "Jens",
+                etternavn: "Nordmann",
+                periode_id: Uuid::from_str("753904c3-9487-494c-8e49-2181c49d8e00").unwrap(),
+                periode_startet: Some(datetime_rfc3339("2026-03-01T12:00:00Z")),
+                periode_avsluttet: Some(datetime_rfc3339("2026-04-01T12:00:00Z")),
+            },
+            TestData {
+                key: -4,
+                arbeidssoeker_id: 4,
+                aktor_id: "104701234500",
+                identitetsnummer: "04017012345",
+                fornavn: "Solveig",
+                etternavn: "Nordmann",
+                periode_id: Uuid::from_str("4b73faeb-1a5c-4868-bc04-b39ba4b3acb7").unwrap(),
+                periode_startet: Some(datetime_rfc3339("2026-04-01T12:00:00Z")),
+                periode_avsluttet: Some(datetime_rfc3339("2026-05-01T12:00:00Z")),
+            },
+            TestData {
+                key: -5,
+                arbeidssoeker_id: 5,
+                aktor_id: "105701234500",
+                identitetsnummer: "05017012345",
+                fornavn: "Marianne",
+                etternavn: "Nordmann",
+                periode_id: Uuid::from_str("cd822aa6-3713-4bc3-b852-7707b2cc52dd").unwrap(),
+                periode_startet: Some(datetime_rfc3339("2026-05-01T12:00:00Z")),
+                periode_avsluttet: Some(datetime_rfc3339("2026-06-01T12:00:00Z")),
+            },
+        ]
     }
 }
 

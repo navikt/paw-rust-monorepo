@@ -157,3 +157,15 @@ impl LogicError {
         }
     }
 }
+
+#[derive(Error, Debug)]
+pub enum SynkFeil {
+    #[error("Kunne ikke hente identiteter fra key-gen: {0}")]
+    KeyGen(#[source] anyhow::Error),
+    #[error("Fant ingen folkeregisteridenter for arbeidssøkeren")]
+    IngenIdenter,
+    #[error("Henting av tiltakshistorikk feilet: {0}")]
+    Mulighetsrommet(#[from] mulighetsrommet_client::error::MulighetsrommetClientError),
+    #[error("Kunne ikke publisere tiltakshistorikk")]
+    Publisher(#[source] anyhow::Error),
+}

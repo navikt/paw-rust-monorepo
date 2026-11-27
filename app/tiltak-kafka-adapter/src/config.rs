@@ -1,4 +1,7 @@
+use chrono::{DateTime, Utc};
+use mulighetsrommet_client::config::MulighetsrommetClientConfig;
 use paw_kafka::kafka_config::KafkaConfig;
+use paw_key_gen_client::config::PawKeyGenClientConfig;
 use paw_observability::otel::config::OtelTracingConfig;
 use paw_observability::otel::format::OtelFormat;
 use paw_rust_base::config::duration;
@@ -7,6 +10,7 @@ use paw_sqlx::config::DatabaseConfig;
 use serde::Deserialize;
 use serde_env_field::env_field_wrap;
 use std::time::Duration;
+use texas_client::config::TokenClientConfig;
 
 pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -14,7 +18,30 @@ pub const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct AppConfig {
     #[serde(deserialize_with = "duration::iso8601::deserialize")]
     pub metrics_task_interval: Duration,
+    pub synk: SynkConfig,
     pub kafka: AppKafkaConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SynkConfig {
+    pub aktivert: bool,
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub task_interval: Duration,
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub synk_interval: Duration,
+    pub batch_size: i64,
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub batch_grace_time: Duration,
+    #[serde(deserialize_with = "duration::iso8601::deserialize")]
+    pub request_grace_time: Duration,
+    pub maks_feil_per_rad: i32,
+    pub maks_feil_per_kjoering: u32,
+}
+
+impl SynkConfig {
+    pub fn synk_interval_grensed(&self) -> anyhow::Result<DateTime<Utc>> {
+        Ok(Utc::now() - chrono::Duration::from_std(self.synk_interval)?)
+    }
 }
 
 #[env_field_wrap]
@@ -74,4 +101,19 @@ pub fn read_kafka_config() -> anyhow::Result<KafkaConfig> {
 pub fn read_otel_tracing_config() -> anyhow::Result<OtelTracingConfig> {
     let content = read_config_file!("otel_tracing_config.toml");
     Ok(read_toml_config::<AppOtelTracingConfig>(content)?.as_config())
+}
+
+pub fn read_token_client_config() -> anyhow::Result<TokenClientConfig> {
+    let content = read_config_file!("token_client_config.toml");
+    Ok(read_toml_config::<TokenClientConfig>(content)?)
+}
+
+pub fn read_paw_key_gen_client_config() -> anyhow::Result<PawKeyGenClientConfig> {
+    let content = read_config_file!("paw_key_gen_client_config.toml");
+    Ok(read_toml_config::<PawKeyGenClientConfig>(content)?)
+}
+
+pub fn read_mulighetsrommet_client_config() -> anyhow::Result<MulighetsrommetClientConfig> {
+    let content = read_config_file!("mulighetsrommet_client_config.toml");
+    Ok(read_toml_config::<MulighetsrommetClientConfig>(content)?)
 }

@@ -50,6 +50,9 @@ spec:
   observability:
     tracing:
       enabled: true
+  azure:
+    application:
+      enabled: true
   kafka:
     pool: nav-dev
   gcp:
@@ -59,3 +62,9 @@ spec:
         databases:
           - name: tiltak
             envVarPrefix: DB_TILTAK
+  accessPolicy:
+    outbound:
+      rules:
+        - application: paw-kafka-key-generator
+        - application: tiltakshistorikk
+          namespace: team-mulighetsrommet

@@ -1,26 +1,17 @@
 use mockito::{Matcher, Mock, ServerGuard};
 use serde::Serialize;
-use serde_json::json;
-use std::collections::HashMap;
+use serde_json::{Value, json};
 use std::error::Error;
 
-#[derive(PartialEq, Eq, Hash)]
-pub struct KafkaKeyGenMockRequest {
-    pub identitetsnummer: String,
+pub struct KafkaKeyGenMockExchange {
+    pub ident: String,
+    pub status: usize,
+    pub response: KafkaKeyGenMockResponse,
 }
 
-impl KafkaKeyGenMockRequest {
-    pub fn new(identititesnummer: &str) -> Self {
-        Self {
-            identitetsnummer: identititesnummer.to_string(),
-        }
-    }
-}
-
-#[derive(Serialize)]
-pub struct KafkaKeyGenMockResponse {
-    pub hent_key: KeyMockResponse,
-    pub hent_ideniteter: IdentiteterMockResponse,
+pub enum KafkaKeyGenMockResponse {
+    KafkaKeys { payload: Value },
+    Identiteter { payload: Value },
 }
 
 #[derive(Serialize)]
@@ -50,37 +41,46 @@ pub struct KafkaKeyGenMockGuard {
     pub mocks: Vec<Mock>,
 }
 
-pub fn default_kafka_key_gen_mock_responses()
--> HashMap<KafkaKeyGenMockRequest, KafkaKeyGenMockResponse> {
+pub fn default_kafka_key_gen_mock_responses() -> Vec<KafkaKeyGenMockExchange> {
     let arbeidssoeker_id = 12345i64;
     let aktor_id = "101701234500";
-    let identiteter = vec!["01017012345", "41017012345"];
-    let mut map = HashMap::new();
-    map.insert(
-        KafkaKeyGenMockRequest::new("01017012345"),
-        KafkaKeyGenMockResponse {
-            hent_key: key_mock_response(arbeidssoeker_id),
-            hent_ideniteter: ideniteter_mock_response(arbeidssoeker_id, aktor_id, &identiteter),
-        },
-    );
-    map.insert(
-        KafkaKeyGenMockRequest::new("41017012345"),
-        KafkaKeyGenMockResponse {
-            hent_key: key_mock_response(arbeidssoeker_id),
-            hent_ideniteter: ideniteter_mock_response(arbeidssoeker_id, aktor_id, &identiteter),
-        },
-    );
-    map
+    let identer = vec!["01017012345", "41017012345"];
+    let mut exchanges = Vec::new();
+
+    for ident in identer.iter() {
+        exchanges.push(KafkaKeyGenMockExchange {
+            ident: ident.to_string(),
+            status: 200,
+            response: KafkaKeyGenMockResponse::KafkaKeys {
+                payload: serde_json::to_value(create_kafka_key_mock_response(arbeidssoeker_id))
+                    .expect("Failed to serialize mock response"),
+            },
+        });
+        exchanges.push(KafkaKeyGenMockExchange {
+            ident: ident.to_string(),
+            status: 200,
+            response: KafkaKeyGenMockResponse::Identiteter {
+                payload: serde_json::to_value(create_ideniteter_mock_response(
+                    arbeidssoeker_id,
+                    aktor_id,
+                    &identer.clone(),
+                ))
+                .expect("Failed to serialize mock response"),
+            },
+        });
+    }
+
+    exchanges
 }
 
-fn key_mock_response(arbeidssoeker_id: i64) -> KeyMockResponse {
+pub fn create_kafka_key_mock_response(arbeidssoeker_id: i64) -> KeyMockResponse {
     KeyMockResponse {
         id: arbeidssoeker_id,
         key: -arbeidssoeker_id,
     }
 }
 
-fn ideniteter_mock_response(
+pub fn create_ideniteter_mock_response(
     arbeidssoeker_id: i64,
     aktor_id: &str,
     identiteter: &Vec<&str>,
@@ -112,19 +112,35 @@ fn ideniteter_mock_response(
 
 pub async fn init_kafka_key_gen_api_mocks(
     mockito_server: &mut ServerGuard,
-    mock_responses: HashMap<KafkaKeyGenMockRequest, KafkaKeyGenMockResponse>,
+    exchanges: Vec<KafkaKeyGenMockExchange>,
 ) -> Result<KafkaKeyGenMockGuard, Box<dyn Error>> {
     let _ = env_logger::try_init();
     let mut mocks = vec![];
-    for (mock_request, mock_response) in &mock_responses {
-        mocks.push(
-            hent_eller_opprett_api_mock(mockito_server, mock_request, &mock_response.hent_key)
-                .await,
-        );
-        mocks.push(
-            identiteter_api_mock(mockito_server, mock_request, &mock_response.hent_ideniteter)
-                .await,
-        );
+    for exchange in exchanges {
+        match &exchange.response {
+            KafkaKeyGenMockResponse::KafkaKeys { payload } => {
+                mocks.push(
+                    hent_eller_opprett_api_mock(
+                        mockito_server,
+                        &exchange.ident,
+                        exchange.status,
+                        &payload,
+                    )
+                    .await,
+                );
+            }
+            KafkaKeyGenMockResponse::Identiteter { payload } => {
+                mocks.push(
+                    identiteter_api_mock(
+                        mockito_server,
+                        &exchange.ident,
+                        exchange.status,
+                        &payload,
+                    )
+                    .await,
+                );
+            }
+        }
     }
 
     Ok(KafkaKeyGenMockGuard { mocks })
@@ -132,36 +148,36 @@ pub async fn init_kafka_key_gen_api_mocks(
 
 async fn hent_eller_opprett_api_mock(
     mockito_server: &mut ServerGuard,
-    mock_request: &KafkaKeyGenMockRequest,
-    mock_response: &KeyMockResponse,
+    ident: &String,
+    status: usize,
+    payload: &Value,
 ) -> Mock {
-    let identitetsnummer = &mock_request.identitetsnummer;
     mockito_server
         .mock("POST", "/api/v2/hentEllerOpprett")
         .match_body(Matcher::PartialJson(json!({
-            "ident": identitetsnummer
+            "ident": ident
         })))
-        .with_status(200)
+        .with_status(status)
         .with_header("content-type", "application/json")
-        .with_body(serde_json::to_string(mock_response).expect("Failed to serialize mock response"))
+        .with_body(serde_json::to_string(&payload).expect("Failed to serialize mock response"))
         .create_async()
         .await
 }
 
 async fn identiteter_api_mock(
     mockito_server: &mut ServerGuard,
-    mock_request: &KafkaKeyGenMockRequest,
-    mock_response: &IdentiteterMockResponse,
+    ident: &String,
+    status: usize,
+    payload: &Value,
 ) -> Mock {
-    let identitetsnummer = &mock_request.identitetsnummer;
     mockito_server
         .mock("POST", "/api/v2/identiteter")
         .match_body(Matcher::PartialJson(json!({
-            "identitet": identitetsnummer
+            "identitet": ident
         })))
-        .with_status(200)
+        .with_status(status)
         .with_header("content-type", "application/json")
-        .with_body(serde_json::to_string(mock_response).expect("Failed to serialize mock response"))
+        .with_body(serde_json::to_string(&payload).expect("Failed to serialize mock response"))
         .create_async()
         .await
 }
