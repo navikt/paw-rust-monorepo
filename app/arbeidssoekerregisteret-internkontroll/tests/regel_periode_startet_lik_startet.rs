@@ -86,7 +86,7 @@ async fn avvik_gir_funn_med_kode_for_feltet_uansett_rekkefoelge() {
             ),
             (
                 startet(id),
-                create_dummy_start_periode(FNR, id, Some(rfc3339("2024-01-01T12:00:00.124Z"))),
+                create_dummy_start_periode(FNR, id, Some(rfc3339("2024-01-01T12:00:01.124Z"))),
                 3,
             ),
         ];
@@ -105,4 +105,24 @@ async fn periode_uten_startet_er_ikke_relevant() {
         .await;
     app.kjor_regler(regel()).await;
     assert!(app.funn().await.is_empty());
+}
+
+#[tokio::test]
+async fn tidsavvik_innenfor_feilmarginen_gir_ikke_funn() {
+    for startet_foerst in [true, false] {
+        for tidspunkt in [
+            "2024-01-01T12:00:00.130Z",
+            "2024-01-01T12:00:01.123Z",
+            "2024-01-01T11:59:59.123Z",
+        ] {
+            let app = TestApp::start().await;
+            let id = Uuid::new_v4();
+            let periode = create_dummy_start_periode(FNR, id, Some(rfc3339(tidspunkt)));
+            kjor(&app, startet(id), periode, startet_foerst).await;
+            assert!(
+                app.funn().await.is_empty(),
+                "startet først: {startet_foerst}, tidspunkt: {tidspunkt}"
+            );
+        }
+    }
 }

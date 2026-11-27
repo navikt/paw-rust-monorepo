@@ -26,6 +26,10 @@ pub const ULIKT_TIDSPUNKT: Utfall = Utfall {
     alvorlighet: Alvorlighet::Kritisk,
 };
 
+/// Største tillatte avvik mellom tidspunktene. Hendelsen og perioden får
+/// tidspunktet hver for seg, så de kan skille med noen millisekunder.
+pub const TILLATT_TIDSAVVIK_MS: i64 = 1_000;
+
 pub struct PeriodeStartetLikStartet;
 
 impl Regel for PeriodeStartetLikStartet {
@@ -34,7 +38,7 @@ impl Regel for PeriodeStartetLikStartet {
     }
 
     fn versjon(&self) -> Regelversjon {
-        Regelversjon::new(1)
+        Regelversjon::new(2)
     }
 
     fn nivaa(&self) -> Nivaa {
@@ -70,7 +74,10 @@ impl Regel for PeriodeStartetLikStartet {
                 "SELECT naa.identitetsnummer IS DISTINCT FROM m.identitetsnummer,
                         (naa.utfoert_av_type, naa.utfoert_av_id)
                             IS DISTINCT FROM (m.utfoert_av_type, m.utfoert_av_id),
-                        naa.utfoert_tidspunkt_ms IS DISTINCT FROM m.utfoert_tidspunkt_ms
+                        COALESCE(
+                            abs(naa.utfoert_tidspunkt_ms - m.utfoert_tidspunkt_ms) > $6,
+                            naa.utfoert_tidspunkt_ms IS DISTINCT FROM m.utfoert_tidspunkt_ms
+                        )
                  FROM record_metadata naa, record_metadata m
                  WHERE naa.id = $1
                    AND m.periode_id = $2 AND m.meldingstype = $3
@@ -84,6 +91,7 @@ impl Regel for PeriodeStartetLikStartet {
             .bind(motpart_type)
             .bind(motpart_id)
             .bind(sett.siste_offset(motpart_id))
+            .bind(TILLATT_TIDSAVVIK_MS)
             .fetch_optional(conn)
             .await?;
             Ok(match ulikt {
