@@ -93,6 +93,12 @@ pub fn tidspunkt_tekst(ms: Option<i64>) -> String {
         })
 }
 
+/// Trace-ID slik den står i `traceparent`: 32 heksadesimale tegn uten
+/// bindestreker. Det er formen Grafana Tempo søker på.
+pub fn trace_id_tekst(trace_id: Option<uuid::Uuid>) -> String {
+    trace_id.map_or("–".to_string(), |t| t.simple().to_string())
+}
+
 pub fn varighet_tekst(ms: i64) -> String {
     let sekunder = ms.max(0) / 1_000;
     let dager = sekunder / 86_400;
@@ -297,6 +303,13 @@ pub fn enkel_side(tittel: &str, tema: Tema, innhold: Markup) -> Markup {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trace_id_vises_som_i_traceparent() {
+        let id = uuid::Uuid::parse_str("0af7651916cd43dd8448eb211c80319c").unwrap();
+        assert_eq!(trace_id_tekst(Some(id)), "0af7651916cd43dd8448eb211c80319c");
+        assert_eq!(trace_id_tekst(None), "–");
+    }
 
     #[test]
     fn varighet_formateres_etter_storrelse() {

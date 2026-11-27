@@ -8,7 +8,7 @@ use crate::features::innlesing::metadata::record_metadata_id::RecordMetadataId;
 use crate::features::innlesing::metadata::utfoert::UtfoertAvType;
 use crate::features::regler::{regel_katalog::RegelId, regelversjon::Regelversjon};
 
-use super::html::{alvorlighet_merke, kode_tekst, tidspunkt_tekst};
+use super::html::{alvorlighet_merke, kode_tekst, tidspunkt_tekst, trace_id_tekst};
 use super::pseudonym::Pseudonymer;
 use super::sporringer::{DetaljMelding, FunnDetaljer};
 
@@ -156,7 +156,7 @@ pub fn funn_detaljer(
                         td { (rad.utfoert_av_type.map_or(STREK, utfoert_av_type_tekst)) }
                         td { (rad.utfoert_av.as_deref().unwrap_or(STREK)) }
                         td { (tidspunkt_tekst(m.utfoert_tidspunkt_ms)) }
-                        td.mono { (m.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                        td.mono { (trace_id_tekst(m.trace_id)) }
                     } @else {
                         td colspan="11" { "Melding " (rad.id) " finnes ikke lenger." }
                     }

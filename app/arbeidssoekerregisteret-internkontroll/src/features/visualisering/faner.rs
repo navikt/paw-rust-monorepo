@@ -11,7 +11,7 @@ use super::detaljer::FunnNokkel;
 
 use super::html::{
     Fane, Valg, alvorlighet_merke, alvorlighet_navn, kode_tekst, regel_med_hjelp, regel_navn,
-    tidspunkt_tekst, varighet_tekst,
+    tidspunkt_tekst, trace_id_tekst, varighet_tekst,
 };
 use super::sporringer::{
     FunnAntall, FunnRad, MAKS_FUNN_I_LISTE, MAKS_SIGNATURFEIL_I_LISTE, ManglerTraceId, RegelStatus,
@@ -297,7 +297,7 @@ pub fn funn(valg: &Valg, antall: &[FunnAntall], rader: &[FunnRad]) -> Markup {
                         td.tall { (f.record_offset) }
                         td { (tidspunkt_tekst(f.record_timestamp_ms)) }
                         td { (f.meldingstype.as_deref().unwrap_or(STREK)) }
-                        td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                        td.mono { (trace_id_tekst(f.trace_id)) }
                     }
                 } }
             } }
@@ -372,7 +372,7 @@ pub fn signatur(antall: &[SignaturAntall], feil: &[Signaturfeil]) -> Markup {
                         td { (signatur_status_tekst(f.signature_status)) }
                         td.bryt { (signatur_problem(f.signature_status)) }
                         td { (f.key_id.as_deref().unwrap_or(STREK)) }
-                        td.mono { (f.trace_id.map_or(STREK.to_string(), |t| t.to_string())) }
+                        td.mono { (trace_id_tekst(f.trace_id)) }
                     }
                 } }
             } }
